@@ -4,6 +4,7 @@ import { useMemo, useRef, useState } from 'react';
 import { useNav, useRouteParams } from '@/app/NavController';
 import { DISCLAIMER } from '@/lib/copy';
 import { STRAVA_BUILT } from '@/lib/features';
+import { useMedia } from '@/lib/useToday';
 import { EmptyState, Footnote, NoData, PageSection, PushedBar, Pressable, SectionEmpty, Segmented, StatTile, useSheet } from '@/ui';
 import { Gauge, RANGE_DAYS, RANGE_KEYS, RANGE_NAMES, RangeControl, rangeWindow, TrendChart, TrendTable, windowLabel, type RangeKey } from '@/ui/charts';
 import { useLog } from '../log/useLog';
@@ -101,6 +102,7 @@ export default function MetricPage(): React.JSX.Element {
   const src = useMetricSource(log, start);
   const m = useMemo(() => buildMetric(def, variantId, src, window), [def, variantId, src, window.from, window.to]); // eslint-disable-line react-hooks/exhaustive-deps
   const now = useNow(60_000);
+  const narrow = useMedia('(max-width: 374px)');
   const fresh = freshness(m, STRAVA_BUILT && log.strava?.connected ? log.strava.lastSyncAt : null, now, t, link);
   // pace needs a timed run, and only a connected source has those: with one on offer and none connected, the way to connect
   const paceSource = STRAVA_BUILT && id === 'pace' && !m.hasData && log.features.strava && !log.strava?.connected;
@@ -183,7 +185,7 @@ export default function MetricPage(): React.JSX.Element {
               </span>
             )}
             <span className={`mp-status is-${tone}`} aria-hidden="true">
-              <ToneIcon size={16} strokeWidth={2.2} aria-hidden="true" />
+              <ToneIcon size={18} aria-hidden="true" />
               {status}
             </span>
             <span className="mp-usual" aria-hidden="true">
@@ -221,7 +223,8 @@ export default function MetricPage(): React.JSX.Element {
               zero={v.zero}
               steps={v.steps}
               fill={!v.sparse}
-              height={210}
+              // a detail plot (guide 6.8): 180 tall, 160 on a 320 pt phone
+              height={narrow ? 160 : 180}
               empty={<span>{def.emptyLine}</span>}
               readout={(i) =>
                 i == null ? (
@@ -297,13 +300,13 @@ const MoreRow = ({ id, title, sub, onPress }: { id: MetricId; title: string; sub
   <div className="group mp-more">
     <Pressable className="pg-drill" press="surface" onPress={onPress} label={`${title}. ${sub}. Open`}>
       <span className="icon-tile" aria-hidden="true">
-        <MetricIcon id={id} size={17} />
+        <MetricIcon id={id} size={18} />
       </span>
       <span className="pg-drill-main">
         <span className="pg-drill-title">{title}</span>
         <span className="pg-drill-sub">{sub}</span>
       </span>
-      <ChevronRight size={16} className="pg-chev" aria-hidden="true" />
+      <ChevronRight size={18} className="pg-chev" aria-hidden="true" />
     </Pressable>
   </div>
 );

@@ -128,11 +128,12 @@
   text-overflow: ellipsis;
   min-width: 0;
 }
+/* the line's name, and the point under the finger: 15 like the card's meta, so the card keeps three sizes (17, 15, 11) */
 .mp-readout {
   display: block;
-  min-height: var(--lh-foot);
-  font-size: var(--fs-foot);
-  line-height: var(--lh-foot);
+  min-height: var(--lh-sub);
+  font-size: var(--fs-sub);
+  line-height: var(--lh-sub);
   color: var(--ink-3);
   white-space: nowrap;
   overflow: hidden;

@@ -1,7 +1,8 @@
 import { monthsBetween, shiftDays } from '@logbook/shared';
-import { Activity, ChevronRight, Heart } from 'lucide-react';
+import { ChevronRight, Heart } from 'lucide-react';
 import { useMemo } from 'react';
 import { useNav } from '@/app/NavController';
+import { ProgressIcon } from '@/ui/icons';
 import { HEALTH_BUILT, STRAVA_BUILT } from '@/lib/features';
 import { useToday } from '@/lib/useToday';
 import { dayCaption, EmptyState, Footnote, NavBar, NoData, PageSection, Row, SectionEmpty, Skeleton, SkeletonGroup, StatTile, unitWords, useSheet } from '@/ui';
@@ -117,8 +118,9 @@ const Trends = ({ log, onConnect }: { log: Log; onConnect: (() => void) | null }
       {fresh ? (
         <SectionEmpty
           className="pg-empty"
-          icon={<Activity size={18} />}
-          title="No trends yet"
+          icon={<ProgressIcon size={18} />}
+          // a Habits tile can sit under it (habits are kept before any run): then only runs and lifts have no trend yet
+          title={shown.length ? 'No run or lift trends yet' : 'No trends yet'}
           line="They show after your first run or lift."
           action={STRAVA_BUILT && onConnect ? { label: 'Connect', onPress: onConnect, voiceLabel: 'Connect Strava' } : undefined}
         />
