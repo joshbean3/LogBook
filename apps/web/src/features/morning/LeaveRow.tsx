@@ -9,8 +9,7 @@ import { short, whenSettled } from './model';
 
 /** What the Leave row's sub says: the countdown today, the lateness when the run eats into the routine. */
 const subOf = (T: MorningTimeline, rel: 'past' | 'today' | 'future', now: number) => {
-  // the late note above says by how much against the routine; this row says it in two words (feel review 1 FL6)
-  if (T.late) return `${T.late} min late`;
+  // late is said once, on the late note above (layout plan M3): this row keeps its countdown or its length
   if (rel !== 'today') return `${durationWords(T.leave - T.day.wake)} after waking`;
   if (now >= T.leave) return 'Out for the day';
   return `In ${durationWords(Math.max(1, Math.ceil(T.leave - now)))}`;
@@ -112,7 +111,7 @@ export const LeaveRow = forwardRef<HTMLLIElement, { T: MorningTimeline; rel: 'pa
         <span className="sch-name">
           Leave<span className="sub-wide"> for work</span>
         </span>
-        <span className={`sch-sub ${T.late ? 'is-late' : ''}`}>
+        <span className="sch-sub">
           {/ after waking$/.test(sub) ? (
             <>
               <span className="sub-wide">{sub}</span>
