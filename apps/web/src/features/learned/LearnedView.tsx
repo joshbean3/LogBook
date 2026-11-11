@@ -1,28 +1,26 @@
 import type * as React from 'react';
-import type { Learning, LearningMonth, LearningStats } from '@logbook/shared';
-import { BookOpen, ChevronRight, Flame, Lightbulb, Minus, Search, X } from 'lucide-react';
+import type { Learning, LearningMonth } from '@logbook/shared';
+import { BookOpen, ChevronRight, Search, X } from 'lucide-react';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useNav, useTabScroller } from '@/app/NavController';
 import { useToday } from '@/lib/useToday';
 import { dayCaption, NavBar } from '@/ui/NavBar';
 import { Pressable } from '@/ui/Pressable';
-import { Button } from '@/ui/primitives';
+import { Button, SectionEmpty } from '@/ui/primitives';
 import { Skeleton, SkeletonGroup } from '@/ui/Skeleton';
 import { KSection } from '../goals/Kit';
-import { byTime, Composer, Days, groupByMonth, Line, monthName, plural, statsWords, useLoadMore, useOpenLearning } from './LearnedParts';
-import { useLearningMonths, useLearnings, useLearningStats } from './queries';
+import { byTime, Composer, Days, groupByMonth, Line, monthName, plural, useLoadMore, useOpenLearning } from './LearnedParts';
+import { useLearningEchoes, useLearningMonths, useLearnings, useLearningStats } from './queries';
 import { Echoes } from './LearnedEchoes';
+import { Streak } from './Streak';
 import './learned.css';
 
-export { statsWords };
-
 /**
- * The hero: before today has anything, the serif question and the field; after, today's learnings as serif lines and a
- * quiet "Add another" under them. A Haze wash at its foot.
+ * The hero (layout plan 2.3 L1): before today has anything, the serif question, one helper line, the field and Save; after,
+ * today's learnings as lines and a quiet "Add another" under them. The screen's one hero card, with its sunrise glow.
  */
 const TodayCard = ({ today, items, onOpen }: { today: string; items: Learning[]; onOpen: (l: Learning) => void }) => (
-  <section className={`ln-hero ${items.length ? 'has-items' : ''}`} aria-label="Today">
-    <span className="ln-glow" aria-hidden="true" />
+  <section className={`card is-hero has-glow ln-hero ${items.length ? 'has-items' : ''}`} aria-label="Today">
     {items.length ? (
       <>
         <span className="caps ln-hero-caps">Today</span>
@@ -33,10 +31,10 @@ const TodayCard = ({ today, items, onOpen }: { today: string; items: Learning[];
         </div>
       </>
     ) : (
-      <>
+      <div className="ln-hero-head">
         <h2 className="ln-prompt">What did you learn today?</h2>
-        <p className="ln-hint">Name one thing and why it matters. Like: “Strides after easy runs keep my legs quick.”</p>
-      </>
+        <p className="ln-hint">Name one thing and why it matters.</p>
+      </div>
     )}
     {/* one field for both states (the same place in the tree), so it and its words survive the swap above */}
     <Composer today={today} quiet={items.length > 0} />
@@ -44,52 +42,12 @@ const TodayCard = ({ today, items, onOpen }: { today: string; items: Learning[];
 );
 
 /**
- * The counts as two tiles: everything learned (and on how many days), and the run of days in a row. Before anything is
- * kept they keep their place with a dash.
- */
-const StatsTiles = ({ s, today, keptToday }: { s: LearningStats | undefined; today: string; keptToday: boolean }) => {
-  void today;
-  const total = s?.total ?? 0;
-  const streak = s?.streak ?? 0;
-  return (
-    <div className="tiles ln-tiles" role="group" aria-live="polite" aria-label={s ? (total ? statsWords(s) : 'Nothing learned yet') : 'Loading the counts'}>
-      <div className="tile">
-        <span className="tile-label">
-          <Lightbulb size={15} aria-hidden="true" /> Learned
-        </span>
-        <span className="tile-value">
-          {s ? (total ? total : '–') : '\u00a0'}
-          {total ? <small>{total === 1 ? 'thing' : 'things'}</small> : null}
-        </span>
-        <span className={`tile-status ${total ? '' : 'is-none'}`}>{!s ? '\u00a0' : total ? `on ${plural(s.days, 'day')}` : 'Nothing kept yet'}</span>
-      </div>
-      <div className="tile">
-        <span className="tile-label">
-          <Flame size={15} aria-hidden="true" /> In a row
-        </span>
-        <span className="tile-value">
-          {s ? (streak ? streak : '–') : '\u00a0'}
-          {streak ? <small>{streak === 1 ? 'day' : 'days'}</small> : null}
-        </span>
-        {!s ? (
-          <span className="tile-status is-none">{'\u00a0'}</span>
-        ) : keptToday ? (
-          <span className="tile-status is-hi ln-nowrap">Done today</span>
-        ) : (
-          <span className="tile-status is-none ln-nowrap">
-            <Minus size={14} aria-hidden="true" /> Not yet today
-          </span>
-        )}
-      </div>
-    </div>
-  );
-};
-
-/**
  * Everything before, kept by year and month, newest first: each year a section with its count, its months as rows of one
- * inset group (the month's short name in a tile, the newest thing in it, the count). A month opens its own page.
+ * inset group (the month's short name in a tile, the newest thing in it, the count). A month opens its own page. The
+ * running month carries one marker, its "This month" tag. `search` sits in the first year's header when there is no
+ * archive section above to hold it.
  */
-const Archive = ({ months, today }: { months: LearningMonth[]; today: string }) => {
+const Archive = ({ months, today, search }: { months: LearningMonth[]; today: string; search?: React.ReactNode }) => {
   const nav = useNav();
   const years = useMemo(() => {
     const out: Array<{ year: string; total: number; months: LearningMonth[] }> = [];
@@ -105,8 +63,8 @@ const Archive = ({ months, today }: { months: LearningMonth[]; today: string }) 
   const thisMonth = today.slice(0, 7);
   return (
     <>
-      {years.map((y) => (
-        <KSection key={y.year} title={y.year} meta={plural(y.total, 'thing')} className="ln-year">
+      {years.map((y, i) => (
+        <KSection key={y.year} title={y.year} meta={plural(y.total, 'thing')} action={i === 0 ? search : undefined} className="ln-year">
           <div className="k-rows has-icons ln-months">
             {y.months.map((m) => (
               <Pressable
@@ -115,19 +73,21 @@ const Archive = ({ months, today }: { months: LearningMonth[]; today: string }) 
                 className="k-row two ln-mrow"
                 press="surface"
                 onPress={() => nav.push(`/learned/${m.month}-01`)}
-                label={`${monthName(m.month)} ${y.year}, ${plural(m.count, 'thing')} on ${plural(m.days, 'day')}. Open`}
+                label={`${monthName(m.month)} ${y.year}${m.month === thisMonth ? ', this month' : ''}, ${plural(m.count, 'thing')} on ${plural(m.days, 'day')}. Open`}
               >
-                <span className={`icon-tile ln-mtile ${m.month === thisMonth ? 'is-now' : ''}`} aria-hidden="true">
+                <span className="icon-tile ln-mtile" aria-hidden="true">
                   {monthName(m.month).slice(0, 3)}
                 </span>
-                <span className="k-row-main">
+                <span className="k-row-main" aria-hidden="true">
                   <span className="ln-mrow-top">
                     <span className="k-row-title ln-mrow-name">{monthName(m.month)}</span>
                     {m.month === thisMonth ? <span className="ln-mrow-now">This month</span> : null}
                   </span>
-                  <span className="ln-mrow-latest">{m.latest}</span>
+                  <span className="k-row-sub">{m.latest}</span>
                 </span>
-                <span className="k-row-end ln-mrow-meta">{m.count}</span>
+                <span className="k-row-end ln-mrow-meta" aria-hidden="true">
+                  {m.count}
+                </span>
                 <ChevronRight size={18} aria-hidden="true" className="k-chev" />
               </Pressable>
             ))}
@@ -199,8 +159,8 @@ const Found = ({ q, today, onOpen }: { q: string; today: string; onOpen: (l: Lea
 /**
  * The search field's place and focus. With the keyboard up the room for results is between the field and the keyboard, so
  * on focus the field goes to the top of the scroller, just under the nav bar (not to the keyboard's edge), and it is held
- * there when the first letter takes the hero, the tiles and the archive cards away (and when clearing brings them back).
- * The keyboard's Search key blurs the field, and so does the first drag or wheel of the page while it is focused. A tap on a
+ * there when the first letter takes the streak, the hero and the archive away (and when clearing brings them back). The
+ * keyboard's Search key blurs the field, and so does the first drag or wheel of the page while it is focused. A tap on a
  * result is left alone: the sheet it opens takes the focus.
  */
 const useSearchField = (searching: boolean) => {
@@ -262,9 +222,17 @@ const useSearchField = (searching: boolean) => {
   };
 };
 
+/** The search's way in (layout plan 2.3 L5): a bare 44 pt Deep Sky magnifier in a section header's action slot. */
+const SearchButton = ({ onPress }: { onPress: () => void }) => (
+  <button type="button" className="icon-btn bare ln-search-btn" aria-label="Search all years" title="Search all years" onClick={onPress}>
+    <Search size={18} aria-hidden="true" />
+  </button>
+);
+
 /**
- * What I learned (the tab root): today's card, the counts as tiles, the archive's echoes, then the search over
- * everything and the archive itself: every month with something in it, by year, each one a tap from its days.
+ * What I learned (the tab root): the streak tracker, today's card (the hero), From your archive, then every year with its
+ * months, each one a tap from its days. Search is one tap away, in the archive's header (or the first year's), and opens
+ * its field in place of the archive.
  */
 export default function LearnedView(): React.JSX.Element {
   const today = useToday();
@@ -273,6 +241,7 @@ export default function LearnedView(): React.JSX.Element {
   const stats = useLearningStats();
   const open = useOpenLearning(today);
   const [q, setQ] = useState('');
+  const [searchOpen, setSearchOpen] = useState(false);
   const needle = useSettled(q.trim());
   // a query is active from its first letter: the page becomes the field and what it finds
   const searching = q.trim().length > 0;
@@ -288,38 +257,68 @@ export default function LearnedView(): React.JSX.Element {
     if (stats.isError) void stats.refetch();
     if (months.isError) void months.refetch();
   };
+  const startSearch = () => {
+    setSearchOpen(true);
+    // the field mounts in this tap, so iOS raises the keyboard for it
+    requestAnimationFrame(() => search.input.current?.focus());
+  };
+  const stopSearch = () => {
+    setQ('');
+    setSearchOpen(false);
+  };
+  // From your archive shows only once one of its three slots has a learning; until then the first year's header holds search
+  const e = useLearningEchoes(hasPast).data;
+  const hasEchoes = hasPast && !!(e?.yearAgo || e?.monthAgo || e?.random);
+  const echoes = hasEchoes && !searchOpen ? <Echoes today={today} onOpen={open} action={<SearchButton onPress={startSearch} />} /> : null;
+  const field = searchOpen ? (
+    <form role="search" className="ln-search-form" onSubmit={search.onSubmit}>
+      <label className="ln-search" ref={search.box}>
+        <Search size={18} aria-hidden="true" className="ln-search-icon" />
+        <input
+          ref={search.input}
+          className="ln-search-in"
+          type="search"
+          enterKeyHint="search"
+          maxLength={100}
+          placeholder="Search all years"
+          aria-label="Search everything you learned"
+          value={q}
+          autoFocus
+          onChange={(e) => setQ(e.target.value)}
+          onFocus={search.onFocus}
+          onBlur={search.onBlur}
+        />
+        {q ? (
+          <button type="button" className="ln-search-clear" aria-label="Clear search" onClick={() => setQ('')}>
+            <X size={18} aria-hidden="true" />
+          </button>
+        ) : null}
+      </label>
+      <Button variant="quiet" size="sm" className="ln-search-cancel" onClick={stopSearch}>
+        Cancel
+      </Button>
+    </form>
+  ) : null;
   return (
     <div className={`page ln-page ${searching ? 'is-searching' : ''}`}>
       <NavBar caps={{ cur: dayCaption(today, today) }} title={{ cur: 'What I learned' }} gap={16} />
       {searching ? null : (
         <div className="k-stack">
+          {(stats.isError && !s) || (list.isError && !list.data) ? null : <Streak today={today} stats={list.isPending ? undefined : s} month={list} />}
           {list.isPending && !list.isError ? (
-            <SkeletonGroup label="Loading" className="ln-hero ln-hero-skel">
+            <SkeletonGroup label="Loading" className="card is-hero ln-hero ln-hero-skel">
               <Skeleton w="70%" h={28} />
-              <Skeleton w="90%" h={18} />
-              <Skeleton w="60%" h={18} />
+              <Skeleton w="80%" h={18} />
+              <Skeleton w={96} h={44} r="pill" style={{ marginTop: 'auto' }} />
             </SkeletonGroup>
           ) : (
             <TodayCard today={today} items={todays} onOpen={open} />
           )}
-          {stats.isError && !s ? null : <StatsTiles s={list.isPending ? undefined : s} today={today} keptToday={todays.length > 0} />}
           {failed ? <LoadError what="list" onRetry={retry} busy={list.isFetching || stats.isFetching || months.isFetching} /> : null}
         </div>
       )}
-      {hasPast && !searching ? <Echoes today={today} onOpen={open} /> : null}
-      {hasPast || searching ? (
-        <form role="search" className="ln-search-form" onSubmit={search.onSubmit}>
-          <label className="ln-search" ref={search.box}>
-            <Search size={18} aria-hidden="true" className="ln-search-icon" />
-            <input ref={search.input} className="ln-search-in" type="search" enterKeyHint="search" maxLength={100} placeholder="Search" aria-label="Search everything you learned" value={q} onChange={(e) => setQ(e.target.value)} onFocus={search.onFocus} onBlur={search.onBlur} />
-            {q ? (
-              <button type="button" className="ln-search-clear" aria-label="Clear search" onClick={() => setQ('')}>
-                <X size={18} aria-hidden="true" />
-              </button>
-            ) : null}
-          </label>
-        </form>
-      ) : null}
+      {echoes}
+      {field}
       {searching ? (
         needle ? (
           <Found q={needle} today={today} onOpen={open} />
@@ -333,20 +332,11 @@ export default function LearnedView(): React.JSX.Element {
           <Skeleton w="100%" h={44} />
         </SkeletonGroup>
       ) : months.data?.length ? (
-        <Archive months={months.data} today={today} />
+        // with no archive section above, the first year's header holds the search
+        <Archive months={months.data} today={today} search={hasPast && !searchOpen && !hasEchoes ? <SearchButton onPress={startSearch} /> : undefined} />
       ) : (
         <KSection title={today.slice(0, 4)} meta="0 things" className="ln-year">
-          <ul className="k-rows has-icons ln-months">
-            <li className="k-row two">
-              <span className="icon-tile" aria-hidden="true">
-                <BookOpen size={18} />
-              </span>
-              <span className="k-row-main">
-                <span className="k-row-title">No months yet</span>
-                <span className="k-row-sub">Each month you keep something lands here.</span>
-              </span>
-            </li>
-          </ul>
+          <SectionEmpty icon={<BookOpen size={18} />} title="No months yet" line="Each month lands here." />
         </KSection>
       )}
     </div>
