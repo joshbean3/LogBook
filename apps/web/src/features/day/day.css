@@ -988,6 +988,10 @@
 .cal-dot.k-missed {
   box-shadow: inset 0 0 0 1.25px var(--pencil);
 }
+/* on the week's Haze row Pencil is 2.87: the missed ring steps to Dusk (guide 3.3) */
+.cal-day.in-week .cal-dot.k-missed {
+  box-shadow: inset 0 0 0 1.25px var(--ink-2);
+}
 .cal-dot.k-today,
 .cal-dot.k-planned {
   background: var(--dot-ahead);
@@ -1435,12 +1439,13 @@
   flex: 1 1 0;
 }
 /* the status chip (plan 5.3, D27): the state is in its icon disc and its words. On the plan, the Deep Sky glyph; paused (ill,
-   hurt, resting, away), a Pencil glyph beside the word that says so */
+   hurt, resting, away), a Dusk glyph beside the word that says so (Pencil is 2.87 on the Haze disc, under the 3:1 a
+   meaningful mark needs: guide 3.3) */
 .st-chip-sick .ctx-ic,
 .st-chip-injured .ctx-ic,
 .st-chip-rest .ctx-ic,
 .st-chip-travel .ctx-ic {
-  color: var(--pencil);
+  color: var(--ink-2);
 }
 /* the status sheet's marks: on the plan Deep Sky, tapering a Deep Sky ring, paused Pencil (each beside its words) */
 .st-dot {
@@ -1797,11 +1802,12 @@
 .hg-dot[data-now='ink'] {
   fill: var(--ink);
 }
-/* the ends: "0" and the plan, caption style, horizontal, centered over each end of the arc */
+/* the ends: "0" and the plan, caption style, horizontal, on each end of the arc. Each hangs outboard from its end's center
+   (as the mockup draws them), so neither reaches over the bowl, where the session name sits on a small phone */
 .hg-end {
   position: absolute;
   top: 6.5%;
-  transform: translate(-50%, -100%);
+  transform: translate(calc(-100% + 3px), -100%); /* brand-ok: geometry, the label's inner edge 3 px past the end's center */
   /* a scale label: it follows the text size to 130% and holds, so it never reaches the eyebrow over the dial */
   font: 600 clamp(11px, var(--fs-caps), 14px) / clamp(14px, var(--lh-caps), 18px) var(--stamp);
   letter-spacing: var(--tr-caps);
@@ -1809,6 +1815,12 @@
   font-variant-numeric: tabular-nums;
   color: var(--ink-2);
   white-space: nowrap;
+}
+.hg-end + .hg-end {
+  transform: translate(-3px, -100%); /* brand-ok: geometry, as above */
+  /* a long plan at large text on a small phone slides back in, so it stays 4 px inside the card: the room right of the end
+     is 13% of the dial plus the card's padding */
+  transform: translate(min(-3px, calc(0.13 * min(100cqi - 2 * var(--pad-hero), 294px) + var(--pad-hero) - 4px - 100%)), -100%); /* brand-ok: geometry, as above */
 }
 /* first view of the day: the ticks draw in, 6 ms apart, the last no later than 240 ms (guide 6.5); never under Reduce Motion */
 .hg.is-first .hg-tick {
@@ -1826,9 +1838,9 @@
   }
 }
 .hg-in {
-  /* the bowl's chord where the words sit: 68% of the dial (its 294 px or the card's width), the track's inner edge less
-     8 px on each side (guide 6.5) */
-  --chord: min(200px, calc(0.68 * (100cqi - 2 * var(--pad-hero))));
+  /* the bowl's chord where the words sit: the track's inner edge at the dial's center height (220 of its 300 units, on the
+     dial's 294 px or the card's width) less 8 px on each side (guide 6.5): 200 at full size, 166 on a 320 phone */
+  --chord: min(200px, calc(0.7333 * (100cqi - 2 * var(--pad-hero)) - 16px));
   position: relative;
   margin: 0 var(--sp-8);
   padding-top: var(--sp-5);
@@ -1872,9 +1884,12 @@
 .hero.is-quiet .hg .hero-stamp {
   color: var(--ink-2);
 }
-/* the detail: Inter 15 500 Dusk ("Floor 20 min"); a line too long for the bowl (large text) takes a second line, never cut */
+/* the detail: Inter 15 500 Dusk ("Floor 20 min"); a line too long for the bowl (large text) takes a second line, never cut.
+   It follows the text size to the readout's 22 px and holds, so at 200 percent it never outgrows the session name (30) */
 .hg .hero-line {
   height: auto;
+  font-size: clamp(15px, var(--fs-sub), 22px);
+  line-height: clamp(20px, var(--lh-sub), 28px);
   max-width: min(100%, var(--chord));
   margin: 0;
   white-space: normal;
