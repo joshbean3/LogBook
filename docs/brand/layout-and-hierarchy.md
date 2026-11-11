@@ -39,7 +39,7 @@ Each change below is written into `docs/brand/brand-guide.md` in the same words.
 | C12 | 12.1 Settings | "Fraunces section titles" becomes "Fraunces group titles at the card-title size (22/28)". |
 | C12b | 12.1 Journal | "Switch row carrying the wash; Sky segmented" becomes "No Entries / Library switch (owner request); the Remember when card with its quote inside the Haze wash header; Sky segmented (Week / Month) in the calendar card". |
 | C13 | 13 Checklist | Adds a line: the checks in section 8 of this standard pass. |
-| C14 | 6.3 Chips and segmented controls; 12.1 Plan | The quiet "+ Set" link gains its sibling "+ Add" (Plan's week: a run or a lift, section 2.6 and 6.11 below). The Plan row of 12.1 names the week's line with "+ Add" at its end, the Add sheet and the open day's quiet plus. |
+| C19 | 6.3 Chips and segmented controls; 12.1 Plan | The quiet "+ Set" link gains its sibling "+ Add" (Plan's week: a run or a lift, section 2.6 and 6.12 below). The Plan row of 12.1 names the week's line with "+ Add" at its end, the Add sheet and the open day's quiet plus. |
 
 **Considered and not changed.** The screen title stays at 38/42 (`--fs-title`). Apple's Large Title is 34 and the hero's session name (40) is within 5 percent of the title, but the brand raised the title from 34 to 38 on purpose. The hero card already wins on Today by area (about 360 pt tall against a 42 pt title line), by the glow and by position once the rows above it are compacted (section 2.3). Body text stays 16/24: Apple's own advice is loose leading for long passages, and 16/24 measures 49 characters a line in a card at 390. The 16 px gutter stays at every width. It is inside Apple's 16 to 20 pt system margin, and one gutter keeps every edge aligned.
 
@@ -147,7 +147,7 @@ Build (includes the pending owner request):
 - **The week's header is one row at every width.** The week's name, then the pager at the row's end, so the arrows stay where they are from week to week (at 390 "Next week" used to wrap them onto a second row). The dates beside the name give way first: under 360 always, and up to 419 while the header also shows "Today"; the line under the header says them then ("Nov 16 to 22 · 10 mi · 2 runs."). Under 360 the week's name takes `--fs-head` (22), as the plan's name above it does, and stops at 30 at a larger text size, where a week named by its dates takes two lines beside "‹ Today ›". At a larger text size the dates go to the line at every width, and the name wraps before the arrows move. The month's header keeps its arrows on the first row the same way: under 420, while it also shows "Today", its miles go under its name ("December", then "126 mi planned"). Why: a control that moves between pages cannot be tapped twice [HIG Layout, consistency].
 - **Adding a run or a lift: one quiet "+ Add" at the end of the week's line** (owner request). Deep Sky Inter 600 `--fs-sub` with an 18 px plus, no bezel, 44 tall, flush with the card's trailing edge (the quiet level, 6.6; the sibling of Goals' "+ Set"). The line and "+ Add" share one row that starts where the header ends. The week's arrows keep their 44 pt boxes above that edge (12 over the header's row, none under it; the chevrons stay level with the week's name), so the two targets never overlap: the line's first row sits 12 under the header (the section title to its content), level with "+ Add", and its last row 12 above the week's rows. At a larger text size "+ Add" grows with that row (its box is the row with the 12 over and under it), so the two stay level. It is on every week (past, this one, later ones, with a plan or without). Why here: the title row cannot hold a third control (name + "‹ Today ›" + Add is wider than a 320 to 402 pt screen), and a plus on every row made the week noisy. The line is where the week's totals are, and the totals are what Add changes.
 - **An open day takes a tap too**, and opens the same sheet on that day. From today on it shows a quiet plus where its icon tile would sit (18 px, Pencil, a mark); a past open day stays blank. No dashed box: a dashed edge on every open day made an open week a column of boxes, and C5 keeps it to one add slot a group. The open week's line reads "An open week." and stops (it used to add "Tap a day to add a session.").
-- **The Add sheet** (6.11): the day, Run or Lift, the essentials, Add. The row lands in the week at once with a toast and Undo, and the totals in the week's line and on Today's hero count it.
+- **The Add sheet** (6.12): the day, Run or Lift, the essentials, Add. The row lands in the week at once with a toast and Undo, and the totals in the week's line and on Today's hero count it.
 
 ### 2.7 Progress
 
@@ -474,7 +474,7 @@ Alternatives differ by style, never by size [HIG Buttons]. Labels start with a v
 | Composer | Pinned at the bottom (brand 6.12), placeholder "Describe what to change", the provider disclosure under it exactly as written. |
 | Proposal | A card in the conversation listing the changes as rows, "Apply" (Sky, 44 inline, the sheet's one primary) and "Not now" (quiet). On apply: the outline rows and the Plan page update in place, and a toast offers Undo. |
 
-### 6.11 The Add sheet (Plan)
+### 6.12 The Add sheet (Plan)
 
 | Part | Value |
 |---|---|
