@@ -1,13 +1,13 @@
-/* ---------- Settings (§8, shape system §6, reference 658-672; mockups/settings.png): a pushed page of inset groups under
-   Fraunces section titles, then action pills, then the wordmark, centered. Every row pushes its section, or opens a sheet.
-   The root page carries the dawn wash (plan D12, foundation.css); its subpages are flat Cloud. ---------- */
+/* ---------- Settings (§8, layout standard 2.9; mockups/settings.png): a pushed page of inset groups under list-page
+   titles (Fraunces 22/28, 24 above and 8 below, ui/layout.tsx size="sm"), then the wordmark and the version, centered.
+   Every row pushes its section, or opens a sheet. The root page carries the dawn wash (plan D12, foundation.css); its
+   subpages are flat Cloud. ---------- */
 .s-set {
   --swipe-bg: var(--bg);
 }
 
-/* a section: 32 above, 12 to its container; an optional Dusk footnote under it */
+/* a section: the list-page rhythm comes from .lb-sec.is-list (24 above, 8 to its container); an optional Dusk footnote */
 .s-sec {
-  margin-top: var(--section);
   min-width: 0;
 }
 /* the first group under the pushed bar starts 16 below it: the layout kit's one rule (styles/layout.css, layout standard 3.2) */
@@ -15,18 +15,12 @@
   gap: var(--sp-3);
 }
 
-/* the inset groups: one Paper surface per group, rows 56 (64 with a second line), the row is the target */
+/* the inset groups: one Paper surface per group, rows 56 (64 with a second line, styles/shape.css), the row is the
+   target; the title's weight is set per group there (600 when any row has a second line) */
 .s-group.group {
   border-radius: var(--r-tile);
 }
-.s-group > .lrow {
-  min-height: 56px;
-}
-.s-group > .lrow.two {
-  min-height: 64px;
-}
 .s-group .lrow-title {
-  font-weight: 400;
   letter-spacing: 0;
 }
 .s-group .lrow-sub {
@@ -71,15 +65,8 @@
 .s-wrap {
   padding-block: 11px; /* brand-ok: geometry, a two-line row stays 64 tall */
 }
-/* a drill row's line under its title wraps, to as many lines as it needs: at 320 and at large text sizes a clamp cut
-   the end off a sentence ("We answer within…"). The row grows by its own height, nothing animates */
-.s-go .lrow-sub {
-  white-space: normal;
-  overflow: visible;
-}
-.s-go.two {
-  padding-block: 11px; /* brand-ok: geometry, a two-line row stays 64 tall */
-}
+/* a drill row's line under its title is one line (layout standard 2.9): the copy is written to fit 390, and where a
+   large text size cuts it, the row opens its page and VoiceOver reads the whole line */
 /* and its title wraps too rather than ending in an ellipsis (a large text size, a long email) */
 .s-group .s-go.two .lrow-title {
   white-space: normal;
@@ -145,7 +132,19 @@
   color: var(--ink-2);
 }
 
-/* the colophon: the outlined wordmark alone, centered at the bottom (plan 6.8, guide 3.2) */
+/* the Account page's two ways out (layout standard 2.9, 6.6): Sign out, the secondary, 16 under the group; Delete account,
+   the destructive button (Paper, Signal words, its edge), alone 32 below it at the page's end */
+.s-acct-actions {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  margin-top: var(--sp-4);
+}
+.s-acct-actions > .s-delete {
+  margin-top: var(--sp-8);
+}
+
+/* the colophon: the outlined wordmark, centered at the bottom (plan 6.8, guide 3.2), and the version under it as a
+   centered footnote (layout standard 2.9) */
 .s-colophon {
   margin: var(--sp-8) 0 var(--sp-2);
   text-align: center;
@@ -166,22 +165,10 @@
   font-variant-numeric: tabular-nums;
 }
 
-/* a page's promise (Privacy): a Paper card, a Haze disc with its Deep Sky glyph, one sentence in the sentence voice; no glow */
+/* a page's promise (Privacy): a Paper card holding one sentence in the sentence voice at the card's full width, so it
+   reads in three lines at 390, not four in a column beside a glyph (layout standard 3.3.6, 4.5); no glow */
 .card.s-hero {
-  margin-top: var(--sp-3);
-  grid-template-columns: 40px minmax(0, 1fr);
-  align-items: center;
-  gap: var(--sp-4);
-  padding: var(--sp-5) var(--sp-4);
-}
-.s-hero-ic {
-  display: grid;
-  place-items: center;
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  background: var(--haze);
-  color: var(--deep-sky);
+  grid-template-columns: minmax(0, 1fr);
 }
 .s-hero-line {
   margin: 0;

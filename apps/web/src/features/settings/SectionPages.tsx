@@ -15,7 +15,7 @@ import { popFav } from '@/features/journal/feel';
 import { Download, House, KeyRound, Mail, Upload, Vibrate, type LucideIcon } from 'lucide-react';
 import { healthDeviceId } from './healthDevice';
 import { EXPORT_SUB, IMPORT_MAX_BYTES, IMPORT_NOT_OURS, IMPORT_SUB, IMPORT_TOO_BIG, importDone, importError, importKind } from './dataModel';
-import { ActionPill, GoRow, SGroup, Switch, Tile } from './parts';
+import { GoRow, SGroup, Switch, Tile } from './parts';
 
 // ---------- install (the web app only) ----------
 type BIP = Event & { prompt: () => Promise<void>; userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }> };
@@ -38,10 +38,11 @@ export const HapticsRow = ({ icon }: { icon?: LucideIcon } = {}): React.JSX.Elem
   const [hapticsOn, setHapticsOn] = useHapticsEnabled();
   return (
     <Row
-      className={`s-wrap ${icon ? 'has-tile' : ''}`}
+      className={icon ? 'has-tile' : ''}
       left={icon ? <Tile icon={icon} /> : undefined}
       title="Haptics"
-      sub={isNative ? 'A tap you can feel for a lift, a drop and a done.' : 'On phones that support it. iPhone browsers don’t.'}
+      // one line (layout standard 2.9); the web line says where it works, since iPhone browsers have none
+      sub={isNative ? 'A light tap you can feel' : 'Not in iPhone browsers'}
       right={
         <Switch
           on={hapticsOn}
@@ -220,7 +221,11 @@ export const useConfirmSignOut = () => {
   return () => sheet.open({ eyebrow: 'Account', title: 'Sign out?', body: <SignOutSheet /> });
 };
 
-/** /settings/account: who is signed in, Change password, then Sign out and Delete account (a two-step sheet) as action pills. */
+/**
+ * /settings/account: who is signed in, Change password, then Sign out as the secondary button and, 32 below it and alone at
+ * the page's end, Delete account (a two-step sheet) as the destructive one (layout standard 2.9, 6.6). Sign out lives only
+ * here: the Settings root's Account row opens this page.
+ */
 export const AccountPage = (): React.JSX.Element => {
   const boot = useBootstrap();
   const sheet = useSheet();
@@ -228,18 +233,18 @@ export const AccountPage = (): React.JSX.Element => {
   return (
     <div className="page s-set s-sub">
       <PushedBar title="Account" />
-      {/* who is signed in, then the two ways out as action pills (reference 660), the one that loses everything in red */}
+      {/* who is signed in, then the two ways out: Sign out, and the one that loses everything alone at the end */}
       <SGroup title="Signed in as">
         <Row title={boot.data?.user.email ?? ' '} className="s-email-row s-wrap-title has-tile" left={<Tile icon={Mail} />} />
         <GoRow icon={KeyRound} title="Change password" onPress={() => sheet.open({ eyebrow: 'Account', title: 'Change password', body: <ChangePasswordPanel />, sticky: true })} />
       </SGroup>
-      <div className="s-pills">
-        <ActionPill className="s-signout" onPress={confirmSignOut}>
+      <div className="s-acct-actions">
+        <Button variant="soft" block className="s-signout" onClick={confirmSignOut}>
           Sign out
-        </ActionPill>
-        <ActionPill danger className="s-danger" onPress={() => sheet.open({ eyebrow: 'Account', title: 'Delete account', body: <DeleteStepOne /> })}>
+        </Button>
+        <Button variant="danger" block className="s-delete" onClick={() => sheet.open({ eyebrow: 'Account', title: 'Delete account', body: <DeleteStepOne /> })}>
           Delete account
-        </ActionPill>
+        </Button>
       </div>
     </div>
   );

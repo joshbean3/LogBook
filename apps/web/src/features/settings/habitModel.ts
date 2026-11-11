@@ -24,3 +24,6 @@ export const renameProblem = (name: string, habits: H[], selfId: string): string
 
 /** True when one more live habit would pass the cap. */
 export const atCap = (habits: H[]) => habits.filter((h) => !h.archivedOn).length >= HABIT_CAP;
+
+/** "Meditate, Read and 5 more": two names and a count, so the line fits one row at 390 (layout standard 2.9). */
+export const habitLine = (names: string[]): string => (names.length <= 2 ? names.join(' and ') : `${names.slice(0, 2).join(', ')} and ${names.length - 2} more`);

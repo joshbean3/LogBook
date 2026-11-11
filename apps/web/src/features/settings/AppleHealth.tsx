@@ -119,11 +119,13 @@ export const AppleHealthGroup = (): React.JSX.Element => {
   const saved = s ? savedWords(s) : null;
 
   return (
-    <SCard title="Apple Health" className="ah-sec" foot={connectedHere ? `Syncs when you open Orby and when you pull down on Today. ${HEALTH_TRUST}` : HEALTH_TRUST}>
+    // no group title over the card: its first row already says "Apple Health" (layout standard 4.4, say it once; S6)
+    <SCard title="" className="ah-sec" foot={connectedHere ? `Syncs when you open Orby and when you pull down on Today. ${HEALTH_TRUST}` : HEALTH_TRUST}>
       <div className="ah-device">
-        {/* a plain heart glyph, not a look-alike of Apple's app icon (copy-legal-27); Apple's own icon can go here once supplied */}
-        <span className="ah-app" aria-hidden="true">
-          <Heart size={24} />
+        {/* the heart in the 32 px Haze tile every Settings row leads with (layout standard 6.2): a Deep Sky glyph on Haze,
+            not a look-alike of Apple's app icon (copy-legal-27); Apple's own icon can go here once supplied */}
+        <span className="icon-tile ah-app" aria-hidden="true">
+          <Heart size={18} />
         </span>
         <span className="ah-device-text">
           <span className="ah-device-name">Apple Health</span>

@@ -2,6 +2,7 @@ import { Check, X } from 'lucide-react';
 import type * as React from 'react';
 import type { Consent } from '@logbook/shared';
 import { STRAVA_BUILT } from '@/lib/features';
+import { Footnote, PageSection } from '@/ui/layout';
 import './privacy.css';
 
 /** The promise, in one line: on the privacy page before the account, and at the top of Settings, Privacy. */
@@ -54,42 +55,49 @@ export const privacyFacts = (consent: Consent | null | undefined): Facts => {
   return { asked, sent, notSent };
 };
 
+/** The line under the list that names who receives the checked items (the list itself is the same either way). */
+export const factsWho = (asked: boolean): string => (asked ? 'Checked items go to Claude, by Anthropic. Crossed items are not sent.' : 'If you allow, checked items go to Claude, by Anthropic. Crossed items are not sent.');
+
 /**
  * What goes to Claude (made by Anthropic) and what does not, in plain words. Shared by the privacy page and Settings so
- * the two can never say different things. Pass the account's consent record (`null` before there is one). `on` and
- * `health` are the older props: `on` alone reads as an answered record with only the training switch set.
+ * the two can never say different things. One inset group of check and cross rows (layout standard 5.2: one container,
+ * not a card per list), with a Dusk line under it that names who receives the checked ones; `title` heads it as a
+ * list-page group (Settings). Pass the account's consent record (`null` before there is one). `on` and `health` are the
+ * older props: `on` alone reads as an answered record with only the training switch set.
  */
-export const PrivacyFacts = ({ consent, on }: { /** The Contract 1 record, or null when the person has not answered yet. */ consent?: Consent | null; on?: boolean; health?: boolean | null }): React.JSX.Element => {
+export const PrivacyFacts = ({ consent, on, title, className = '' }: { /** The Contract 1 record, or null when the person has not answered yet. */ consent?: Consent | null; on?: boolean; health?: boolean | null; /** A list-page group title over the list (Settings, Privacy). */ title?: string; className?: string }): React.JSX.Element => {
   const record: Consent | null = consent ?? (on === undefined ? null : { training: on, recall: false, reads: false, health: null, at: 'set', version: null });
   const f = privacyFacts(record);
-  return (
-    <div className="pv-facts">
-      <section className="card pv-list" aria-labelledby="pv-sent">
-        <h2 id="pv-sent" className="pv-h">
-          {f.asked ? 'Sent to Claude, by Anthropic' : 'If you allow, sent to Claude, by Anthropic'}
-        </h2>
-        <ul>
-          {f.sent.map((r) => (
-            <li key={r.key}>
-              <Check className="pv-ic" size={16} strokeWidth={2.25} aria-hidden="true" />
-              <span>{r.text}</span>
-            </li>
-          ))}
-        </ul>
-      </section>
-      <section className="card pv-list never" aria-labelledby="pv-never">
-        <h2 id="pv-never" className="pv-h">
-          Not sent
-        </h2>
-        <ul>
-          {f.notSent.map((r) => (
-            <li key={r.key}>
-              <X className="pv-ic" size={16} strokeWidth={2.25} aria-hidden="true" />
-              <span>{r.text}</span>
-            </li>
-          ))}
-        </ul>
-      </section>
-    </div>
+  const list = (
+    <>
+      <ul className="group pv-list" aria-label={title ?? 'What is sent'}>
+        {f.sent.map((r) => (
+          <li key={r.key} className="is-sent">
+            <Check className="pv-ic" size={16} strokeWidth={2.25} aria-hidden="true" />
+            <span>
+              <span className="sr-only">Sent: </span>
+              {r.text}
+            </span>
+          </li>
+        ))}
+        {f.notSent.map((r) => (
+          <li key={r.key} className="is-not">
+            <X className="pv-ic" size={16} strokeWidth={2.25} aria-hidden="true" />
+            <span>
+              <span className="sr-only">Not sent: </span>
+              {r.text}
+            </span>
+          </li>
+        ))}
+      </ul>
+      <Footnote className="pv-who">{factsWho(f.asked)}</Footnote>
+    </>
+  );
+  return title ? (
+    <PageSection size="sm" title={title} className={`pv-facts ${className}`.trim()}>
+      {list}
+    </PageSection>
+  ) : (
+    <div className={`pv-facts ${className}`.trim()}>{list}</div>
   );
 };

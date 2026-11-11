@@ -1,5 +1,5 @@
 import { CONSENT_VERSION } from '@logbook/shared';
-import { FileText, HeartPulse, Mail, ShieldCheck } from 'lucide-react';
+import { FileText, HeartPulse, Mail } from 'lucide-react';
 import type * as React from 'react';
 import { PRIVACY_PROMISE, PrivacyFacts } from '@/features/auth/PrivacyFacts';
 import { useConsent, useSaveConsent } from '@/lib/consent';
@@ -44,26 +44,26 @@ export const PrivacyPage = (): React.JSX.Element => {
   return (
     <div className="page s-set s-sub">
       <PushedBar title="Privacy" />
+      {/* the promise at the card's full width: three lines at 390 (layout standard 3.3.6) */}
       <section className="card s-hero" aria-label="The promise">
-        <span className="s-hero-ic" aria-hidden="true">
-          <ShieldCheck size={20} />
-        </span>
         <p className="s-hero-line display">{PRIVACY_PROMISE}</p>
       </section>
       <SGroup
         title="The assistant"
-        meta={consentWord(c)}
+        // never asked: the footnote says so, so the title does not say it twice
+        meta={c?.at === null ? undefined : consentWord(c)}
         foot={c ? consentFoot(c) : consent.isError ? 'Couldn’t load your choices. Check your connection.' : ' '}
       >
         {CONSENT_SWITCHES.map((s) => (
-          <Row key={s.key} className="s-wrap s-wrap-title s-consent-row" title={s.title} sub={s.sub} right={<Switch on={switchOn(c, s.key)} label={s.title} disabled={!c} onChange={(next) => change(s.key, next)} />} />
+          <Row key={s.key} className="s-consent-row" title={s.title} sub={s.sub} right={<Switch on={switchOn(c, s.key)} label={s.title} disabled={!c} onChange={(next) => change(s.key, next)} />} />
         ))}
       </SGroup>
-      {c ? <PrivacyFacts consent={c} /> : null}
-      <SGroup title="Policies and requests" foot={`Anthropic runs the assistant and sees only what you allow. Fly.io hosts Orby. The Privacy Policy lists everyone who handles your data.`}>
-        <GoRow icon={FileText} className="s-wrap-title" title="Privacy Policy" onPress={() => void openExternal(LEGAL.privacy)} />
+      {/* the whole of what goes and what does not, word for word the list sign-up shows, as one inset group (S5) */}
+      {c ? <PrivacyFacts consent={c} title="What is sent" /> : null}
+      <SGroup title="Policies and requests" foot={`We answer a privacy request within ${REQUEST_DAYS} days. Anthropic runs the assistant and sees only what you allow. Fly.io hosts Orby. The Privacy Policy lists everyone who handles your data.`}>
+        <GoRow icon={FileText} className="s-wrap-title" title="Privacy policy" onPress={() => void openExternal(LEGAL.privacy)} />
         <GoRow icon={HeartPulse} className="s-wrap-title" title="Consumer health data privacy policy" onPress={() => void openExternal(LEGAL.healthPrivacy)} />
-        <GoRow icon={Mail} className="s-wrap-title" title="Privacy requests" sub={`Ask for a copy of your data, a correction or deletion. We answer within ${REQUEST_DAYS} days.`} href={supportMail('Privacy request')} label="Privacy requests: email us" />
+        <GoRow icon={Mail} title="Privacy requests" sub="A copy, a correction or deletion" href={supportMail('Privacy request')} label={`Privacy requests: email us for a copy of your data, a correction or deletion. We answer within ${REQUEST_DAYS} days.`} />
       </SGroup>
     </div>
   );
