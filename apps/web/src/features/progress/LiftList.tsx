@@ -1,18 +1,15 @@
 import { fmtDate, mondayOf, shiftDays, type ISODate } from '@logbook/shared';
-import { Check, Circle, Minus, X } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { useIsActiveTab } from '@/app/NavController';
-import { Pressable, useSheet } from '@/ui';
+import { DateGutter, Row, useSheet } from '@/ui';
 import type { Log } from '../log/useLog';
 import { useOpenSession } from '../sessions/SessionCard';
 import { STRAVA_BUILT } from '@/lib/features';
 import { LiftDaySheet } from './LiftDaySheet';
-import { HERO_WEEKS, LIFT_STATUS_WORD, liftLog, type LiftItem, type LiftStatus } from './hero';
+import { HERO_WEEKS, LIFT_STATUS_WORD, liftLog, type LiftItem } from './hero';
 
 /** Weeks the list shows at first, and how many more each "Show more" adds. */
 const PAGE_WEEKS = 4;
-const STATUS_ICON: Record<LiftStatus, typeof Check> = { done: Check, planned: Circle, missed: X, skipped: Minus };
-const dow = new Intl.DateTimeFormat('en-US', { weekday: 'short' });
 const monthName = new Intl.DateTimeFormat('en-US', { month: 'long' });
 const monthYear = new Intl.DateTimeFormat('en-US', { month: 'long', year: 'numeric' });
 /** The label a row sits under: "This week", "Last week", then the month ("October"; "December 2025" in another year). */
@@ -23,13 +20,13 @@ const sectionOf = (d: ISODate, today: ISODate) => {
   const at = new Date(`${d}T12:00:00`);
   return d.slice(0, 4) === today.slice(0, 4) ? monthName.format(at) : monthYear.format(at);
 };
-/** "Today", or "Tue 10". */
-const dayChip = (d: ISODate, today: ISODate) => (d === today ? { top: 'Today', n: null } : { top: dow.format(new Date(`${d}T12:00:00`)), n: String(Number(d.slice(8))) });
 
 /**
- * Strength, as the workouts themselves: a card per lift, newest first, this week's planned ones on top. Each card has its
- * day, its status and one line of what it was (or is meant to be), and opens what a tap on that lift opens anywhere: the
- * session's sheet, or the day's sets when nothing was on the plan, or the synced workout.
+ * Strength, as the workouts themselves: date rows (layout standard 6.2), newest first, this week's planned ones on top, under
+ * a label per stretch ("This week", "Last week", then the month). Each row has its day in the date gutter (today ringed), the
+ * workout's name, one line of what it was (or is meant to be) and its status as the trailing value ("Done", "Planned",
+ * "Missed"), and opens what a tap on that lift opens anywhere: the session's sheet, the day's sets when nothing was on the
+ * plan, or the synced workout.
  */
 export const LiftList = ({ log, t }: { log: Log; t: string }) => {
   const sheet = useSheet();
@@ -70,32 +67,21 @@ export const LiftList = ({ log, t }: { log: Log; t: string }) => {
         sections.map((sec) => (
           <section key={sec.label} className="ll-sec" aria-label={sec.label}>
             <h3 className="ll-sec-h">{sec.label}</h3>
-            <ul className="ll-list">
-              {sec.items.map((x) => {
-                const chip = dayChip(x.date, t);
-                const Icon = STATUS_ICON[x.status];
-                return (
-                  <li key={x.key}>
-                    <Pressable className={`ll-card is-${x.status} ${x.date === t ? 'is-today' : ''}`} press="scale" onPress={() => open(x)} label={`${fmtDate('long', x.date)}. ${x.title}. ${LIFT_STATUS_WORD[x.status]}${x.detail ? `. ${x.detail}` : ''}. Open`}>
-                      <span className="ll-day" aria-hidden="true">
-                        <span className="ll-dow">{chip.top}</span>
-                        {chip.n ? <span className="ll-dn">{chip.n}</span> : null}
-                      </span>
-                      <span className="ll-main" aria-hidden="true">
-                        <span className="ll-top">
-                          <span className="ll-title">{x.title}</span>
-                          <span className="ll-status">
-                            <Icon size={12} strokeWidth={2.6} />
-                            {LIFT_STATUS_WORD[x.status]}
-                          </span>
-                        </span>
-                        {x.detail ? <span className="ll-sum">{x.detail}</span> : null}
-                      </span>
-                    </Pressable>
-                  </li>
-                );
-              })}
-            </ul>
+            <div className="ll-rows">
+              {sec.items.map((x) => (
+                <Row
+                  key={x.key}
+                  className={`ll-row is-${x.status}`}
+                  head
+                  left={<DateGutter date={x.date} today={x.date === t} />}
+                  title={x.title}
+                  sub={x.detail ?? undefined}
+                  right={<span className="lrow-value">{LIFT_STATUS_WORD[x.status]}</span>}
+                  onClick={() => open(x)}
+                  label={`${fmtDate('long', x.date)}. ${x.title}. ${LIFT_STATUS_WORD[x.status]}${x.detail ? `. ${x.detail}` : ''}. Open`}
+                />
+              ))}
+            </div>
           </section>
         ))
       ) : (

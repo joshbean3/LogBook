@@ -227,184 +227,65 @@
   stroke-width: 2;
 }
 
-/* ---------- strength: the workouts, a card each ---------- */
+/* ---------- strength: the workouts as date rows, under the hairline (layout standard 6.2, 3.3.3) ----------
+   A label per stretch ("This week": Inter 600 15 Night Ink, sentence case, 8 above its first row), then the rows: full
+   bleed so a press fills the card's width, their words on the card's 20 px edge, a hairline between rows from where the
+   words start. The status is the row's trailing value in 17 Dusk: words, never a color alone, and no pill */
 .ll {
   display: grid;
-  gap: 10px;
-  margin-top: 16px;
+  gap: var(--sp-4);
 }
-.ll-list {
+.ll-sec {
   display: grid;
-  gap: 8px;
+  gap: var(--sp-2);
+}
+.ll-sec-h {
   margin: 0;
-  padding: 0;
-  list-style: none;
-}
-/* a workout: a row of the card, not a card in it (no card holds cards, guide 5.3): no surface, a hairline between rows in
-   the gap above it (inset past the day tile), the same 60 px row and 8 px rhythm */
-.ll-card {
-  position: relative;
-  display: grid;
-  grid-template-columns: 3rem minmax(0, 1fr);
-  align-items: center;
-  gap: 12px;
-  width: 100%;
-  min-height: 60px;
-  padding: 8px 12px 8px 8px;
-  container: llcard / inline-size;
-  border: 0;
-  border-radius: var(--r-control);
-  background: transparent;
-  font: inherit;
-  text-align: left;
+  font: 600 var(--fs-sub) / var(--lh-sub) var(--sans);
   color: var(--ink);
-  transition: background-color var(--dur-color) var(--ease-out);
 }
-.ll-card[data-pressed] {
-  background: var(--cloud);
+.ll-rows {
+  display: grid;
+  margin-inline: calc(-1 * var(--pad-hero));
 }
-.ll-list > li + li > .ll-card::before {
+.ll-rows > .lrow {
+  position: relative;
+  padding-inline: var(--pad-hero);
+  background: transparent;
+}
+.ll-rows > .lrow.tappable[data-pressed] {
+  background: var(--surface-2);
+}
+.ll-rows > .lrow + .lrow::before {
   content: '';
   position: absolute;
-  top: -4px;
-  left: calc(3rem + 20px);
+  top: 0;
+  left: calc(var(--pad-hero) + var(--gutter-date) + var(--sp-3));
   right: 0;
   height: 1px;
   background: var(--line);
 }
-/* the day: a Cloud tile, the weekday a caption over the numeral */
-.ll-day {
-  display: grid;
-  place-content: center;
-  justify-items: center;
-  /* sized in rem: the weekday and the date grow with the text and stay inside the tile */
-  width: 3rem;
-  min-height: 2.75rem;
-  border-radius: var(--r-icon);
-  background: var(--cloud);
-}
-.ll-dow {
-  font: 600 var(--fs-caps) / var(--lh-caps) var(--stamp);
-  letter-spacing: var(--tr-caps);
-  text-transform: uppercase;
+/* a skipped workout steps back to Dusk; every other name stays Night Ink whatever its state */
+.ll-row.is-skipped .lrow-title {
   color: var(--ink-2);
-}
-.ll-dn {
-  font: 650 var(--fs-row) / 1.25rem var(--sans);
-  letter-spacing: 0;
-  color: var(--ink);
-  font-variant-numeric: tabular-nums;
-}
-/* today: the Today tag's look, Ember on Paper with the Ember keyline (Ember on Haze or Cloud tints is not used) */
-.ll-card.is-today .ll-day {
-  background: var(--surface);
-  box-shadow: inset 0 0 0 1px rgba(180, 67, 12, 0.4);
-}
-.ll-card.is-today .ll-dow {
-  font: 600 var(--fs-tag) / var(--lh-foot) var(--sans);
-  letter-spacing: 0;
-  text-transform: none;
-  color: var(--now-text);
-}
-.ll-main {
-  display: grid;
-  gap: 2px;
-  min-width: 0;
-}
-.ll-top {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 2px 8px;
-  min-width: 0;
-}
-.ll-title {
-  min-width: 0;
-  max-width: 100%;
-  font: 600 var(--fs-row) / var(--lh-row) var(--sans);
-  letter-spacing: 0;
-  color: var(--ink);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-/* the status: a small tag after the name (guide 6.3): planned Dusk on Cloud, done Deep Sky on Cloud with its check,
-   missed transparent with an edge and its cross (words and glyph carry it, never the color alone; never orange) */
-.ll-status {
-  display: inline-flex;
-  align-items: center;
-  gap: 3px;
-  flex: none;
-  min-height: 1.25rem;
-  padding: 0 var(--sp-2);
-  border-radius: var(--r-pill);
-  background: var(--cloud);
-  font: 600 var(--fs-orb) / var(--lh-orb) var(--sans);
-  color: var(--ink-2);
-}
-.ll-card.is-done .ll-status {
-  background: var(--cloud);
-  color: var(--deep-sky);
-}
-.ll-card.is-missed .ll-status {
-  background: transparent;
-  box-shadow: inset 0 0 0 1px var(--edge);
-  color: var(--ink-2);
-}
-.ll-sum {
-  font: 500 var(--fs-sub) / var(--lh-sub) var(--sans);
-  color: var(--ink-2);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-/* names in Night Ink whatever their state (plan 6.5); a skipped one steps back to Dusk */
-.ll-card.is-skipped .ll-title {
-  color: var(--ink-2);
-}
-/* a 320 px phone: the line of numbers takes a size down so it reads to its end */
-@container llcard (max-width: 15.5rem) {
-  .ll-title {
-    font-size: var(--fs-sub);
-  }
-  .ll-sum {
-    font-size: var(--fs-foot);
-    line-height: var(--lh-foot);
-  }
 }
 .ll-none {
   margin: 0;
-  padding: 12px 4px;
-  font-size: var(--fs-sub);
-  line-height: var(--lh-sub);
-  color: var(--ink-2);
-}
-/* a label over each stretch of rows: "This week", "Last week", then the month */
-.ll-sec {
-  display: grid;
-  gap: 8px;
-}
-.ll-sec + .ll-sec {
-  margin-top: 6px;
-}
-.ll-sec-h {
-  margin: 0;
-  padding: 0 4px;
-  font: 600 var(--fs-foot) / var(--lh-foot) var(--sans);
+  font: 500 var(--fs-sub) / var(--lh-sub) var(--sans);
   color: var(--ink-2);
 }
 .ll-acts {
   display: flex;
   justify-content: center;
-  gap: 8px;
+  gap: var(--sp-2);
+  margin-top: calc(-1 * var(--sp-2));
 }
 .ll-more {
-  justify-self: center;
   min-height: 44px;
-  padding: 0 16px;
+  padding: 0 var(--sp-4);
   border: 0;
   background: none;
-  font: 600 var(--fs-sub) / var(--lh-sub) var(--sans);
+  font: 600 var(--fs-row) / var(--lh-row) var(--sans);
   color: var(--deep-sky);
 }
 .ll-more:focus-visible {
