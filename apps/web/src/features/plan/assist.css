@@ -55,7 +55,7 @@
   font-variant-numeric: tabular-nums;
   letter-spacing: 0;
 }
-/* words that were typed and not sent yet: they are kept, on one line, in the ink of typed text */
+/* words whose request did not go through: they are kept, on one line, in the ink of typed text */
 .pa-pill-text.is-draft {
   overflow: hidden;
   text-overflow: ellipsis;

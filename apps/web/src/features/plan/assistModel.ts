@@ -130,6 +130,8 @@ export const ASSIST_LINES = {
   unavailable: 'The assistant is not available right now. Try again later.',
   busy: 'The assistant is busy. Try again in a minute.',
   limit: 'You’ve asked a lot in a short time. Try again in a few minutes.',
+  dayLimit: 'You’ve used today’s plan requests. They come back tomorrow.',
+  finishing: 'The last request is still finishing. Try again in a moment.',
   refused: 'The assistant couldn’t help with that one. Say it another way.',
   tooLong: 'That was too long to send. Say it in fewer words.',
   invalid: 'The assistant’s answer didn’t come back right.',
@@ -138,6 +140,13 @@ export const ASSIST_LINES = {
 } as const;
 
 const line = (text: string, retry = true): AssistFailure => ({ kind: 'line', line: text, retry });
+/**
+ * A 429 says how long to wait (Retry-After), and that tells the three limits apart: a few seconds is a request of this
+ * account that is still running (one stopped a moment ago), minutes is the short window, hours is the day's budget, which
+ * trying again cannot fix.
+ */
+const STILL_RUNNING_S = 10;
+const DAY_LIMIT_AFTER_S = 15 * 60;
 
 /**
  * Why a request to the builder's assistant did not go through, by status and code, never the server's own message. A
@@ -154,7 +163,11 @@ export const assistFailure = (e: unknown): AssistFailure => {
   if (status === 401 || code === 'unauthenticated') return line(ASSIST_LINES.signIn, false);
   if (code === 'claude_not_configured') return line(ASSIST_LINES.unavailable);
   if (code === 'claude_busy' || status === 503) return line(ASSIST_LINES.busy);
-  if (status === 429 || code === 'rate_limited') return line(ASSIST_LINES.limit);
+  if (status === 429 || code === 'rate_limited') {
+    const wait = e instanceof ApiError ? e.retryAfter : null;
+    if (wait != null && wait > DAY_LIMIT_AFTER_S) return line(ASSIST_LINES.dayLimit, false);
+    return line(wait != null && wait <= STILL_RUNNING_S ? ASSIST_LINES.finishing : ASSIST_LINES.limit);
+  }
   if (code === 'refused') return line(ASSIST_LINES.refused, false);
   if (status === 413 || status === 422 || status === 400 || code === 'validation') return line(ASSIST_LINES.tooLong, false);
   if (code === 'invalid_answer' || status === 502) return line(ASSIST_LINES.invalid);

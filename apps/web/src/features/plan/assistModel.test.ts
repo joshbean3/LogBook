@@ -88,6 +88,11 @@ describe('a request that did not go through', () => {
     expect(failed(503, 'claude_busy')).toEqual({ kind: 'line', line: ASSIST_LINES.busy, retry: true });
     expect(failed(503, 'claude_not_configured')).toEqual({ kind: 'line', line: ASSIST_LINES.unavailable, retry: true });
     expect(failed(429, 'rate_limited')).toEqual({ kind: 'line', line: ASSIST_LINES.limit, retry: true });
+    // a few seconds: a request stopped a moment ago is still finishing on the server
+    expect(assistFailure(new ApiError('x', 429, 'rate_limited', 5))).toEqual({ kind: 'line', line: ASSIST_LINES.finishing, retry: true });
+    // the short window (5 minutes at most) can be tried again; the day's budget cannot, so it has no Try again
+    expect(assistFailure(new ApiError('x', 429, 'rate_limited', 240))).toEqual({ kind: 'line', line: ASSIST_LINES.limit, retry: true });
+    expect(assistFailure(new ApiError('x', 429, 'rate_limited', 6 * 3600))).toEqual({ kind: 'line', line: ASSIST_LINES.dayLimit, retry: false });
     expect(failed(500, 'internal')).toEqual({ kind: 'line', line: ASSIST_LINES.ours, retry: true });
     expect(failed(502, 'invalid_answer')).toEqual({ kind: 'line', line: ASSIST_LINES.invalid, retry: true });
     expect(failed(504, 'claude_timeout')).toEqual({ kind: 'line', line: ASSIST_LINES.slow, retry: true });

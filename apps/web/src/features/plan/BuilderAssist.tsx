@@ -325,7 +325,7 @@ export const AssistBar = ({ assist }: { assist: BuilderAssistApi }) => {
           </div>
         ) : (
           // a plain button: the tap itself opens the composer and takes focus, so the keyboard comes up with it
-          <button type="button" className="pa-pill" aria-label={draft.trim() ? `Assistant. Your words, not sent yet: ${draft.trim()}` : 'Assistant. Describe your plan'} onClick={assist.open}>
+          <button type="button" className="pa-pill" aria-label={draft.trim() ? `Assistant. Your words: ${draft.trim()}` : 'Assistant. Describe your plan'} onClick={assist.open}>
             <span className="pa-orb" ref={assist.orb}>
               <Orb size={28} state="still" />
             </span>
