@@ -91,8 +91,8 @@ const Gauge = ({ goal, now, hit }: { goal: Aim; now: number; hit: number }) => {
 /**
  * Today's goal, the head of the tab: the hero card with the gauge, the goal in the serif, its steps to check right there
  * (the same save as Today: the last one checked finishes it), and one clear next move: Mark done once nothing is left, or
- * Add a step. Unset, the whole card is the way to set it. The head says "TODAY" and the time left once (the date is in the
- * title block's caption above).
+ * Add a step. Unset, the whole card is the way to set it. The head is one caption, "TODAY · 18 H LEFT" (or the answer), so
+ * the date is said once, in the title block's caption above.
  */
 export const TodayGoal = ({ goal, today, now, hit }: { goal: Aim | null; today: string; now: number; hit: number }) => {
   const open = useOpenGoal();
@@ -107,8 +107,9 @@ export const TodayGoal = ({ goal, today, now, hit }: { goal: Aim | null; today: 
     return (
       <Pressable className="card is-hero gh is-empty" press="scale" onPress={() => open('day', today)} label={`Today, ${caps}, ${clock.words}. What would make today count? Set today’s goal`}>
         <span className="gh-head" aria-hidden="true">
-          <span className="gh-label">Today</span>
-          <span className="gh-tag">{clock.words}</span>
+          <span className="gh-label">
+            Today <span className="gh-when">· {clock.words}</span>
+          </span>
         </span>
         <span className="gh-sun" aria-hidden="true" />
         <span className="gh-ask" aria-hidden="true">
@@ -138,8 +139,9 @@ export const TodayGoal = ({ goal, today, now, hit }: { goal: Aim | null; today: 
   return (
     <section className={`card is-hero gh is-${goal.status}`} aria-label={`Today’s goal: ${goal.text}`}>
       <div className="gh-head">
-        <span className="gh-label">Today</span>
-        <span className="gh-tag">{isOpen ? clock.words : STATUS_WORD[goal.status]}</span>
+        <span className="gh-label">
+          Today <span className="gh-when">· {isOpen ? clock.words : STATUS_WORD[goal.status]}</span>
+        </span>
       </div>
       <Gauge goal={goal} now={now} hit={hit} />
       <Pressable className={`gh-text ${long ? 'is-long' : ''}`} press="dim" onPress={() => open('day', today)} label={`${goal.text}. ${n ? `${k} of ${n} steps done. ` : ''}Open`}>

@@ -377,19 +377,11 @@
   text-transform: uppercase;
   color: var(--now-text);
 }
-/* the time left ("19 h left") or the answer, after "TODAY": a tag (guide 6.3), 28 tall, Dusk on Cloud, no shadow, even
-   figures (they tick) */
-.gh-tag {
-  flex: none;
-  display: inline-flex;
-  align-items: center;
-  height: 28px;
-  padding: 0 var(--sp-3);
-  border-radius: var(--r-pill);
-  background: var(--cloud);
-  font: 600 var(--fs-tag) / 1 var(--sans);
+/* the time left ("18 h left") or the answer, after "TODAY", in the same caption (Dusk): one caption, no tag, so the card
+   keeps to three sizes (layout standard 4.4, 8.10); even figures, they tick */
+.gh-when {
+  color: var(--ink-3);
   font-variant-numeric: tabular-nums;
-  color: var(--ink-2);
   white-space: nowrap;
 }
 
@@ -662,9 +654,10 @@ html[data-text-xl] .ga-row {
   transition: transform var(--dur-fast) var(--ease-out);
   container: ga-chip / inline-size;
 }
-/* the title stays whole: with larger text a chip too narrow for the disc and the name (under 10rem, so 160 pt at the
-   default size and 216 at 135 percent) lets the disc go, as narrow phones do */
-@container ga-chip (max-width: 10rem) {
+/* the title stays whole: a chip whose content box is narrower than the disc and its gap (52) plus the longest name
+   ("Next week", about 5.3rem) lets the disc go, as narrow phones do. 8.5rem is 136 at the default size, so the disc shows
+   from 375 up (content 140 at 375, 147 at 390, 172 at 440), and 184 at 135 percent, where only a wider chip keeps it */
+@container ga-chip (max-width: 8.5rem) {
   .ga-chip .ctx-ic {
     display: none;
   }
