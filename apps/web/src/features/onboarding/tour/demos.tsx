@@ -127,7 +127,7 @@ export const GoalsDemo = ({ running, still }: DemoProps) => {
             <>
               <b className="tg-goal">Send the report by 3 pm.</b>
               <span className="tg-bar">
-                <i style={{ '--p': stepDone ? '50%' : '0%' } as React.CSSProperties} />
+                <i style={{ '--p': stepDone ? 0.5 : 0 } as React.CSSProperties} />
                 <em>{stepDone ? '1/2' : '0/2'}</em>
               </span>
               <span className={`tg-step ${stepDone ? 'tis-done' : ''}`}>
@@ -342,7 +342,7 @@ export const ProgressDemo = ({ running, still }: DemoProps) => {
           {MILES.map((m, k) => (
             <span key={k} className="tq-spot" style={{ left: `${(k / (MILES.length - 1)) * 100}%`, top: `${100 - (m / max) * 100}%` }} data-spot={`w${k}`} />
           ))}
-          {i != null ? <span className="tq-rule" style={{ left: `${(i / (MILES.length - 1)) * 100}%` }} /> : null}
+          {i != null ? <span className="tq-rule" style={{ transform: `translateX(${(i / (MILES.length - 1)) * 100}%)` }} /> : null}
         </div>
         <Finger spot={i != null ? `w${i}` : b === 1 ? 'w4' : null} hold={i != null} />
       </Stage>

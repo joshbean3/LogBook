@@ -380,7 +380,7 @@
   display: flex;
   gap: var(--sp-2);
   height: 96px;
-  padding: var(--sp-1) calc(50% - 38px);
+  padding: var(--sp-1) calc(50% - 38px); /* brand-ok: geometry, the first and last days can reach the center ring */
   overflow-x: auto;
   overscroll-behavior-x: contain;
   scroll-snap-type: x mandatory;
