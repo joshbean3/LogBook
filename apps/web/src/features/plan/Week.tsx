@@ -10,6 +10,7 @@ import type { ContextMenuItem } from '@/ui/ContextMenu';
 import { PAGE_COMMIT, type PageCommitDetail } from '@/ui/nav';
 import { Pressable } from '@/ui/Pressable';
 import { Skeleton } from '@/ui/Skeleton';
+import { useSheet } from '@/ui/Sheet';
 import { useToast } from '@/ui/Toast';
 import { useLog, type Log } from '../log/useLog';
 import { sessionCan, useSessionActions } from '../sessions/actions';
@@ -26,12 +27,16 @@ import { dayOrder, landingIndex, useMoveTo } from './moveRule';
 import { isLanding, PLAN_DAY, useDayDrag } from './useDayDrag';
 import { weekWords } from './WeekLine';
 import { weekTitle } from './context';
+import { arrivingFor, onWeekChange } from './weekLive';
+import { openAddSession } from '../sessions/AddSessionSheet';
+import { defaultDay } from '../sessions/addModel';
 import { sessionIcon } from '../sessions/sessionIcon';
 import { dayRange } from '@/ui/charts/range';
 
 /**
- * One week of Plan, day by day: the week's header (its name, its dates, previous and next), one line on what the week holds,
- * and the seven days as rows in one inset group.
+ * One week of Plan, day by day: the week's header (its name, its dates, previous and next), one line on what the week holds
+ * with `+ Add` at its end (the Add sheet: a run or a lift on any day of this week), and the seven days as rows in one inset
+ * group.
  * It is what the week pager renders for prev, cur and next, memoised by its Monday, with its own log, so a page commit
  * re-renders none of the three.
  *
@@ -39,8 +44,9 @@ import { dayRange } from '@/ui/charts/range';
  * move after the hold drags it (`useDayDrag`): the pill follows the finger, the day under it is lit, a drop moves (or swaps
  * with the day's lead session), the pill shrinks into its new slot and the displaced row slides on `settle`; a drop that
  * makes two hard days in a row fires `warning` and shows the inline `Two hard days in a row. Keep it?` row in the group
- * (the rows below move by transform). An empty day: tap adds. Done is a check, missed is the word `Missed` in ink-3 with a
- * 1 px strike on the name: never red. No swipe rows (the pager is the only horizontal gesture on the page).
+ * (the rows below move by transform). An empty day: tap adds (the Add sheet, on that day). Done is a check, missed is the
+ * word `Missed` in ink-3 with a 1 px strike on the name: never red. No swipe rows (the pager is the only horizontal gesture
+ * on the page).
  */
 
 const nameOf = (s: Session) => (s.kind === 'rest' ? 'Rest' : label(s));
@@ -54,10 +60,13 @@ const useKit = (log: Log, flip: ReturnType<typeof useFlip>, onReshaped: (r: Resh
   const openUnplanned = useOpenUnplanned();
   const act = useSessionActions(log);
   const toast = useToast();
+  const sheet = useSheet();
   const { mark, remove, restore } = useSessionMutations();
   // a drop moves or swaps by the one rule the Move sheet uses too (moveRule.ts: never a swap into the past)
   const moveTo = useMoveTo();
-  return { log, open, openUnplanned, add: act.add, move: act.move, askEffort: act.askEffort, toast, mark, remove, restore, moveTo, flip, onReshaped };
+  // a day's own add: the Add sheet, opened on that day
+  const add = (date: string) => openAddSession(sheet, mondayOf(date), date, log.today);
+  return { log, open, openUnplanned, add, move: act.move, askEffort: act.askEffort, toast, mark, remove, restore, moveTo, flip, onReshaped };
 };
 type KitT = ReturnType<typeof useKit>;
 const Kit = createContext<KitT | null>(null);
@@ -230,8 +239,9 @@ const bonusFace = (log: Log, date: string, runs: Activity[]) => {
   return { name, word, sub, body };
 };
 /**
- * A quiet day's face: a planned rest is its moon tile and the word; from today on an open day is a dashed slot with a +
- * (docs/shape-system.md §3: the empty slot, only for "add here"); a past open day keeps its row, blank.
+ * A quiet day's face: a planned rest is its moon tile and the word; from today on an open day keeps a quiet plus where
+ * its tile would sit (a mark, not a dashed slot: a dashed edge on every open day made an open week a column of boxes, and
+ * the standard keeps it to one add slot a group, C5); a past open day keeps its row, blank. Either takes a tap.
  */
 const emptyFace = (log: Log, date: string, rest: Session | null) => (
   <>
@@ -239,7 +249,7 @@ const emptyFace = (log: Log, date: string, rest: Session | null) => (
       <ToneTile s={rest} />
     ) : (
       <span className={`pl-tone pl-ic is-empty ${date >= log.today ? 'is-add' : ''}`.trim()} aria-hidden="true">
-        {date >= log.today ? <Plus size={16} strokeWidth={2.4} /> : null}
+        {date >= log.today ? <Plus size={18} strokeWidth={1.75} /> : null}
       </span>
     )}
     <span className="pl-main">{rest ? <span className="pl-rest">Rest</span> : null}</span>
@@ -323,8 +333,22 @@ const SessionRow = ({ date, s, morning }: { date: string; s: Session; morning?: 
     ];
   };
   const landingNow = isLanding(s.id);
+  // just added (the Add sheet): the row is lit for a moment, and once the rows have made room and the sheet is on its way
+  // down it is brought into view above the dock, so the eye finds what was added
+  const [fresh, setFresh] = useState(() => arrivingFor(s.id) > 0);
+  useEffect(() => {
+    const left = arrivingFor(s.id);
+    if (!left) return;
+    const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const show = setTimeout(() => row.current?.closest<HTMLElement>('.pl-slot')?.scrollIntoView({ block: 'nearest', behavior: reduce ? 'auto' : 'smooth' }), reduce ? 0 : 320);
+    const settle = setTimeout(() => setFresh(false), left);
+    return () => {
+      clearTimeout(show);
+      clearTimeout(settle);
+    };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
   return (
-    <div className="pl-slot" data-session-id={s.id} data-landing={landingNow ? '' : undefined}>
+    <div className={`pl-slot ${fresh ? 'is-new' : ''}`.trim()} data-session-id={s.id} data-landing={landingNow ? '' : undefined}>
       <Pressable
         ref={row}
         as="div"
@@ -565,6 +589,11 @@ const WeekGroup = ({ mon, log, conflict, setConflict, morning }: { mon: string; 
   );
   const kit = useKit(log, flip, (r, to) => onReshaped(r, to));
   const { toast } = kit;
+  // a session written to this week from outside its rows (the Add sheet, its Undo): the rows are read first, so
+  // what the change moves slides to its place (weekLive.ts)
+  const capture = useRef(flip);
+  capture.current = flip;
+  useEffect(() => onWeekChange(mon, () => capture.current()), [mon]);
   const days = Array.from({ length: 7 }, (_, i) => shiftDays(mon, i));
   if (!log.loaded(mon) || !log.loaded(shiftDays(mon, 6))) return <SkelGroup days={days} />;
   const onReshaped = (r: ReshapeResult, to: string) => {
@@ -687,6 +716,10 @@ export const WeekPage = memo(function WeekPage({ mon, onThisWeek, onStep, still 
   // today's training time (Today's Morning / Afternoon / No time): it decides whether today's run row says the morning
   const when = useTrainWhen(log.today);
   const morning = ready && mon === mondayOf(log.today) ? morningLineOf(log, log.today, when) : null;
+  const sheet = useSheet();
+  // the week's Add: the Add sheet on the day `defaultDay` picks (today in this week, the first open day of a later one)
+  const addHere = () => openAddSession(sheet, mon, defaultDay(log.snap.sessionsOn, mon, log.today), log.today);
+  const weekIn = far ? `the w${named.slice(1)}` : named.toLowerCase();
   return (
     <div className="pl-wpage">
       <section className="pl-sec pl-week-sec" aria-label={`${named}, ${weekRange(mon)}`}>
@@ -696,18 +729,25 @@ export const WeekPage = memo(function WeekPage({ mon, onThisWeek, onStep, still 
           meta={far ? undefined : weekRange(mon)}
           action={<StepNav unit="week" away={away} onStep={onStep} onHome={onThisWeek} />}
         />
-        {words ? (
-          <p className="pl-wk-line">
-            {/* under 360 pt the header has no room for its dates (styles/layout.css): the line carries them there */}
-            {far ? null : <span className="pl-wk-range" aria-hidden="true">{`${weekRange(mon)} · `}</span>}
-            <b>{words.head}.</b>
-            {words.sub ? ` ${words.sub}` : null}
-          </p>
-        ) : (
-          <p className="pl-wk-line" aria-hidden="true">
-            &nbsp;
-          </p>
-        )}
+        <div className="pl-wk-bar">
+          {words ? (
+            <p className="pl-wk-line">
+              {/* where the header has no room for its dates (plantop.css), the line carries them */}
+              {far ? null : <span className="pl-wk-range" aria-hidden="true">{`${weekRange(mon)} · `}</span>}
+              <b>{words.head}.</b>
+              {words.sub ? ` ${words.sub}` : null}
+            </p>
+          ) : (
+            <p className="pl-wk-line" aria-hidden="true">
+              &nbsp;
+            </p>
+          )}
+          {/* a run or a lift on any day of this week: quiet (Deep Sky words, a plus), a 44 pt target clear of the arrows' */}
+          <Pressable className="pl-add" press="dim" disabled={!ready} onPress={addHere} label={`Add a run or lift to ${weekIn}`}>
+            <Plus size={18} strokeWidth={1.75} aria-hidden="true" />
+            Add
+          </Pressable>
+        </div>
         {!ready && fail.failed && !still ? <LoadFail what="Couldn’t load this week." onRetry={fail.retry} /> : still ? <StillGroup mon={mon} log={log} morning={morning} /> : <WeekGroup mon={mon} log={log} conflict={conflict} setConflict={setConflict} morning={morning} />}
       </section>
     </div>

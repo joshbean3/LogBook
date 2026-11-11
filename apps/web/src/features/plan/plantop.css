@@ -103,15 +103,35 @@
 }
 
 /* ---------- the week's header: its name and dates, the pager (two bare Deep Sky chevrons, F8's section-header form) ---------- */
-/* the name never clips; the dates beside it give way first, and only while the header also shows Today */
-.pl-wk-head .lb-title {
-  flex: none;
-  max-width: 62%;
+/* one row on every week and every width: the arrows stay at the row's end, so a second tap on › lands on › again (at 390
+   "Next week" used to wrap them onto a row of their own). The dates beside the name give way first: under 360 always
+   (styles/layout.css), and up to 419 while the header also shows Today; the line under the header carries them then. The
+   name itself wraps only as the last resort (a week across two months at 320), and the arrows hold to its first line */
+.pl-wk-head.lb-head {
+  flex-wrap: nowrap;
 }
-@media (max-width: 359px) {
+.pl-wk-head .lb-title {
+  flex: 0 1 auto;
+  text-wrap: balance;
+}
+.pl-wk-head .lb-slot {
+  align-self: flex-start;
+}
+@media (max-width: 419px) {
   .pl-wk-head.is-away .lb-meta {
     display: none;
   }
+}
+/* at 320 a week named by its dates ("Nov 23 to 29") and `‹ Today ›` share 288 px: the week's name takes the card-title
+   size there, as the plan's name above it does, on the same 32 px line */
+@media (max-width: 359px) {
+  .pl-wk-head .lb-title {
+    font-size: clamp(22px, var(--fs-head), 34px);
+  }
+}
+/* at a larger text size the name needs the row: the dates go to the line under it at every width */
+html[data-text-xl] .pl-wk-head .lb-meta {
+  display: none;
 }
 /* two 44 icon buttons with Deep Sky 18 chevrons, no fill, no capsule, no shadow; hit boxes touch (88 wide) */
 .pl-wk-nav {
@@ -146,9 +166,20 @@
   outline-offset: -2px;
   box-shadow: var(--focus-ring);
 }
-/* the week's one line ("23 mi · 4 runs."): read in passing, 8 under the header, 12 above the rows */
+/* the week's bar: its one line ("23 mi · 4 runs.", read in passing) and, at its end, Add. The bar starts 8 under the
+   header, just past the arrows' 44 pt boxes (they reach 6 under it), so the two targets never overlap; the line's first
+   row sits level with Add's words, and its last row 12 above the week's rows */
+.pl-wk-bar {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-3);
+  min-width: 0;
+  margin-top: calc(-1 * var(--sp-1));
+}
 .pl-wk-line {
-  margin: calc(-1 * var(--sp-1)) 0 var(--sp-3);
+  flex: 1 1 auto;
+  min-width: 0;
+  margin: var(--sp-3) 0;
   overflow: hidden;
   font: 500 var(--fs-sub) / var(--lh-sub) var(--sans);
   font-variant-numeric: tabular-nums;
@@ -166,6 +197,40 @@
   .pl-wk-range {
     display: inline;
   }
+}
+@media (max-width: 419px) {
+  .pl-wk-head.is-away + .pl-wk-bar .pl-wk-range {
+    display: inline;
+  }
+}
+html[data-text-xl] .pl-wk-range {
+  display: inline;
+}
+/* Add: the quiet level (guide 6.2, 6.3's "+ Set"): Deep Sky words Inter 600 with an 18 px plus, no bezel, 44 tall to the
+   thumb, at the bar's trailing edge over the rows it adds to */
+.pl-add.pressable {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  min-height: var(--hit);
+  padding: 0 0 0 var(--sp-3);
+  border: 0;
+  background: none;
+  color: var(--accent-text);
+  font: 600 var(--fs-sub) / var(--lh-sub) var(--sans);
+  white-space: nowrap;
+}
+.pl-add > svg {
+  flex: none;
+}
+.pl-add:disabled {
+  color: var(--ink-2);
+}
+.pl-add:focus-visible {
+  outline: 1.5px solid var(--focus-edge);
+  outline-offset: -2px;
+  box-shadow: var(--focus-ring);
 }
 @media (prefers-reduced-motion: reduce) {
   .pt-plan.pressable,

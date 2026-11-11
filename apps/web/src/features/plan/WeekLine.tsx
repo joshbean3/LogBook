@@ -38,9 +38,10 @@ export const weekWords = (log: Log, mon: string) => {
   } else if (mon > t) {
     const first = live[0];
     const long = training.filter(([, s]) => tone(s) === 'long').sort((a, b) => (Number(b[1].miles) || 0) - (Number(a[1].miles) || 0))[0];
-    sub = first ? `Opens with ${nameOf(first[1])}, ${fmtDate('dowLong', first[0])}.${long && long !== first ? ` Long run ${fmtDate('dowLong', long[0])}.` : ''}` : 'Tap a day to add a session.';
+    // an open week says so and stops: Add sits at the line's end (Week.tsx), so the line no longer tells where to tap
+    sub = first ? `Opens with ${nameOf(first[1])}, ${fmtDate('dowLong', first[0])}.${long && long !== first ? ` Long run ${fmtDate('dowLong', long[0])}.` : ''}` : '';
   } else if (!training.length && w.doneMiles === 0) {
-    sub = 'Tap a day to add a session.';
+    sub = '';
   } else if (w.doneMiles === 0 && !w.keptSessions) {
     // early in the week: say what's next, never "0 of 26"; "First run today" only when no run was planned before today
     // what is next today is said once, by today's row in the week (layout plan P1), so the line stops at the totals
