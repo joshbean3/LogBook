@@ -524,13 +524,14 @@ Retires the hard-coded orange gradient and bevel in `features/day/HeroGauge.tsx`
 
 | Part | Spec |
 |---|---|
-| Layout | Seven cells, Monday first, sticky under the title bar with the wash color behind it. |
+| Layout | Seven cells, Monday first, sticky under the title bar with the wash color behind it. Seven equal columns across the full width of the screen (each a seventh of it), and everything in a cell is centered on its column. Every cell has the same three rows whatever the day holds: the letter, the numeral, the kind pill's slot. |
 | Letter | Caption style, Dusk; today's letter Night Ink. |
 | Numeral | Inter 600 1.0625 rem, Night Ink, tnum. |
 | Shown day | A 34 px Sky disc behind the numeral (Night Ink on Sky 7.03). It slides on the settle spring. |
 | Today | Always keeps its 6 px Sunrise dot above the letter, with a 2 px Paper keyline, whether or not it is the shown day. Today and the shown day are never the same signal. |
-| Kind pill | Pill 22 tall: Paper with a 1 px `rgba(14,34,54,.10)` edge and Dusk glyphs. Done: Sky with Night Ink glyphs. Today's planned: 1.5 px Deep Sky ring, Deep Sky glyphs. Missed: transparent with a 1 px edge. |
-| Hit | Each cell 44 pt wide or more, 81 tall. |
+| Kind pill | What the day trains. One pill of one size on every day and in every state: 34 wide (the disc's width, so the shown day reads as one column) and 22 tall, centered on the column, 8 px under the numeral's box, which leaves 5 px between the pill and the disc. Glyphs are 13 px: one in the middle, or two side by side in the same pill on a day with two kinds of session (run first). A day with no session, a rest day or a day whose sessions were skipped has no pill and keeps the empty slot, so the row's height never changes. |
+| Kind pill fills | One system, and the fill says how much of the day is done. Nothing yet (a day ahead, and today until something on it is done): Paper with a 1 px `rgba(14,34,54,.10)` edge and Dusk glyphs. Part of it (a floor, or one session of two): Haze with Night Ink glyphs. All of it (every session, or a run or lift that was not planned): Sky with Night Ink glyphs. A day that passed with nothing done: the same pill, hollow, a 1 px `--edge` and Dusk glyphs. Today's pill has no style of its own: today is the Sunrise dot, and the shown day is the disc. |
+| Hit | Each cell 44 pt wide or more, 83 tall. |
 
 ### 6.8 Charts
 

@@ -249,7 +249,7 @@ export interface DateStripProps {
   statusOf: (date: string) => StripStatus;
   onPick: (date: string) => void;
   labelOf?: (date: string) => string;
-  /** What each day trains (Today's strip): a glyph per kind in place of the dot. Empty for rest or nothing planned. */
+  /** What each day trains (Today's strip): a glyph per kind in the day's pill. Empty for rest or nothing planned: no pill. */
   kindsOf?: (date: string) => readonly StripKind[];
 }
 export type StripKind = 'run' | 'lift' | 'cross';
@@ -259,10 +259,15 @@ const KIND_WORD: Record<StripKind, string> = { run: 'run', lift: 'strength', cro
 const STATUS_WORD: Record<Exclude<StripStatus, null>, string> = { done: 'done', bonus: 'bonus run', floor: 'floor', planned: 'planned run', missed: 'missed', skipped: 'skipped', rest: 'rest' };
 
 /**
- * Mon–Sun of the shown day's week, seven full-bleed cells (W / 7 × 52). The disc is one element translated to
+ * Mon–Sun of the shown day's week, seven full-bleed cells (W / 7 × 83). The disc is one element translated to
  * `(cellIndex + progress × span) × cellPitch`, clamped to the first and last cells, so it rides every drag, slide and goTo.
  * A cell tap is `onPick` (no haptic); a drag that began in the strip ticks `select` each time the disc's centre crosses a
  * cell boundary (a drag that began anywhere else never ticks). A new week crossfades its cells in over 120 ms.
+ *
+ * Every cell holds the same three rows, centered on the column: the letter, the numeral, and the kind pill's slot (guide
+ * 6.7). The slot is one box on every day, 34 x 22 and 8 under the numeral, so the row is the same height and the pills sit
+ * on one line whether a day has one session, two or none. With `kindsOf` a day shows its pill or nothing; without it (a
+ * caller that only knows the status) the slot holds the status dot.
  */
 export const DateStrip = ({ shown, today, handle, stripRef, statusOf, onPick, labelOf, kindsOf }: DateStripProps): React.JSX.Element => {
   const mon = mondayOfIso(shown);
@@ -358,14 +363,18 @@ export const DateStrip = ({ shown, today, handle, stripRef, statusOf, onPick, la
             <span className="nb-letter">{fmt(d, { weekday: 'narrow' })}</span>
             <span className="nb-num tnum">{DAYN(d)}</span>
             {kinds.length ? (
-              <span className={`nb-kinds is-${s ?? 'planned'} ${kinds.length > 1 ? 'is-two' : ''}`} aria-hidden="true">
+              // one pill, one size: a day with two sessions shows both glyphs inside it
+              <span className={`nb-kinds is-${s ?? 'planned'}`} aria-hidden="true">
                 {kinds.map((k) => {
                   const Icon = KIND_ICON[k];
                   return <Icon key={k} size={13} strokeWidth={2.4} />;
                 })}
               </span>
             ) : (
-              <span className={`nb-dot ${s ? `is-${s}` : ''}`.trim()} />
+              // no session: the slot keeps its box, so the row keeps its height
+              <span className="nb-kinds is-none" aria-hidden="true">
+                {kindsOf ? null : <span className={`nb-dot ${s ? `is-${s}` : ''}`.trim()} />}
+              </span>
             )}
           </Pressable>
         );

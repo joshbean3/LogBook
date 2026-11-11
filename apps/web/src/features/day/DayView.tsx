@@ -1,4 +1,4 @@
-import { dayKey, mondayOf, monthOf, shiftDays, type ISODate } from '@logbook/shared';
+import { mondayOf, monthOf, shiftDays, type ISODate } from '@logbook/shared';
 import { useMotionValueEvent } from 'motion/react';
 import type * as React from 'react';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
@@ -15,7 +15,7 @@ import type { ContextMenuItem } from '@/ui/ContextMenu';
 import { useLog } from '../log/useLog';
 import { useOpenCalendar } from './Calendar';
 import { DayPage, Sentence } from './DayPage';
-import { stripKinds, stripLabel } from './stripKinds';
+import { stripKinds, stripLabel, stripStatus } from './stripKinds';
 import { setLiveDate, setPagerMoving } from './live';
 import { morningLineId, morningPath } from './Hero';
 import { deferChange, recheckDeferred, setTodayActive } from './useDeferred';
@@ -33,7 +33,6 @@ const ISO = /^\d{4}-\d{2}-\d{2}$/;
 const TEST_HOOKS = typeof window !== 'undefined' && !!(import.meta.env.DEV || import.meta.env.VITE_FAKE_CLOCK);
 type TodayHooks = { date: () => string; today: () => string; setDate: (d: string) => void; renders: number; pageRenders: number };
 const hooks = (TEST_HOOKS ? ((window as unknown as { __today?: TodayHooks }).__today ??= { date: () => '', today: () => '', setDate: () => {}, renders: 0, pageRenders: 0 }) : null) as TodayHooks | null;
-const STRIP: Partial<Record<ReturnType<typeof dayKey>, StripStatus>> = { done: 'done', bonus: 'bonus', floor: 'floor', planned: 'planned', today: 'planned', missed: 'missed', skipped: 'skipped' };
 
 /**
  * Today (docs/feel.md §2, §3; build-plan §3.2 item 1): the tab root. One page element whose first content is the bar
@@ -169,7 +168,7 @@ function TodayRoot({ roll, setHeld }: { roll: React.RefObject<(to: ISODate) => v
   const titleRef = useRef<HTMLElement | null>(null);
   useEffect(() => handle.attach([stripRef.current, titleRef.current]), [handle]);
 
-  const statusOf = (d: string): StripStatus => (log.loaded(d) ? (STRIP[dayKey(log.snap, d)] ?? null) : null);
+  const statusOf = (d: string): StripStatus => (log.loaded(d) ? stripStatus(log.snap, d) : null);
   const kindsOf = (d: string) => (log.loaded(d) ? stripKinds(log.snap, d) : []);
   // two glyphs at most, but the spoken name says every kind (today-top-29)
   const labelOf = (d: string) => stripLabel(d, log.loaded(d) ? stripKinds(log.snap, d, 3) : [], statusOf(d));
