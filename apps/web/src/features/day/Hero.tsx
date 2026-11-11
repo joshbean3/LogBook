@@ -279,7 +279,8 @@ const LineText = ({ line }: { line: string }) =>
     <>
       <span className="hl-wide">Out the door</span>
       <span className="hl-narrow">Out</span>
-      {` in ${line.slice(DOOR.length)}`}
+      {/* a number keeps its unit on its line ("1 h 15 min" breaks only between them) */}
+      {` in ${line.slice(DOOR.length).replace(/ (h|min)\b/g, '\u00a0$1')}`}
     </>
   ) : (
     <>{line}</>

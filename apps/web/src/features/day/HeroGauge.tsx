@@ -60,8 +60,9 @@ const CLEAR = 8;
 
 /**
  * One line or two for the readout (layout plan 2.1 T12): the pill is measured against the bowl, at its lower corner arcs,
- * the points nearest the track. One line when they clear the inner edge by 8 px; else `.is-two`. Runs on mount, when the words
- * change, when the card resizes (the window, the text size) and once the fonts are in.
+ * the points nearest the track. One line when they clear the inner edge by 8 px; else `.is-two`; and when not even two lines
+ * clear it (a long name on two lines on a small phone), `.is-out`: under the dial. Runs on mount, when the words change,
+ * when the card resizes (the window, the text size) and once the fonts are in.
  */
 const useReadoutFit = (dialRef: React.RefObject<SVGSVGElement | null>, key: string) => {
   const ref = useRef<HTMLElement | null>(null);
@@ -81,9 +82,25 @@ const useReadoutFit = (dialRef: React.RefObject<SVGSVGElement | null>, key: stri
       const dy = Math.max(0, (p.bottom - r - d.top) / k - CY);
       return Math.hypot(dx, dy) + r / k <= INNER - CLEAR / k;
     };
+    // the one-line form wraps on its own in a card narrow for its text (large text): then it is not one line, and the two-line
+    // form breaks it at the dot instead of mid-phrase
+    const wraps = () => {
+      const t = pill.querySelector<HTMLElement>('.hw-text');
+      return !!t && t.getBoundingClientRect().height > (parseFloat(getComputedStyle(t).lineHeight) || 22) * 1.5;
+    };
     const fit = () => {
+      pill.classList.remove('is-two', 'is-out');
+      pill.style.marginTop = '';
+      if (clears() && !wraps()) return;
+      pill.classList.add('is-two');
+      if (clears()) return;
+      // a long name on two lines leaves no room in the bowl even for two lines: the pill goes under the dial, 8 below its
+      // box, on one line when the card holds it (it is still the gauge's readout, centered under the arc)
       pill.classList.remove('is-two');
-      if (!clears()) pill.classList.add('is-two');
+      pill.classList.add('is-out');
+      const gap = dial.getBoundingClientRect().bottom + CLEAR - pill.getBoundingClientRect().top;
+      pill.style.marginTop = `${Math.ceil(gap + (parseFloat(getComputedStyle(pill).marginTop) || 0))}px`;
+      if (wraps()) pill.classList.add('is-two');
     };
     fit();
     // the dial follows the card's width; the words above the pill (a long name stepping down, larger text) move it

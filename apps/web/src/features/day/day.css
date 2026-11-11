@@ -11,7 +11,8 @@
 }
 .today-root > .nb-title > .nb-sl {
   padding-top: var(--sp-2);
-  line-height: var(--lh-section);
+  /* fixed chrome: the line holds the 30 px it may grow to, inside the 44 px row */
+  line-height: clamp(32px, var(--lh-section), 36px);
 }
 
 /* one day: the sections in order, quiet never absent; the bottom padding lives inside the cur page (§3.1) */
@@ -1837,14 +1838,13 @@
    It follows the text size to the readout's 22 px and holds, so at 200 percent it never outgrows the session name (30) */
 .hg .hero-line {
   height: auto;
-  font-size: clamp(15px, var(--fs-sub), 22px);
-  line-height: clamp(20px, var(--lh-sub), 28px);
   max-width: min(100%, var(--chord));
   margin: 0;
   white-space: normal;
   overflow: visible;
   text-wrap: balance;
-  font: 500 var(--fs-sub) / var(--lh-sub) var(--sans);
+  /* (the size in one shorthand: a later shorthand used to undo the 22 px hold, so at 200 percent the line outgrew the name) */
+  font: 500 clamp(15px, var(--fs-sub), 22px) / clamp(20px, var(--lh-sub), 28px) var(--sans);
   font-variant-numeric: tabular-nums;
   color: var(--ink-2);
 }
@@ -2009,6 +2009,13 @@
 }
 .hero-when .seg-btn {
   padding-inline: var(--sp-1);
+  /* chrome: the labels follow the text size to 130 percent and hold, so the three one-word labels stay whole */
+  font-size: clamp(15px, var(--fs-sub), 19.5px);
+}
+@container card (max-width: 300px) {
+  .hero-when .seg-btn {
+    font-size: 15px; /* brand-ok: the narrowest card holds "Afternoon" at 15 only */
+  }
 }
 /* a narrow card: the words alone (the glyphs repeat them) */
 @container card (max-width: 21rem) {

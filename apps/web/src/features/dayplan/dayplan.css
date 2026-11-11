@@ -296,6 +296,17 @@
   color: var(--accent-text);
   white-space: nowrap;
 }
+/* a narrow phone: the ask takes its own line under whose goal it is, so the goal is not cut to two words */
+@media (max-width: 359px) {
+  .pd-owed-ask {
+    grid-row: 3;
+    grid-column: 1;
+  }
+}
+html[data-text-xl] .pd-owed-ask {
+  grid-row: 3;
+  grid-column: 1;
+}
 /* Close yesterday: a quiet row, its words in the title's column */
 .pd-yrow.pressable {
   display: flex;
