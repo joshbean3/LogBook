@@ -38,8 +38,9 @@ export const RINGS = [
 /* ---------- easing ---------- */
 export type Bezier = readonly [number, number, number, number];
 /**
- * The climb: one long ease. It comes over the hill at a steady pace (about 120 px a second) and slows all the way to rest,
- * like something buoyant. No linear() spring: WebKit only hands cubic-bezier keyframes to the compositor.
+ * The climb: one long ease. It gathers speed behind the hill, comes over it at its fastest (about 150 px a second for a
+ * 110 px Orb) and slows all the way to rest, like something buoyant. No linear() spring: WebKit only hands cubic-bezier
+ * keyframes to the compositor.
  */
 export const RISE_EASE: Bezier = [0.32, 0.42, 0.22, 1];
 export const cssBezier = (b: Bezier) => `cubic-bezier(${b.join(', ')})`;
@@ -114,7 +115,7 @@ export interface SunrisePlan {
   light: Span;
   /** the rings, in the order they are born (outermost first) */
   rings: RingPlan[];
-  /** the frame the Orb's bottom passes the near hill's crest */
+  /** the frame the whole disc has left the near hill's line (its lowest point CLEAR_GAP above the crest) */
   beat: number;
   /** the bloom on the beat, then the wordmark and the line */
   bloom: Span;
