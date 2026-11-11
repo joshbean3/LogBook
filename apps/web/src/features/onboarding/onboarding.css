@@ -463,7 +463,8 @@
 /* ---------- run days: one contiguous seven-segment control (layout standard 3.2 and 6.7; plan S4): one capsule track,
    equal segments with no gaps, so it reads as one control; a run day is a Sky thumb inside the track, the long run a Deep
    Sky ring inside its thumb with LONG under it. The segments' hit boxes touch, so every tap lands on a day. At 390 a
-   segment is 47 wide; under 360 the track reaches 8 from the card's edge so the seven still fit (39 at 320) ---------- */
+   segment is 46 wide and at 374 exactly 44. Narrower than that, seven in a row fall under the 44 pt target (42 at 360,
+   39 at 320), so they sit in two rows, four and three (64 wide at 320), each row on its own track ---------- */
 .ob-days {
   position: relative;
   display: grid;
@@ -478,9 +479,49 @@
   background: var(--surface-2);
   pointer-events: none;
 }
-@media (max-width: 359px) {
+@media (max-width: 373px) {
+  /* eight half-columns: a day spans two, so the second row's three sit centered under the first row's four. The tracks
+     are grid items in the rows themselves, so they stay under their days whatever height the text size gives a row */
   .ob-days {
-    margin-inline: calc(var(--sp-2) - var(--pad-card));
+    grid-template-columns: repeat(8, minmax(0, 1fr));
+    row-gap: var(--sp-2);
+  }
+  .ob-days::before,
+  .ob-days::after {
+    content: '';
+    position: static;
+    align-self: start;
+    height: 44px;
+    border-radius: var(--r-pill);
+    background: var(--surface-2);
+    pointer-events: none;
+  }
+  .ob-days::before {
+    grid-area: 1 / 1 / 2 / 9;
+  }
+  .ob-days::after {
+    grid-area: 2 / 2 / 3 / 8;
+  }
+  .ob-day:nth-child(1) {
+    grid-area: 1 / 1 / 2 / 3;
+  }
+  .ob-day:nth-child(2) {
+    grid-area: 1 / 3 / 2 / 5;
+  }
+  .ob-day:nth-child(3) {
+    grid-area: 1 / 5 / 2 / 7;
+  }
+  .ob-day:nth-child(4) {
+    grid-area: 1 / 7 / 2 / 9;
+  }
+  .ob-day:nth-child(5) {
+    grid-area: 2 / 2 / 3 / 4;
+  }
+  .ob-day:nth-child(6) {
+    grid-area: 2 / 4 / 3 / 6;
+  }
+  .ob-day:nth-child(7) {
+    grid-area: 2 / 6 / 3 / 8;
   }
 }
 .ob-day {
