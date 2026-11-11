@@ -1,5 +1,5 @@
 import { recallDay, type RecallItem } from '@logbook/shared';
-import { Bell, ChevronRight, Copy, Download, EyeOff, Loader2, Share, Shuffle } from 'lucide-react';
+import { Bell, Copy, Download, EyeOff, Loader2, Share, Shuffle } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
 import { useEffect, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
@@ -92,7 +92,7 @@ const ShareRecall = ({ summary, when }: { summary: string; when: string }) => {
  * all; it fades in once there is one, and a change of item cross-fades in place.
  *
  * The reminder is Claude's line only when the account has said yes to that (the recall switch, Contract 1; the server
- * holds the same switch). Then it is marked "Written by AI", with the entry itself one tap away. With the switch off the
+ * holds the same switch). Then it is marked "Written by AI", and the line itself opens the entry. With the switch off the
  * card shows the plain line made here from the entry's own words. The caption carries the date only when the line does
  * not already open with it (say it once).
  */
@@ -208,30 +208,22 @@ export const RecallCard = ({ today, onOpenDay }: { today: string; onOpenDay: (da
                     <PressButton press="dim" className="recall-text" onClick={() => open(item)} aria-label={`${lineOf(item)} ${item.kind === 'learning' ? 'Open What I learned' : 'Open that day'}`}>
                       <span className="recall-quote">{lineOf(item)}</span>
                     </PressButton>
-                    {byAi ? (
-                      <p className="recall-ai">
-                        <span className="recall-ai-mark">Written by AI</span>
-                        <PressButton press="dim" className="recall-ai-open" onClick={() => open(item)}>
-                          {item.kind === 'learning' ? 'See the learning' : 'Read the entry'}
-                          <ChevronRight size={16} aria-hidden="true" />
-                        </PressButton>
-                      </p>
-                    ) : null}
+                    {byAi ? <p className="recall-ai">Written by AI</p> : null}
                   </motion.div>
                 </AnimatePresence>
               </div>
             </div>
             <div className="recall-tools">
               <PressButton press="dim" className={`recall-tool is-boost ${item.boosted ? 'is-on' : ''}`} aria-pressed={item.boosted} onClick={() => boost(item)}>
-                <Bell size={16} aria-hidden="true" fill={item.boosted ? 'currentColor' : 'none'} />
+                <Bell size={18} aria-hidden="true" fill={item.boosted ? 'currentColor' : 'none'} />
                 Remind me more
               </PressButton>
               <PressButton press="dim" className="recall-tool" onClick={() => shuffle(item)} disabled={busy} aria-busy={another.isPending || undefined}>
-                {another.isPending ? <Loader2 size={16} aria-hidden="true" className="recall-spin" /> : <Shuffle size={16} aria-hidden="true" />}
+                {another.isPending ? <Loader2 size={18} aria-hidden="true" className="recall-spin" /> : <Shuffle size={18} aria-hidden="true" />}
                 Another
               </PressButton>
               <PressButton press="dim" className="recall-tool" onClick={() => hide(item)} disabled={busy}>
-                <EyeOff size={16} aria-hidden="true" />
+                <EyeOff size={18} aria-hidden="true" />
                 Hide
               </PressButton>
             </div>

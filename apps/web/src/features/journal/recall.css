@@ -14,12 +14,14 @@
   overflow: hidden;
   isolation: isolate;
   border-radius: var(--r-card);
+  /* the base card's transparent 1 px edge would let Paper paint a rim around the wash; the edge stays for Increase Contrast */
+  background-clip: padding-box;
 }
 
-/* ---------- the header: caption and Share on one row, the reminder 4 under it ---------- */
+/* ---------- the header: caption and Share on one row, the reminder 8 under it (layout standard 6.9) ---------- */
 .recall-head {
   display: grid;
-  gap: var(--sp-1);
+  gap: var(--sp-2);
   min-width: 0;
   padding: var(--sp-3) var(--pad-card) var(--pad-card);
   background: linear-gradient(180deg, var(--haze), var(--cloud));
@@ -44,6 +46,8 @@
   place-items: center;
   width: 40px;
   height: 40px;
+  /* a circle: the pressable floor of 44 would make it an oval; the ::after gives the 44 target */
+  min-height: 0;
   margin-right: calc(-1 * var(--sp-1));
   padding: 0;
   border: 0;
@@ -98,37 +102,20 @@
   overflow-wrap: break-word;
 }
 
-/* the assistant's line says so, with the entry one tap away. On the wash the link is Night Ink 600 with a chevron:
-   Deep Sky on Haze is large text only (layout standard 6.9) */
+/* the assistant's line says so, in the verbs' size so the card keeps three (11, 22, 15). No link on the wash: the quote
+   itself opens the entry (layout standard 6.9: links on Paper only; 8.15: an action offered once) */
 .recall-ai {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 0 var(--sp-3);
-  margin: calc(-1 * var(--sp-2)) 0 calc(-1 * var(--sp-3));
+  margin: 0;
   color: var(--ink-2);
-  font: 500 var(--fs-foot) / var(--lh-foot) var(--sans);
-}
-.recall-ai-open {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--sp-1);
-  min-height: var(--hit);
-  padding: 0;
-  border: 0;
-  background: none;
-  color: var(--ink);
-  font: 600 var(--fs-foot) / var(--lh-foot) var(--sans);
-  -webkit-tap-highlight-color: transparent;
+  font: 500 var(--fs-sub) / var(--lh-sub) var(--sans);
 }
 
-/* ---------- the verbs: quiet Deep Sky words on Paper, spread across the card's text width, 44 tall ---------- */
+/* ---------- the verbs: quiet Deep Sky words on Paper, one row 12 apart, 44 tall (layout standard 6.9) ---------- */
 .recall-tools {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-start;
   gap: 0 var(--sp-3);
   padding: var(--sp-1) var(--pad-card);
 }
@@ -168,10 +155,15 @@
 .recall[aria-busy='true'] .recall-text {
   opacity: 0.6;
 }
-/* a small phone keeps the three on one line: only the bell keeps its glyph (it carries the on state) */
+/* a small phone keeps the three on one line: only the bell keeps its glyph (it carries the on state), and the words take
+   the row's width with at least 8 between them, which comes out near 12 at 320 */
 @media (max-width: 359px) {
   .recall-tool:not(.is-boost) svg {
     display: none;
+  }
+  .recall-tools {
+    justify-content: space-between;
+    column-gap: var(--sp-2);
   }
 }
 .recall-spin {
