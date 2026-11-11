@@ -323,12 +323,21 @@ export const zTemplateInput = z
     longRunDay: zWeekday,
     /** The athlete's current weekly miles: week 1's volume. */
     weeklyMiles: z.number().min(3).max(150),
+    /**
+     * The most miles a week the block may build to, when the athlete names one ("peak at 35"). It takes the place of the
+     * goal's own ceiling; the build still grows at its usual rate and never past what the run days can hold. Left out or
+     * null: the block's own ceiling.
+     */
+    peakMiles: z.number().min(3).max(150).nullable().optional(),
     raceDate: zDate.nullable().optional(),
   })
   .refine((t) => !t.raceDate || t.raceDate > t.startDate, { message: 'raceDate must be after startDate', path: ['raceDate'] });
 export type TemplateInput = z.input<typeof zTemplateInput>;
-/** `POST /plans/template`: a template, and whether to clear future planned (not done) sessions in its window first. */
-export const zTemplateRequest = zTemplateInput.and(z.object({ replace: z.boolean().optional() }));
+/**
+ * `POST /plans/template`: a template, whether to clear future planned (not done) sessions in its window first, and
+ * whether the assistant shaped these answers in the builder (`assisted`: the block's `source` records it).
+ */
+export const zTemplateRequest = zTemplateInput.and(z.object({ replace: z.boolean().optional(), assisted: z.boolean().optional() }));
 
 // ---------- onboarding and account ----------
 /** A clock time as minutes after midnight, or `HH:MM`. */

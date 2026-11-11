@@ -125,6 +125,12 @@ export interface Template {
 
 export class TemplateError extends Error {}
 
+/** `source` of a block the plan builder wrote (`POST /plans/template`), and of one whose answers the assistant shaped there. */
+export const TEMPLATE_SOURCE = 'template';
+export const TEMPLATE_ASSISTED_SOURCE = 'template-assisted';
+/** A block the plan builder wrote from the builder's answers, with or without the assistant shaping them. */
+export const isTemplateSource = (source: string | null | undefined): boolean => source === TEMPLATE_SOURCE || source === TEMPLATE_ASSISTED_SOURCE;
+
 const r05 = (v: number) => Math.round(v * 2) / 2;
 const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
 
@@ -316,6 +322,8 @@ const allocate = (p: WeekPlan, goal: Goal): TemplateSession[] => {
  *   12 mi or as long as that week's long run.
  * - Weekly miles that the run days cannot hold at those ceilings are refused with the number of days they need
  *   ("80 miles a week needs at least 7 run days."), and the build never grows past what the days can hold.
+ * - With `peakMiles`: the build stops there instead of at the goal's ceiling (never under week 1, never past what the
+ *   run days hold). The growth rate does not change, so a peak the weeks cannot reach is not reached.
  * - With `raceDate`: the block ends on race day, the last 1 (5K, 10K), 2 (half) or 3 (marathon) weeks taper,
  *   race week keeps short easy runs (strides on the quality day, a 3 mi shakeout the day before), no long run, and the
  *   race itself is a `Race` session.
@@ -350,8 +358,11 @@ export const buildTemplate = (input: TemplateInput): Template => {
     const need = runDaysNeeded(input.goal, startVol);
     throw new TemplateError(need ? `${num(startVol)} miles a week needs at least ${need} run days.` : `${num(startVol)} miles a week is more than this plan can hold. Try ${num(weekCapacity(input.goal, 7))} or less.`);
   }
-  // the build stops at the goal's ceiling, at 1.6x / +12 mi of the start, and at what the run days can hold
-  const cap = Math.min(hold, Math.max(startVol, Math.min(spec.peakCap, Math.max(startVol * 1.6, startVol + 12))));
+  // the build stops at the goal's ceiling, at 1.6x / +12 mi of the start, and at what the run days can hold. A peak the
+  // athlete named takes the place of the first two: the weekly growth is the same, so a peak the weeks cannot reach is
+  // simply not reached
+  const ceiling = input.peakMiles != null ? r05(input.peakMiles) : Math.min(spec.peakCap, Math.max(startVol * 1.6, startVol + 12));
+  const cap = Math.min(hold, Math.max(startVol, ceiling));
   const taperN = raceDate ? Math.min(spec.taperWeeks, Math.max(1, W - 1)) : 0;
   const plans: Array<{ week: number; kind: TemplateWeekKind; target: number }> = [];
   let build = startVol;
