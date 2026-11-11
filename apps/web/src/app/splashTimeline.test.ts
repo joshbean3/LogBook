@@ -58,7 +58,7 @@ describe('the opening sunrise', () => {
     // the words come on the beat and are read for a moment
     expect(plan.word.at).toBe(plan.beat);
     expect(plan.line.at).toBeGreaterThan(plan.word.at);
-    expect(plan.exit.at - (plan.line.at + plan.line.for)).toBeGreaterThanOrEqual(300);
+    expect(plan.exit.at - (plan.line.at + plan.line.for)).toBeGreaterThanOrEqual(400);
     // the Orb's pale underlight is in before its sunrise light is
     expect(plan.first.at).toBeLessThan(plan.light.at);
     expect(plan.light.at + plan.light.for).toBeGreaterThanOrEqual(plan.beat);
