@@ -33,6 +33,9 @@ add('brand-art', [
   ['--hill-2', '#4FA9DB', 'Middle hill.', null],
   ['--hill-3', '#0A6CA6', 'Far hill (Deep Sky).', null],
   ['--grain-opacity', '0.4', 'Paper grain over brand surfaces (35 to 50 percent, multiply). Never on app cards or chrome.', null],
+  ['--splash-glow', 'radial-gradient(closest-side, #FFB680 0, rgba(255, 182, 128, 0.82) 22%, rgba(255, 182, 128, 0.5) 42%, rgba(255, 182, 128, 0.2) 64%, rgba(255, 182, 128, 0.05) 84%, rgba(255, 182, 128, 0))', 'Sunrise splash: the horizon glow, 680 x 340, centered on the crest under the Orb, at 85 percent.', null],
+  ['--splash-halo', 'radial-gradient(closest-side, rgba(255, 182, 128, 0.5) 30%, rgba(255, 182, 128, 0.3) 52%, rgba(255, 182, 128, 0.1) 76%, rgba(255, 182, 128, 0))', "Sunrise splash: the Orb's own light on the sky around it, 3.2 D across.", null],
+  ['--splash-bloom', 'radial-gradient(closest-side, #FFF1E4 0, rgba(255, 214, 180, 0.8) 24%, rgba(255, 182, 128, 0.42) 46%, rgba(255, 182, 128, 0.14) 72%, rgba(255, 182, 128, 0))', 'Sunrise splash: one breath of light on the frame the Orb clears the crest, 4 D across, to 90 percent and away.', null],
 ]);
 add('surfaces-and-ink', [
   ['--bg', '#EAF5FC', 'App ground (Cloud).', '#f3f8fb'],
@@ -239,9 +242,7 @@ add('motion', [
   ['--dur-needle', '480ms', 'Gauge pointer sweep, then --dur-settle with at most 2% overshoot.', null],
   ['--dur-settle', '300ms', 'Gauge pointer settle.', null],
   ['--tick-stagger', '6ms', 'Gauge ticks draw in, capped at 240ms total. First view only.', null],
-  ['--dur-sunrise', '900ms', 'Splash on the first open of the day: the Orb rises 24px while its underlight warms.', null],
-  ['--dur-title-in', '200ms', 'Splash wordmark fade after the rise.', null],
-  ['--dur-launch', '300ms', 'Later launches: fade only.', null],
+  ['--dur-launch', '300ms', "The quiet opening (the same session opening again) and Reduce Motion's splash crossfade. The sunrise splash itself is 2.8 s: SPLASH_MS in apps/web/src/app/splashTimeline.ts sets it and derives its whole schedule.", null],
   ['--dur-dawn', '600ms', 'The dawn wash fades in on the first open after 4 a.m. local. Once a day.', null],
   ['--orb-breath', '4000ms', 'Idle Orb: scale 1 to 1.015 and back.', null],
   ['--orb-orbit', '1200ms', 'Thinking Orb: one turn of the Apricot arc.', null],
@@ -255,7 +256,7 @@ add('orb', [
   ['--orb-fold', '28px', 'The Orb inside the 48 px fold button: gloss tier, still.', null],
   ['--orb-dock', '28px', 'The Orb in the ask bar: 28 px, the smallest gloss size.', '22px'],
   ['--orb-assistant', '56px', 'Assistant empty state.', null],
-  ['--orb-splash', '96px', 'Splash.', null],
+  ['--orb-splash', 'clamp(96px, 13svh, 120px)', 'Splash: the sun. 96 on a short phone, 110 at 844 tall, 120 on the tallest.', '96px'],
 ]);
 
 const IC = [
