@@ -1,8 +1,9 @@
 import { assess, clock, counts, e1rm, isAutoStatus, isFastRun, isHardRun, isRace, floorFor, fmtDate, label, METERS_PER_MILE, mi, mondayOf, monthOf, MORNING_DEFAULTS, num, sessionKey, sessionStatus, sessionWord, shiftDays, STATUS_WORDS, tone, weekTotals, zoneOf, type Activity, type Lap, type Session, type StatusKey } from '@logbook/shared';
-import { AlarmClock, ArrowRightLeft, Check, ChevronRight, Heart, MoreHorizontal, Pencil, Share2, SkipForward } from 'lucide-react';
+import { ArrowRightLeft, Check, ChevronRight, Heart, MoreHorizontal, Pencil, Share2, SkipForward } from 'lucide-react';
 import { useNav } from '@/app/NavController';
 import { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import { useContextMenu } from '@/ui/ContextMenu';
+import { BrandIcon } from '@/ui/icons';
 import { Button } from '@/ui/primitives';
 import { useSheet, type SheetSpec } from '@/ui/Sheet';
 import { clockParts, dayClock } from '../day/dayWords';
@@ -488,7 +489,7 @@ const SessionSheet = ({ date, id }: { date: string; id: string }) => {
           {c.skip || skipped ? <ActRow icon={<SkipForward size={18} />} title={skipped ? 'Put it back' : 'Skip'} sub={skipped ? 'Back on the plan' : 'The week still counts'} on={skipped} onPress={() => act.skip(s)} right={<span />} /> : null}
           <ActRow icon={<ArrowRightLeft size={18} />} title="Move" onPress={() => act.move(date, s, true)} right={chev} />
           <ActRow icon={<Pencil size={18} />} title="Edit" onPress={() => act.edit(date, s, true)} right={chev} />
-          {morning ? <ActRow icon={<AlarmClock size={18} />} title="Morning schedule" sub="From waking to the door" onPress={toMorning} right={chev} /> : null}
+          {morning ? <ActRow icon={<BrandIcon name="wake" size={18} />} title="Morning schedule" sub="From waking to the door" onPress={toMorning} right={chev} /> : null}
         </div>
       )}
       {runs.length && evidence ? <SessionActual date={date} sess={s} runs={runs} log={log} prLap={recordLap(runs, records)} /> : null}

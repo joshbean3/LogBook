@@ -21,7 +21,10 @@
   align-content: center;
   gap: var(--sp-2);
   box-sizing: border-box;
-  padding: 0 var(--sp-1);
+  /* text at the page's gutter, as the Schedule header and the cards below (layout 8.7); the box reaches 8 past it on
+     each side so the clip below keeps the end stops' rings and the live node whole */
+  margin-inline: calc(-1 * var(--sp-2));
+  padding: 0 var(--sp-2);
   /* WP2's line places its now dot by translating a full-width, invisible track by p of its width: the card clips it as the
      hero's card does, so the track never sits past the screen's edge (integration: WP1 #19 at 320 after the line) */
   overflow: clip;
