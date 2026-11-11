@@ -1,5 +1,5 @@
 import { linkTitle, type Link } from '@logbook/shared';
-import { ArrowUpRight, Bookmark, ChevronRight, Copy, RotateCw, Sparkles, X } from 'lucide-react';
+import { ArrowUpRight, BookOpen, Bookmark, ChevronRight, Copy, RotateCw, X } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
 import { useLayoutEffect, useRef } from 'react';
 import { usePick, useReadsMutations } from '@/api/queries';
@@ -55,7 +55,7 @@ const labelOf = (p: Link, site: string) => `${linkTitle(p.title, p.url)}. ${site
 /** A slim card for when there is no pick to show: one sentence, and a verb only when there is something to do. */
 const Slim = ({ children, verb, busy }: { children: React.ReactNode; verb?: React.ReactNode; busy?: boolean }) => (
   <motion.section className="rp-slim" aria-label="Today’s pick" aria-busy={busy || undefined} initial={false} layout="position" transition={springs.settle}>
-    <Sparkles size={18} className="rp-slim-icon" aria-hidden="true" />
+    <BookOpen size={18} className="rp-slim-icon" aria-hidden="true" />
     <div className="rp-slim-text">{children}</div>
     {verb}
   </motion.section>
