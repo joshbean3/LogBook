@@ -158,12 +158,20 @@
 .as-starter-title {
   font: 600 var(--fs-row) / var(--lh-row) var(--sans);
   color: var(--ink);
-  white-space: nowrap;
 }
 .as-starter-sub {
   font: 400 var(--fs-sub) / var(--lh-sub) var(--sans);
   color: var(--ink-2);
+}
+/* one line each at the default size; with Larger Text the words wrap inside the card instead of running out of it */
+.as-starter-title,
+.as-starter-sub {
   white-space: nowrap;
+}
+:root[data-text-xl] .as-starter-title,
+:root[data-text-xl] .as-starter-sub {
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 
 /* ---------- turns ---------- */
@@ -331,7 +339,8 @@
 .as-phase {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  /* 12: the thinking arc sits 6 px outside the 28 px sphere, so the words keep 6 px clear of it */
+  gap: 12px;
   min-height: 28px;
   margin: 0;
   padding: 0;
@@ -1116,8 +1125,8 @@
   /* the pair still shares a row on the narrowest phone */
   padding-inline: 8px;
 }
-/* Not now: the secondary (Paper with its edge) beside the one Sky Apply */
-.as-proposal-foot .btn.quiet {
+/* Not now: the secondary (Paper with its edge) beside the one Sky Apply; the card's class outranks :root .btn.quiet */
+.as-proposal .as-proposal-foot .btn.quiet {
   padding: 0 16px;
   border-color: var(--edge);
   background: var(--surface);

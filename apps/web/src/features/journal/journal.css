@@ -310,7 +310,8 @@ textarea.jtext:focus {
   margin: 0;
   width: 100%;
   display: grid;
-  grid-template-columns: 40px minmax(0, 1fr);
+  /* 40 px at the default size, wider with Larger Text, so the day's number never runs into its words */
+  grid-template-columns: 2.5rem minmax(0, 1fr);
   gap: 12px;
   padding: 14px var(--gutter);
   min-height: 60px;

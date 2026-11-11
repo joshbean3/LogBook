@@ -209,7 +209,8 @@
 }
 /* the count inside the disc, a heart on a Favorite's: the disc's tone is never the only signal (guide 3.3) */
 .jcal-disc .lb-disc-n {
-  font-size: var(--fs-caps);
+  /* grows with Larger Text until it fills the disc (the disc is a fixed mark), never under the 11 px floor */
+  font-size: max(11px, min(var(--fs-caps), calc(var(--s) * 0.62)));
 }
 .jcal-disc.is-fav {
   position: relative;
@@ -412,7 +413,7 @@
   box-shadow: inset 0 0 0 1.5px var(--coin-ring);
 }
 .jday-orb .jcal-disc .lb-disc-n {
-  font-size: var(--fs-sub);
+  font-size: min(var(--fs-sub), calc(var(--s) * 0.55));
 }
 
 .jday-list {
