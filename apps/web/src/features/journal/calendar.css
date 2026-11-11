@@ -140,7 +140,11 @@
 .jcal-dow {
   margin-inline: calc(-1 * var(--sp-3));
 }
-/* a month row is 48 tall and the whole row is the cell's target */
+/* a month row is 48 tall and the whole row is the cell's target; 8 between weeks, so a day's disc sits with its own
+   numeral, never nearer the next week's */
+.jcal-grid.is-month {
+  row-gap: var(--sp-2);
+}
 .jcal-grid.is-month .jcal-cell {
   min-height: 48px;
   gap: 2px;

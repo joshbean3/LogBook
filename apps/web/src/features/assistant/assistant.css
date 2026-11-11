@@ -11,6 +11,8 @@
 .sheet:has(.as-head-actions) .sheet-head {
   /* two equal 88 pt sides (Close; the History / New capsule), so the chat's title sits on the sheet's center line */
   grid-template-columns: 88px minmax(0, 1fr) 88px;
+  /* 4, not 8: "New chat" keeps the card-title size between the two sides at 320 */
+  column-gap: var(--sp-1);
 }
 .sheet:has(.as-head-actions) .sheet-titles,
 .sheet:has(.as-head-actions) .sheet-titles-in {

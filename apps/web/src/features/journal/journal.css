@@ -343,7 +343,7 @@ textarea.jsheet-text {
 /* the hairline starts where the words do, past the date gutter; a day's later entries keep the gutter empty, so the day
    still reads as one */
 .group.jtl > * + *::before {
-  left: calc(var(--sp-4) + var(--gutter-date) + var(--sp-3));
+  left: calc(var(--sp-4) + 2.5rem + var(--sp-3));
   z-index: 2;
 }
 .lrow.jtl-row {
