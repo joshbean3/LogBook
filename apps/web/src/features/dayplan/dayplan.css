@@ -55,7 +55,7 @@
   border-radius: var(--r-icon);
   background: var(--haze);
   color: var(--deep-sky);
-  transition: background-color var(--dur-color);
+  transition: background-color var(--dur-color) var(--ease-out);
 }
 .pd-goal.is-done .pd-node {
   border-radius: 50%;
@@ -72,7 +72,7 @@
   min-width: 0;
   padding: var(--sp-2) var(--sp-4);
   text-align: left;
-  transition: background-color var(--dur-color);
+  transition: background-color var(--dur-color) var(--ease-out);
 }
 /* the goal row: tile, the words 12 after it, the ring trailing; 64 tall with its subtitle */
 .pd-goal-in {
@@ -149,8 +149,9 @@
   font: 400 var(--fs-row) / var(--lh-row) var(--sans);
   color: var(--ink-2);
 }
-/* yesterday's goal carried over in one tap, a quiet line under the prompt, in the words' column */
-.pd-goalgrp > .carry.pd-carry {
+/* yesterday's goal carried over in one tap, a quiet line under the prompt, in the words' column. (Stream 2 turns CarryOver
+   into a kit row with its own tile and 16 px padding, which already starts its words at 60: this indent is not for it) */
+.pd-goalgrp > .carry.pd-carry:not(.k-row) {
   margin-top: calc(-1 * var(--sp-2));
   padding: 0 var(--sp-4) var(--sp-2) calc(var(--sp-4) + var(--tile-ic) + var(--sp-3));
 }
@@ -355,8 +356,9 @@ html[data-text-xl] .pd-owed-ask {
   font-size: var(--fs-foot);
   line-height: var(--lh-foot);
 }
-/* the number of a row (layout plan 2.1 T3): the row's 32 px Haze tile with an Inter 13 numeral, even figures, for the three in
-   front; outlined after; blank once done. Not Sky: on Today a Sky fill means done or the one primary */
+/* the number of a row (layout plan 2.1 T3): the row's 32 px Haze tile with an Inter 600 15 numeral, even figures, for the
+   three in front; outlined after; blank once done. 15, not the plan's 13: the card keeps three sizes (17, 15 and the flags'
+   11; layout standard 4.4). Not Sky: on Today a Sky fill means done or the one primary */
 .pd-rank {
   flex: none;
   display: grid;
@@ -367,11 +369,11 @@ html[data-text-xl] .pd-owed-ask {
   background: var(--haze);
   color: var(--ink);
   /* a numeral in a fixed tile: it grows with the text size only as far as the tile holds */
-  font: 600 clamp(13px, 0.8125rem, 17px) / 1 var(--sans);
+  font: 600 clamp(15px, var(--fs-sub), 17px) / 1 var(--sans);
   font-variant-numeric: tabular-nums;
   transition:
-    background-color var(--dur-color),
-    color var(--dur-color);
+    background-color var(--dur-color) var(--ease-out),
+    color var(--dur-color) var(--ease-out);
 }
 .pd-card.is-done .pd-rank.is-blank {
   background: none;
@@ -419,6 +421,10 @@ html[data-text-xl] .pd-owed-ask {
   right: 0;
   height: 1px;
   background: var(--line);
+}
+/* the fold as the list's first row (everything done and folded): the group's own hairline is above it */
+.pd-zone > .pd-rest-toggle:first-child::after {
+  display: none;
 }
 .pd-zone > .pd-rest-toggle:active {
   background: var(--surface-2);
@@ -477,8 +483,10 @@ html[data-text-xl] .pd-owed-ask {
   font: 500 var(--fs-sub) / var(--lh-sub) var(--sans);
   color: var(--ink-2);
 }
+/* the chevron at the trailing edge, as on Close yesterday: the card's two link rows end in the same place */
 .pd-all.pressable > svg {
   flex: none;
+  margin-left: auto;
 }
 
 /* the rows: a zone the drag measures (its cards' offsets), hairlines from the words */
@@ -524,9 +532,9 @@ html[data-text-xl] .pd-owed-ask {
   -webkit-user-select: none;
   -webkit-touch-callout: none;
   transition:
-    background-color var(--dur-color),
+    background-color var(--dur-color) var(--ease-out),
     transform var(--dur-settle) var(--ease-out),
-    opacity var(--dur-settle);
+    opacity var(--dur-settle) var(--ease-out);
 }
 .pd-card-in {
   display: flex;
@@ -580,7 +588,7 @@ html[data-text-xl] .pd-owed-ask {
   color: var(--ink);
   font: 400 var(--fs-row) / var(--lh-row) var(--sans);
   overflow-wrap: anywhere;
-  transition: color var(--dur-color);
+  transition: color var(--dur-color) var(--ease-out);
 }
 .pd-card-text .prio,
 .pd-card-meta .prio {
@@ -703,8 +711,8 @@ html[data-text-xl] .pd-owed-ask {
     var(--shadow-float);
   transition:
     transform var(--dur-fast) var(--ease-out),
-    background-color var(--dur-color),
-    color var(--dur-color);
+    background-color var(--dur-color) var(--ease-out),
+    color var(--dur-color) var(--ease-out);
 }
 .pd-dock.is-over {
   transform: scale(1.08);

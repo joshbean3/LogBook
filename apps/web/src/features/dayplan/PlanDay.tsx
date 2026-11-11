@@ -349,7 +349,8 @@ export const PlanDay = memo(function PlanDay({ date, today, yesterday }: { date:
         meta={
           total ? (
             <span className={`pd-count ${done === total ? 'is-all' : ''}`} aria-label={`${done} of ${total} done`}>
-              {done === total ? `All ${total} done` : `${done} of ${total} done`}
+              {/* "All 1 done" reads oddly: one to-do says "1 of 1 done" (layout plan 2.1 T14) */}
+              {done === total && total > 1 ? `All ${total} done` : `${done} of ${total} done`}
             </span>
           ) : null
         }
@@ -421,7 +422,7 @@ const GoalCard = ({ date, today, goal, week, editable, target, dragging }: { dat
   }, [goal?.status, goal]);
   const tile = (
     <span className="pd-node is-goal" aria-hidden="true">
-      <Target size={18} strokeWidth={2.2} />
+      <Target size={18} strokeWidth={1.75} />
     </span>
   );
   // a day that is over with no goal: said once, nothing to set
@@ -553,7 +554,7 @@ const Focus = ({ cards, drag, api, date, today, editable }: { cards: Card[]; dra
   const fold = !folded ? null : !restOpen ? (
     <button key="pd:fold" type="button" className={`pd-rest-toggle ${rest ? '' : 'is-done-only'}`} style={{ gridRow: shift(grid.foldRow) }} onClick={toggleRest} aria-expanded={false} aria-label={`Show ${[rest ? `${rest} more` : '', done ? `${done} done` : ''].filter(Boolean).join(' and ')}`}>
       <span className="pd-rest-words">{[rest ? `${rest} more` : '', done ? `${done} done` : ''].filter(Boolean).join(' · ')}</span>
-      <ChevronDown size={18} strokeWidth={2.2} aria-hidden="true" />
+      <ChevronDown size={18} strokeWidth={1.75} aria-hidden="true" />
     </button>
   ) : rest ? (
     <span key="pd:fold" className="pd-rest-label" style={{ gridRow: shift(grid.foldRow) }}>
@@ -578,7 +579,7 @@ const Focus = ({ cards, drag, api, date, today, editable }: { cards: Card[]; dra
         {grid.hideRow ? (
           <button type="button" className="pd-rest-toggle is-open" style={{ gridRow: shift(grid.hideRow) }} onClick={toggleRest} aria-expanded={true}>
             <span className="pd-rest-words">{done && !rest ? 'Fold away what’s done' : 'Fold the rest away'}</span>
-            <ChevronDown size={18} strokeWidth={2.2} aria-hidden="true" />
+            <ChevronDown size={18} strokeWidth={1.75} aria-hidden="true" />
           </button>
         ) : null}
       </div>

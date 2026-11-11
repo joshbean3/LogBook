@@ -96,7 +96,7 @@
 }
 /* a numeral initial at the letters' size, Inter 600 17 (guide 6.6; layout plan 2.1 T6: one Inter size fewer on Today) */
 .orbs.is-grid .orb-initial.is-digit {
-  font-size: clamp(17px, 1.0625rem, 22px);
+  font-size: clamp(17px, var(--fs-row), 22px);
 }
 .orbs.is-grid .orb-initial.is-emoji {
   font-size: clamp(18px, 1.125rem, 24px);
