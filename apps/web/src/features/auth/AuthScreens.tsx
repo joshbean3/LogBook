@@ -51,7 +51,7 @@ export const SiteLink = ({ href, children, className = '' }: { href: string; chi
  * The black screen with the halo rising from the bottom (once, as the screen arrives). With no title it is the quiet
  * stand-in while the status arrives: no spinner, nothing moves.
  */
-const Frame = ({ title, sub, children, foot, back, busy, notice }: { title?: string; sub?: string; children?: React.ReactNode; foot?: React.ReactNode; back?: () => void; /** a request is out: Back waits for it */ busy?: boolean; /** one line above the title (why the person is here) */ notice?: string | null }) => {
+const Frame = ({ title, sub, children, foot, back, busy, notice, question }: { title?: string; sub?: string; children?: React.ReactNode; foot?: React.ReactNode; back?: () => void; /** a request is out: Back waits for it */ busy?: boolean; /** one line above the title (why the person is here) */ notice?: string | null; /** a question step (the email, a password): Fraunces 26, like every question in setup (layout standard 2.11, 4.1) */ question?: boolean }) => {
   const reduce = useReducedMotion();
   // from the promise (/start): the same lit surface, so the halo holds still and only the form rises
   const fromStart = (useLocation().state as { from?: string } | null)?.from === 'start';
@@ -78,7 +78,7 @@ const Frame = ({ title, sub, children, foot, back, busy, notice }: { title?: str
               {notice}
             </p>
           ) : null}
-          <h1 className="auth-title display">{title}</h1>
+          <h1 className={`auth-title display ${question ? 'is-question' : ''}`}>{title}</h1>
           {sub ? <p className="auth-sub">{sub}</p> : null}
           {children}
           {foot ? <div className="auth-foot">{foot}</div> : null}
@@ -96,14 +96,15 @@ const AuthField = ({
   type = 'text',
   reveal,
   inputRef,
+  hideLabel,
   ...input
-}: { label: string; error?: string | null; hint?: string; reveal?: boolean; inputRef?: React.Ref<HTMLInputElement> } & React.InputHTMLAttributes<HTMLInputElement>) => {
+}: { label: string; error?: string | null; hint?: string; reveal?: boolean; inputRef?: React.Ref<HTMLInputElement>; /** the step's question already names the field: the label is for VoiceOver only (layout standard 7, say it once) */ hideLabel?: boolean } & React.InputHTMLAttributes<HTMLInputElement>) => {
   const id = useId();
   const [shown, setShown] = useState(false);
   const msg = error || hint;
   return (
     <div className={`auth-field ${error ? 'bad' : ''}`}>
-      <label className="auth-label" htmlFor={id}>
+      <label className={hideLabel ? 'sr-only' : 'auth-label'} htmlFor={id}>
         {label}
       </label>
       <div className="auth-in-wrap">
@@ -233,7 +234,6 @@ const SignIn = ({ email, onEmail: setEmail, onForgot, back, notice, to = '/today
     <Frame
       // "Welcome back" only on a device that has signed in before: a new person never reads it (critic B7)
       title={returning ? 'Welcome back.' : 'Sign in.'}
-      sub="Welcome back."
       back={back}
       busy={busy}
       notice={notice}
@@ -250,7 +250,7 @@ const SignIn = ({ email, onEmail: setEmail, onForgot, back, notice, to = '/today
       }
     >
       <form className="auth-form" onSubmit={submit} noValidate>
-        <div className="card auth-fields">
+        <div className="auth-fields">
           <AuthField
             inputRef={emailRef}
             label="Email"
@@ -350,12 +350,14 @@ const Forgot = ({ email, onEmail, onBack }: { email: string; onEmail: (v: string
       </Frame>
     );
   return (
-    <Frame key="forgot" title="Forgot your password?" sub="Enter your email and we’ll send a link to choose a new one." back={onBack} busy={busy}>
+    <Frame key="forgot" question title="Forgot your password?" sub="Enter your email and we’ll send a link to choose a new one." back={onBack} busy={busy}>
       <form className="auth-form" onSubmit={submit} noValidate>
-        <div className="card auth-fields">
+        <div className="auth-fields">
           <AuthField
             inputRef={ref}
             label="Email"
+            hideLabel
+            placeholder="name@example.com"
             type="email"
             name="email"
             autoComplete="username"
@@ -444,12 +446,13 @@ const Reset = ({ token, onLeave }: { token: string; onLeave: (toForgot: boolean)
       </Frame>
     );
   return (
-    <Frame key="reset" title="Choose a new password." sub="You sign in with it from now on.">
+    <Frame key="reset" question title="Choose a new password." sub="You sign in with it from now on.">
       <form className="auth-form" onSubmit={submit} noValidate>
-        <div className="card auth-fields">
+        <div className="auth-fields">
           <AuthField
             inputRef={ref}
             label="New password"
+            hideLabel
             type="password"
             name="new-password"
             autoComplete="new-password"
@@ -581,12 +584,14 @@ export const Signup = () => {
   );
   if (step === 'email')
     return (
-      <Frame key="email" title="What’s your email?" sub="You sign in with it. It is never sold." back={() => (canGoBack() ? nav(-1) : nav('/start', { replace: true, state: { step: 'privacy' } }))} foot={foot}>
+      <Frame key="email" question title="What’s your email?" sub="You sign in with it. It is never sold." back={() => (canGoBack() ? nav(-1) : nav('/start', { replace: true, state: { step: 'privacy' } }))} foot={foot}>
         <form className="auth-form" onSubmit={toPassword} noValidate>
-          <div className="card auth-fields">
+          <div className="auth-fields">
             <AuthField
               inputRef={refs.email}
               label="Email"
+              hideLabel
+              placeholder="name@example.com"
               type="email"
               name="email"
               autoComplete="username"
@@ -624,14 +629,15 @@ export const Signup = () => {
       </Frame>
     );
   return (
-    <Frame key="password" title="Choose a password." sub={`For ${email.trim()}.`} back={() => setStep('email')} busy={busy} foot={foot}>
+    <Frame key="password" question title="Choose a password." sub={`For ${email.trim()}.`} back={() => setStep('email')} busy={busy} foot={foot}>
       <form className="auth-form" onSubmit={submit} noValidate>
         {/* the pair, for a password manager: the email stays in the form, out of sight */}
         <input type="email" name="email" autoComplete="username" value={email.trim()} readOnly hidden />
-        <div className="card auth-fields">
+        <div className="auth-fields">
           <AuthField
             inputRef={refs.password}
             label="Password"
+            hideLabel
             type="password"
             name="new-password"
             autoComplete="new-password"

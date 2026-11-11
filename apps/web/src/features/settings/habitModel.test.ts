@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { atCap, cleanName, HABIT_CAP, renameProblem, sameName } from './habitModel';
+import { atCap, cleanName, HABIT_CAP, habitLine, renameProblem, sameName } from './habitModel';
 
 const list = [
   { id: 'a', name: 'Read' },
@@ -27,5 +27,14 @@ describe('the cap', () => {
     expect(atCap(many)).toBe(true);
     expect(atCap(many.slice(1))).toBe(false);
     expect(atCap([...many.slice(1), { id: 'x', name: 'X', archivedOn: '2026-11-01' }])).toBe(false);
+  });
+});
+
+describe('the Settings row line', () => {
+  it('names two habits and counts the rest', () => {
+    expect(habitLine(['Meditate'])).toBe('Meditate');
+    expect(habitLine(['Meditate', 'Read'])).toBe('Meditate and Read');
+    expect(habitLine(['Meditate', 'Read', 'Guitar'])).toBe('Meditate, Read and 1 more');
+    expect(habitLine(['Meditate', 'Read', 'A', 'B', 'C', 'D', 'E'])).toBe('Meditate, Read and 5 more');
   });
 });

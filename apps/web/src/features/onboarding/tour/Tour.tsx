@@ -32,7 +32,7 @@ export const TOUR: readonly Page[] = [
   { key: 'learned', icon: LearnedIcon, where: 'Learned', title: 'One thing a day.', lede: 'What you learned, in a line. Kept by month, and some come back later when you need them.', Demo: LearnedDemo },
   { key: 'plan', icon: PlanIcon, where: 'Plan', title: 'A week you can move.', lede: 'Your runs, day by day. Life happens: hold a run and drag it to another day.', Demo: PlanDemo },
   { key: 'progress', icon: ProgressIcon, where: 'Progress', title: 'Weeks, as lines.', lede: HEALTH_BUILT ? 'Miles and pace, week by week. Connect Apple Health to add sleep, HRV and resting heart rate. Slide along any chart to read a week.' : 'Miles and pace, week by week. Slide along any chart to read a week.', Demo: ProgressDemo },
-  { key: 'ask', icon: MessageCircle, where: 'Every tab', title: 'Ask, or change anything.', lede: 'The assistant is AI. It answers questions and makes changes for you, and shows them to you first. It can be wrong, so check anything important.', Demo: AskDemo },
+  { key: 'ask', icon: MessageCircle, where: 'Every tab', title: 'Ask, or change anything.', lede: 'The assistant answers questions and makes changes for you, and shows them to you first. It can be wrong, so check anything important.', Demo: AskDemo },
 ];
 
 export const Tour = ({ page, onPage, onDone, doneLabel = 'Build my week' }: { page: number; onPage: (p: number) => void; onDone: () => void; /** the last page's button */ doneLabel?: string }) => {

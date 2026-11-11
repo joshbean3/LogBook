@@ -203,6 +203,17 @@
   gap: 0;
   min-width: 0;
 }
+/* two groups in one card (plan O5): a full-bleed hairline 16 above and below, and the second group's 22 title 8 over
+   its control (layout standard 3.3.3, C2) */
+.card.ob-card.ob-days-card > .rule {
+  margin-block: var(--sp-4);
+}
+.card.ob-card.ob-days-card > .card-title {
+  margin-bottom: var(--sp-2);
+}
+.ob-days-card .ob-miles {
+  margin-top: 0;
+}
 /* The pinned foot: it rests above the home indicator (and above the keyboard, which overlays the web view and reports its
    height as --kb), in the same place whether the step scrolls or not. Its fade never takes a tap: only the button and
    the tour's dots do, so an answer chip that shows through the fade can still be pressed. */
@@ -294,51 +305,57 @@
    Night Ink glyph, and a check, so the choice never rests on color alone ---------- */
 .ob-goals {
   display: grid;
-  gap: var(--gap);
+  gap: 0;
+  padding: 0;
+  overflow: hidden;
 }
+/* one radio row: 64 tall, the 32 px tile 16 in, the words 12 after it, the check at the trailing edge */
 .ob-goal {
+  position: relative;
   appearance: none;
   display: grid;
-  grid-template-columns: 32px minmax(0, 1fr) 20px;
+  grid-template-columns: var(--tile-ic) minmax(0, 1fr) 20px;
   align-items: center;
-  gap: var(--sp-4);
-  min-height: 66px;
-  padding: var(--sp-3) var(--sp-4);
-  border-radius: var(--r-tile);
+  gap: var(--sp-3);
+  min-height: var(--row-h-2);
+  padding: var(--sp-2) var(--sp-4);
   border: 0;
-  background: var(--surface);
-  box-shadow: var(--shadow-1);
+  background: transparent;
   color: var(--ink);
   font: inherit;
   text-align: left;
-  transition: box-shadow var(--dur-color) var(--ease-out);
 }
-.ob-goal.on {
-  box-shadow: var(--shadow-1), inset 0 0 0 2px var(--deep-sky);
+/* the hairline between rows starts at the words (16 + 32 + 12) */
+.ob-goal + .ob-goal::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: calc(var(--sp-4) + var(--tile-ic) + var(--sp-3));
+  right: 0;
+  height: 1px;
+  background: var(--line);
+  pointer-events: none;
+}
+.ob-goal[data-pressed] {
+  background: var(--surface-2);
 }
 .ob-goal .ob-goal-ic {
   background: var(--haze);
   color: var(--deep-sky);
-  transition:
-    background-color var(--dur-color) var(--ease-out),
-    color var(--dur-color) var(--ease-out);
-}
-.ob-goal.on .ob-goal-ic {
-  background: var(--accent);
-  color: var(--accent-ink);
 }
 .ob-goal-words {
   display: grid;
-  gap: 1px;
   min-width: 0;
 }
 .ob-goal-text {
   font: 600 var(--fs-row) / var(--lh-row) var(--sans);
 }
 .ob-goal-line {
-  font-size: var(--fs-foot);
-  line-height: var(--lh-foot);
+  font: 500 var(--fs-sub) / var(--lh-sub) var(--sans);
   color: var(--ink-2);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .ob-goal-check {
   display: grid;
@@ -443,31 +460,44 @@
   color: var(--ink-2);
 }
 
-/* ---------- run days: seven letters inside the 16 px gutter (review feel F12); each cell is at least 44 px wide, so at
-   the narrowest phones (< 360) the row's hit cells run edge to edge and the discs shrink to stay off the edges ---------- */
+/* ---------- run days: one contiguous seven-segment control (layout standard 3.2 and 6.7; plan S4): one capsule track,
+   equal segments with no gaps, so it reads as one control; a run day is a Sky thumb inside the track, the long run a Deep
+   Sky ring inside its thumb with LONG under it. The segments' hit boxes touch, so every tap lands on a day. At 390 a
+   segment is 47 wide; under 360 the track reaches 8 from the card's edge so the seven still fit (39 at 320) ---------- */
 .ob-days {
+  position: relative;
   display: grid;
   grid-template-columns: repeat(7, minmax(0, 1fr));
 }
+.ob-days::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto;
+  height: 44px;
+  border-radius: var(--r-pill);
+  background: var(--surface-2);
+  pointer-events: none;
+}
 @media (max-width: 359px) {
   .ob-days {
-    margin-inline: calc(-1 * var(--page-pad, 16px) + var(--sp-1));
-  }
-  .ob-days .ob-day-disc {
-    width: 36px;
-    height: 36px;
+    margin-inline: calc(var(--sp-2) - var(--pad-card));
   }
 }
 .ob-day {
+  position: relative;
   appearance: none;
   border: 0;
   background: none;
-  padding: var(--sp-1) 0 0;
-  min-height: 72px;
+  padding: 0;
+  min-width: 0;
+  min-height: 64px;
   display: grid;
-  justify-items: center;
+  /* the column is the segment's, never its caption's: a wide LONG at a large text size hangs past it, centered */
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: 44px auto;
+  justify-items: stretch;
   align-content: start;
-  gap: 6px; /* brand-ok: geometry, the LONG caption under its disc inside the 72 px cell */
+  gap: var(--sp-1);
   font: inherit;
   color: var(--ink-2);
   -webkit-touch-callout: none;
@@ -475,35 +505,31 @@
   -webkit-user-select: none;
 }
 .ob-day-disc {
-  width: 44px;
-  height: 44px;
-  border-radius: 50%;
-  border: 1.5px solid var(--line-strong);
-  background: var(--surface);
+  margin: 2px; /* brand-ok: geometry, the thumb inset in its track like a segmented control's */
+  border-radius: var(--r-pill);
   display: grid;
   place-items: center;
-  /* the letter grows with the text size only as far as its disc holds it (36 to 44 px discs) */
+  /* the letter grows with the text size only as far as its segment holds it */
   font-size: clamp(14px, var(--fs-row), 20px);
   font-weight: 600;
   transition:
     background-color var(--dur-fast) var(--ease-out),
     color var(--dur-fast) var(--ease-out);
 }
-/* a run day: the Sky disc with a Night Ink letter (the selected-day look, guide 3.1) */
 .ob-day.on .ob-day-disc {
   background: var(--accent);
-  border-color: var(--accent);
   color: var(--accent-ink);
   font-weight: 650;
 }
-/* the long run: a ring in the long tone, 3 px in all so it never reaches the next day (onboarding-20); no glow */
+/* the long run: a Deep Sky ring inside its thumb (onboarding-20: never reaching the next day); no glow */
 .ob-day.long .ob-day-disc {
-  box-shadow:
-    0 0 0 1.5px var(--bg),
-    0 0 0 3px var(--t-long);
+  box-shadow: inset 0 0 0 2px var(--t-long);
 }
 .ob-day-cap {
+  justify-self: center;
   min-height: var(--lh-caps);
+  white-space: nowrap;
+  text-align: center;
   font: 600 var(--fs-caps) / var(--lh-caps) var(--stamp);
   letter-spacing: var(--tr-caps);
   text-transform: uppercase;
@@ -516,32 +542,26 @@
   color: var(--ink-2);
   text-align: center;
 }
+/* the way to move the long run without a hold: a quiet Deep Sky link, 44 to the thumb (layout standard 6.6); the day
+   itself is said once, by LONG under its segment */
 .ob-long {
-  margin-top: var(--sp-3);
   display: flex;
-  flex-wrap: wrap;
-  align-items: center;
   justify-content: center;
-  gap: var(--sp-1) var(--sp-2);
-  font-size: var(--fs-sub);
-  line-height: var(--lh-sub);
-  color: var(--ink-2);
 }
 .ob-long-btn {
   appearance: none;
-  height: 44px;
-  padding: 0 var(--sp-4);
-  border-radius: var(--r-pill);
-  border: 1px solid var(--edge);
-  background: var(--surface);
-  color: var(--ink);
-  font: inherit;
-  font-weight: 600;
+  min-height: 44px;
+  padding: 0 var(--sp-3);
+  border: 0;
+  background: none;
+  color: var(--accent-text);
+  font: 600 var(--fs-sub) / var(--lh-sub) var(--sans);
 }
 
 /* ---------- weekly miles: the big stepper ---------- */
 .ob-miles-label {
   margin-top: 0;
+  text-wrap: balance; /* two even lines at 320, never "now?" alone */
 }
 .ob-miles {
   margin-top: var(--sp-4);
@@ -596,12 +616,10 @@
   margin-top: var(--sp-2);
   padding-inline: 14px; /* brand-ok: geometry, half the 28 px marker so it never leaves the card */
 }
+/* the time labels' room grows with the text size (3rem: 48 at 100%), so at 200% LEAVE 8:30 clears the hours under it */
 .ob-track-labels {
   position: relative;
-  height: 48px;
-}
-.ob-track-labels.below {
-  height: 48px;
+  height: 3rem;
 }
 .ob-track-label {
   position: absolute;
@@ -702,19 +720,24 @@
   color: var(--ink-2);
   font-variant-numeric: tabular-nums;
 }
-/* the verdict under the line: a plain Paper card, the line in the sentence voice */
-.card.ob-verdict {
-  gap: 0;
-}
-.ob-verdict-big {
-  font-size: var(--fs-sentence);
-  line-height: var(--lh-sentence);
-}
-.ob-verdict-sub {
-  margin-top: var(--sp-1);
+/* the morning's verdict, on the line above Next (plan O5): the door time in Night Ink 600, what it means in Dusk */
+.ob-later .ob-verdict {
+  display: block;
   font-size: var(--fs-sub);
   line-height: var(--lh-sub);
-  color: var(--ink-2);
+  text-wrap: balance;
+}
+.ob-verdict b {
+  font-weight: 600;
+  color: var(--ink);
+}
+/* at a very large text size the line above Next keeps only the door time; the rest would take half the screen */
+html[data-text-xl] .ob-verdict-more {
+  display: none;
+}
+/* the one-tap fix under the markers, inside their card */
+.ob-fix-row .ob-fix.ob-chip {
+  margin-top: 0;
 }
 
 /* ---------- habits: chips that become coins (flat discs with an Inter initial, never an Orb) ---------- */
@@ -728,13 +751,15 @@
 .ob-orbs {
   display: flex;
   gap: var(--sp-3);
-  min-height: 88px;
   align-items: flex-start;
   overflow: hidden;
 }
-.ob-orbs-ghost {
-  display: flex;
-  gap: var(--sp-3);
+/* the coins the picked chips become, under the chips (so a chip never moves under the finger), with a hairline over
+   them; nothing at all until one is picked (plan O6: no empty dashed placeholders) */
+.ob-orbs:not(:empty) {
+  margin: var(--sp-4) calc(-1 * var(--pad-card)) 0;
+  padding: var(--sp-4) var(--pad-card) 0;
+  border-top: 1px solid var(--line);
 }
 .ob-orb {
   display: grid;
@@ -751,11 +776,6 @@
   background: var(--surface);
   display: grid;
   place-items: center;
-}
-.ob-orb-ring.ghost {
-  border-style: dashed;
-  background: transparent;
-  opacity: 0.6;
 }
 .ob-orb-initial {
   font: 600 var(--fs-row) / 1 var(--sans);
@@ -873,22 +893,17 @@
   min-height: 11.5rem;
 }
 /* what the answers made: Today's hero card in size and place (358 wide, 184 tall or more), with its sunrise glow, so the
-   hand-off to Today's hero is one light; a caption over plain rows */
+   hand-off to Today's hero is one light; plain rows, no caption (plan O11) */
 .aura.ob-made {
   box-sizing: border-box;
   width: 100%;
   max-width: 358px;
   min-height: 11.5rem;
   margin: 0 auto;
-  padding: var(--sp-4) var(--sp-4) 0;
+  padding: var(--sp-2) var(--sp-4) 0;
   display: grid;
-  grid-template-rows: auto auto;
-  row-gap: var(--sp-1);
   align-content: start;
   overflow: hidden;
-}
-.ob-made-eyebrow {
-  color: var(--ink-2);
 }
 .ob-made-rows {
   list-style: none;
@@ -995,10 +1010,10 @@
   line-height: var(--lh-sentence);
   color: var(--ink-2);
 }
-/* the first week: rows in one Paper card */
+/* the first week: rows in one Paper card, 12 under the summary card (cards 12 apart, layout standard 3.2) */
 .ob-week {
   list-style: none;
-  margin: var(--sp-4) 0 0;
+  margin: var(--sp-3) 0 0;
   padding: var(--sp-1) 0;
   display: grid;
   border-radius: var(--r-card);
@@ -1127,14 +1142,7 @@
   .ob-body {
     margin-top: var(--sp-4);
   }
-  .ob-goal {
-    min-height: 60px;
-    padding-block: var(--sp-2);
-  }
 
-  .ob-week {
-    margin-top: var(--sp-5);
-  }
   .ob-wrow {
     min-height: 44px;
   }
@@ -1155,12 +1163,6 @@
   padding-inline: var(--gutter);
   pointer-events: none;
   background: linear-gradient(to bottom, transparent, var(--bg) var(--sp-6));
-}
-@media (max-width: 359px) {
-  .ob-day-disc {
-    width: 38px;
-    height: 38px;
-  }
 }
 
 /* the morning step: what happens before you leave, and the one-tap fix when it is tight */

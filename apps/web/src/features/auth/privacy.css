@@ -1,20 +1,8 @@
-/* What is sent to Claude and what is not: the privacy page and Settings, Privacy. Two Paper cards, each an Inter title
-   over its rows; a check in a Haze disc for what goes, a cross in a Cloud disc for what does not. */
-.pv-facts {
-  display: grid;
-  gap: var(--gap);
-  margin-top: var(--section);
-}
-.card.pv-list {
-  gap: 0;
-  padding: var(--sp-4) var(--sp-4) var(--sp-2);
-}
-.pv-h {
-  margin: 0 0 var(--sp-2);
-  font: 600 var(--fs-row) / var(--lh-row) var(--sans);
-  color: var(--ink);
-}
-.pv-list ul {
+/* What is sent to Claude and what is not: the privacy page and Settings, Privacy. One inset group (layout standard 5.2:
+   one container, not a card per list): check rows first, cross rows after, a hairline between rows that starts at the
+   words; a check in a Haze disc for what goes, a cross in a Cloud disc for what does not. The Dusk line under the group
+   names who receives the checked ones. */
+.pv-list {
   list-style: none;
   margin: 0;
   padding: 0;
@@ -26,7 +14,7 @@
   grid-template-columns: 24px minmax(0, 1fr);
   gap: var(--sp-3);
   align-items: start;
-  padding: var(--sp-3) 0;
+  padding: var(--sp-3) var(--sp-4);
   font-size: var(--fs-sub);
   line-height: var(--lh-sub);
   color: var(--ink);
@@ -35,8 +23,8 @@
   content: '';
   position: absolute;
   top: 0;
-  left: 36px; /* brand-ok: geometry, the hairline starts at the text after the 24 px glyph and its 12 px gap */
-  right: calc(-1 * var(--sp-4));
+  left: 52px; /* brand-ok: geometry, the hairline starts at the words: 16 in, the 24 px glyph and its 12 px gap */
+  right: 0;
   height: 1px;
   background: var(--line);
 }
@@ -48,7 +36,7 @@
   background: var(--haze);
   color: var(--deep-sky);
 }
-.pv-list.never li .pv-ic {
+.pv-list li.is-not .pv-ic {
   background: var(--cloud);
   color: var(--ink-2);
 }

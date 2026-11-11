@@ -71,7 +71,7 @@ const STEP_MS = 520;
  * One line a beat, each checking in with a selection tick. Holds on the last line until `ready` (the plan is saved: the
  * wait is the real one), then hands over with `onDone`. A tap anywhere hurries it to the end; reduced motion shortens the
  * beat and fades instead of sliding. When the save fails (`failed`: the reason, in plain words) the ticking stops where it
- * is and the title says so (the reason is the payoff's, right above its buttons); nothing more is marked done until a retry
+ * is and the title says so, with the reason 8 under it; nothing more is marked done until a retry
  * clears it. `title` words the beat for a setup with no plan.
  */
 export const BuildBeat = ({ steps, ready, failed, onDone, title }: { steps: string[]; ready: boolean; failed: string | null; onDone: () => void; title?: { writing: string; done: string } }) => {
@@ -101,6 +101,12 @@ export const BuildBeat = ({ steps, ready, failed, onDone, title }: { steps: stri
       <h1 className="obx-build-title display" tabIndex={-1}>
         {failed ? (title ? 'Couldn’t save your answers' : 'Couldn’t save your plan') : all && ready ? (title?.done ?? 'Your week is written.') : (title?.writing ?? 'Writing your plan')}
       </h1>
+      {/* why, 8 under the headline it explains (layout standard 3.3; plan O1); the buttons stay pinned at the foot */}
+      {failed ? (
+        <p className="obx-build-reason" role="alert">
+          {failed}
+        </p>
+      ) : null}
       <ol className="obx-build-list" aria-live="polite">
         {steps.slice(0, shown).map((s, i) => (
           <motion.li key={s} initial={reduce ? { opacity: 0 } : { opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={reduce ? { duration: 0.15 } : springs.settle}>

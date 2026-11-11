@@ -91,16 +91,16 @@
   line-height: var(--lh-foot);
 }
 
-/* the plan being written */
+/* the plan being written: top-anchored (plan O1), so the headline holds still and the checklist grows down from it */
 .ob-payoff.is-building {
-  justify-content: center;
+  justify-content: flex-start;
 }
 .obx-build {
+  flex: 1;
   display: grid;
-  align-content: center;
+  align-content: start;
   gap: var(--sp-5);
-  min-height: 60vh;
-  padding: calc(var(--sp-8) + var(--safe-t)) var(--sp-1) 0;
+  padding: calc(var(--sp-12) + var(--safe-t)) var(--sp-1) 0;
 }
 .obx-build-title {
   margin: 0;
@@ -146,8 +146,9 @@
 .ob-build-foot.is-idle {
   visibility: hidden;
 }
-.ob-build-reason {
-  margin: 0;
+/* why the save failed: 8 under the headline (the grid's 20 gap less 12), Signal words */
+.obx-build-reason {
+  margin: calc(var(--sp-2) - var(--sp-5)) 0 0;
   font-size: var(--fs-sub);
   line-height: var(--lh-sub);
   color: var(--bad);

@@ -63,35 +63,37 @@ export const TodosDemo = ({ running, still }: DemoProps) => {
 };
 
 // ---------- Today: the habit lights ----------
-const HAB = ['Sleep 7 h', 'Stretch', 'Read', 'Protein'];
+// two tiles of the real grid (OrbRow's .orbs.is-grid, guide 6.6; plan O10): a coin, the full name and this week's dots
+const HAB = ['Stretch', 'Read 15 min'];
+/** This week so far, Mon to today (Thursday in the picture): done, missed, done; today lights when the coin is tapped. */
+const HAB_WEEK = [
+  ['d', 'o', 'd'],
+  ['d', 'd', 'o'],
+] as const;
 const HAB_BEATS = [800, 650, 240, 650, 600, 240, 800, 700, 650, 1400, 900] as const;
 export const HabitsDemo = ({ running, still }: DemoProps) => {
   const b = useLoop(HAB_BEATS, running && !still, HAB_BEATS.length - 1);
-  const lit = [false, still || b >= 2, still || b >= 5, false];
+  const lit = [still || b >= 2, still || b >= 5];
   const menu = at(b, 8, 10) || still;
   return (
     <>
       <Stage className="th">
-        <p className="th-head">
-          <b>Habits</b>
-          <span>{lit.filter(Boolean).length} of 4</span>
-          <em>History</em>
-        </p>
-        <div className="th-row">
+        <div className="th-grid">
           {HAB.map((h, i) => (
-            <span key={h} className="th-orb-wrap">
-              <motion.span className={`th-orb ${lit[i] ? 'tis-lit' : ''}`} data-spot={`orb${i}`} animate={lit[i] && !still ? { scale: [1, 1.12, 1] } : { scale: 1 }} transition={{ duration: 0.36 }}>
+            <span key={h} className={`th-tile ${lit[i] ? 'tis-lit' : ''}`}>
+              <motion.span className="th-orb" data-spot={`orb${i}`} animate={lit[i] && !still ? { scale: [1, 1.12, 1] } : { scale: 1 }} transition={{ duration: 0.36 }}>
                 {lit[i] ? <Check size={18} /> : <span>{h[0]}</span>}
               </motion.span>
-              <small>{h}</small>
+              <span className="th-tile-text">
+                <b>{h}</b>
+                <span className="th-week">
+                  {Array.from({ length: 7 }, (_, d) => (
+                    <i key={d} className={d < 3 ? `is-${HAB_WEEK[i]![d]}` : d === 3 ? `is-day ${lit[i] ? 'is-d' : ''}` : ''} />
+                  ))}
+                </span>
+              </span>
             </span>
           ))}
-          <span className="th-orb-wrap">
-            <span className="th-orb tis-add">
-              <Plus size={18} />
-            </span>
-            <small>Add</small>
-          </span>
         </div>
         <AnimatePresence>
           {menu ? (
@@ -102,7 +104,7 @@ export const HabitsDemo = ({ running, still }: DemoProps) => {
             </motion.div>
           ) : null}
         </AnimatePresence>
-        <Finger spot={at(b, 1, 3) ? 'orb1' : at(b, 4, 6) ? 'orb2' : at(b, 7, 10) ? 'orb0' : null} down={b === 2 || b === 5} hold={at(b, 8, 10)} />
+        <Finger spot={at(b, 1, 3) ? 'orb0' : at(b, 4, 6) ? 'orb1' : at(b, 7, 10) ? 'orb0' : null} down={b === 2 || b === 5} hold={at(b, 8, 10)} />
       </Stage>
       <Steps items={['Tap a habit when it’s done today', 'Hold one for a note, details or archive']} on={still ? -1 : b < 7 ? 0 : 1} />
     </>

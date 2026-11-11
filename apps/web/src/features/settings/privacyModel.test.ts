@@ -1,6 +1,6 @@
 import { DEFAULT_CONSENT, type Consent } from '@logbook/shared';
 import { describe, expect, it } from 'vitest';
-import { CONSENT_SWITCHES, consentFoot, consentWord, firstAnswer, mailto, switchOn } from './privacyModel';
+import { CONSENT_SWITCHES, consentFoot, consentShort, consentWord, firstAnswer, mailto, switchOn } from './privacyModel';
 
 const c = (over: Partial<Consent>): Consent => ({ ...DEFAULT_CONSENT, training: false, recall: false, reads: false, health: null, at: '2026-11-08T15:00:00.000Z', version: '2026-11', ...over });
 
@@ -36,5 +36,15 @@ describe('the Privacy page’s reading of the consent record', () => {
   });
   it('writes a mail link with its subject', () => {
     expect(mailto('help@example.com', 'Privacy request')).toBe('mailto:help@example.com?subject=Privacy%20request');
+  });
+});
+
+describe('the Settings root’s one word', () => {
+  it('is Off until something is on, All with every switch, Some between', () => {
+    expect(consentShort(undefined)).toBeUndefined();
+    expect(consentShort(c({ at: null, training: true, recall: true, reads: true }))).toBe('Off');
+    expect(consentShort(c({}))).toBe('Off');
+    expect(consentShort(c({ training: true }))).toBe('Some');
+    expect(consentShort(c({ training: true, recall: true, reads: true }))).toBe('All');
   });
 });

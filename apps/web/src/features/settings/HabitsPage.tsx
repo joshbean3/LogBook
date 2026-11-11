@@ -442,8 +442,8 @@ export const HabitsPage = () => {
       <PushedBar title="Habits" />
       {live.length ? (
         <>
-          <section className="lb-sec s-sec" aria-labelledby="s-hlist-h">
-            <SectionHeader id="s-hlist-h" title="On Today" meta={live.length} />
+          <section className="lb-sec is-list s-sec" aria-labelledby="s-hlist-h">
+            <SectionHeader id="s-hlist-h" size="sm" title="On Today" meta={live.length} />
           <div className="s-hlist" ref={listRef} style={{ height: ids.length * ROW_H }}>
             {ids.map((id, i) => {
               const h = byId.get(id);

@@ -13,14 +13,10 @@
   gap: var(--sp-4);
   padding: var(--sp-4);
 }
-/* a plain heart glyph beside the name, in Deep Sky: no tile, nothing shaped like an app icon (copy-legal-27) */
+/* the heart in the row's 32 px Haze icon tile (.icon-tile, shape.css), 12 to the words like every Settings row */
 .ah-app {
   flex: none;
-  display: grid;
-  place-items: center;
-  width: 28px;
-  height: 44px;
-  color: var(--deep-sky);
+  margin-right: calc(var(--sp-3) - var(--sp-4));
 }
 .ah-device-text {
   display: grid;

@@ -24,11 +24,13 @@ export const Tile = ({ icon: Icon, tone }: { icon: RowIcon; tone?: 'muted' }): R
 );
 
 /**
- * A settings section (shape system §6, reference 658-672; mockups/settings.png): a Fraunces 600 section title, then its
- * content in one Paper container, then an optional Dusk footnote under it (`foot`). Every section page is built from these.
+ * A settings section (layout standard 2.9 and 6.1, the list-page header): a Fraunces 600 22/28 group title, 24 above it
+ * (16 for the first, under the pushed bar) and 8 below, then its content in one Paper container, then an optional Dusk
+ * footnote under it (`foot`). A group title that is quieter than the rows it heads, the way iOS Settings reads. Every
+ * section page is built from these.
  */
 const SSec = ({ title, meta, foot, className, children }: { title: string; meta?: ReactNode; foot?: ReactNode; className: string; children: ReactNode }): React.JSX.Element => (
-  <PageSection title={title} meta={meta} className={`s-sec ${className}`.trim()}>
+  <PageSection size="sm" title={title} meta={meta} className={`s-sec ${className}`.trim()}>
     {children}
     {foot ? <Footnote>{foot}</Footnote> : null}
   </PageSection>

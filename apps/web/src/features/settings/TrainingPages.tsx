@@ -304,8 +304,8 @@ export const YouPage = () => {
         {/* the address on its own line, whole: a long one wraps instead of losing its end */}
         <Row title="Email" sub={boot.data?.user.email} className="s-wrap s-email-row" />
       </SGroup>
-      <section className="lb-sec s-sec" aria-labelledby="s-goal-h">
-        <SectionHeader id="s-goal-h" title="Training for" />
+      <section className="lb-sec is-list s-sec" aria-labelledby="s-goal-h">
+        <SectionHeader id="s-goal-h" size="sm" title="Training for" />
         {!d.loaded ? (
           <Shape />
         ) : (
@@ -400,14 +400,14 @@ export const TrainingPage = () => {
           >
             <MilesDial value={d.p.weeklyMiles} min={MILES_MIN} max={MILES_MAX} onChange={(v) => d.edit({ weeklyMiles: v })} />
           </SCard>
-          <SCard title="Run days">
+          <SCard title="Run days" foot="Tap a day to run on it. Hold one to make it the long run.">
             <div
               className="s-days"
               onClickCapture={(e) => {
                 if (runDayCount === 1 && (e.target as Element).closest?.('[aria-pressed="true"]')) setLastDay(true);
               }}
             >
-              <DayLetters runDays={d.p.runDays} longRunDay={fixLongRun(d.p.runDays, d.p.longRunDay)} onChange={(runDays, longRunDay) => d.edit({ runDays, longRunDay })} />
+              <DayLetters hint={false} runDays={d.p.runDays} longRunDay={fixLongRun(d.p.runDays, d.p.longRunDay)} onChange={(runDays, longRunDay) => d.edit({ runDays, longRunDay })} />
             </div>
             {lastDay ? (
               <p className="s-days-note" role="status">
