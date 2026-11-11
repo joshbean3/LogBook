@@ -1,6 +1,6 @@
 import { fmtDate, heroSession, label, mondayOf, monthsBetween, num, parseISO, shiftDays, tone, type Session } from '@logbook/shared';
 import type * as React from 'react';
-import { useMemo, useRef, useState } from 'react';
+import { Fragment, useMemo, useRef, useState } from 'react';
 import { newSessionId } from '@/api/queries';
 import { useToday } from '@/lib/useToday';
 import { Button, ChipButton, Segmented, Stepper } from '@/ui/primitives';
@@ -138,7 +138,6 @@ export const AddSessionSheet = ({ mon, date }: { mon: string; date: string }) =>
             <div className="sa-chips is-four" role="radiogroup" aria-label="Kind of run">
               {RUN_KINDS.map((k) => (
                 <ChipButton key={k} role="radio" aria-checked={run === k} on={run === k} onClick={() => setRun(k)}>
-                  <i className={`sa-dot t-${tone({ kind: 'run', type: k })}`} aria-hidden="true" />
                   {k}
                 </ChipButton>
               ))}
@@ -188,9 +187,16 @@ export const AddSessionSheet = ({ mon, date }: { mon: string; date: string }) =>
         )}
       </div>
       <div className="sheet-foot sa-foot">
+        {/* one run of text, read as one line: each part whole, and each " · " held to the part before it by a no-break
+            space, so a line that wraps ends with the dot and the next starts with words */}
         <p className="sa-sum" aria-live="polite">
-          <b>{label(preview)}</b>
-          <span>{` · ${said.join(' · ')}`}</span>
+          <b className="sa-sum-name">{label(preview)}</b>
+          {said.map((x) => (
+            <Fragment key={x}>
+              {'\u00a0· '}
+              <span>{x}</span>
+            </Fragment>
+          ))}
         </p>
         <Button variant="primary" block type="submit">
           {past ? 'Add as done' : 'Add'}

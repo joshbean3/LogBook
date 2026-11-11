@@ -47,43 +47,48 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
-/* a long saved name ends in an ellipsis inside its chip, never past the sheet's edge */
+/* a long saved name ends in an ellipsis inside its chip, never past the sheet's edge; a chip is 32 tall at the default
+   text size and grows with its words at a larger one (the primitive's fixed 32 left them touching its edges) */
 .sa-chips .chip-btn {
   min-width: 0;
   max-width: 100%;
+  height: auto;
+  min-height: 32px;
+  padding-block: var(--sp-1);
 }
 .sa-chip-name {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
 }
-/* the run's tone as a 6 px marker (guide 3.1: data tones are glyphs and small markers); on the Sky fill it keeps a Paper
-   keyline, so the tone never touches Sky */
-.sa-dot {
-  flex: none;
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--tone);
-}
-.chip-btn.on .sa-dot {
-  box-shadow: 0 0 0 1.5px var(--surface);
-}
-/* how far: the stepper, and beside it the unit (miles or minutes) as a quiet two-segment control of the same height */
+/* how far: the stepper, and beside it the unit (miles or minutes) as a quiet two-segment control of the same height.
+   The stepper keeps its two 44 buttons and room for "10.5" at the number's size; where the row has less (a narrow
+   phone at a larger text size) the unit goes under the stepper, full width, instead of squeezing the number */
 .sa-amount {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: var(--sp-3);
   min-width: 0;
 }
+.sa-amount > .stepper {
+  flex: 999 1 calc(2 * var(--hit) + 3.25rem);
+  min-width: 0;
+}
+.sa-amount > .sa-unit {
+  flex: 1 0 7rem;
+}
 .sa-unit.seg {
   height: 48px;
-  min-width: 112px;
+}
+/* two equal segments whatever their words: neither is held wider by its own label (guide 6.3, equal widths) */
+.sa-unit .seg-btn {
+  min-width: 0;
+  padding-inline: var(--sp-2);
 }
 @media (max-width: 359px) {
-  .sa-unit.seg {
-    min-width: 96px;
+  .sa-amount > .sa-unit {
+    flex-basis: 6rem;
   }
 }
 .sa .in.sa-name {
@@ -97,26 +102,29 @@
   margin-top: 0;
   padding-top: var(--sp-1);
 }
+/* The line over Add: the name, then the minutes, the day and "Added as done", " · " between, as one run of text. It wraps
+   at every text size, a whole part at a time (each part keeps its words together, and each " · " is held to the part
+   before it), so a wrapped line starts with words, never a dot. The name stops at 70 percent of the line and gives way
+   to an ellipsis, so the day stays beside it; at a larger text size it wraps whole instead. */
 .sa-sum {
-  display: flex;
   min-width: 0;
   margin: 0;
   font: 500 var(--fs-sub) / var(--lh-sub) var(--sans);
   font-variant-numeric: tabular-nums;
   color: var(--ink-2);
-  white-space: nowrap;
-}
-.sa-sum > b {
-  flex: 0 1 auto;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  font-weight: 600;
-  color: var(--ink);
 }
 .sa-sum > span {
-  flex: none;
-  white-space: pre;
+  white-space: nowrap;
+}
+.sa-sum-name {
+  display: inline-block;
+  max-width: 70%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: bottom;
+  font-weight: 600;
+  color: var(--ink);
 }
 .sa-foot > .btn.block {
   width: 100%;
@@ -129,18 +137,17 @@
 html.kb-open .sa-foot > .btn.quiet {
   display: none;
 }
-/* a larger text size: the unit goes under the stepper, and the line may wrap rather than cut the day */
-html[data-text-xl] .sa-amount {
-  grid-template-columns: minmax(0, 1fr);
-}
+/* a larger text size: the four runs wrap at their own widths (two a row, or one where two would touch their edges),
+   and the session's name wraps whole rather than end in an ellipsis */
 html[data-text-xl] .sa-chips.is-four {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  display: flex;
 }
-html[data-text-xl] .sa-sum {
-  flex-wrap: wrap;
-  white-space: normal;
+html[data-text-xl] .sa-chips.is-four .chip-btn {
+  padding: var(--sp-1) var(--sp-3);
 }
-html[data-text-xl] .sa-sum > b {
+html[data-text-xl] .sa-sum-name {
+  display: inline;
+  max-width: none;
   white-space: normal;
   overflow-wrap: anywhere;
 }
