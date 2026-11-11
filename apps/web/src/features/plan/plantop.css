@@ -73,6 +73,12 @@
   background: var(--surface);
   box-shadow: 0 0 0 1.5px var(--ink);
 }
+/* Increase Contrast: the weeks ahead step up from the quiet dot so the row reads as marks, not dust */
+@media (prefers-contrast: more) {
+  .pt-marks i {
+    background: var(--ink-3);
+  }
+}
 .pt-chev {
   flex: none;
   color: var(--ink-3);

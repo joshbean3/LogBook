@@ -245,6 +245,12 @@
     display: inline;
   }
 }
+[data-text-xl] .pl-am {
+  display: none;
+}
+[data-text-xl] .pl-am.is-short {
+  display: inline;
+}
 .pl-st {
   flex: none;
   display: grid;
@@ -1700,4 +1706,60 @@
     grid-template-columns: 40px minmax(0, 1fr) 54px;
     gap: 6px;
   }
+}
+
+/* ---------- larger text (Dynamic Type at 150 percent and up: `data-text-xl`) ----------
+ * The day column grows with its words instead of holding 40 (the weekday would run into the icon tile), today's ring hugs
+ * its numeral as a pill, and a session's name may take two lines before it is cut; its line under it may ellipsize (the
+ * row's label says it in full). In the plan summary a fact's value wraps under its label rather than widening the sheet. */
+[data-text-xl] .pl-day {
+  grid-template-columns: auto minmax(0, 1fr);
+}
+[data-text-xl] .pl-date.date-gutter {
+  width: auto;
+  min-width: var(--gutter-date);
+}
+[data-text-xl] .pl-date .date-gutter-num {
+  min-width: 0;
+  height: auto;
+  padding: 0 var(--sp-1);
+  border-radius: var(--r-pill);
+}
+[data-text-xl] .pl-name {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  white-space: normal;
+}
+/* on the narrowest phones at the largest sizes the tone tile gives its room to the name (the name says the kind) */
+@media (max-width: 359px) {
+  [data-text-xl] .pl-line .pl-ic:not(.is-add) {
+    display: none;
+  }
+}
+.pl-ps-facts .lrow-main {
+  flex: 0 0 auto;
+}
+.pl-ps-facts .lrow-right {
+  flex: 1 1 auto;
+  justify-content: flex-end;
+  min-width: 0;
+}
+.pl-ps-facts .lrow-value {
+  flex: 0 1 auto;
+  min-width: 0;
+  white-space: normal;
+  text-align: right;
+  text-wrap: pretty;
+}
+[data-text-xl] .pl-ps-facts .lrow {
+  flex-wrap: wrap;
+  row-gap: 0;
+}
+[data-text-xl] .pl-ps-facts .lrow-right {
+  flex: 1 1 100%;
+  justify-content: flex-start;
+}
+[data-text-xl] .pl-ps-facts .lrow-value {
+  text-align: left;
 }
