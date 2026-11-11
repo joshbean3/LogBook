@@ -1,18 +1,17 @@
-import type * as React from 'react';
-import { useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { mondayOf } from '@logbook/shared';
 import { useNav } from '@/app/NavController';
 import { haptics } from '@/lib/haptics';
 import { STRAVA_BUILT } from '@/lib/features';
 import { Button, EmptyState, Segmented, Skeleton, SkeletonGroup } from '@/ui';
 import { RangeControl } from '@/ui/charts';
-import { useNowMark, usePageShown } from '@/ui/nowBudget';
+import { usePageShown } from '@/ui/nowBudget';
 import type { Log } from '../log/useLog';
-import { plural } from './data';
-import { completion, HERO_MODES, lbShort, liftWeeks, miShort, runRange, type HeroMode, type LiftWeek, type RunView } from './hero';
+import { HERO_MODES, liftRange, runRange, type HeroMode, type LiftView, type RunView } from './hero';
 import { LiftList } from './LiftList';
-import { PlanLine } from './PlanLine';
-import { bucketTitle, keptOver, PROGRESS_RANGES, RANGE_WORDS, rangeContext, type ProgressRange, type RunBucket } from './ranges';
+import { RangeBars, type BarMark } from './RangeBars';
+import { PROGRESS_RANGES, RANGE_WORDS, UNIT_WORD, type ProgressRange } from './ranges';
+import { liftAt, liftRest, liftWords, readoutWords, runAt, runRest, runWords, type Readout } from './readout';
 import { useOpenWeek } from './sheets';
 import './hero.css';
 
@@ -39,102 +38,139 @@ const useMode = () => {
   return [m, set] as const;
 };
 
-const pctText = (r: number) => `${Math.round(r * 100)}%`;
-const runsWords = (b: Pick<RunBucket, 'runs' | 'plannedRuns'>) => (b.plannedRuns > 0 ? `${b.runs} of ${b.plannedRuns} ${plural(b.plannedRuns, 'run')}` : `${b.runs} ${plural(b.runs, 'run')}`);
-
-/** This week, in words under the 1W headline: done, on plan with miles to go, or behind the plan so far. */
-const weekTakeaway = (w: RunBucket) => {
-  if (w.planned <= 0) return 'No runs planned this week';
-  if (w.done + 0.05 >= w.planned) return 'This week’s plan is done';
-  const behind = w.plannedPast - w.done;
-  return behind > 0.05 ? `${miShort(behind)} mi behind plan this week` : `On plan, ${miShort(w.planned - w.done)} mi to go`;
+// ---------- the first-use hint: until a finger has read the chart once, remembered on this device ----------
+const HINT_KEY = 'logbook.progress.scrubbed';
+/** For a browser with no storage: the hint still goes after the first read, for this session. */
+let readThisSession = false;
+const hasRead = () => {
+  if (readThisSession) return true;
+  try {
+    return localStorage.getItem(HINT_KEY) === '1';
+  } catch {
+    return false;
+  }
+};
+/**
+ * Whether the chart still says how it is read ("Drag across to see each week"), and the way to say it has been. The answer
+ * is taken when the card mounts and again each time the page comes back on screen, never while it is up: the line does not
+ * fold away, and move the range control, under a finger that has just read the chart.
+ */
+const useScrubHint = () => {
+  const shown = usePageShown();
+  const [seen, setSeen] = useState(hasRead);
+  useEffect(() => {
+    if (shown) setSeen(hasRead());
+  }, [shown]);
+  const done = useCallback(() => {
+    if (readThisSession) return;
+    readThisSession = true;
+    try {
+      localStorage.setItem(HINT_KEY, '1');
+    } catch {
+      /* private mode: this session only */
+    }
+  }, []);
+  return [!seen, done] as const;
 };
 
-/** The empty card's ghost: the shape of the chart to come, two curves (the plan dashed, what was run solid). Shapes only. */
-const CurveGhost = () => (
+/** The empty card's ghost: the shape of the chart to come, domes rising on a horizon. Shapes only. */
+const BarsGhost = () => (
   <svg viewBox="0 0 300 96" width="100%" height={96} aria-hidden="true" className="ph-ghost">
-    <path d="M6,70 C60,64 90,52 140,46 S230,30 294,18" className="ph-ghost-plan" />
-    <path d="M6,78 C60,74 96,64 140,58 S220,48 250,40" className="ph-ghost-done" />
-    <circle cx={250} cy={40} r={4} className="ph-ghost-dot" />
+    {[26, 38, 34, 52, 64].map((h, i) => (
+      <path key={i} d={`M${46 + i * 46},84V${84 - h + 14}a14,14 0 0 1 28,0V84Z`} className={i === 4 ? 'ph-ghost-bar is-last' : 'ph-ghost-bar'} />
+    ))}
+    <path d="M16,84H284" className="ph-ghost-base" />
   </svg>
 );
 
 /**
- * This week as the guide's ruler (6.8): a 6 px Haze track, Deep Sky to the miles run, a Sunrise NOW tick there with "NOW" in
- * Ember caption over it, a Night Ink triangle under the track at the plan by the end of today, "0" and the week's plan under
- * the ends. It sits over the plot in 1W, and stands in for the chart before two weeks have anything in them.
+ * The headline: the number with its context beside it, one line under it. While a bucket is read (`hold`) the block keeps
+ * at least the height it had at rest, and any height it has grown to, so the plot below never moves under the finger.
  */
-const Ruler = ({ w }: { w: RunBucket }) => {
-  const share = w.planned > 0 ? Math.min(1, w.done / w.planned) : w.done > 0 ? 1 : 0;
-  const by = w.planned > 0 ? Math.min(1, w.plannedNow / w.planned) : null;
-  // the NOW tick is a Sunrise mark (guide 3.5 job 6) while this week shows on the page on screen
-  const now = useNowMark('pointer', usePageShown() && w.current);
+const Head = ({ r, hold }: { r: Readout; hold: boolean }) => {
+  const ref = useRef<HTMLDivElement>(null);
+  const rest = useRef(0);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    if (!hold) {
+      el.style.minHeight = '';
+      rest.current = el.offsetHeight;
+      return;
+    }
+    el.style.minHeight = `${Math.max(rest.current, el.offsetHeight)}px`;
+  });
   return (
-    <div className="ph-ruler" role="img" aria-label={w.planned > 0 ? `${miShort(w.done)} of ${miShort(w.planned)} miles this week. The plan by today: ${miShort(w.plannedNow)} miles.` : `${miShort(w.done)} miles this week`}>
-      <span className="ph-ruler-now" aria-hidden="true" data-now={now === 'ink' ? 'ink' : undefined} style={{ '--at': share } as React.CSSProperties}>
-        Now
-      </span>
-      <span className="ph-ruler-bar" aria-hidden="true">
-        <i style={{ transform: `scaleX(${share})` }} />
-        <b className="ph-ruler-tick" data-now={now === 'ink' ? 'ink' : undefined} style={{ '--at': share } as React.CSSProperties} />
-        {by != null ? <em className="ph-ruler-by" style={{ '--at': by } as React.CSSProperties} /> : null}
-      </span>
-      <span className="ph-ruler-ends" aria-hidden="true">
-        <span>0</span>
-        <span>{w.planned > 0 ? `${miShort(w.planned)} mi` : ''}</span>
-      </span>
+    <div className="ph-head" ref={ref}>
+      <span className="sr-only">{readoutWords(r)}</span>
+      <div className="ph-main" aria-hidden="true">
+        <span className="ph-big">
+          <span className="tnum">{r.big}</span>
+          <small>{r.context}</small>
+        </span>
+        <span className="ph-take">{r.take}</span>
+      </div>
     </div>
   );
 };
 
-/** What the Strength headline says for a week. */
-const liftLine = (l: LiftWeek) => {
-  const unit = plural(l.planned || l.done, 'session');
-  return {
-    big: String(l.done),
-    of: l.planned > 0 ? `of ${l.planned} ${unit}` : unit,
-    take: l.sets ? `${l.sets} ${plural(l.sets, 'set')}, ${lbShort(l.volume)} lb moved` : l.current ? 'No sets yet' : 'No sets logged',
-    words: `${l.done} ${l.planned > 0 ? `of ${l.planned} planned ` : ''}lift ${unit}, ${l.sets} ${plural(l.sets, 'set')}`,
-  };
-};
+type View = ({ mode: 'run' } & RunView) | ({ mode: 'lift' } & LiftView);
+const UNIT_TITLE = { day: 'Daily', week: 'Weekly', month: 'Monthly' } as const;
 
 /**
  * The hero (guide 6.4, layout standard 6.4): one card, read top down. Running / Strength first, in the quiet tone (the range
  * control below is the card's one Sky thumb); then the headline, the largest and darkest thing on the screen, with its
- * context on the same line; one takeaway line under it, which carries the share of the plan for the range (one big number
- * per card: the old "Last 4 weeks" box follows the range now and is said in words); then the chart and,
- * under the plot it changes, the range control. Running draws miles for the range (1W by day with this week's ruler over
- * it; 1M to 12M by week; All by week or, past about 18 months, by month). Strength gives this week against the plan, then the
- * workouts as date rows under a hairline. Scrubbing reads one point in the headline; a tap opens its week.
+ * context on the same line; one takeaway line under it; then the chart and, under the plot it changes, the range control.
+ *
+ * Both charts are the same bars (`RangeBars`), one per day, week or month of the range: miles run, or lift sessions done.
+ * History shows only what was done. The plan shows only for what is still ahead: the days to come in 1W and the rest of the
+ * bucket holding today, as a dashed outline. In 1W the headline reads this week against its plan, in words. The card has
+ * the same parts in every range, so the range control never moves when the range changes. Dragging across the plot reads
+ * one bucket in the headline; a tap on a running week opens it. Strength keeps its workouts as date rows under a hairline.
  */
-export const HeroChart = ({ log, t, range, onRange, first, firstReady = true, onConnect, failed, onRetry }: { log: Log; t: string; range: ProgressRange; onRange: (r: ProgressRange) => void; first: string | null; firstReady?: boolean; onConnect: (() => void) | null; failed?: boolean; onRetry?: () => void }) => {
+export const HeroChart = ({ log, t, range, onRange, first, liftFirst = null, firstReady = true, onConnect, failed, onRetry }: { log: Log; t: string; range: ProgressRange; onRange: (r: ProgressRange) => void; first: string | null; liftFirst?: string | null; firstReady?: boolean; onConnect: (() => void) | null; failed?: boolean; onRetry?: () => void }) => {
   const nav = useNav();
   const [mode, setMode] = useMode();
   const [scrub, setScrub] = useState<number | null>(null);
   const [opened, setOpened] = useState<number | null>(null);
+  const [hint, hintDone] = useScrubHint();
   const openWeek = useOpenWeek(t);
-  const loaded = (m: string) => log.snap.loaded(m);
-  const fresh = useMemo(() => runRange(log.snap, t, range, first, (m) => log.snap.loaded(m)), [log.snap, t, range, first]);
+  const snap = log.snap;
+  const loaded = useCallback((m: string) => snap.loaded(m), [snap]);
+  // strength reaches back to its own first day when it has one (a logged set), else to where running began
+  const liftStart = liftFirst ?? first;
+
+  // the last 13 weeks, whatever the range: this week's numbers, and whether there is anything before it yet
+  const recentRun = useMemo(() => runRange(snap, t, '3M', first, loaded), [snap, t, first, loaded]);
+  const recentLift = useMemo(() => liftRange(snap, t, '3M', liftStart, loaded), [snap, t, liftStart, loaded]);
+  const week = recentRun.buckets[recentRun.buckets.length - 1]!;
+  const lastWeek = recentRun.buckets[recentRun.buckets.length - 2] ?? null;
+  const liftWeek = recentLift.buckets[recentLift.buckets.length - 1]!;
+  const recentGaps = recentRun.buckets.some((b) => b.missing);
+  const runBefore = recentRun.buckets.some((b) => !b.current && (b.planned > 0 || b.done > 0)) || (!!first && first < recentRun.span.from);
+  const liftBefore = recentLift.buckets.some((b) => !b.current && (b.planned > 0 || b.done > 0)) || (!!liftFirst && liftFirst < recentLift.span.from);
+  const before = mode === 'run' ? runBefore : liftBefore;
+  // a range to choose needs a week before this one with something in it; until then this week draws by day
+  const firstWeek = !recentGaps && !before;
+  const shownRange: ProgressRange = firstWeek ? '1W' : range;
+
+  const fresh = useMemo<View>(() => (mode === 'run' ? { mode, ...runRange(snap, t, shownRange, first, loaded) } : { mode, ...liftRange(snap, t, shownRange, liftStart, loaded) }), [mode, snap, t, shownRange, first, liftStart, loaded]);
   // a range whose months are still on their way keeps the last whole chart on screen (never a chart of gaps that fill in
   // one by one); a month that could not be read shows as a gap with Try again
-  const lastWhole = useRef<RunView | null>(null);
-  const whole = !fresh.buckets.some((b) => b.missing) && (range !== 'All' || firstReady);
+  const lastWhole = useRef<View | null>(null);
+  const whole = !fresh.buckets.some((b) => b.missing) && (shownRange !== 'All' || firstReady);
   if (whole) lastWhole.current = fresh;
-  const view = whole || failed || !lastWhole.current ? fresh : lastWhole.current;
+  const held = lastWhole.current?.mode === mode ? lastWhole.current : null;
+  const view = whole || failed || !held ? fresh : held;
   // the range's months are still on their way and no whole chart has been drawn yet (a long range remembered from the last
   // visit, on a cold open): its total would count only the months in so far, so the headline and the plot wait as skeletons
-  const pending = !whole && !failed && !lastWhole.current;
-  const lift = useMemo(() => liftWeeks(log.snap, t, loaded), [log.snap, t]); // eslint-disable-line react-hooks/exhaustive-deps
-  // the last 13 weeks, whatever the range: this week's numbers, and whether there is anything before it yet
-  const recent = useMemo(() => runRange(log.snap, t, '3M', first, loaded), [log.snap, t, first]); // eslint-disable-line react-hooks/exhaustive-deps
-  const thisWeek = recent.buckets[recent.buckets.length - 1]!;
-  const recentGaps = recent.buckets.some((b) => b.missing);
-  const before = recent.buckets.some((b) => !b.current && !b.future && (b.planned > 0 || b.done > 0)) || (!!first && first < recent.span.from);
+  const pending = !whole && !failed && !held;
 
   const changeMode = (m: HeroMode) => {
     // a segmented change ticks once
     haptics.select();
     setScrub(null);
+    setOpened(null);
     setMode(m);
   };
   const changeRange = (r: ProgressRange) => {
@@ -156,154 +192,107 @@ export const HeroChart = ({ log, t, range, onRange, first, firstReady = true, on
       ]}
     />
   );
+  const title = mode === 'run' ? 'Running' : 'Strength';
+  const rangeRow = <RangeControl className="ph-range" value={range} options={PROGRESS_RANGES} words={RANGE_WORDS} onChange={changeRange} label="Range" />;
 
-  // ---------- nothing planned and nothing run, ever (in the loaded months): the screen's empty state ----------
-  const runAny = before || thisWeek.planned > 0 || thisWeek.done > 0 || view.weeks.some((p) => p.done > 0 || p.planned > 0);
-  const liftAny = lift.some((p) => p.done > 0 || p.planned > 0 || p.missing);
-  if ((mode === 'run' && !runAny && !recentGaps) || (mode === 'lift' && !liftAny)) {
+  // ---------- nothing planned and nothing done, ever (in the loaded months): the screen's empty state ----------
+  const runAny = runBefore || week.planned > 0 || week.done > 0 || (view.mode === 'run' && view.buckets.some((p) => p.done > 0 || p.planned > 0));
+  const liftAny = liftBefore || recentLift.buckets.some((p) => p.done > 0 || p.planned > 0) || (view.mode === 'lift' && view.buckets.some((p) => p.done > 0 || p.planned > 0));
+  if (!recentGaps && !(mode === 'run' ? runAny : liftAny)) {
     const strava = STRAVA_BUILT && !!onConnect;
     return (
-      <section className="card is-hero has-glow ph" aria-label={mode === 'run' ? 'Running' : 'Strength'}>
+      <section className="card is-hero has-glow ph" aria-label={title}>
         {seg}
         <EmptyState
           className="ph-empty"
-          ghost={<CurveGhost />}
+          ghost={<BarsGhost />}
           verb={mode === 'run' && strava ? { label: 'Connect Strava', onPress: onConnect! } : { label: 'Plan a week', onPress: () => nav.go('/plan') }}
         >
-          {mode === 'run' ? 'Plan a week and run it. Planned and done miles show up here.' : 'No lifts yet. Add a lift day to your plan and log its sets.'}
+          {mode === 'run' ? 'Plan a week and run it. Your miles show up here.' : 'No lifts yet. Add a lift day to your plan and log its sets.'}
         </EmptyState>
       </section>
     );
   }
 
-  // ---------- strength: this week against the plan, then the workouts ----------
-  if (mode === 'lift') {
-    const cur = lift[lift.length - 1]!;
-    const line = liftLine(cur);
-    const rate = completion(lift);
-    return (
-      <section className="card is-hero has-glow ph" aria-label="Strength">
-        {seg}
-        <div className="ph-head">
-          <span className="sr-only">{`This week: ${line.words}.${rate ? ` Last ${rate.weeks} weeks: ${pctText(rate.rate)} of planned lift sessions done.` : ''}`}</span>
-          <div className="ph-main" aria-hidden="true">
-            <span className="ph-big">
-              <span className="tnum">{line.big}</span>
-              <small>{line.of} this week</small>
-            </span>
-            {/* the share of the plan over the last finished weeks, said in the takeaway (the list below has each workout's sets) */}
-            <span className="ph-take">{rate ? `${pctText(rate.rate)} of plan over the last ${rate.weeks === 1 ? 'week' : `${rate.weeks} weeks`}` : line.take}</span>
-          </div>
-        </div>
+  const list =
+    mode === 'lift' ? (
+      <>
         <hr className="rule" />
         <LiftList log={log} t={t} />
-      </section>
-    );
-  }
+      </>
+    ) : null;
 
-  // ---------- running ----------
   if (pending && before) {
     return (
-      <section className="card is-hero has-glow ph" aria-label="Running">
+      <section className="card is-hero has-glow ph" aria-label={title}>
         {seg}
         <SkeletonGroup label={`Loading ${RANGE_WORDS[range].toLowerCase()}`} className="ph-wait">
           <Skeleton w={176} h={46} r="control" />
           <Skeleton w={208} h={16} />
           <span className="skel ph-wait-plot" aria-hidden="true" />
         </SkeletonGroup>
-        <RangeControl className="ph-range" value={range} options={PROGRESS_RANGES} words={RANGE_WORDS} onChange={changeRange} label="Range" />
+        {rangeRow}
+        {list}
       </section>
     );
   }
-  const { span, buckets, weeks } = view;
-  const gaps = buckets.some((p) => p.missing);
-  // a chart needs a week before this one with something in it; until then this week's ruler stands in, with one line that
-  // says the chart is coming (and no range control for a chart that is not drawn)
-  const firstWeek = !recentGaps && !before;
-  const is1W = range === '1W' || firstWeek;
-  const ci = buckets.findIndex((p) => p.current);
-  const live = !firstWeek && (scrub ?? opened) != null;
-  const at = live ? buckets[(scrub ?? opened)!]! : null;
-  const kept = gaps && failed ? null : keptOver(weeks);
-  const total = buckets.reduce((s, b) => s + (b.missing ? 0 : b.done), 0);
-  const runs = buckets.reduce((s, b) => s + (b.missing ? 0 : b.runs), 0);
 
-  // the headline: at rest the range (1W: this week against its plan), while reading a point that point
-  let big: string;
-  let context: string;
-  let take: string;
-  if (at) {
-    big = miShort(at.done);
-    context = at.planned > 0 ? `of ${miShort(at.planned)} mi` : 'mi';
-    take = `${bucketTitle(span.unit, at, t)} · ${at.future ? 'Planned' : runsWords(at)}`;
-  } else if (is1W) {
-    big = miShort(thisWeek.done);
-    context = thisWeek.planned > 0 ? `of ${miShort(thisWeek.planned)} mi · ${runsWords(thisWeek)}` : `mi · ${runsWords(thisWeek)}`;
-    take = firstWeek ? 'Your weeks draw here as you go.' : weekTakeaway(thisWeek);
-  } else {
-    big = miShort(total);
-    context = `mi ${rangeContext(span, t)}`;
-    // the share of the plan follows the range and lives in the takeaway: one big number per card (layout standard 8.10)
-    // with no finished week to grade yet, "none planned" only when nothing in the range is planned (a plan that starts this
-    // week, or days still ahead, is a plan)
-    const planned = buckets.some((b) => !b.missing && b.planned > 0);
-    take = kept ? (kept.behind < 0.5 ? 'On plan' : `${pctText(kept.rate)} of plan, ${miShort(kept.behind)} mi behind`) : runs ? `${runs} ${plural(runs, 'run')}${planned ? '' : ', none planned'}` : planned ? 'No runs yet in this range' : 'No runs in this range';
-  }
+  const { span } = view;
+  const unit = span.unit;
+  const byWeek = span.range === '1W';
+  const gaps = view.buckets.some((p) => p.missing);
+  // the bucket being read (under the finger, or the one whose sheet is up), if the chart on screen still has it
+  const ati = scrub ?? opened;
+  const reading = ati != null && ati < view.buckets.length;
+  const readout: Readout =
+    view.mode === 'run'
+      ? reading
+        ? runAt(unit, view.buckets[ati]!, t)
+        : runRest(span, view.buckets, week, lastWeek, t, byWeek, firstWeek)
+      : reading
+        ? liftAt(unit, view.buckets[ati]!, t)
+        : liftRest(span, view.buckets, liftWeek, t, byWeek);
+  const marks: BarMark[] = view.buckets.map((b) => ({ key: b.key, value: b.done, ahead: b.ahead, current: b.current, future: b.future, missing: b.missing }));
+  const words = (i: number) => (view.mode === 'run' ? runWords(unit, view.buckets[i]!, t) : liftWords(unit, view.buckets[i]!, t));
+  const chartLabel = `${UNIT_TITLE[unit]} ${view.mode === 'run' ? 'miles' : 'lift sessions'}, ${RANGE_WORDS[span.range].toLowerCase()}.`;
 
-  const words = (i: number) => {
-    const p = buckets[i]!;
-    const name = bucketTitle(span.unit, p, t);
-    if (p.missing) return `${name}: not loaded yet`;
-    if (p.future) return `${name}: ${miShort(p.planned)} miles planned`;
-    return `${name}: ${miShort(p.done)} ${p.planned > 0 ? `of ${miShort(p.planned)} planned ` : ''}miles, ${runsWords(p)}`;
-  };
-  const unitWord = span.unit === 'day' ? 'Daily' : span.unit === 'week' ? 'Weekly' : 'Monthly';
-  const chartLabel = `${unitWord} miles, planned and run, ${RANGE_WORDS[range].toLowerCase()}. ${ci >= 0 ? `${words(ci)}.` : ''}`;
-  const readWords = `${big} ${context}. ${take}.`;
-
-  // a tap opens the week it falls in (a day opens its week); a month has no sheet of its own
+  // a tap on a running day or week opens its week; a month has no sheet of its own, and the strength rows below open theirs
   const openAt =
-    span.unit === 'month'
+    view.mode !== 'run' || unit === 'month'
       ? undefined
       : (i: number) => {
-          const p = buckets[i];
+          const p = view.buckets[i];
           if (!p) return;
-          // the headline names this point while its sheet is up
+          // the headline names this bucket while its sheet is up
           setOpened(i);
           openWeek(mondayOf(p.key), 'open', () => setOpened(null));
         };
 
   return (
-    <section className="card is-hero has-glow ph" aria-label="Running">
+    <section className="card is-hero has-glow ph" aria-label={title}>
       {seg}
-      <div className="ph-head">
-        {/* the words VoiceOver hears when the point under the finger changes: a live region speaks its text, not its label */}
-        <span className="sr-only" role="status">
-          {readWords}
-        </span>
-        <div className="ph-main" aria-hidden="true">
-          <span className="ph-big">
-            <span className="tnum">{big}</span>
-            <small>{context}</small>
-          </span>
-          <span className="ph-take">{take}</span>
+      <Head r={readout} hold={reading} />
+      <RangeBars
+        key={`${view.mode}-${span.range}-${span.unit}-${span.from}`}
+        span={span}
+        marks={marks}
+        label={chartLabel}
+        words={words}
+        hint={hint ? `Drag across to see each ${UNIT_WORD[unit]}` : null}
+        onScrub={setScrub}
+        onOpen={openAt}
+        onRead={hintDone}
+      />
+      {gaps && failed && onRetry ? (
+        <div className="ph-retry" role="alert">
+          <span>{unit === 'month' ? 'Some months didn’t load.' : 'Some weeks didn’t load.'}</span>
+          <Button variant="soft" size="sm" onClick={onRetry}>
+            Try again
+          </Button>
         </div>
-      </div>
-      {is1W ? <Ruler w={thisWeek} /> : null}
-      {firstWeek ? null : (
-        <>
-          <PlanLine key={`${range}-${span.from}`} span={span} buckets={buckets} label={chartLabel} words={words} onScrub={setScrub} onOpen={openAt} />
-          {gaps && failed && onRetry ? (
-            <div className="ph-retry" role="alert">
-              <span>Some weeks didn’t load.</span>
-              <Button variant="soft" size="sm" onClick={onRetry}>
-                Try again
-              </Button>
-            </div>
-          ) : null}
-          <RangeControl className="ph-range" value={range} options={PROGRESS_RANGES} words={RANGE_WORDS} onChange={changeRange} label="Range" />
-        </>
-      )}
+      ) : null}
+      {firstWeek ? null : rangeRow}
+      {list}
     </section>
   );
 };

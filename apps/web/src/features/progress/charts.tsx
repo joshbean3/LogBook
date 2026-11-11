@@ -18,13 +18,6 @@ export const useWidth = <T extends HTMLElement>() => {
   return [ref, w] as const;
 };
 
-/** A round-number ceiling for an axis: 10, 20, 30, 40, 60, 80, 100… */
-export const niceTop = (v: number, min = 10) => {
-  const m = Math.max(min, v);
-  const step = m > 80 ? 20 : m > 40 ? 10 : m > 20 ? 10 : 5;
-  return Math.ceil(m / step) * step;
-};
-
 /**
  * A sparkline: one line, a dot on the latest value. `invert` draws smaller as higher (pace: faster is up). Nulls break
  * nothing; they are skipped. Decorative: the row it sits in says the number in words.
@@ -74,11 +67,11 @@ export interface LinePoint {
 }
 
 /**
- * The sheets' chart: a line with a dot per point, scrubbable like the mileage chart (the readout above rewrites to the
- * point under the finger, a tick per point, a Light tap at the best), a quick tap calls `onTap`. `invert` puts smaller
- * values higher (pace). The readout is the caller's: `readout(i)` with i = null when nobody is touching it.
+ * The sheets' chart: a line with a dot per point, read by dragging across it like the hero chart (the readout above
+ * rewrites to the point under the finger, a tick per point), a quick tap calls `onTap`. `invert` puts smaller values
+ * higher (pace). The readout is the caller's: `readout(i)` with i = null when nobody is touching it.
  */
-export const LineChart = ({ points, invert, format, readout, onTap, label, height = 168, best, steps }: { points: LinePoint[]; invert?: boolean; format: (v: number) => string; readout: (i: number | null) => ReactNode; onTap?: (i: number) => void; label: string; height?: number; best?: number | null; steps?: number[] }) => {
+export const LineChart = ({ points, invert, format, readout, onTap, label, height = 168, steps }: { points: LinePoint[]; invert?: boolean; format: (v: number) => string; readout: (i: number | null) => ReactNode; onTap?: (i: number) => void; label: string; height?: number; steps?: number[] }) => {
   const [ref, width] = useWidth<HTMLDivElement>();
   const reduce = useReduced();
   const W = Math.max(200, width || 320);
@@ -112,7 +105,6 @@ export const LineChart = ({ points, invert, format, readout, onTap, label, heigh
     },
     onScrub: () => undefined,
     onTap,
-    peak: best ?? null,
     home: n - 1,
   });
   const a = scrub.active;

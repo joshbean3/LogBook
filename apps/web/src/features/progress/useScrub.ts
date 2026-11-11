@@ -1,49 +1,84 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { HOLD_SLOP_PX, SCRUB_HOLD_MS, SCRUB_PEEK_MS, SCRUB_TAP_MS } from '@/lib/gesture';
 import { haptics } from '@/lib/haptics';
+import { scrubIntent, stepIndex } from './scrub';
 
 /**
- * Press-and-slide over a chart (Robinhood's scrub, docs/research §3): the finger reads the point under it, the headline
- * rewrites, a selection tick per point and a Light tap on the peak; letting go returns to now. A quick tap is a tap
- * (`onTap`, e.g. open the week). Two fingers pinch (`onPinch`). A mouse hovers to read and clicks to open. Keyboard: arrows
- * read, Enter opens, Escape lets go.
+ * Drag across a chart to read it. A finger that moves sideways (or rests for a moment) reads the point under it: the
+ * caller's readout rewrites (`onScrub`), one `select` tick per point, and letting go returns to the headline. A finger that
+ * moves up or down scrolls the page as it would anywhere else: the chart only takes a gesture it has claimed
+ * (`scrubIntent`), and from then on the page holds still under the finger.
  *
- * Vertical scrolling still wins until the scrub has begun (a 160ms hold or a sideways slide); after that the page holds
- * still under the finger.
+ * A quick tap is a tap (`onTap`, e.g. open the week); with nothing to open it shows the point for a moment. A mouse hovers
+ * to read and clicks to open. Keys: arrows move one point, Home and End jump to the ends, Enter opens, Escape lets go.
+ * VoiceOver's swipe up and down on the slider arrive as those arrow keys.
+ *
+ * Both event families are listened to on purpose. Pointer events carry the gesture (touch, pen and mouse alike). The
+ * native `touchmove` listener makes the same decision from the same numbers and cancels the move the moment the chart
+ * claims it: on iPhone the page's scroll can only be held off from a `touchmove` that is not passive, and React's are.
  */
 export interface ScrubOptions {
   count: number;
-  /** The point under a client x, or null outside the plot. */
+  /** The point under a client x, or null when there is nothing to read. */
   indexAt: (clientX: number) => number | null;
   /** The point being read, or null when let go. */
   onScrub: (i: number | null) => void;
+  /** A quick tap on a point (open the week). Without it a tap shows the point for a moment. */
   onTap?: (i: number) => void;
-  /** The point that earns a Light tap instead of a tick (the max). */
-  peak?: number | null;
-  /** Where the keyboard starts (this week). */
+  /** A finger or a mouse has read a point: the first-use hint has done its job. May be called more than once. */
+  onRead?: () => void;
+  /** Where the keys start (the bucket holding today). */
   home?: number;
-  /** The first index that can be read (weeks before the log began are not): the keyboard stops there. */
+  /** The first index that can be read (buckets before the log began cannot): the keys stop there. */
   min?: number;
-  /** A pinch: -1 = fingers apart (zoom in), +1 = together (zoom out). Once per gesture. */
-  onPinch?: (dir: -1 | 1) => void;
-  /** The live pinch ratio while two fingers are down, null after. */
-  onPinchMove?: (ratio: number | null) => void;
   disabled?: boolean;
 }
 
-const HOLD_MS = 160;
-const TAP_MS = 450;
-const SLOP = 8;
+interface Press {
+  id: number;
+  mouse: boolean;
+  x0: number;
+  y0: number;
+  /** The latest x, so a press that rests reads where the finger is now. */
+  x: number;
+  t0: number;
+  i0: number | null;
+  /** The chart has the gesture. */
+  live: boolean;
+  /** It has read more than one point: a drag, never a tap. */
+  changed: boolean;
+  last: number | null;
+  timer: ReturnType<typeof setTimeout> | null;
+  /** The point the keys had moved to when this press began (VoiceOver's double tap lands in the middle of the chart). */
+  keyAt: number | null;
+}
 
 export const useScrub = (o: ScrubOptions) => {
   const opts = useRef(o);
   opts.current = o;
-  const pointers = useRef(new Map<number, { x: number; y: number }>());
-  const press = useRef<{ id: number; x0: number; y0: number; t0: number; i0: number | null; active: boolean; changed: boolean; last: number | null; timer: ReturnType<typeof setTimeout> | null } | null>(null);
-  const pinch = useRef<{ d0: number; fired: boolean } | null>(null);
   const [active, setActive] = useState<number | null>(null);
+  const activeRef = useRef<number | null>(null);
+  const press = useRef<Press | null>(null);
+  const live = useRef(false);
   const el = useRef<HTMLElement | null>(null);
+  const touch0 = useRef<{ x: number; y: number } | null>(null);
+  const byKey = useRef<number | null>(null);
   const pendingTap = useRef<number | null>(null);
   const tapTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const peekTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const emit = (i: number | null) => {
+    if (i === activeRef.current) return;
+    activeRef.current = i;
+    setActive(i);
+    opts.current.onScrub(i);
+  };
+  const clearPeek = () => {
+    if (!peekTimer.current) return;
+    clearTimeout(peekTimer.current);
+    peekTimer.current = null;
+    emit(null);
+  };
   const fireTap = () => {
     if (tapTimer.current) clearTimeout(tapTimer.current);
     tapTimer.current = null;
@@ -51,30 +86,24 @@ export const useScrub = (o: ScrubOptions) => {
     pendingTap.current = null;
     if (i != null) opts.current.onTap?.(i);
   };
-  const live = useRef(false);
-
-  const emit = (i: number | null) => {
-    setActive(i);
-    opts.current.onScrub(i);
-  };
-  // the scrub ticks `select` per week (§11.4: the Progress scrub); `toggle` is for a mark or a star, never a scrub
-  const tick = (_i: number) => haptics.select();
-  const to = (i: number | null) => {
+  /** The point under the finger while the chart has the gesture: one tick per point (guide 9.5, `select`). */
+  const read = (i: number | null) => {
     const p = press.current;
     if (!p || i == null || i === p.last) return;
     if (p.last != null) p.changed = true;
     p.last = i;
-    tick(i);
+    haptics.select();
     emit(i);
   };
   const activate = (x: number) => {
     const p = press.current;
-    if (!p || p.active) return;
-    p.active = true;
+    if (!p || p.live) return;
+    p.live = true;
     live.current = true;
     if (p.timer) clearTimeout(p.timer);
     p.timer = null;
-    to(opts.current.indexAt(x));
+    if (!p.mouse) opts.current.onRead?.();
+    read(opts.current.indexAt(x));
   };
   const endPress = () => {
     const p = press.current;
@@ -82,140 +111,172 @@ export const useScrub = (o: ScrubOptions) => {
     press.current = null;
     live.current = false;
   };
-  const dist = () => {
-    const [a, b] = [...pointers.current.values()];
-    return a && b ? Math.hypot(a.x - b.x, a.y - b.y) : 0;
-  };
 
-  // while a scrub is live the page must not scroll under the finger
+  // ---------- the native touch listeners: the same decision, made where the move can still be cancelled ----------
+  const onTouchStart = (e: TouchEvent) => {
+    const t = e.touches[0];
+    touch0.current = e.touches.length === 1 && t ? { x: t.clientX, y: t.clientY } : null;
+    // a second finger is not a read: let go
+    if (e.touches.length > 1 && press.current) {
+      endPress();
+      emit(null);
+    }
+  };
+  const onTouchMove = (e: TouchEvent) => {
+    const t = e.touches[0];
+    if (e.touches.length !== 1 || !t) return;
+    const p = press.current;
+    if (p && !p.live && touch0.current) {
+      const intent = scrubIntent(t.clientX - touch0.current.x, t.clientY - touch0.current.y);
+      if (intent === 'scrub') activate(t.clientX);
+      else if (intent === 'scroll') endPress();
+    }
+    if (!live.current) return;
+    // the chart has the gesture: the page holds still under the finger
+    if (e.cancelable) e.preventDefault();
+    read(opts.current.indexAt(t.clientX));
+  };
+  /** A touch that ended with no pointer event to say so (the browser took it): never leave a marker behind. */
+  const onTouchEnd = (e: TouchEvent) => {
+    if (e.touches.length) return;
+    touch0.current = null;
+    const p = press.current;
+    if (!p || p.mouse) return;
+    // the pointer event for this lift comes first when there is one: by now it has ended the press
+    setTimeout(() => {
+      if (press.current !== p) return;
+      endPress();
+      emit(null);
+    }, 0);
+  };
   const ref = useCallback((node: HTMLElement | null) => {
-    if (el.current) el.current.removeEventListener('touchmove', block);
+    const old = el.current;
+    if (old) {
+      old.removeEventListener('touchstart', onTouchStart);
+      old.removeEventListener('touchmove', onTouchMove);
+      old.removeEventListener('touchend', onTouchEnd);
+      old.removeEventListener('touchcancel', onTouchEnd);
+    }
     el.current = node;
-    if (node) node.addEventListener('touchmove', block, { passive: false });
+    if (node) {
+      node.addEventListener('touchstart', onTouchStart, { passive: true });
+      node.addEventListener('touchmove', onTouchMove, { passive: false });
+      node.addEventListener('touchend', onTouchEnd, { passive: true });
+      node.addEventListener('touchcancel', onTouchEnd, { passive: true });
+    }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
-  function block(e: TouchEvent) {
-    if (live.current || e.touches.length > 1) e.preventDefault();
-  }
   useEffect(
     () => () => {
       if (press.current?.timer) clearTimeout(press.current.timer);
       if (tapTimer.current) clearTimeout(tapTimer.current);
+      if (peekTimer.current) clearTimeout(peekTimer.current);
     },
     [],
   );
 
+  // ---------- pointer events: the gesture itself ----------
   const onPointerDown = (e: React.PointerEvent<HTMLElement>) => {
-    if (opts.current.disabled) return;
-    if (e.pointerType === 'mouse' && e.button !== 0) return;
-    pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (opts.current.disabled || !e.isPrimary) return;
+    const mouse = e.pointerType === 'mouse';
+    if (mouse && e.button !== 0) return;
+    clearPeek();
     try {
       e.currentTarget.setPointerCapture(e.pointerId);
     } catch {
-      /* synthetic pointer */
+      /* a synthetic pointer */
     }
-    if (pointers.current.size === 2) {
-      // a second finger: this is a pinch, not a scrub
-      endPress();
-      emit(null);
-      pinch.current = { d0: dist() || 1, fired: false };
-      return;
-    }
-    if (pointers.current.size > 2) return;
-    const i0 = opts.current.indexAt(e.clientX);
-    press.current = { id: e.pointerId, x0: e.clientX, y0: e.clientY, t0: performance.now(), i0, active: false, changed: false, last: null, timer: null };
-    if (e.pointerType === 'mouse') activate(e.clientX);
-    else {
-      const x = e.clientX;
-      press.current.timer = setTimeout(() => activate(x), HOLD_MS);
-    }
+    const p: Press = { id: e.pointerId, mouse, x0: e.clientX, y0: e.clientY, x: e.clientX, t0: performance.now(), i0: opts.current.indexAt(e.clientX), live: false, changed: false, last: null, timer: null, keyAt: byKey.current };
+    press.current = p;
+    if (mouse) activate(e.clientX);
+    // a finger that rests on the chart is reading it
+    else p.timer = setTimeout(() => activate(p.x), SCRUB_HOLD_MS);
   };
 
   const onPointerMove = (e: React.PointerEvent<HTMLElement>) => {
     if (opts.current.disabled) return;
-    if (pointers.current.has(e.pointerId)) pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
-    const pz = pinch.current;
-    if (pz) {
-      const r = dist() / pz.d0;
-      opts.current.onPinchMove?.(r);
-      if (!pz.fired && (r > 1.25 || r < 0.8)) {
-        pz.fired = true;
-        haptics.select();
-        opts.current.onPinch?.(r > 1 ? -1 : 1);
-      }
-      return;
-    }
     const p = press.current;
     if (!p) {
-      // a mouse hovering reads the chart without a sound
-      if (e.pointerType === 'mouse') emit(opts.current.indexAt(e.clientX));
+      // a mouse hovering reads the chart without a tick
+      if (e.pointerType !== 'mouse') return;
+      byKey.current = null;
+      clearPeek();
+      const i = opts.current.indexAt(e.clientX);
+      if (i != null && i !== activeRef.current) opts.current.onRead?.();
+      emit(i);
       return;
     }
     if (e.pointerId !== p.id) return;
-    const dx = e.clientX - p.x0;
-    const dy = e.clientY - p.y0;
-    if (!p.active) {
-      if (Math.abs(dx) > 6 && Math.abs(dx) > Math.abs(dy)) activate(e.clientX);
-      else if (Math.abs(dy) > 10) endPress(); // a scroll
+    p.x = e.clientX;
+    if (!p.live) {
+      const intent = scrubIntent(e.clientX - p.x0, e.clientY - p.y0);
+      if (intent === 'scrub') activate(e.clientX);
+      else if (intent === 'scroll') endPress();
       return;
     }
-    to(opts.current.indexAt(e.clientX));
+    read(opts.current.indexAt(e.clientX));
   };
 
   const finish = (e: React.PointerEvent<HTMLElement>, cancelled: boolean) => {
-    pointers.current.delete(e.pointerId);
-    if (pinch.current) {
-      if (pointers.current.size < 2) {
-        pinch.current = null;
-        opts.current.onPinchMove?.(null);
-      }
-      endPress();
-      return;
-    }
     const p = press.current;
     if (!p || p.id !== e.pointerId) return;
-    // a touch that pressed long enough to start reading (the scrub went live) is a read, not a tap: letting go opens nothing
-    const quick = (e.pointerType === 'mouse' || !p.active) && performance.now() - p.t0 < TAP_MS && Math.hypot(e.clientX - p.x0, e.clientY - p.y0) < SLOP && !p.changed;
+    // a touch that became a read is a read: letting go opens nothing. A mouse reads from the press, so its click still counts
+    const quick = !cancelled && (p.mouse || !p.live) && !p.changed && p.i0 != null && performance.now() - p.t0 < SCRUB_TAP_MS && Math.hypot(e.clientX - p.x0, e.clientY - p.y0) < HOLD_SLOP_PX;
     endPress();
-    if (!cancelled && quick && p.i0 != null && opts.current.onTap) {
-      emit(e.pointerType === 'mouse' ? p.i0 : null);
-      // open on the click that follows, so it lands here and not on the sheet rising under the finger
-      const i = p.i0;
-      if (tapTimer.current) clearTimeout(tapTimer.current);
-      pendingTap.current = i;
-      tapTimer.current = setTimeout(fireTap, 350);
-      return;
+    if (quick) {
+      const i = p.keyAt ?? p.i0!;
+      if (opts.current.onTap) {
+        emit(p.mouse ? i : null);
+        // open on the click that follows, so it lands here and not on the sheet rising under the finger
+        if (tapTimer.current) clearTimeout(tapTimer.current);
+        pendingTap.current = i;
+        tapTimer.current = setTimeout(fireTap, 350);
+        return;
+      }
+      if (!p.mouse) {
+        // nothing to open: the tap shows the point for a moment
+        haptics.select();
+        opts.current.onRead?.();
+        emit(i);
+        peekTimer.current = setTimeout(() => {
+          peekTimer.current = null;
+          if (!press.current) emit(null);
+        }, SCRUB_PEEK_MS);
+        return;
+      }
     }
-    // let go: back to now (a mouse keeps reading where it hovers)
-    emit(e.pointerType === 'mouse' && !cancelled ? opts.current.indexAt(e.clientX) : null);
+    // let go: back to the headline (a mouse keeps reading where it hovers)
+    emit(p.mouse && !cancelled ? opts.current.indexAt(e.clientX) : null);
   };
 
   const onKeyDown = (e: React.KeyboardEvent<HTMLElement>) => {
+    if (opts.current.disabled) return;
     const { count, home = count - 1, min = 0 } = opts.current;
-    const cur = active ?? home;
-    let next: number | null = null;
-    if (e.key === 'ArrowLeft') next = Math.max(min, (active == null ? home + 1 : cur) - 1);
-    else if (e.key === 'ArrowRight') next = Math.min(count - 1, (active == null ? home - 1 : cur) + 1);
-    else if (e.key === 'Home') next = min;
-    else if (e.key === 'End') next = count - 1;
-    else if (e.key === 'Enter' || e.key === ' ') {
+    if (e.key === 'Enter' || e.key === ' ') {
+      if (!opts.current.onTap) return;
       e.preventDefault();
-      opts.current.onTap?.(cur);
+      opts.current.onTap(activeRef.current ?? home);
       return;
-    } else if (e.key === 'Escape' && active != null) {
+    }
+    if (e.key === 'Escape') {
+      if (activeRef.current == null) return;
       e.stopPropagation();
+      byKey.current = null;
       emit(null);
       return;
-    } else return;
+    }
+    const next = stepIndex(e.key, activeRef.current, { count, home, min });
+    if (next == null) return;
     e.preventDefault();
-    if (next !== active) {
-      tick(next);
+    clearPeek();
+    byKey.current = next;
+    if (next !== activeRef.current) {
+      haptics.select();
       emit(next);
     }
   };
 
   return {
     active,
-    clear: () => emit(null),
     bind: {
       ref,
       onPointerDown,
@@ -225,9 +286,18 @@ export const useScrub = (o: ScrubOptions) => {
       onPointerLeave: (e: React.PointerEvent<HTMLElement>) => {
         if (e.pointerType === 'mouse' && !press.current) emit(null);
       },
-      onClick: () => fireTap(),
+      onClick: (e: React.MouseEvent<HTMLElement>) => {
+        if (pendingTap.current != null) return fireTap();
+        // a click no pointer made (VoiceOver's double tap, a switch): open the point the keys last moved to
+        const { count, home = count - 1 } = opts.current;
+        if (e.detail === 0 && !opts.current.disabled) opts.current.onTap?.(byKey.current ?? activeRef.current ?? home);
+      },
       onKeyDown,
-      onBlur: () => active != null && emit(null),
+      onBlur: () => {
+        byKey.current = null;
+        clearPeek();
+        emit(null);
+      },
     },
   };
 };

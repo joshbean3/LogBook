@@ -1,6 +1,6 @@
 import { shiftDays, type ISODate } from '@logbook/shared';
 import { describe, expect, it } from 'vitest';
-import { axisLabels, bucketRuns, bucketTitle, keptOver, PROGRESS_RANGES, rangeContext, rangeSpan, spanMonths, type DayRun, type RangeSpan } from './ranges';
+import { axisLabels, bucketDates, bucketLifts, bucketRuns, bucketTitle, gridFor, labelExtent, PROGRESS_RANGES, rangeContext, rangeSpan, spanMonths, usualOver, WEEKLY_MAX, type DayLift, type DayRun, type RangeSpan } from './ranges';
 
 // Wednesday Nov 11 2026: this week began Monday Nov 9
 const T = '2026-11-11';
@@ -19,8 +19,8 @@ describe('range spans', () => {
     expect(s.buckets.filter((b) => b.future)).toHaveLength(4);
   });
 
-  it('reads 1M, 3M, 6M and 12M by week, ending with this week', () => {
-    for (const [r, n] of [['1M', 5], ['3M', 13], ['6M', 26], ['12M', 52]] as const) {
+  it('reads 1M, 3M and 6M by week, ending with this week', () => {
+    for (const [r, n] of [['1M', 5], ['3M', 13], ['6M', 26]] as const) {
       const s = rangeSpan(r, T);
       expect(s.unit).toBe('week');
       expect(s.buckets).toHaveLength(n);
@@ -30,12 +30,47 @@ describe('range spans', () => {
     expect(rangeSpan('1M', T).from).toBe('2026-10-12');
   });
 
+  it('reads 12M as this month and the 11 before it, by month', () => {
+    const s = rangeSpan('12M', T);
+    expect(s.unit).toBe('month');
+    expect(s.buckets.map((b) => b.key.slice(0, 7))).toEqual(['2025-12', '2026-01', '2026-02', '2026-03', '2026-04', '2026-05', '2026-06', '2026-07', '2026-08', '2026-09', '2026-10', '2026-11']);
+    expect(s.buckets[0]).toMatchObject({ from: '2025-12-01', to: '2025-12-31', current: false });
+    expect(s.buckets.at(-1)).toMatchObject({ from: '2026-11-01', to: '2026-11-30', current: true, future: false });
+    // across a year boundary, and on the first of a month
+    expect(rangeSpan('12M', '2027-01-01').buckets.map((b) => b.key)).toEqual(expect.arrayContaining(['2026-02-01', '2027-01-01']));
+    expect(rangeSpan('12M', '2027-01-01').buckets).toHaveLength(12);
+  });
+
+  it('never draws more than 26 bars, at any range on any day of the year', () => {
+    for (const today of ['2026-01-01', '2026-01-20', '2026-03-15', '2026-06-29', '2026-07-06', T, '2026-12-31'])
+      for (const r of PROGRESS_RANGES)
+        for (const first of [null, '2026-11-02', '2026-06-01', '2025-09-08', '2019-01-01']) {
+          const s = rangeSpan(r, today, first);
+          // a long All is the one range with no ceiling: it reads by month, 12 bars a year
+          const cap = r === 'All' && s.unit === 'month' ? Infinity : Math.max(WEEKLY_MAX, 26);
+          expect(s.buckets.length, `${r} on ${today} from ${first}`).toBeLessThanOrEqual(cap);
+          expect(s.buckets.length).toBeGreaterThan(0);
+        }
+  });
+
   it('starts YTD on January 1, clipping the week it falls in', () => {
-    const s = rangeSpan('YTD', T);
+    // late June: 26 weeks from the week of January 1
+    const s = rangeSpan('YTD', '2026-06-24');
     expect(s.unit).toBe('week');
     // Jan 1 2026 is a Thursday: its week began Monday Dec 29 2025, and counts from Jan 1
     expect(s.buckets[0]).toMatchObject({ key: '2025-12-29', from: '2026-01-01', to: '2026-01-04' });
+    expect(s.buckets).toHaveLength(26);
     expect(s.buckets.at(-1)!.current).toBe(true);
+  });
+
+  it('reads YTD by month once the year holds more than 26 weeks', () => {
+    expect(rangeSpan('YTD', '2026-06-28').unit).toBe('week');
+    expect(rangeSpan('YTD', '2026-06-29').unit).toBe('month');
+    const s = rangeSpan('YTD', T);
+    expect(s.unit).toBe('month');
+    expect(s.buckets).toHaveLength(11);
+    expect(s.buckets[0]).toMatchObject({ key: '2026-01-01', from: '2026-01-01' });
+    expect(s.buckets.at(-1)).toMatchObject({ key: '2026-11-01', to: '2026-11-30', current: true });
   });
 
   it('reads YTD by day in early January, and its first week across the year boundary', () => {
@@ -56,8 +91,12 @@ describe('range spans', () => {
     expect(spanMonths(s)).toEqual(['2026-10', '2026-11', '2026-12', '2027-01']);
   });
 
-  it('reads All by week, by month past about 18 months, by day under three weeks', () => {
-    expect(rangeSpan('All', T, '2026-03-02')).toMatchObject({ unit: 'week', from: '2026-03-02' });
+  it('reads All by week up to 26 weeks, by month past that, by day under three weeks', () => {
+    expect(rangeSpan('All', T, '2026-08-03')).toMatchObject({ unit: 'week', from: '2026-08-03' });
+    // 26 weeks to the day, then one more
+    expect(rangeSpan('All', T, '2026-05-18')).toMatchObject({ unit: 'week' });
+    expect(rangeSpan('All', T, '2026-05-18').buckets).toHaveLength(26);
+    expect(rangeSpan('All', T, '2026-05-17')).toMatchObject({ unit: 'month', from: '2026-05-17' });
     const long = rangeSpan('All', T, '2023-11-06');
     expect(long.unit).toBe('month');
     expect(long.buckets[0]).toMatchObject({ key: '2023-11-01', from: '2023-11-06' });
@@ -71,9 +110,9 @@ describe('range spans', () => {
   });
 
   it('reads a range longer than the history as the range, the weeks before it empty', () => {
-    const s = rangeSpan('12M', T);
+    const s = rangeSpan('6M', T);
     const b = bucketRuns(s.buckets, reader({ '2026-11-09': 4 }, { '2026-11-09': 4.2 }), T);
-    expect(b).toHaveLength(52);
+    expect(b).toHaveLength(26);
     expect(b.slice(0, -1).every((x) => x.planned === 0 && x.done === 0)).toBe(true);
     expect(b.at(-1)).toMatchObject({ planned: 4, done: 4.2, runs: 1 });
   });
@@ -82,11 +121,11 @@ describe('range spans', () => {
 describe('bucket sums', () => {
   it('has nothing to say with no runs and no plan', () => {
     const b = bucketRuns(rangeSpan('3M', T).buckets, () => none, T);
-    expect(b.every((x) => x.done === 0 && x.planned === 0 && !x.missing)).toBe(true);
-    expect(keptOver(b)).toBeNull();
+    expect(b.every((x) => x.done === 0 && x.planned === 0 && x.ahead === 0 && !x.missing)).toBe(true);
+    expect(usualOver(b)).toBeNull();
   });
 
-  it('counts runs only this week: the plan whole, runs up to today', () => {
+  it('counts runs only up to today, and the plan whole', () => {
     const plan = { '2026-11-09': 4, '2026-11-11': 6, '2026-11-14': 8 };
     const ran = { '2026-11-09': 4.2, '2026-11-14': 9 };
     const w = bucketRuns(rangeSpan('3M', T).buckets, reader(plan, ran), T).at(-1)!;
@@ -94,24 +133,54 @@ describe('bucket sums', () => {
     const days = bucketRuns(rangeSpan('1W', T).buckets, reader(plan, ran), T);
     expect(days.map((d) => d.done)).toEqual([4.2, 0, 0, 0, 0, 0, 0]);
     expect(days.map((d) => d.planned)).toEqual([4, 0, 6, 0, 0, 8, 0]);
-    // a finished-week rate needs a finished week
-    expect(keptOver(bucketRuns(rangeSpan('3M', T).buckets, reader(plan, ran), T))).toBeNull();
   });
 
-  it('marks a bucket that touches a month not loaded, and leaves it out of the rate', () => {
+  it('keeps the plan for what is ahead: the days to come, and today until it is run', () => {
+    const plan = { '2026-11-03': 5, '2026-11-09': 4, '2026-11-11': 6, '2026-11-14': 8 };
+    // today's 6 not run yet: it is still ahead, with Saturday's 8
+    const before = bucketRuns(rangeSpan('3M', T).buckets, reader(plan, { '2026-11-09': 4.2 }), T);
+    expect(before.at(-1)).toMatchObject({ done: 4.2, ahead: 14 });
+    // a week that is over has nothing ahead, whatever it planned and whatever was missed
+    expect(before.at(-2)).toMatchObject({ planned: 5, done: 0, ahead: 0 });
+    // today's run done (a little short): what is left of today, and Saturday
+    const after = bucketRuns(rangeSpan('3M', T).buckets, reader(plan, { '2026-11-09': 4.2, '2026-11-11': 5 }), T);
+    expect(after.at(-1)).toMatchObject({ done: 9.2, ahead: 9 });
+    // today's run longer than planned: only Saturday is ahead
+    expect(bucketRuns(rangeSpan('3M', T).buckets, reader(plan, { '2026-11-11': 7.5 }), T).at(-1)!.ahead).toBe(8);
+    // by day: the days behind have none, the days ahead have their plan
+    expect(bucketRuns(rangeSpan('1W', T).buckets, reader(plan, { '2026-11-09': 4.2 }), T).map((d) => d.ahead)).toEqual([0, 0, 6, 0, 0, 8, 0]);
+    // by month: the rest of the month's plan
+    expect(bucketRuns(rangeSpan('12M', T).buckets, reader({ ...plan, '2026-11-28': 10 }, {}), T).at(-1)!.ahead).toBe(24);
+  });
+
+  it('marks a bucket that touches a month not loaded, and leaves it out of the usual week', () => {
     const s = rangeSpan('3M', T);
-    const plan = Object.fromEntries(s.buckets.map((b) => [b.key, 10]));
     const ran = Object.fromEntries(s.buckets.map((b) => [b.key, 5]));
-    const b = bucketRuns(s.buckets, reader(plan, ran), T, (m) => m >= '2026-09');
+    const b = bucketRuns(s.buckets, reader({}, ran), T, (m) => m >= '2026-09');
     expect(b.filter((x) => x.missing).map((x) => x.key)).toEqual(['2026-08-17', '2026-08-24', '2026-08-31']);
-    expect(keptOver(b)).toMatchObject({ rate: 0.5, weeks: 9 });
+    // nine finished weeks that loaded, 5 miles each (this week is not over)
+    expect(usualOver(b)).toEqual({ mean: 5, buckets: 9 });
   });
 
-  it('grades the plan week by week, a big week never paying for a missed one', () => {
+  it('averages finished buckets from where the log begins, never the one holding today', () => {
     const s = rangeSpan('1M', T);
-    const [a, b2, c, d] = s.buckets.map((x) => x.key);
-    const k = keptOver(bucketRuns(s.buckets, reader({ [a!]: 10, [b2!]: 10, [c!]: 10 }, { [a!]: 20, [c!]: 5, [d!]: 7 }), T));
-    expect(k).toEqual({ rate: 0.5, behind: 15, weeks: 3 });
+    const [, b2, c, d, e] = s.buckets.map((x) => x.key);
+    // nothing in the first week, then 10, 0 and 20, and 7 so far this week
+    const u = usualOver(bucketRuns(s.buckets, reader({}, { [b2!]: 10, [d!]: 20, [e!]: 7 }), T));
+    expect(u).toEqual({ mean: 10, buckets: 3 });
+    expect(c).toBe('2026-10-26');
+    // only this week has anything: no finished bucket to count
+    expect(usualOver(bucketRuns(s.buckets, reader({}, { [e!]: 7 }), T))).toBeNull();
+  });
+
+  it('sums lifting the same way: sessions done up to today, what is still ahead, sets and pounds', () => {
+    const lift = (plan: Record<string, number>, did: Record<string, [number, number, number]>) => (d: ISODate): DayLift => ({ planned: plan[d] ?? 0, done: did[d]?.[0] ?? 0, sets: did[d]?.[1] ?? 0, volume: did[d]?.[2] ?? 0 });
+    const day = lift({ '2026-11-10': 1, '2026-11-11': 1, '2026-11-12': 1 }, { '2026-11-10': [1, 9, 9270], '2026-11-08': [1, 3, 600] });
+    const w = bucketLifts(rangeSpan('3M', T).buckets, day, T);
+    expect(w.at(-1)).toMatchObject({ planned: 3, done: 1, ahead: 2, sets: 9, volume: 9270 });
+    expect(w.at(-2)).toMatchObject({ planned: 0, done: 1, ahead: 0, sets: 3, volume: 600 });
+    expect(bucketLifts(rangeSpan('1W', T).buckets, day, T).map((d) => [d.done, d.ahead])).toEqual([[0, 0], [1, 0], [0, 1], [0, 1], [0, 0], [0, 0], [0, 0]]);
+    expect(bucketLifts(rangeSpan('3M', T).buckets, day, T, (m) => m !== '2026-11').at(-1)!.missing).toBe(true);
   });
 
   it('files a run by its calendar date whatever the time zone', () => {
@@ -136,32 +205,77 @@ describe('bucket sums', () => {
   });
 });
 
+describe('the grid', () => {
+  it('draws two or three round gridlines and uses the height it has', () => {
+    const cases: Array<[number, number[], number]> = [
+      [0, [5, 10], 10],
+      [1, [1, 2], 2],
+      [2, [1, 2], 2],
+      [3, [1, 2, 3], 3],
+      [4.1, [2, 4], 4.1],
+      [5, [2, 4], 5],
+      [5.2, [2, 4, 6], 6],
+      [9, [5, 10], 10],
+      [12, [5, 10], 12],
+      [13, [5, 10, 15], 15],
+      [19.9, [5, 10, 15], 19.9],
+      [23.8, [10, 20], 23.8],
+      [27, [10, 20, 30], 30],
+      [31.4, [10, 20, 30], 31.4],
+      [96, [50, 100], 100],
+      [118, [50, 100], 118],
+      [140, [50, 100, 150], 150],
+      [1240, [500, 1000], 1240],
+    ];
+    for (const [max, lines, top] of cases) expect(gridFor(max), `max ${max}`).toEqual({ lines, top });
+  });
+
+  it('holds for any maximum: 2 or 3 lines, evenly stepped from zero, the tallest bar inside the plot', () => {
+    for (let m = 0.1; m < 6000; m *= 1.07) {
+      const { lines, top } = gridFor(m);
+      expect(lines.length === 2 || lines.length === 3, `max ${m}`).toBe(true);
+      expect(lines.every((v, i) => v === lines[0]! * (i + 1))).toBe(true);
+      expect(top).toBeGreaterThanOrEqual(m);
+      expect(top).toBeGreaterThanOrEqual(lines.at(-1)!);
+      // the bars use the plot: from 2 up the tallest stands at least 80 percent of the way up (under 2 the lines stay
+      // on whole numbers, 1 and 2, so a single short run is a short bar)
+      if (m >= 2) expect(m / top, `max ${m}`).toBeGreaterThanOrEqual(0.8);
+    }
+    expect(gridFor(Number.NaN)).toEqual(gridFor(0));
+    expect(gridFor(-3)).toEqual(gridFor(0));
+  });
+});
+
 describe('axis labels', () => {
   // an 11 px caption with its tracking: about 9 px a letter
   const width = (s: string) => s.length * 9;
+  // bars: each bucket has an equal slot of the plot and its label sits under the slot's center
   const layout = (s: RangeSpan, plotW: number) => {
     const n = s.buckets.length;
-    const x = (i: number) => 8 + ((plotW - 38) / Math.max(1, n - 1)) * i;
+    const x = (i: number) => (plotW / n) * (i + 0.5);
     return { ls: axisLabels(s, x, width, plotW), x };
   };
   const collide = (ls: ReturnType<typeof axisLabels>, x: (i: number) => number, plotW: number) => {
-    const ext = ls.map((l) => {
-      const w = width(l.text);
-      const a = Math.max(0, Math.min(plotW - w, l.anchor === 'start' ? x(l.i) : l.anchor === 'end' ? x(l.i) - w : x(l.i) - w / 2));
-      return [a, a + w] as const;
-    });
-    return ext.some((e, i) => ext.some((f, j) => i !== j && e[0] < f[1] + 10 && f[0] < e[1] + 10));
+    const ext = ls.map((l) => labelExtent(x(l.i), width(l.text), plotW));
+    // words keep 10 between them; two single letters may sit 6 apart
+    return ext.some((e, i) => ext.some((f, j) => i !== j && e[0] < f[1] + (ls[i]!.text.length === 1 && ls[j]!.text.length === 1 ? 6 : 10) && f[0] < e[1] + (ls[i]!.text.length === 1 && ls[j]!.text.length === 1 ? 6 : 10)));
   };
 
-  it('never collides, at any range and phone width', () => {
+  it('never collides, and never leaves the plot, at any range and phone width', () => {
     for (const r of PROGRESS_RANGES)
-      for (const plotW of [240, 306, 352])
-        for (const today of [T, '2027-01-03', '2026-06-30']) {
-          const s = rangeSpan(r, today, '2023-11-06');
-          const { ls, x } = layout(s, plotW);
-          expect(collide(ls, x, plotW), `${r} at ${plotW} on ${today}`).toBe(false);
-          expect(ls.length).toBeGreaterThan(0);
-        }
+      for (const plotW of [210, 240, 288, 306, 352])
+        for (const today of [T, '2027-01-03', '2026-06-30'])
+          for (const first of ['2023-11-06', '2025-09-08', '2026-09-01']) {
+            const s = rangeSpan(r, today, first);
+            const { ls, x } = layout(s, plotW);
+            expect(collide(ls, x, plotW), `${r} at ${plotW} on ${today} from ${first}`).toBe(false);
+            expect(ls.length).toBeGreaterThan(0);
+            for (const l of ls) {
+              const [a, b] = labelExtent(x(l.i), width(l.text), plotW);
+              expect(a).toBeGreaterThanOrEqual(0);
+              expect(b).toBeLessThanOrEqual(plotW);
+            }
+          }
   });
 
   it('names weekdays in 1W, months in 3M, and Now under this week', () => {
@@ -169,8 +283,22 @@ describe('axis labels', () => {
     expect(w.map((l) => l.text).join('')).toBe('MTWTFSS');
     expect(w.find((l) => l.now)!.i).toBe(2);
     const m = layout(rangeSpan('3M', T), 306).ls;
-    expect(m.at(-1)).toMatchObject({ text: 'Now', anchor: 'end' });
+    expect(m.at(-1)).toMatchObject({ text: 'Now', now: true, i: 12 });
     expect(m.map((l) => l.text)).toContain('Sep');
+  });
+
+  it('names each month in 12M by its initial, and Now under this month', () => {
+    const ls = layout(rangeSpan('12M', T), 288).ls;
+    expect(ls.at(-1)).toMatchObject({ text: 'Now', i: 11 });
+    // December to September by initial; October gives way to "Now" beside it
+    expect(ls.slice(0, -1).map((l) => l.text).join('')).toBe('DJFMAMJJAS');
+    expect(ls.slice(0, -1).map((l) => l.i)).toEqual([0, 1, 2, 3, 4, 5, 6, 7, 8, 9]);
+  });
+
+  it('keeps a label whole inside the plot', () => {
+    expect(labelExtent(4, 27, 300)).toEqual([0, 27]);
+    expect(labelExtent(150, 27, 300)).toEqual([136.5, 163.5]);
+    expect(labelExtent(296, 27, 300)).toEqual([273, 300]);
   });
 
   it('names the years in a long All', () => {
@@ -186,6 +314,18 @@ describe('range words', () => {
     expect(rangeContext(rangeSpan('1M', T), T)).toBe('since Oct 12');
     expect(rangeContext(rangeSpan('YTD', T), T)).toBe('this year');
     expect(rangeContext(rangeSpan('All', T, '2025-03-03'), T)).toBe('since Mar 2025');
+  });
+
+  it('says the days a bucket covers, for the readout', () => {
+    const s = rangeSpan('3M', T);
+    expect(bucketDates('week', s.buckets.at(-1)!, T)).toBe('Nov 9 to 15');
+    expect(bucketDates('week', s.buckets.find((b) => b.key === '2026-09-28')!, T)).toBe('Sep 28 to Oct 4');
+    // a week clipped to January 1 says the days it counts
+    expect(bucketDates('week', rangeSpan('YTD', '2026-03-10').buckets[0]!, '2026-03-10')).toBe('Jan 1 to 4');
+    expect(bucketDates('day', rangeSpan('1W', T).buckets[2]!, T)).toBe('Today');
+    expect(bucketDates('day', rangeSpan('1W', T).buckets[4]!, T)).toBe('Fri, Nov 13');
+    expect(bucketDates('month', rangeSpan('12M', T).buckets[0]!, T)).toBe('December 2025');
+    expect(bucketDates('month', rangeSpan('12M', T).buckets.at(-2)!, T)).toBe('October');
   });
 
   it('names a bucket while it is read', () => {

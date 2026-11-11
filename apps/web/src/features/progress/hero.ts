@@ -1,41 +1,16 @@
 /**
- * The Progress hero's numbers: planned against done, week by week, for running (miles) and for strength (lift sessions).
- * Pure functions over the snapshot so the card and its tests agree. Nothing here renders.
+ * The Progress hero's numbers: what was done, bucket by bucket, for running (miles) and for strength (lift sessions), and
+ * what the plan still asks for. Pure functions over the snapshot so the card and its tests agree. Nothing here renders.
  */
 import { counts, isSkipMark, label, mondayOf, monthOf, sessionStatus, shiftDays, type Activity, type ISODate, type LiftSet, type Session } from '@logbook/shared';
 import type { AppSnapshot } from '@/api/snapshot';
 import { dayMiles } from '../sessions/miles';
-import { bucketRuns, bucketsBetween, rangeSpan, type DayRun, type ProgressRange, type RangeSpan, type RunBucket } from './ranges';
+import { bucketLifts, bucketRuns, rangeSpan, type DayLift, type DayRun, type LiftBucket, type ProgressRange, type RangeSpan, type RunBucket } from './ranges';
 
 export type HeroMode = 'run' | 'lift';
 export const HERO_MODES: HeroMode[] = ['run', 'lift'];
-/** Weeks in the chart, this one included. No weeks ahead: the card is about what was planned and what got done. */
+/** Weeks the strength list reaches back, this one included. */
 export const HERO_WEEKS = 12;
-/** The window behind "86% over the last 4 weeks". */
-export const RATE_WEEKS = 4;
-
-/** One bar: what the week planned and what got done, in the mode's unit (miles, or sessions). */
-export interface BarWeek {
-  /** Monday. */
-  w: ISODate;
-  planned: number;
-  done: number;
-  current: boolean;
-  /** A day of this week falls in a month that has not loaded: a quiet gap, left out of every summary. */
-  missing: boolean;
-}
-export interface RunWeek extends BarWeek {
-  runs: number;
-  plannedRuns: number;
-}
-export interface LiftWeek extends BarWeek {
-  sets: number;
-  /** Weight times reps over every set, in pounds. */
-  volume: number;
-}
-
-const days7 = (w: ISODate) => Array.from({ length: 7 }, (_, i) => shiftDays(w, i));
-const isMissing = (w: ISODate, loaded?: (month: string) => boolean) => (loaded ? days7(w).some((d) => !loaded(monthOf(d))) : false);
 
 /** One day's running: run miles planned (skips left out) and runs on the plan; miles and runs done (activities and runs
  * marked done, `dayMiles`), nothing done after today. */
@@ -52,74 +27,52 @@ export const runDay = (snap: AppSnapshot, d: ISODate, today: ISODate): DayRun =>
   return { planned, plannedRuns, done: m.miles, runs: m.runs };
 };
 
+/**
+ * One day's lifting. Planned: lift sessions on the plan, skips left out. Done: planned lifts that count (sets logged, a
+ * lift activity, or marked done), or one for a day with sets or a lift activity and no lift on the plan. Sets and volume
+ * come from the logged sets. Nothing done after today.
+ */
+export const liftDay = (snap: AppSnapshot, d: ISODate, today: ISODate): DayLift => {
+  const lifts = snap.sessionsOn(d).filter((s) => s.kind === 'lift' && !isSkipMark(s.mark));
+  if (d > today) return { planned: lifts.length, done: 0, sets: 0, volume: 0 };
+  const ls = snap.liftsOn(d);
+  const kept = lifts.filter((s) => counts(sessionStatus(snap, d, s))).length;
+  const any = ls.length > 0 || snap.activitiesOn(d).some((a) => a.kind === 'lift');
+  return { planned: lifts.length, done: kept || (any ? 1 : 0), sets: ls.length, volume: ls.reduce((s, x) => s + x.weight * x.reps, 0) };
+};
+
 export interface RunView {
   span: RangeSpan;
-  /** The chart's points, in the span's unit. */
+  /** The chart's bars, in the span's unit. */
   buckets: RunBucket[];
-  /** The same days by week: what the plan kept is graded by the week whatever the chart's unit. */
-  weeks: RunBucket[];
+}
+export interface LiftView {
+  span: RangeSpan;
+  buckets: LiftBucket[];
 }
 /** Days already read, per snapshot (a new snapshot, new data, starts over): switching ranges reads no day twice. */
-const dayCache = new WeakMap<AppSnapshot, Map<string, DayRun>>();
-/** The running chart for a range: its buckets, and the same days by week. Each day is read once per snapshot. */
-export const runRange = (snap: AppSnapshot, today: ISODate, range: ProgressRange, first: ISODate | null, loaded?: (month: string) => boolean): RunView => {
-  const span = rangeSpan(range, today, first);
-  let memo = dayCache.get(snap);
-  if (!memo) dayCache.set(snap, (memo = new Map()));
-  const day = (d: ISODate) => {
+const runCache = new WeakMap<AppSnapshot, Map<string, DayRun>>();
+const liftCache = new WeakMap<AppSnapshot, Map<string, DayLift>>();
+const memoDay = <T>(cache: WeakMap<AppSnapshot, Map<string, T>>, snap: AppSnapshot, today: ISODate, read: (d: ISODate) => T) => {
+  let memo = cache.get(snap);
+  if (!memo) cache.set(snap, (memo = new Map()));
+  return (d: ISODate) => {
     const k = `${today}|${d}`;
     let r = memo!.get(k);
-    if (!r) memo!.set(k, (r = runDay(snap, d, today)));
+    if (!r) memo!.set(k, (r = read(d)));
     return r;
   };
-  const buckets = bucketRuns(span.buckets, day, today, loaded);
-  const weeks = span.unit === 'week' ? buckets : bucketRuns(bucketsBetween('week', span.from, span.to, today), day, today, loaded);
-  return { span, buckets, weeks };
 };
-
-/**
- * Weekly lift sessions. Planned: lift sessions on the plan, skips left out. Done: planned lifts that count (sets logged, a
- * lift activity, or marked done), plus a day with sets or a lift activity and no lift on the plan. Sets and volume come
- * from the logged sets.
- */
-export const liftWeeks = (snap: AppSnapshot, today: ISODate, loaded?: (month: string) => boolean): LiftWeek[] => {
-  const mon = mondayOf(today);
-  return Array.from({ length: HERO_WEEKS }, (_, i) => {
-    const w = shiftDays(mon, (i - HERO_WEEKS + 1) * 7);
-    let planned = 0;
-    let done = 0;
-    let sets = 0;
-    let volume = 0;
-    for (const d of days7(w)) {
-      const lifts = snap.sessionsOn(d).filter((s) => s.kind === 'lift' && !isSkipMark(s.mark));
-      planned += lifts.length;
-      if (d > today) continue;
-      const ls = snap.liftsOn(d);
-      sets += ls.length;
-      volume += ls.reduce((s, x) => s + x.weight * x.reps, 0);
-      const kept = lifts.filter((s) => counts(sessionStatus(snap, d, s))).length;
-      const any = ls.length > 0 || snap.activitiesOn(d).some((a) => a.kind === 'lift');
-      done += kept || (any ? 1 : 0);
-    }
-    return { w, planned, done, sets, volume, current: w === mon, missing: isMissing(w, loaded) };
-  });
+/** The running chart for a range: one bucket per bar. Each day is read once per snapshot. */
+export const runRange = (snap: AppSnapshot, today: ISODate, range: ProgressRange, first: ISODate | null, loaded?: (month: string) => boolean): RunView => {
+  const span = rangeSpan(range, today, first);
+  return { span, buckets: bucketRuns(span.buckets, memoDay(runCache, snap, today, (d) => runDay(snap, d, today)), today, loaded) };
 };
-
-/**
- * How much of the plan got done over the last finished weeks that had a plan: done capped at planned each week (a big week
- * does not pay for a missed one), over planned. Null with no finished planned week in the window.
- */
-export const completion = (weeks: BarWeek[], n = RATE_WEEKS): { rate: number; weeks: number } | null => {
-  const done = weeks.filter((p) => !p.current && !p.missing && p.planned > 0).slice(-n);
-  if (!done.length) return null;
-  const planned = done.reduce((s, p) => s + p.planned, 0);
-  const got = done.reduce((s, p) => s + Math.min(p.done, p.planned), 0);
-  return { rate: got / planned, weeks: done.length };
+/** The strength chart for a range: lift sessions per bucket, with the sets and pounds behind them. */
+export const liftRange = (snap: AppSnapshot, today: ISODate, range: ProgressRange, first: ISODate | null, loaded?: (month: string) => boolean): LiftView => {
+  const span = rangeSpan(range, today, first);
+  return { span, buckets: bucketLifts(span.buckets, memoDay(liftCache, snap, today, (d) => liftDay(snap, d, today)), today, loaded) };
 };
-
-/** One week's share of its plan, capped at 100%; null with nothing planned. */
-export const weekRate = (p: Pick<BarWeek, 'planned' | 'done'>) => (p.planned > 0 ? Math.min(1, p.done / p.planned) : null);
-
 /** Miles for a headline: "18", "18.5"; whole miles from 100 up, with a comma ("1,240"). */
 export const miShort = (v: number) => (Math.abs(v) >= 100 ? Math.round(v).toLocaleString('en-US') : String(Math.round(v * 10) / 10));
 /** Pounds: "7,450", "12.3K". */
