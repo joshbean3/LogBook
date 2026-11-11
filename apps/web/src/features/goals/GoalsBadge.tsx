@@ -2,6 +2,7 @@ import { goalsDue } from '@logbook/shared';
 import { useEffect } from 'react';
 import { useNav } from '@/app/NavController';
 import { useBootstrap, useGoals } from '@/api/queries';
+import { useAssistantTurns } from '@/features/assistant/store';
 import { useToday } from '@/lib/useToday';
 import { useNowMark } from '@/ui/nowBudget';
 import { onReminderTap, scheduleReminders } from './reminders';
@@ -28,8 +29,12 @@ export const GoalsBadge = () => {
   // a review owed always counts
   const show = !!due && (due.review > 0 || ((goals.data?.length ?? 0) > 0 && (due.day || due.week)));
   // a badge dot on the Sunrise budget (guide 3.5): Sunrise while the screen has room and the dock's badge is not showing,
-  // else the same dot in Night Ink
-  const paint = useNowMark('badge', show);
+  // else the same dot in Night Ink. The dock's badge (a conversation going, app/Dock.tsx) always wins: the budget breaks
+  // ties by registration order, so a conversation started after this dot registered would otherwise leave the dock's
+  // dot yielded and this one lit (plan 6.2: the tab badge only when the dock badge is not showing)
+  const dockBadge = useAssistantTurns().length > 0;
+  const lit = useNowMark('badge', show && !dockBadge);
+  const paint = dockBadge ? 'ink' : lit;
   if (!show) return null;
   // the dot is drawn; the words join the tab's own name: "Goals, needs attention"
   return (
