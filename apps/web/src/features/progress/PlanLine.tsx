@@ -11,7 +11,6 @@ import { useScrub } from './useScrub';
 const MASK = '#fff'; // brand-ok: mask luminance, not a painted color
 const PAD_TOP = 16;
 const LEFT = 8;
-const RIGHT = 30;
 
 /** Runs of consecutive buckets that have loaded: a line breaks at a gap, it never bridges one with a value it does not have. */
 const runsOf = (bs: RunBucket[], from: number, upTo: number) => {
@@ -51,8 +50,14 @@ export const PlanLine = ({ span, buckets, label, words, onScrub, onOpen }: { spa
   const Y0 = H - 24;
   const n = buckets.length;
   const max = Math.max(0, ...buckets.map((p) => Math.max(p.planned, p.done)));
-  const top = niceTop(max * 1.12, span.unit === 'day' ? 5 : 10);
+  // the y scale fits the range's largest bucket; its two gridlines sit on whole miles (a 15 top would put one at 7.5)
+  const top0 = niceTop(max * 1.12, span.unit === 'day' ? 5 : 10);
+  const top = top0 % 2 ? top0 + 5 : top0;
   const y = (v: number) => Y0 - (v / top) * (Y0 - PAD_TOP);
+  // the caption labels grow with the text size (rem), the plot does not: their room grows with them (the y labels' column
+  // on the trailing side, the spacing of the x labels)
+  const textScale = Math.max(1, (parseFloat(getComputedStyle(document.documentElement).fontSize) || 16) / 16);
+  const RIGHT = Math.max(30, Math.ceil(String(Math.round(top)).length * 8 * textScale + 10));
   const step = (W - LEFT - RIGHT) / Math.max(1, n - 1);
   const x = (i: number) => LEFT + step * i;
   const ci = buckets.findIndex((p) => p.current);
@@ -113,8 +118,6 @@ export const PlanLine = ({ span, buckets, label, words, onScrub, onOpen }: { spa
   const barW = Math.min(24, step * 0.56);
 
   const grid = [top / 2, top];
-  // the caption labels grow with the text size (rem), the plot does not: their spacing grows with them
-  const textScale = Math.max(1, (parseFloat(getComputedStyle(document.documentElement).fontSize) || 16) / 16);
   const xLabels = width ? axisLabels(span, x, captionWidth(textScale), W - RIGHT + 8) : [];
   // "Plan" and "You" where the lines start: the label of the line that runs higher there sits above both lines, the other
   // under both, each clear of the lines across its own width
@@ -220,7 +223,7 @@ export const PlanLine = ({ span, buckets, label, words, onScrub, onOpen }: { spa
             {reachD ? <motion.path d={reachD} className="pl-reach" {...fade(0.45)} /> : null}
             {/* single buckets between gaps have no line to draw: a dot holds their place */}
             {doneSegs
-              .filter((r) => r.length === 1 && r[0] !== prevI)
+              .filter((r) => r.length === 1)
               .map((r) => (
                 <circle key={r[0]} cx={x(r[0]!)} cy={y(buckets[r[0]!]!.done)} r={3} className="pl-solo" />
               ))}

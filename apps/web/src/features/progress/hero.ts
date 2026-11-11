@@ -59,13 +59,17 @@ export interface RunView {
   /** The same days by week: what the plan kept is graded by the week whatever the chart's unit. */
   weeks: RunBucket[];
 }
-/** The running chart for a range: its buckets, and the same days by week. Each day is read once. */
+/** Days already read, per snapshot (a new snapshot, new data, starts over): switching ranges reads no day twice. */
+const dayCache = new WeakMap<AppSnapshot, Map<string, DayRun>>();
+/** The running chart for a range: its buckets, and the same days by week. Each day is read once per snapshot. */
 export const runRange = (snap: AppSnapshot, today: ISODate, range: ProgressRange, first: ISODate | null, loaded?: (month: string) => boolean): RunView => {
   const span = rangeSpan(range, today, first);
-  const memo = new Map<ISODate, DayRun>();
+  let memo = dayCache.get(snap);
+  if (!memo) dayCache.set(snap, (memo = new Map()));
   const day = (d: ISODate) => {
-    let r = memo.get(d);
-    if (!r) memo.set(d, (r = runDay(snap, d, today)));
+    const k = `${today}|${d}`;
+    let r = memo!.get(k);
+    if (!r) memo!.set(k, (r = runDay(snap, d, today)));
     return r;
   };
   const buckets = bucketRuns(span.buckets, day, today, loaded);

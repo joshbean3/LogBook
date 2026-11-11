@@ -65,11 +65,11 @@ export default function ProgressView() {
       <div className="page pg-page">
         {header}
         <SkeletonGroup label="Loading your progress" className="pg-skel">
-          <Skeleton h={372} r="card" />
+          <Skeleton h={418} r="card" />
           <Skeleton w={120} h={28} r="control" className="pg-skel-title" />
           <div className="tiles">
             {[0, 1, 2, 3].map((i) => (
-              <Skeleton key={i} h={152} r="card" />
+              <Skeleton key={i} h={148} r="card" />
             ))}
           </div>
         </SkeletonGroup>
@@ -85,7 +85,7 @@ export default function ProgressView() {
   return (
     <div className="page pg-page">
       {header}
-      <HeroChart log={log} t={t} range={range} onRange={setRange} first={start.first} onConnect={connect} failed={fail.failed} onRetry={fail.retry} />
+      <HeroChart log={log} t={t} range={range} onRange={setRange} first={start.first} firstReady={start.ready} onConnect={connect} failed={fail.failed} onRetry={fail.retry} />
       <Trends log={log} onConnect={connect} />
       {HEALTH_BUILT ? <Health log={log} t={t} /> : null}
     </div>

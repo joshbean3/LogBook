@@ -243,7 +243,12 @@ export const axisLabels = (span: Pick<RangeSpan, 'range' | 'unit' | 'buckets'>, 
     const ls = withNow(initials);
     if (fits(ls)) return byI(ls);
   }
-  // else as many as fit, newest first (the recent end of the chart is the one read most), each kept clear of the ones kept
+  // else every k-th month, counted back from the newest (an even rhythm, and the recent end is the one read most)
+  for (let k = 2; k <= names!.length; k++) {
+    const ls = withNow(names!.filter((_, j) => (names!.length - 1 - j) % k === 0));
+    if (fits(ls) && ls.length >= 2) return byI(ls);
+  }
+  // else as many as fit, newest first, each kept clear of the ones kept
   const kept: AxisLabel[] = nowL ? [nowL] : [];
   for (const l of [...names!].reverse()) if (l.i !== nowL?.i && kept.every((k) => !clash(l, k))) kept.push(l);
   return byI(kept);

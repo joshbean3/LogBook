@@ -31,7 +31,7 @@
 }
 .ph-main {
   display: grid;
-  flex: 1 1 11rem;
+  flex: 1 1 8rem;
   gap: var(--sp-1);
   min-width: 0;
 }
@@ -78,6 +78,17 @@
   font: 500 var(--fs-foot) / var(--lh-foot) var(--sans);
   color: var(--ink-2);
   white-space: nowrap;
+}
+
+/* very large text: the share takes its own line under the takeaway, its label after it */
+@container ph (max-width: 12rem) {
+  .ph-side {
+    grid-auto-flow: column;
+    align-items: baseline;
+    justify-items: start;
+    gap: var(--sp-2);
+    text-align: left;
+  }
 }
 
 /* the range control: 12 below the plot, 12 in from the card's edges (wider than the hero's 20 allows, guide 6.8) */

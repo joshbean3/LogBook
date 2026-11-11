@@ -106,7 +106,7 @@ const liftLine = (l: LiftWeek) => {
  * it; 1M to 12M by week; All by week or, past about 18 months, by month). Strength gives this week against the plan, then the
  * workouts as date rows under a hairline. Scrubbing reads one point in the headline; a tap opens its week.
  */
-export const HeroChart = ({ log, t, range, onRange, first, onConnect, failed, onRetry }: { log: Log; t: string; range: ProgressRange; onRange: (r: ProgressRange) => void; first: string | null; onConnect: (() => void) | null; failed?: boolean; onRetry?: () => void }) => {
+export const HeroChart = ({ log, t, range, onRange, first, firstReady = true, onConnect, failed, onRetry }: { log: Log; t: string; range: ProgressRange; onRange: (r: ProgressRange) => void; first: string | null; firstReady?: boolean; onConnect: (() => void) | null; failed?: boolean; onRetry?: () => void }) => {
   const nav = useNav();
   const [mode, setMode] = useMode();
   const [scrub, setScrub] = useState<number | null>(null);
@@ -117,7 +117,7 @@ export const HeroChart = ({ log, t, range, onRange, first, onConnect, failed, on
   // a range whose months are still on their way keeps the last whole chart on screen (never a chart of gaps that fill in
   // one by one); a month that could not be read shows as a gap with Try again
   const lastWhole = useRef<RunView | null>(null);
-  const whole = !fresh.buckets.some((b) => b.missing);
+  const whole = !fresh.buckets.some((b) => b.missing) && (range !== 'All' || firstReady);
   if (whole) lastWhole.current = fresh;
   const view = whole || failed || !lastWhole.current ? fresh : lastWhole.current;
   const lift = useMemo(() => liftWeeks(log.snap, t, loaded), [log.snap, t]); // eslint-disable-line react-hooks/exhaustive-deps
