@@ -25,3 +25,19 @@ describe('each card holds its own hit layer', () => {
     expect(rule('.hero.card-group .card-open::after')).toMatch(/inset:\s*-1000px/);
   });
 });
+
+/**
+ * The title in that button is a `<span>`, and `text-overflow` cuts only a block. Left inline, a 60 character session
+ * name (the longest the server takes) ran past the second session's card and under its hold ring, and under the ring in
+ * the Close card's run row, instead of ending in an ellipsis. Each of these names is a block that is cut on one line.
+ */
+describe('a long session name is cut inside its card', () => {
+  for (const name of ['.ss-stamp', '.cd-run-stamp'])
+    it(`${name} is a block that ends in an ellipsis`, () => {
+      const r = rule(name);
+      expect(r).toMatch(/display:\s*block/);
+      expect(r).toMatch(/white-space:\s*nowrap/);
+      expect(r).toMatch(/overflow:\s*hidden/);
+      expect(r).toMatch(/text-overflow:\s*ellipsis/);
+    });
+});

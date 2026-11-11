@@ -669,8 +669,11 @@
   min-width: 0;
   display: grid;
 }
-/* the session's name in a row: Inter 600 at the row size, as the plan has it (Inter Tight is for captions only) */
+/* the session's name in a row: Inter 600 at the row size, as the plan has it (Inter Tight is for captions only). One
+   line: a long name ends in an ellipsis before the ring. It is a block because an ellipsis only cuts a block: as an
+   inline span in the title's button, a 60 character name ran past the card */
 .ss-stamp {
+  display: block;
   font: 600 var(--fs-row) / var(--lh-row) var(--sans);
   letter-spacing: 0;
   white-space: nowrap;
@@ -1086,7 +1089,9 @@
   flex: 1;
   min-width: 0;
 }
+/* the name is a block here too (as .ss-stamp), so a long one ends in an ellipsis before the ring, not under it */
 .cd-run-stamp {
+  display: block;
   font: 600 var(--fs-row) / var(--lh-row) var(--sans);
   letter-spacing: 0;
   white-space: nowrap;
