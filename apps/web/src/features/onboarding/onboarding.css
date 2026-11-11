@@ -476,7 +476,6 @@
   height: 44px;
   border-radius: var(--r-pill);
   background: var(--surface-2);
-  box-shadow: inset 0 0 0 1px var(--line);
   pointer-events: none;
 }
 @media (max-width: 359px) {
@@ -562,6 +561,7 @@
 /* ---------- weekly miles: the big stepper ---------- */
 .ob-miles-label {
   margin-top: 0;
+  text-wrap: balance; /* two even lines at 320, never "now?" alone */
 }
 .ob-miles {
   margin-top: var(--sp-4);

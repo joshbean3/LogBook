@@ -222,11 +222,11 @@ const PrivacyStep = () => {
           Allow the assistant?
         </h1>
         <p className="start-sub pv-promise">{PRIVACY_PROMISE}</p>
-        <PrivacyFacts consent={null} />
-        {/* the policy, on screen before the answer is given */}
+        {/* the policy, on the first screen before the answer is given, at 320 too: right under the promise it backs */}
         <SiteLink href={LEGAL.privacy} className="pv-policy">
           Privacy policy
         </SiteLink>
+        <PrivacyFacts consent={null} />
       </div>
       <div className="start-foot pv-foot">
         {/* what Not now means, 8 above the pair it explains (layout standard 3.3; auth-20) */}

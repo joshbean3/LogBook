@@ -205,7 +205,7 @@
   font-weight: 600;
   font-size: var(--fs-section);
   line-height: var(--lh-section);
-  letter-spacing: var(--tr-title);
+  letter-spacing: 0;
   color: var(--ink);
 }
 .pv-title:focus {
@@ -215,7 +215,7 @@
   color: var(--ink-2);
 }
 .start-privacy .pv-facts {
-  margin-top: var(--sp-6);
+  margin-top: var(--sp-3);
 }
 /* what Not now means: a Dusk footnote 8 above the pair, in the pinned foot */
 .pv-later {
@@ -226,13 +226,13 @@
   color: var(--ink-2);
   pointer-events: auto;
 }
-/* the policy, one tap away before any account: its own line, a 44 px target, a Deep Sky link, 16 in like the footnote */
+/* the policy, one tap away before any account: its own line under the promise, a 44 px target, a Deep Sky link; the
+   list starts 12 under the target (about 24 under the link's words) */
 .pv-policy.site-link {
   display: inline-flex;
   align-items: center;
   min-height: 44px;
-  margin-top: var(--sp-1);
-  padding: 0 var(--sp-4);
+  padding: 0;
   color: var(--accent-text);
   font-size: var(--fs-sub);
   line-height: var(--lh-sub);
@@ -240,8 +240,9 @@
 .pv-foot {
   position: sticky;
   bottom: 0;
-  /* a fade tall enough to read as "more below" (auth-20); it never takes a press */
-  background: linear-gradient(to bottom, transparent, var(--bg) var(--sp-8));
+  /* a fade tall enough to read as "more below" (auth-20); it never takes a press. It is solid 8 above the footnote, so
+     a faded line of the list never sits against the footnote's first line */
+  background: linear-gradient(to bottom, transparent, var(--bg) var(--sp-6));
   padding-top: var(--sp-8);
   pointer-events: none;
 }

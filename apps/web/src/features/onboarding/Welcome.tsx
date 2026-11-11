@@ -505,7 +505,7 @@ function Flow({ uid }: { uid: string }) {
                       set({ routine: on ? chips.filter((x) => x !== c.id) : [...chips, c.id] });
                     }}
                   >
-                    {on ? <Check size={16} aria-hidden="true" /> : null}
+                    {on ? <Check size={18} aria-hidden="true" /> : null}
                     {c.label}
                   </Pressable>
                 );

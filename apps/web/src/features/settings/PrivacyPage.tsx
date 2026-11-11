@@ -60,7 +60,7 @@ export const PrivacyPage = (): React.JSX.Element => {
       </SGroup>
       {/* the whole of what goes and what does not, word for word the list sign-up shows, as one inset group (S5) */}
       {c ? <PrivacyFacts consent={c} title="What is sent" /> : null}
-      <SGroup title="Policies and requests" foot={`We answer a privacy request within ${REQUEST_DAYS} days. Anthropic runs the assistant and sees only what you allow. Fly.io hosts Orby. The Privacy Policy lists everyone who handles your data.`}>
+      <SGroup title="Policies and requests" foot={`We answer a privacy request within ${REQUEST_DAYS} days. Anthropic runs the assistant and sees only what you allow. Fly.io hosts Orby. The privacy policy lists everyone who handles your data.`}>
         <GoRow icon={FileText} className="s-wrap-title" title="Privacy policy" onPress={() => void openExternal(LEGAL.privacy)} />
         <GoRow icon={HeartPulse} className="s-wrap-title" title="Consumer health data privacy policy" onPress={() => void openExternal(LEGAL.healthPrivacy)} />
         <GoRow icon={Mail} title="Privacy requests" sub="A copy, a correction or deletion" href={supportMail('Privacy request')} label={`Privacy requests: email us for a copy of your data, a correction or deletion. We answer within ${REQUEST_DAYS} days.`} />

@@ -73,7 +73,7 @@ export const PrivacyFacts = ({ consent, on, title, className = '' }: { /** The C
       <ul className="group pv-list" aria-label={title ?? 'What is sent'}>
         {f.sent.map((r) => (
           <li key={r.key} className="is-sent">
-            <Check className="pv-ic" size={16} strokeWidth={2.25} aria-hidden="true" />
+            <Check className="pv-ic" size={15} aria-hidden="true" />
             <span>
               <span className="sr-only">Sent: </span>
               {r.text}
@@ -82,7 +82,7 @@ export const PrivacyFacts = ({ consent, on, title, className = '' }: { /** The C
         ))}
         {f.notSent.map((r) => (
           <li key={r.key} className="is-not">
-            <X className="pv-ic" size={16} strokeWidth={2.25} aria-hidden="true" />
+            <X className="pv-ic" size={15} aria-hidden="true" />
             <span>
               <span className="sr-only">Not sent: </span>
               {r.text}

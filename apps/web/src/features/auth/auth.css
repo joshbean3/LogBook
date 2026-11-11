@@ -102,7 +102,7 @@
   font-weight: 600;
   font-size: var(--fs-section);
   line-height: var(--lh-section);
-  letter-spacing: var(--tr-title);
+  letter-spacing: 0;
 }
 .auth-sub {
   margin: var(--sp-2) 0 var(--sp-6);

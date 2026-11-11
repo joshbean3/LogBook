@@ -74,7 +74,7 @@ export default function SettingsView(): React.JSX.Element {
 
       <SGroup title="Training">
         {noPlan && loaded ? (
-          <GoRow icon={CalendarDays} title="Build a plan" sub="Pick your days and miles. Orby writes the weeks." onPress={go('training')} />
+          <GoRow icon={CalendarDays} title="Build a plan" sub="Your days and miles, then the weeks" label="Build a plan. Pick your days and miles, and Orby writes the weeks" onPress={go('training')} />
         ) : (
           <>
             <GoRow icon={Gauge} title={hasStored ? 'Starting miles' : 'This week'} value={loaded ? `${profile.weeklyMiles} mi` : dash} onPress={go('training')} />
@@ -108,7 +108,7 @@ export default function SettingsView(): React.JSX.Element {
         <GoRow
           icon={HabitIcon}
           title={habits.length ? `${habits.length} ${habits.length === 1 ? 'habit' : 'habits'}` : 'Add your first habit'}
-          sub={habits.length ? habitLine(habits.map((h) => h.name)) : 'Tiles you tap on Today.'}
+          sub={habits.length ? habitLine(habits.map((h) => h.name)) : 'Tiles you tap on Today'}
           onPress={go('habits')}
           className="s-habits-row"
         />

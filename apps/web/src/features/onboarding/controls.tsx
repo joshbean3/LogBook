@@ -558,7 +558,7 @@ export const HabitPicker = ({ selected, custom, onChange }: { selected: string[]
           const on = selected.includes(h);
           return (
             <Pressable key={h} className={`ob-chip ${on ? 'on' : ''}`} aria-pressed={on} disabled={!on && full} onPress={() => toggle(h)}>
-              {on ? <Check size={16} aria-hidden="true" /> : null}
+              {on ? <Check size={18} aria-hidden="true" /> : null}
               <span className="ob-chip-label">{h}</span>
             </Pressable>
           );
@@ -575,7 +575,7 @@ export const HabitPicker = ({ selected, custom, onChange }: { selected: string[]
           </form>
         ) : (
           <Pressable className="ob-chip add" disabled={full} onPress={() => setAdding(true)}>
-            <Plus size={16} aria-hidden="true" />
+            <Plus size={18} aria-hidden="true" />
             Your own
           </Pressable>
         )}
