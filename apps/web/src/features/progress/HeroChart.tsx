@@ -4,7 +4,7 @@ import { mondayOf } from '@logbook/shared';
 import { useNav } from '@/app/NavController';
 import { haptics } from '@/lib/haptics';
 import { STRAVA_BUILT } from '@/lib/features';
-import { Button, EmptyState, Segmented } from '@/ui';
+import { Button, EmptyState, Segmented, Skeleton, SkeletonGroup } from '@/ui';
 import { RangeControl } from '@/ui/charts';
 import { useNowMark, usePageShown } from '@/ui/nowBudget';
 import type { Log } from '../log/useLog';
@@ -44,7 +44,7 @@ const runsWords = (b: Pick<RunBucket, 'runs' | 'plannedRuns'>) => (b.plannedRuns
 
 /** This week, in words under the 1W headline: done, on plan with miles to go, or behind the plan so far. */
 const weekTakeaway = (w: RunBucket) => {
-  if (w.planned <= 0) return w.runs ? 'No runs planned this week' : 'No runs planned this week';
+  if (w.planned <= 0) return 'No runs planned this week';
   if (w.done + 0.05 >= w.planned) return 'This week’s plan is done';
   const behind = w.plannedPast - w.done;
   return behind > 0.05 ? `${miShort(behind)} mi behind plan this week` : `On plan, ${miShort(w.planned - w.done)} mi to go`;
@@ -121,6 +121,9 @@ export const HeroChart = ({ log, t, range, onRange, first, firstReady = true, on
   const whole = !fresh.buckets.some((b) => b.missing) && (range !== 'All' || firstReady);
   if (whole) lastWhole.current = fresh;
   const view = whole || failed || !lastWhole.current ? fresh : lastWhole.current;
+  // the range's months are still on their way and no whole chart has been drawn yet (a long range remembered from the last
+  // visit, on a cold open): its total would count only the months in so far, so the headline and the plot wait as skeletons
+  const pending = !whole && !failed && !lastWhole.current;
   const lift = useMemo(() => liftWeeks(log.snap, t, loaded), [log.snap, t]); // eslint-disable-line react-hooks/exhaustive-deps
   // the last 13 weeks, whatever the range: this week's numbers, and whether there is anything before it yet
   const recent = useMemo(() => runRange(log.snap, t, '3M', first, loaded), [log.snap, t, first]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -199,6 +202,19 @@ export const HeroChart = ({ log, t, range, onRange, first, firstReady = true, on
   }
 
   // ---------- running ----------
+  if (pending && before) {
+    return (
+      <section className="card is-hero has-glow ph" aria-label="Running">
+        {seg}
+        <SkeletonGroup label={`Loading ${RANGE_WORDS[range].toLowerCase()}`} className="ph-wait">
+          <Skeleton w={176} h={46} r="control" />
+          <Skeleton w={208} h={16} />
+          <span className="skel ph-wait-plot" aria-hidden="true" />
+        </SkeletonGroup>
+        <RangeControl className="ph-range" value={range} options={PROGRESS_RANGES} words={RANGE_WORDS} onChange={changeRange} label="Range" />
+      </section>
+    );
+  }
   const { span, buckets, weeks } = view;
   const gaps = buckets.some((p) => p.missing);
   // a chart needs a week before this one with something in it; until then this week's ruler stands in, with one line that

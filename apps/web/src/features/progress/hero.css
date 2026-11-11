@@ -4,6 +4,9 @@
 .card.ph {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
+  /* the rhythm is set by each part's own margin (16, 4, 12): a .card's 12 gap between children would add to every one of
+     them (28 under the switch, 24 around the plot) */
+  gap: 0;
   background: var(--surface);
   box-shadow: var(--shadow-1);
   container: ph / inline-size;
@@ -59,9 +62,33 @@
   font-variant-numeric: tabular-nums;
   color: var(--ink-2);
 }
+/* the hairline before the strength rows: 16 above and below (the card has no gap to subtract here) */
+.card.ph > .rule {
+  margin-block: var(--sp-4);
+}
 /* the range control: 12 below the plot, 12 in from the card's edges (wider than the hero's 20 allows, guide 6.8) */
 .ph-range {
   margin: var(--sp-3) calc(var(--sp-3) - var(--pad-hero)) 0;
+}
+
+/* ---------- a range still loading on a cold open: the headline, the takeaway and the plot as skeletons, in their places
+   (16 under the switch, 4, 12), the plot as tall as it will draw (160 under a 300 px plot, 180 from there up) ---------- */
+.skel-group.ph-wait {
+  display: grid;
+  justify-items: start;
+  gap: var(--sp-1);
+  margin-top: var(--sp-4);
+}
+.ph-wait-plot {
+  width: 100%;
+  height: 180px;
+  margin-top: var(--sp-2);
+  border-radius: var(--r-icon);
+}
+@container ph (max-width: 299px) {
+  .ph-wait-plot {
+    height: 160px;
+  }
 }
 
 /* ---------- running: two curves, the plan and the actual ---------- */
