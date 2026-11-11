@@ -125,7 +125,7 @@ export const ProposalCard = ({ p, waiting, chat, onApplied, typing = false }: { 
         })}
       </ul>
       {shown.length < p.changes.length ? (
-        <button type="button" className="as-more" aria-label={`Show all ${p.changes.length} changes. ${kindsLine(p.changes.slice(shown.length))} more.`} onClick={() => setAll(true)}>
+        <button type="button" className="as-more" aria-label={`Show all ${p.changes.length} changes. ${p.changes.length - shown.length} more: ${kindsLine(p.changes.slice(shown.length))}.`} onClick={() => setAll(true)}>
           <span className="as-more-text">{foldLine(p.changes.slice(shown.length))}</span>
           <ChevronDown size={18} aria-hidden="true" />
         </button>

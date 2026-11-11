@@ -844,7 +844,7 @@ const Conversation = ({ date, initial, screen: openedFrom, chatId, own, placehol
             {training ? (
               <>
                 <p className="as-hello-sub">Ask about your plan, or ask for a change. Nothing changes until you tap Apply.</p>
-                {!chip ? <p className="as-hello-sub">The assistant sees your plan, sessions, training status, goals and to-dos. It can’t read your journal.</p> : null}
+                {!chip ? <p className="as-hello-foot">The assistant sees your plan, sessions, training status, goals and to-dos. It can’t read your journal.</p> : null}
               </>
             ) : (
               <>

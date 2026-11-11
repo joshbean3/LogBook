@@ -100,7 +100,16 @@
 .as-hello-sub {
   max-width: 22rem;
   margin: var(--sp-2) 0 0;
-  font: 500 var(--fs-sub) / var(--lh-sub) var(--sans);
+  /* one Inter 17 Dusk line (guide 6.12) */
+  font: 400 var(--fs-row) / var(--lh-row) var(--sans);
+  color: var(--ink-2);
+  text-wrap: pretty;
+}
+/* what the assistant can see (only when no screen chip says it): footnote size, with the medical note (guide 6.12) */
+.as-hello-foot {
+  max-width: 21rem;
+  margin: var(--sp-2) 0 0;
+  font: 400 var(--fs-foot) / var(--lh-foot) var(--sans);
   color: var(--ink-2);
   text-wrap: pretty;
 }
@@ -1066,9 +1075,10 @@
   color: var(--ink);
   overflow-wrap: anywhere;
 }
+/* the reason: the rows' size in Dusk, so the card holds three sizes (11 caption, 15, 17 buttons; layout standard 4.4) */
 .as-change-why {
-  font-size: var(--fs-foot);
-  line-height: var(--lh-foot);
+  font-size: var(--fs-sub);
+  line-height: var(--lh-sub);
   color: var(--ink-2);
   overflow-wrap: anywhere;
 }
@@ -1124,6 +1134,8 @@
   flex: 0 1 auto;
   height: auto;
   min-height: var(--hit);
+  /* the guide's button label (6.2), for Apply and Not now alike */
+  font-size: var(--fs-row);
   white-space: normal;
   text-align: center;
 }
@@ -1134,7 +1146,7 @@
 /* the pair keeps one row on the narrowest phone */
 @media (max-width: 359px) {
   .as-proposal .as-proposal-foot .btn:not(.quiet) {
-    padding-inline: var(--sp-4);
+    padding-inline: var(--sp-3);
   }
 }
 .as-proposal .as-proposal-foot .btn.quiet {
