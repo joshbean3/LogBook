@@ -244,7 +244,10 @@ export const HeroChart = ({ log, t, range, onRange, first, firstReady = true, on
     big = miShort(total);
     context = `mi ${rangeContext(span, t)}`;
     // the share of the plan follows the range and lives in the takeaway: one big number per card (layout standard 8.10)
-    take = kept ? (kept.behind < 0.5 ? 'On plan' : `${pctText(kept.rate)} of plan, ${miShort(kept.behind)} mi behind`) : runs ? `${runs} ${plural(runs, 'run')}, none planned` : 'No runs in this range';
+    // with no finished week to grade yet, "none planned" only when nothing in the range is planned (a plan that starts this
+    // week, or days still ahead, is a plan)
+    const planned = buckets.some((b) => !b.missing && b.planned > 0);
+    take = kept ? (kept.behind < 0.5 ? 'On plan' : `${pctText(kept.rate)} of plan, ${miShort(kept.behind)} mi behind`) : runs ? `${runs} ${plural(runs, 'run')}${planned ? '' : ', none planned'}` : planned ? 'No runs yet in this range' : 'No runs in this range';
   }
 
   const words = (i: number) => {
