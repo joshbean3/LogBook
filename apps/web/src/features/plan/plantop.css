@@ -133,11 +133,12 @@
   }
 }
 /* at 320 a week named by its dates ("Nov 23 to 29") and `‹ Today ›` share 288 px: the week's name takes the card-title
-   size there, as the plan's name above it does, on the same 32 px line. At a larger text size it stops at 30, where
-   those dates still take two lines beside `‹ Today ›` (at 34 they took three) */
+   size there (22/28), as the plan's name above it does. At a larger text size it stops at 30 (on a 38 line, the same
+   proportion), where those dates take two lines beside `‹ Today ›` (at 34 they took three) */
 @media (max-width: 359px) {
   .pl-week-head .lb-title {
     font-size: clamp(22px, var(--fs-head), 30px);
+    line-height: clamp(28px, var(--lh-head), 38px);
   }
 }
 /* at a larger text size the name needs the row: the dates go to the line under it at every width */

@@ -9,6 +9,7 @@ import { haptics } from '@/lib/haptics';
 import type { ContextMenuItem } from '@/ui/ContextMenu';
 import { PAGE_COMMIT, type PageCommitDetail } from '@/ui/nav';
 import { Pressable } from '@/ui/Pressable';
+import { BrandIcon } from '@/ui/icons';
 import { Skeleton } from '@/ui/Skeleton';
 import { useSheet } from '@/ui/Sheet';
 import { useToast } from '@/ui/Toast';
@@ -249,7 +250,7 @@ const emptyFace = (log: Log, date: string, rest: Session | null) => (
       <ToneTile s={rest} />
     ) : (
       <span className={`pl-tone pl-ic is-empty ${date >= log.today ? 'is-add' : ''}`.trim()} aria-hidden="true">
-        {date >= log.today ? <Plus size={18} strokeWidth={1.75} /> : null}
+        {date >= log.today ? <BrandIcon name="add" size={18} /> : null}
       </span>
     )}
     <span className="pl-main">{rest ? <span className="pl-rest">Rest</span> : null}</span>
@@ -744,7 +745,7 @@ export const WeekPage = memo(function WeekPage({ mon, onThisWeek, onStep, still 
           )}
           {/* a run or a lift on any day of this week: quiet (Deep Sky words, a plus), a 44 pt target clear of the arrows' */}
           <Pressable className="pl-add" press="dim" disabled={!ready} onPress={addHere} label={`Add a run or lift to ${weekIn}`}>
-            <Plus size={18} strokeWidth={1.75} aria-hidden="true" />
+            <BrandIcon name="add" size={18} />
             Add
           </Pressable>
         </div>
