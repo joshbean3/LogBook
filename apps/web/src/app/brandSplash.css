@@ -48,9 +48,7 @@
 /* the day's colors, which come with the sun: the poster's sky blue from the top and its warm horizon band below, with the
    Cloud between them left alone for the words (a gradient never transitions: this one layer's opacity comes up) */
 .bs-day {
-  background:
-    linear-gradient(180deg, var(--poster-sky-1) 0, var(--poster-sky-2) 12%, transparent 28%),
-    linear-gradient(180deg, transparent 48%, var(--horizon-1) 68%, var(--horizon-2) 88%);
+  background: var(--splash-day);
 }
 /*
  * The three soft lights (the horizon glow, the bloom, the Orb's halo) are drawn at half their size and scaled up 2x: they

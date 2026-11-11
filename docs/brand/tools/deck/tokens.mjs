@@ -33,6 +33,7 @@ add('brand-art', [
   ['--hill-2', '#4FA9DB', 'Middle hill.', null],
   ['--hill-3', '#0A6CA6', 'Far hill (Deep Sky).', null],
   ['--grain-opacity', '0.4', 'Paper grain over brand surfaces (35 to 50 percent, multiply). Never on app cards or chrome.', null],
+  ['--splash-day', 'linear-gradient(180deg, #8DD0F5 0, #AEDDF8 12%, rgba(174, 221, 248, 0) 28%), linear-gradient(180deg, rgba(244, 230, 210, 0) 48%, #F4E6D2 68%, #FFD2AE 88%)', "Sunrise splash: the day's colors, one layer that comes up with the sun. Poster sky blue from the top, the warm horizon band below, nothing between them (Cloud stays behind the words).", null],
   ['--splash-glow', 'radial-gradient(closest-side, #FFB680 0, rgba(255, 182, 128, 0.82) 22%, rgba(255, 182, 128, 0.5) 42%, rgba(255, 182, 128, 0.2) 64%, rgba(255, 182, 128, 0.05) 84%, rgba(255, 182, 128, 0))', 'Sunrise splash: the horizon glow, 680 x 340, centered on the crest under the Orb, at 85 percent.', null],
   ['--splash-halo', 'radial-gradient(closest-side, rgba(255, 182, 128, 0.5) 30%, rgba(255, 182, 128, 0.3) 52%, rgba(255, 182, 128, 0.1) 76%, rgba(255, 182, 128, 0))', "Sunrise splash: the Orb's own light on the sky around it, 3.2 D across.", null],
   ['--splash-bloom', 'radial-gradient(closest-side, #FFF1E4 0, rgba(255, 214, 180, 0.8) 24%, rgba(255, 182, 128, 0.42) 46%, rgba(255, 182, 128, 0.14) 72%, rgba(255, 182, 128, 0))', 'Sunrise splash: one breath of light on the frame the Orb clears the crest, 4 D across, to 90 percent and away.', null],

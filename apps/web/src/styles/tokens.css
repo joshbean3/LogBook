@@ -36,6 +36,7 @@
   --hill-3: #0a6ca6;
   --grain-opacity: 0.4;
   /* the splash's sunrise (app/brandSplash.css; guide 9.2, 12.1): layers that are drawn once and then only fade and move */
+  --splash-day: linear-gradient(180deg, #8dd0f5 0, #aeddf8 12%, rgba(174, 221, 248, 0) 28%), linear-gradient(180deg, rgba(244, 230, 210, 0) 48%, #f4e6d2 68%, #ffd2ae 88%); /* the day's colors, which come up with the sun: poster sky blue from the top, the warm horizon band below, Cloud left between them for the words */
   --splash-glow: radial-gradient(closest-side, #ffb680 0, rgba(255, 182, 128, 0.82) 22%, rgba(255, 182, 128, 0.5) 42%, rgba(255, 182, 128, 0.2) 64%, rgba(255, 182, 128, 0.05) 84%, rgba(255, 182, 128, 0)); /* the horizon glow, centered on the crest under the Orb */
   --splash-halo: radial-gradient(closest-side, rgba(255, 182, 128, 0.5) 30%, rgba(255, 182, 128, 0.3) 52%, rgba(255, 182, 128, 0.1) 76%, rgba(255, 182, 128, 0)); /* the Orb's own light on the sky around it */
   --splash-bloom: radial-gradient(closest-side, #fff1e4 0, rgba(255, 214, 180, 0.8) 24%, rgba(255, 182, 128, 0.42) 46%, rgba(255, 182, 128, 0.14) 72%, rgba(255, 182, 128, 0)); /* one breath of light on the frame the Orb clears the crest */

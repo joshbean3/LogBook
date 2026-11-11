@@ -230,7 +230,7 @@ Support colors (refinements, each added for a contrast or role need):
 | Data tones | Lagoon `#117A74`, Deep Sky `#0A6CA6`, Plum `#7E3F8F`, Rose `#B23A5B`, Indigo `#4A4FB0`, Ochre `#7D6210`, Pencil `#7A8794` | Session kinds (easy, long, hard, fast, lift, cross, rest). Glyphs, lines and 3 px markers only; never a surface or a tinted card. Each is 5.0:1 or better on Paper except Pencil (marks only). Hard moved off orange so orange keeps one meaning. |
 | Brand art | Poster sky `#8DD0F5`, `#AEDDF8`, `#CFEBFA`; horizon `#F4E6D2`, `#FFD2AE`; hills `#8FCDEE`, `#4FA9DB`, `#0A6CA6` | Posters, heroes, the icon. Not app chrome. |
 | App washes | `--wash-bar` `#D0EAF8`, `--wash-strip` `#DAEEFA`, `--wash-strip-end` `#E2F2FB`, `--welcome-warm` `#FFF1E4`, `--entry-2` `#7FCBF3`, `--orb-arc` `#FF9F5A` | Sticky bars and strip, the welcome and splash grounds, journal two-entry disc, the thinking arc. Tokens only. |
-| Splash lights | `--splash-glow`, `--splash-halo`, `--splash-bloom` | The three soft lights of the sunrise splash (9.2): Apricot `#FFB680` radial falloffs (the bloom starts from `#FFF1E4`), each drawn once and only faded and scaled. Brand art, not app chrome. |
+| Splash lights | `--splash-day`, `--splash-glow`, `--splash-halo`, `--splash-bloom` | The sunrise splash (9.2). `--splash-day` is the day's colors as one layer: poster sky `#8DD0F5` to `#AEDDF8` over the top 28 percent, and the horizon band `#F4E6D2` to `#FFD2AE` from 48 to 88 percent, with nothing between them. The other three are its soft lights: Apricot `#FFB680` radial falloffs (the bloom starts from `#FFF1E4`). Each is drawn once and only faded or scaled. Brand art, not app chrome. |
 
 ### 3.2 Allowed text pairings
 
