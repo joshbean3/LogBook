@@ -89,10 +89,10 @@ Each table names the screen's job, its focal point, its one Sky button, what is 
 | | |
 |---|---|
 | Job | See today's session and get through the day. |
-| Focal point | The hero card (the U-arc gauge). |
+| Focal point | The hero card (the week horizon). |
 | Sky button | "Set the goal" in Plan your day, only while today's goal is unset. Otherwise none. The habit coins are the screen's most used control. |
 | Read in passing, above the hero | The title block (date caption, "Today", the quote), the week strip, one row of status pills (the plan pill; the status pill before it only while a status is on). Nothing else sits above the hero. |
-| Order of emphasis | 1. Hero: the session name ("Easy 6.5"), then the readout pill ("0 of 23 mi · 0 of 4 runs"), then the detail line ("Out the door in 4 h 40 min"). Below a hairline in the same card: the Morning / Afternoon / No time control, then the morning line. 2. Habits: the two-column tile grid. 3. Plan your day: today's goal, the carry-over row, the top three. 4. The fold ("3 more") and "All to-dos". |
+| Order of emphasis | 1. Hero: the session name, the detail line under it, then the band on the far hill: the label ("Runs this week") with its count, the miles, and the view pill at the band's trailing edge. Under the hill's edge, in the same card: the Morning / Afternoon / No time control, then the morning line or the log line. On a day with no run and no workout: the title, one line for what comes next, the dusk scene, the week's totals. 2. Habits: the two-column tile grid. 3. Plan your day: today's goal, the carry-over row, the top three. 4. The fold ("3 more") and "All to-dos". |
 
 Build:
 
@@ -101,9 +101,9 @@ Build:
 - **The week strip's kind pills are one size** (brand 6.7): 34 x 22 on every day, centered under the numeral, the same 8 px gap on every day, and a day with no session keeps the empty slot. Why: pills of two widths and five fills under seven equal columns read as a mistake, not as a state. One shape lets the fill carry the state (Paper, Haze, Sky, hollow).
 - **"Close yesterday" moves into the carry-over row of Plan your day.** Why: it is yesterday's business, and the carry-over row is where yesterday lives. Today it is a seventh row above the hero.
 - **The quote wraps to 2 lines at most** (line clamp 2, the full quote on tap). Why: an unbounded quote pushes the hero down by a different amount each day.
-- **Target: hero card top at 300 pt or less** (now 358) in Playwright at 390 x 844, and the whole gauge with its readout above the dock on a device (Playwright top + 59 pt Dynamic Island inset + 222 pt to the arc's bottom ≤ 690). Why: the 14 peer apps put their focal element 11 to 32 percent down, median 22 [Peers], and attention falls off toward the fold [NN/g].
-- **The readout pill reads "0 of 23 mi · 0 of 4 runs" again** (brand 6.5, 11). Why: a value with context is simpler to act on [WWDC26 250], and the pill is the gauge's text equivalent.
-- **The hero card has two zones.** Gauge zone, then a full-bleed `--line` hairline with 16 px on each side, then the control zone (time of day, morning line). Why: a control inside the bowl's group reads as part of the data [Peers: Oura, WHOOP keep controls out of the dial].
+- **Target: hero card top at 300 pt or less** (now 358) in Playwright at 390 x 844, and the band above the dock on a device (Playwright top + 59 pt Dynamic Island inset + 215 pt to the band's bottom ≤ 690: 232 + 59 + 215 = 506). Why: the 14 peer apps put their focal element 11 to 32 percent down, median 22 [Peers], and attention falls off toward the fold [NN/g].
+- **The band reads what the picture counts, then the miles:** "RUNS THIS WEEK" over "0 of 4 · 0 of 15.5 mi" (brand 6.5, 11). Why: a value with context is simpler to act on [WWDC26 250], and the band is the drawing's text equivalent.
+- **The hero card has two zones.** The scene zone (full-bleed), then the control zone on Paper (time of day, morning line). The far hill's straight edge is the divider, with 16 under it: no hairline. The view pill changes what the scene counts, so it sits in the scene zone, on the band, never in the control zone; it is the card's quiet control, 28 tall against the When control's 44. Why: a control inside the picture's group reads as part of the data [Peers: Oura, WHOOP keep controls out of the dial].
 - **Plan your day is one card.** Rows in order: today's goal, the carry-over row (with "Close yesterday"), the top three, "3 more", then "All to-dos ›" as the last row (a quiet link row). This replaces the separate carry-over card and the full-width "All to-dos" pill card. Why: like items in one container [HIG Lists]. Today there are three containers for one list.
 - **The goal prompt on Today is 17 px Fraunces italic Dusk** (`--fs-sentence-sm`), not 22. Why: 22 italic is a hero size, and here the prompt is a row inside a section. This also brings Today to 4 Fraunces sizes (38, 40, 26, 17).
 - Inter sizes on Today: 11, 13, 15, 17 and one more at most.
@@ -341,11 +341,11 @@ Adjacent text levels must differ by **(a)** a size ratio of 1.2 or more, **(b)**
 - **Size changes the level.** Use only scale sizes, and only to move between levels.
 - **Weight emphasizes within a level.** A row title over its subtitle (600 over 500), or a word inside a sentence (Inter 600). Weights in use: Inter 400, 500, 600, 650 (numbers, active tab), and 550 for tab labels only; Fraunces 600, 650, 700 and italic 420. No others.
 - **Color demotes.** Dusk for secondary text, metadata and units. Never lighter than Dusk, never opacity on text, never a faint gray [NN/g low contrast].
-- **Deep Sky means tappable or data** (links, the gauge fill). It never emphasizes plain text [HIG Color].
+- **Deep Sky means tappable or data** (links, the hero's band and done marks). It never emphasizes plain text [HIG Color].
 
 ### 4.4 Counts
 
-- At most 4 Fraunces and 5 Inter sizes per screen, with 11 counted once (brand 4.5). At most **3 sizes inside one card**.
+- At most 4 Fraunces and 5 Inter sizes per screen, with 11 counted once (brand 4.5). At most **3 sizes inside one card**. One named exception: Today's hero holds five (the name 40, the count 17, 15, 13 and one 11 caption), as the gauge card did.
 - At most **one caption per card** (brand 4.3) and one big number per card (`--fs-stat-live` or `--fs-stat`); other numbers in that card use `--fs-value` or `--fs-row`.
 - **No stacked headers.** A section title is never directly above a card whose first line is a card title. Either the section names the group and its card has no title, or the card title stands alone.
 - **No caps section headers.** Caps are an eyebrow above a title, never the label of a section people scan for (iOS 26 dropped all-caps section headers for legibility).
@@ -389,7 +389,7 @@ A card you can only name with "and" is two units or a list. A card without (a), 
 - **At most three card templates per screen**: the hero, the standard card or inset group, and one tile template.
 - **No run of three or more sibling cards with the same structure.** Merge them into an inset group. The habit grid is the only exception.
 - **At most 6 separate shadowed surfaces in the first screenful** at 390 x 844, with a tile grid counted as one and chrome not counted. This number is a heuristic from the evidence (complexity drives first impressions [PR Tuch 2012, Reinecke 2013]), not a measured threshold. Revisit it if a screen needs more.
-- **No card in a card** (C5). Inside a card, use hairline rows, Haze icon tiles or space. The gauge's readout pill (brand 6.5) is the one named exception.
+- **No card in a card** (C5). Inside a card, use hairline rows, Haze icon tiles or space. 
 
 ### 5.3 Borders, shadows and tints (only as the brand allows)
 
@@ -480,6 +480,7 @@ Alternatives differ by style, never by size [HIG Buttons]. Labels start with a v
 | Status pill (Today) | `--glass`, 32 tall, 44 hit, Inter 15 500 Night Ink, a 16 px chevron (right: it goes somewhere; down: it opens a sheet), and on the status pill a 6 px state dot (brand 6.13, 6.14). One row from the left gutter, 12 apart: the plan pill, with the status pill before it only while a status is on. |
 | Context chip (Goals) | Brand 6.3. Two side by side, 12 apart. Lighter than the hero below it: no glow, no tint. |
 | Filter chip | Brand 6.3, 32 tall, 44 hit, 12 apart. |
+| View pill (Today's hero) | Brand 6.3. Two controls in one card: the second is quiet. On Today's hero that is the view pill, 28 tall on the band, against the When control's 44 under the hill. |
 | Tag | Brand 6.3, 28 tall, not tappable. One per row at most. |
 | Segmented control | Brand 6.3. At most 5 segments, equal widths, text only, noun labels, one preselected. Exception: the range control (6.4). |
 
@@ -549,7 +550,7 @@ Brand 6.16 has the parts. The layout:
 
 | Screen | Up front | One tap away |
 |---|---|---|
-| Today | Hero, habits, today's goal, carry-over, top three | Week detail (the readout), habit history, the rest of the to-dos, the status sheet (the status pill while a status is on; in ordinary training, the title menu: hold the title or the date), the session |
+| Today | Hero, habits, today's goal, carry-over, top three | Week detail (the band), the other count (the view pill), habit history, the rest of the to-dos, the status sheet (the status pill while a status is on; in ordinary training, the title menu: hold the title or the date), the session |
 | Goals | Today's goal, carry-over, tomorrow and next week, further out | Goal history ("See all"), the review sheet, each period's goal |
 | Learned | Streak, prompt, this year's months | A month's items, older years |
 | Plan | Your plan, this week's days, "+ Add" | The plan summary with the assistant, a session, the Add sheet (and the full editor behind its "More options"), the month view, other weeks, the morning schedule |
@@ -567,7 +568,7 @@ Run all of these on every screen you change, at **390 x 844, 320 x 844 and 440 x
 1. **Squint test.** Screenshot at 390 x 844 with `document.documentElement.style.filter = 'blur(8px)'`. The first thing you notice is the focal point named in section 2, and the second is the next thing to do.
 2. **3-second test.** Look at the unblurred screenshot for 3 seconds, look away, and say what the screen is for and what you would do next. Both answers must match the screen's job and order in section 2.
 3. **Layer-cake skim.** Read only the title, the hero's text and the section titles, top to bottom. They tell you what the screen is for.
-4. **Focal point high.** The focal element's top is at most 300 pt at 390 x 844, and its key value is above the dock. On Today: hero top + 59 + 222 ≤ 690.
+4. **Focal point high.** The focal element's top is at most 300 pt at 390 x 844, and its key value is above the dock. On Today: hero top + 59 + 215 ≤ 690.
 5. **Nothing extra above the focal point.** Only the elements section 2 lists sit above it.
 6. **No false floor.** Something crosses the dock line on the first screen at each width.
 7. **Gutter.** Every card edge, section title and chart starts 16 from the screen edge.
@@ -576,7 +577,7 @@ Run all of these on every screen you change, at **390 x 844, 320 x 844 and 440 x
 10. **Type counts.** At most 4 Fraunces and 5 Inter sizes on the screen, at most 3 sizes in any card, no 26 directly over a 22, at most one caption and one big number per card.
 11. **One winner.** The largest block and the highest-contrast block are the same element. At most one glow or Haze wash header.
 12. **One Sky button** at any scroll position.
-13. **Containers.** At most three card templates. No run of 3 or more like sibling cards. No shadowed or bordered box inside a card (except the readout pill). At most 6 shadowed surfaces in the first screenful (a tile grid counts once).
+13. **Containers.** At most three card templates. No run of 3 or more like sibling cards. No shadowed or bordered box inside a card. At most 6 shadowed surfaces in the first screenful (a tile grid counts once).
 14. **Say it once.** List the numbers and titles on the screen. None appears twice.
 15. **Empty and zero.** No bare "–". Section empty states are one row. No action is offered twice.
 16. **Targets.** Every tappable thing has a 44 x 44 pt hit box. Bezeled controls sit 12 apart, and unbezeled hit boxes do not overlap. The one exception is range segments at 320 (37.7 wide, 44 tall).

@@ -206,7 +206,7 @@ Sheet: `assets/palette.png`. All ratios are WCAG 2.x relative luminance contrast
 | Name | Hex | Token | Role |
 |---|---|---|---|
 | Sky | `#38B6F2` | `--sky`, `--accent`, `--primary` | The signature fill: the Orb, selected day, active tab disc, primary button, selected segment, lit habit coin. A fill and a mark, never text on light grounds. |
-| Deep Sky | `#0A6CA6` | `--deep-sky`, `--accent-text` | Blue words and links, the gauge fill, done dots, the far hill. |
+| Deep Sky | `#0A6CA6` | `--deep-sky`, `--accent-text` | Blue words and links, the band and the done marks of Today's hero, done dots, the far hill. |
 | Haze | `#CBE8F8` | `--haze`, `--surface-3` | Tracks, icon tiles, the top of the dawn wash, chart tints. |
 | Cloud | `#EAF5FC` | `--cloud`, `--bg` | The app ground, segmented tracks. |
 | Paper | `#FFFDF8` | `--paper`, `--surface` | Cards, sheets, the ask bar, the tab capsule. A barely warm white. |
@@ -286,7 +286,7 @@ Only these. A pairing not in this table is not allowed.
 
 **Non-text checks:** Sky on Paper is 2.26, so a Sky shape that carries meaning on its own (a done state, a selected tab) must also change shape or carry a Night Ink glyph or label. Deep Sky on Haze 4.43 and on Paper 5.57, Sunrise on Paper 3.20 and Pencil on Paper 3.61 all pass 3:1. Sunrise on Haze is 2.55: a Sunrise mark on Haze needs its Paper keyline.
 
-**Decorative marks** (under 3:1 by design; the meaning is carried elsewhere, so each must stay decorative): minor gauge ticks `--tick` (1.57; the readout carries the value), the dot for an empty day ahead on the Progress chart (`--tick`, 1.57; the headline says "Nothing planned" when it is read), the off habit coin ring `--coin-ring` (1.80; the name and the check carry the state), the off filter chip edge `--line-strong` (1.44; the label carries the state), the thinking arc and its ring (the status line carries it). **Meaningful marks under 3:1 are not allowed:** the rest glyph in a Haze tile uses `#5F6D7B` (4.15), not Pencil (2.87); journal entry discs carry the count as a numeral inside the disc (1, 2, 3+), not by lightness alone; a warning pairs the Marigold mark with a glyph and words.
+**Decorative marks** (under 3:1 by design; the meaning is carried elsewhere, so each must stay decorative): the way's dots and the sun's place on Today's hero `--tick-major` (the band carries the value), the dusk scene's stars and rim, the dot for an empty day ahead on the Progress chart (`--tick`, 1.57; the headline says "Nothing planned" when it is read), the off habit coin ring `--coin-ring` (1.80; the name and the check carry the state), the off filter chip edge `--line-strong` (1.44; the label carries the state), the thinking arc and its ring (the status line carries it). **Meaningful marks under 3:1 are not allowed:** the rest glyph in a Haze tile uses `#5F6D7B` (4.15), not Pencil (2.87); journal entry discs carry the count as a numeral inside the disc (1, 2, 3+), not by lightness alone; a warning pairs the Marigold mark with a glyph and words.
 
 ### 3.4 Proportions
 
@@ -306,7 +306,7 @@ Linen and Twilight never appear in app chrome. If a screen reads beige, Paper or
 Sunrise means **now**. It has these jobs and no others:
 
 1. **Today's dot** in the week strip: 6 px, above today's letter, 2 px Paper keyline.
-2. **The gauge pointer:** a 12 px dot at the week's progress, 3.5 px Paper keyline (on Progress the equivalent is the chart's now dot).
+2. **The week's sun:** a 30 px disc on Today's hero, at the count the card shows (runs done of runs on the week, or workouts), 3.5 px Paper keyline (on Progress the equivalent is the chart's now dot).
 3. **The badge dot:** 8 px, 2 px Paper keyline, top right of a tab icon or the ask bar.
 4. **The milestone stamp:** one round stamp per screen at most (section 8.4).
 5. **The live node** on a timeline (the current step), 12 px with a Paper keyline.
@@ -317,14 +317,16 @@ Sunrise means **now**. It has these jobs and no others:
 **Priority when more than 3 would show** (highest first; what is past the third yields):
 
 1. Today's dot in the week strip.
-2. The gauge pointer, or on Progress the chart's now dot.
+2. The week's sun, or on Progress the chart's now dot.
 3. The live node on a timeline.
 4. The milestone stamp.
 5. Badge dots.
 
-A yielding mark keeps its shape and turns Night Ink with its Paper keyline: a badge dot becomes an 8 px Night Ink dot; the morning line's live node becomes a Night Ink node while the gauge pointer is on screen. Today on Today: today's dot, the gauge pointer and one badge; every other badge is Night Ink.
+A yielding mark keeps its shape and turns Night Ink with its Paper keyline: a badge dot becomes an 8 px Night Ink dot; the morning line's live node becomes a Night Ink node while the week's sun is on screen. One exception: the week's sun yields to Apricot, keyline kept; a Night Ink sun reads as an eclipse, and Apricot is light, not a Sunrise mark. Today on Today: today's dot, the week's sun and one badge; every other badge is Night Ink.
 
-**Keylines:** every Sunrise mark has a Paper keyline of at least 2 px (`--now-keyline`). The named exceptions are larger: the gauge pointer 3.5 px, the stamp `max(2px, 3.3%)` of its diameter.
+**Dusk:** on a day with no run and no workout Today's hero is a dusk scene. Its setting sun is an Apricot disc with no keyline. It is light, not a now-mark: it does not count toward the budget and nothing yields to it. That day the morning line's live node, when it shows, is Sunrise.
+
+**Keylines:** every Sunrise mark has a Paper keyline of at least 2 px (`--now-keyline`). The named exceptions are larger: the week's sun 3.5 px, the stamp `max(2px, 3.3%)` of its diameter.
 
 ### 3.6 Dark mode
 
@@ -342,7 +344,7 @@ Sheet: `assets/type-specimen.png`.
 |---|---|---|---|
 | **Fraunces** (variable: wght, opsz, SOFT, WONK; roman and italic) | Display: titles, section and card titles, static hero stats, the session name; italic 420 is the sentence voice. The wordmark. | Self-hosted from `docs/brand/fonts/` (the source is the `@fontsource-variable/fraunces` **full** and **full-italic** files: the default import has only the wght axis, and SOFT and WONK need the full files) | SIL OFL 1.1, no Reserved Font Name. `fonts/Fraunces-OFL.txt` |
 | **Inter** (variable) | Everything a person reads or taps below display sizes, and every number that changes. | Self-hosted today in `apps/web/public/fonts/` (`fonts.css`); the same files are in `docs/brand/fonts/` | SIL OFL 1.1. `fonts/Inter-OFL.txt` |
-| **Inter Tight** (variable) | Captions (600, caps) and gauge end labels. Nothing else. | Self-hosted today in `apps/web/public/fonts/`; also in `docs/brand/fonts/` | SIL OFL 1.1. `fonts/InterTight-OFL.txt` |
+| **Inter Tight** (variable) | Captions (600, caps). Nothing else. | Self-hosted today in `apps/web/public/fonts/`; also in `docs/brand/fonts/` | SIL OFL 1.1. `fonts/InterTight-OFL.txt` |
 
 `apps/web/package.json` has no `@fontsource` packages; the app self-hosts its faces in `apps/web/public/fonts/fonts.css`, and Fraunces joins them the same way.
 
@@ -362,7 +364,7 @@ Files in `docs/brand/fonts/`: `fraunces-latin-full-normal.woff2` (121 KB), `frau
 |---|---|---|---|---|---|---|
 | Hero (splash, onboarding, empty states) | Fraunces | 3.5 / 3.5 rem (56/56) | 700 | -0.02 em | Night Ink | `--fs-hero` |
 | Screen title (Today, Goals...) | Fraunces | 2.375 / 2.625 rem (38/42) | 650 | -0.015 em | Night Ink | `--fs-title` |
-| Session name in the gauge | Fraunces | 2.5 / 2.625 rem (40/42); 1.875 / 2.125 rem past 12 characters | 650 | -0.015 em | Night Ink | `--fs-stamp` |
+| Session name in Today's hero | Fraunces | 2.5 / 2.625 rem (40/42), left aligned; 1.875 / 2.125 rem when it does not fit one line | 650 | -0.015 em | Night Ink | `--fs-stamp` |
 | Hero stat that changes (Progress, a count) | Inter | 2.75 rem, line 1 | 650, `tabular-nums` | -0.02 em | Night Ink; unit Inter 500 0.9375 rem Dusk | `--fs-stat-live` |
 | Stat in a tile or card (changes) | Inter | 1.625 / 2 rem (26/32), the section-title size, so no new size enters the scale | 650, `tabular-nums` | `--tr-title` | Night Ink; unit Inter 500 `--fs-sub` Dusk, 4 px after | `--fs-value`, `--lh-value` |
 | Hero stat, static (never changes after first paint) | Fraunces | 2.75 to 3.625 rem, line 1 | 650 (proportional figures: Fraunces has no tnum) | -0.02 em | Night Ink | `--fs-stat` |
@@ -382,7 +384,7 @@ Files in `docs/brand/fonts/`: `fraunces-latin-full-normal.woff2` (121 KB), `frau
 
 ### 4.3 Caption style
 
-Inter Tight 600, 11 px floor, uppercase, tracking +0.14 em (the only caps tracking in the system), Night Ink or Dusk. At most one caption per card, at most 4 words, no period. Use it for eyebrows ("TODAY'S LIFT"), the date line over a tab title ("TUE, NOV 10"), gauge end labels and brand-art captions.
+Inter Tight 600, 11 px floor, uppercase, tracking +0.14 em (the only caps tracking in the system), Night Ink or Dusk. At most one caption per card, at most 4 words, no period. Use it for eyebrows ("TODAY'S LIFT"), the date line over a tab title ("TUE, NOV 10"), the label on Today's hero band ("RUNS THIS WEEK") and brand-art captions.
 
 ### 4.4 Numerals
 
@@ -498,31 +500,33 @@ Every value below is a token or a number to check. Mockups showing each in place
 | Context chip (two lines, Today) | Paper, r 18, `--shadow-1`, padding 12. A 40 px Haze circle (a circle at any size: 5.2) with a Deep Sky 18 px glyph; title Inter 17 600 Ink; subtitle Inter 15 500 Dusk. |
 | Filter chip | Pill, 32 tall (44 hit with padding). Off: Paper, 1 px `--line-strong`, Dusk label. On: Sky fill, Night Ink 650 label. |
 | Tag (Today, Planned) | Pill, 28 tall, Inter `--fs-tag` 600. Today: Ember on Paper with a 1 px `rgba(180,67,12,.4)` keyline (5.51). Planned: Dusk on Cloud. |
-| Segmented control | Cloud track, pill; thumb Sky, pill, no shadow; labels Inter 15, Dusk 550 off, Night Ink 650 on. 44 tall in a card, 36 tall in a header bar (44 hit). Thumb slides on the settle spring (300 ms). At most 5 segments, equal widths, text only. The one exception is the Progress range control (1W, 1M, 3M, 6M, YTD, 12M, All): seven segments in one row under the hero chart, 12 px in from the card's edges. |
+| Segmented control | Cloud track, pill; thumb Sky, pill, no shadow; labels Inter 15, Dusk 550 off, Night Ink 650 on. 44 tall in a card, 36 tall in a header bar (44 hit). Thumb slides on the settle spring (300 ms). At most 5 segments, equal widths (the view pill's segments hug their words), text only. The one exception is the Progress range control (1W, 1M, 3M, 6M, YTD, 12M, All): seven segments in one row under the hero chart, 12 px in from the card's edges. |
+| View pill (Today's hero) | The segmented control in a small quiet form, on the hero's band. 28 tall (44 hit). Track: Night Ink at 22 percent on Deep Sky, pill. Thumb: Haze, pill, 2 px inset, no shadow. Labels Inter 13: White 550 off, Night Ink 650 on. Two segments, each as wide as its word plus 8 each side, never under 44. It slides on the settle spring. Shown only when both views have something to count. |
 | "+ Set", "+ Add" | A quiet link, not a pill: Deep Sky Inter 600 with an 18 px plus (5.57 on Paper, 5.11 on Cloud), 44 hit. "+ Set" on Goals; "+ Add" at the end of the week's line on Plan (a run or a lift for that week). A screen keeps its one Sky primary. |
 
 ### 6.4 Cards and the hero card
 
 - **Card:** Paper, r 24, padding 16, `--shadow-1`, no border. One caption at most. One primary action at most. A card holds one unit people read or act on; three or more items of the same kind are one card with hairline rows (an inset group), never a card each (the habit grid is the exception). A screen uses at most three card templates.
-- **Hero card:** one per screen. Padding 20. The sunrise glow under its bottom edge (5.3). Holds the screen's main thing: Today's session gauge, Goals' today card, Plan's "Your plan", Progress's chart card (Running or Strength). Learned's prompt card is Learned's hero. Journal has no glow: its Remember when card, with the quote inside a Haze wash header, is Journal's hero when it shows.
+- **Hero card:** one per screen. Padding 20. The sunrise glow under its bottom edge (5.3). Holds the screen's main thing: Today's week horizon (its light is on its horizon, not under its edge, and its scene is full-bleed), Goals' today card, Plan's "Your plan", Progress's chart card (Running or Strength). Learned's prompt card is Learned's hero. Journal has no glow: its Remember when card, with the quote inside a Haze wash header, is Journal's hero when it shows.
 - **Icon tile in a row:** 32 px, r 12, Haze, Deep Sky glyph. Session tiles (48 px, r 12): Haze, glyph in the session's data tone. Never a tinted card or a per-feature hue.
 - **Inset group (Settings):** Paper card, rows 56 tall (64 with a subtitle), hairlines inset past the icon tile, chevron 18 px Dusk.
 
-### 6.5 The U-arc training gauge (Today's hero)
+### 6.5 The week horizon (Today's hero)
 
-Retires the hard-coded orange gradient and bevel in `features/day/HeroGauge.tsx`.
+Replaces the U-arc gauge. Built in `features/day/HeroHorizon.tsx` (the drawing) from `heroWeek.ts` (the data, tested); the pick of view is `heroView.ts`.
 
 | Part | Spec |
 |---|---|
-| Geometry | A 220 degree arc, center (150, 62), radius 118, in a 300 x 200 viewBox. Angles are measured clockwise on screen from +x, in SVG's y-down coordinates: the arc starts at 200 degrees, (39.1, 21.6), passes through 90 degrees (the bottom, (150, 180)) and ends at -20 degrees, (260.9, 21.6). The session's words sit inside the bowl. |
-| Track | 16 px, round caps, Haze `#CBE8F8`. No gradient, no shadow. |
-| Fill | 9 px, round caps, Deep Sky `#0A6CA6` (4.43 on Haze, passes 3:1), from the start to the pointer. Never Sky (1.80 on Haze). The start cap dot is Deep Sky. |
-| Ticks | Centered on the track's outer edge. Minor every 0.5 mi: 1 x 5 px, `--tick` (decorative). Major every 5 mi: 1.5 x 10 px, `--tick-major`. Above a 30 mi plan, minor every 1 mi. At most 60 ticks. |
-| Pointer | The now-mark: 12 px Sunrise dot with a 3.5 px Paper keyline at the week's progress. |
-| End labels | "0" and the plan ("23 MI") in caption style, Dusk, tnum, set horizontal (never rotated), centered under each end of the arc. |
-| Inside the bowl | Caption eyebrow ("TODAY'S LIFT"), the session name in Fraunces 650 40/42 (title case: "Strength A", never "STRENGTH A"), the detail in Inter 15 500 Dusk ("Floor 20 min"). |
-| Readout (required) | Every gauge prints its value as text, because color alone cannot carry it: a Paper pill, `--shadow-pill`, Inter 17 Night Ink, tnum: "4.2 of 23 mi · 1 of 4 runs", a Deep Sky chevron. It sits inside the bowl with at least 8 px between the pill and the track's inner edge, never over the track or its ticks. It opens the week. |
-| Motion | The fill sweeps on `springs.number` (0.48 s, bounce 0, animating `stroke-dashoffset`); the pointer moves on `springs.settle` (0.30 s, bounce 0.10). Ticks draw in with a 6 ms stagger, capped at 240 ms. First view of the day only. Scales and labels never move. Under Reduce Motion the fill and pointer jump. |
+| The idea | The week is a sunrise. The session name is the headline; under it a sun climbs from the left horizon to its place at the upper right, one step for each run done. The far hill carries the count in words. |
+| Scene | Full-bleed in the card. Sky wash Haze to Cloud to Paper. Three hills (`--hill-1`, `--hill-2`, Deep Sky) with a 2 px Paper rim on the near crest. A 358 x 88 drawing that scales with the card. Words and controls keep the 20 px inset. No glow under the card's edge: the horizon is the screen's warm light. |
+| Name and line | The session name in Fraunces 650 40/42, left aligned, 30/34 when it does not fit one line (by measure), then two lines. The detail in Inter 15 500 Dusk under it. A face's own words ("Nothing planned") are always 30/34. |
+| Sun | The now-mark (3.5 job 2): a flat 30 px Sunrise disc, 3.5 px Paper keyline, on the path `M 38 63 Q 179 22 320 22` at `done / planned` of the view. It yields to Apricot (keyline kept) on another day's page or when the budget is spent. Never the Orb. |
+| Marks | One per run (or workout) on the week, evenly spread on the horizon: a Deep Sky ring on a Paper keyline; a Deep Sky disc when done. The first `done` are filled. None past 10. |
+| The way | Dots (`--tick-major`) from the sun to its place, and a dotted circle at the place. Decorative. Two Paper rings round the sun when the count is complete. |
+| Band (required) | The hero prints what it counts: on the far hill, White on Deep Sky (5.66), the caption "RUNS THIS WEEK" with a chevron, over the count in Inter 650 17 ("2 of 4") and the miles in Inter 400 15 ("9.5 of 15.5 mi"). The miles are the same in both views. It opens the week. |
+| View pill | 6.3. Runs, Workouts, at the band's trailing edge, only when both have something to count. The card opens on the view of the day's session; a tap holds for that day page until the next day. Tap only: the day pager is the one horizontal gesture. |
+| Dusk | A day with no run and no workout: the same hills after sunset. Sky Night Ink to Twilight to Deep Sky, the last light in Apricot along the horizon (an HTML layer), an Apricot sun setting on the right (not a now-mark), five Paper star dots, hills Twilight and Night Ink, an Apricot rim. Title Paper (Haze on another day), one line under it in Haze: the face's own line, else the next session, else "Add a run or lift" (the Add sheet). The band: "THIS WEEK" and up to three totals in Haze on Night Ink; with none, the bare hill. No marks, no pill, no When control; a rest morning keeps its four-stop line under the hill. No Paper edge round the card (back under Increase Contrast). |
+| Motion | 9.1, 9.2. First view of the day: the sun travels from rest on `springs.number`, then the way comes in (6 ms apart, 240 ms cap) and the rings bloom. A switch: the label and count cross-fade, the marks fade out and in, the sun travels. A logged run: the sun steps, the mark fills with the one overshoot. Dusk: the sun sinks 14 px over 900 ms once a day; the light breathes 1 to 0.86 over 8 s while the page is seen and still. Under Reduce Motion nothing travels and nothing breathes. |
 
 ### 6.6 Habit tiles
 
@@ -600,8 +604,8 @@ Every part on Today has a spec. Values not listed come from the nearest componen
 | Part | Spec |
 |---|---|
 | Hold-to-complete ring (`HoldRing.tsx`) | Haze track 3 px, Deep Sky fill animating `stroke-dashoffset` over `--dur-ring` (600 ms); the face Paper with a 1 px `--line` edge and a Night Ink check; done: Sky face with a Night Ink check. Never Sky on Haze. |
-| Gauge start cap | A 9 px Deep Sky dot (the fill's round cap). |
-| The morning line (four stops: wake, run, back, leave) | 1.5 px line in the session's data tone; stops are 10 px Paper dots with a 1.5 px Night Ink ring; the current stop is the live node (12 px Sunrise, 2 px Paper keyline), which yields to Night Ink while the gauge pointer is on screen (3.5). Stop labels in caption style, times in Inter 600 tnum. |
+| Hero faces | A day with no run and no workout (rest, nothing planned) is the dusk scene (6.5). A face with no session name sets "Nothing planned" in the name slot at 30/34. |
+| The morning line (four stops: wake, run, back, leave) | 1.5 px line in the session's data tone; stops are 10 px Paper dots with a 1.5 px Night Ink ring; the current stop is the live node (12 px Sunrise, 2 px Paper keyline), which yields to Night Ink while the week's sun is on screen (3.5). Stop labels in caption style, times in Inter 600 tnum. |
 | Close the day | Three numbers in Inter 650 `--fs-value` with `tabular-nums` (they change), labels in Inter `--fs-sub` Dusk (one big number and one caption per card). |
 | Week card (miles and runs tiles) | Two Paper tiles r 18, numbers Inter 650 tnum, labels caption style; the ring is the hold ring's track and fill at 4 px. |
 | Plan-end card | A card with a Fraunces card title, one Inter 15 Dusk line and one secondary button. |
@@ -720,18 +724,20 @@ Springs come from `apps/web/src/lib/motion.ts` (`springs.page`, `settle`, `sheet
 | Sheet, CSS open | 500 ms | `--ease-sheet` `cubic-bezier(0.32, 0.72, 0, 1)` |
 | Sheet, drag release and detents | 500 ms | `springs.sheet` (0.50 s, bounce 0) |
 | Segmented thumb, reflow | 300 ms | `springs.settle` (0.30 s, bounce 0.10) |
-| Numbers, gauge fill | 480 ms | `springs.number` (0.48 s, bounce 0); the fill animates `stroke-dashoffset` |
-| Gauge pointer | 300 ms | `springs.settle` |
+| Numbers, the week's sun | 480 ms | `springs.number` (0.48 s, bounce 0); the sun moves by transform |
+| The view pill's thumb | 300 ms | `springs.settle` |
+| A mark filling | 300 ms to 1.12, once | `springs.complete`, no haptic |
+| The dusk breath | 8 s loop | `calc(2 * var(--orb-breath))`, `--ease-in-out`, the light layer's opacity 1 to 0.86 |
 | Completion | 300 ms to 1.12, once | `springs.complete` (0.30 s, bounce 0.30), `orb` haptic on the peak |
 | Hold ring | 600 ms | `--dur-ring`, linear, `stroke-dashoffset` |
-| Gauge ticks | 6 ms stagger, 240 ms cap | linear |
+| The way's dots | 6 ms stagger, 240 ms cap | `--dur-in` fades |
 | Chart bars rising (a new range or mode) | 480 ms each, 12 ms apart (`--bar-stagger`), 240 ms from the first to the last at most (more bars than 21 share the 240 ms evenly) | `--dur-number`, `--ease-out`; a `transform` on each bar's own box, from its foot. The plan outline, its label and the now dot fade in (`--dur-in`, 120 ms) half way through the last bar's rise, when it is all but up. |
 | Sunrise splash | 2.8 s, first frame to the app | `SPLASH_MS` in `apps/web/src/app/splashTimeline.ts`, the one constant its whole schedule is derived from; the climb runs 2.0 s on `cubic-bezier(0.32, 0.42, 0.22, 1)` (`RISE_EASE` there); its light (the sky's colors, the glows, the Orb's two overlays) comes up, and the splash dissolves, on `--ease-in-out` `cubic-bezier(0.45, 0, 0.55, 1)`; the veil, the rings and the words on `--ease-out` (9.2) |
 | Quiet opening, Reduce Motion's splash crossfade | 300 ms | `--dur-launch`, `--ease-out` (linear under Reduce Motion) |
 | Changed-control ring (6.16) | 1.2 s, once | `--ease-out`, `opacity` only: full by 12 percent of the time, held to 55 percent, gone at the end; each control starts 100 ms after the one above it |
 | The plan builder's veil (6.16) | 120 ms in, 100 ms out | The fade values; the Orb's flight is a page move, 350 ms on `springs.page` |
 
-**What may animate:** `transform` and `opacity`, plus these named cases only: `color` and `background-color` (the 200 ms color and halo change), `stroke-dashoffset` (the gauge fill and the hold ring). A gradient never transitions: the dawn wash and the Orb's warming underlight fade in as an overlay layer's `opacity`. A moment that plays by itself (the splash) is CSS keyframes with both ends named and one property each, eased with `cubic-bezier` (never `linear()` with points or `steps()`: WebKit keeps those on the main thread), so the compositor carries it while the app starts up.
+**What may animate:** `transform` and `opacity`, plus these named cases only: `color` and `background-color` (the 200 ms color and halo change), `stroke-dashoffset` (the hold ring). A gradient never transitions: the dawn wash and the Orb's warming underlight fade in as an overlay layer's `opacity`. A moment that plays by itself (the splash) is CSS keyframes with both ends named and one property each, eased with `cubic-bezier` (never `linear()` with points or `steps()`: WebKit keeps those on the main thread), so the compositor carries it while the app starts up.
 
 ### 9.2 Brand moments
 
@@ -751,11 +757,11 @@ Springs come from `apps/web/src/lib/motion.ts` (`springs.page`, `settle`, `sheet
 
 ### 9.3 What never moves
 
-Text blocks, cards on scroll, the palette, backgrounds after load, gauge scales and labels, the logo (except the splash rise). On the splash the wordmark and the line rise 10 px as they arrive, and the words move up once, only as far as they must, to make room for "Still loading" and keep Try again above the warm band (9.2); nothing else there is text in motion.
+Text blocks, cards on scroll, the palette, backgrounds after load (the dusk light's breath on Today's hero is the one named exception), the hero's sky, hills and words, the logo (except the splash rise). On the splash the wordmark and the line rise 10 px as they arrive, and the words move up once, only as far as they must, to make room for "Still loading" and keep Try again above the warm band (9.2); nothing else there is text in motion.
 
 ### 9.4 Reduce Motion
 
-Every move becomes a 150 ms linear fade (`--dur-reduce`); the one longer fade is the splash's 300 ms crossfade in, below. The Orb holds its still frame. Gauge pointers jump. The splash shows its final frame: it crossfades in from the launch Cloud over 300 ms with the one `dawn` haptic, rests half a second and fades out in 150 ms; nothing in it moves. No parallax, no breath, no orbit.
+Every move becomes a 150 ms linear fade (`--dur-reduce`); the one longer fade is the splash's 300 ms crossfade in, below. The Orb holds its still frame. The week's sun and the view pill's thumb jump. No breath at dusk. The splash shows its final frame: it crossfades in from the launch Cloud over 300 ms with the one `dawn` haptic, rests half a second and fades out in 150 ms; nothing in it moves. No parallax, no breath, no orbit.
 
 One named exception, the plan builder's veil (6.16): the Orb appears in place and holds its still frame, and its `opacity` goes from 1 to 0.6 and back every 1.2 s (the loading pulse of 6.14), so a covered form still shows that work is going on. The changed-control ring stays as a fade, on every changed control at once, and changed numbers jump.
 
@@ -812,12 +818,12 @@ From `lib/haptics.ts`: named events, at most one per action, fired on the visual
 | Area | Rule and check |
 |---|---|
 | Contrast | Body text 4.5:1, large text 3:1, meaningful graphics 3:1. Only the pairings in 3.2. `apps/web/scripts/check-contrast.mjs` reads its table from `docs/brand/tokens.json` `contrast.allowedText` (every row, including text on Haze `--surface-3`, `--now-text`, `--primary-ink` on `--primary` and `--sun-ink` on `--sun`) and stays in `pnpm test`. |
-| Color alone | Never the only signal: the shown day is a disc plus a numeral, done is a filled coin plus a check, today is a dot plus Night Ink letter, every gauge prints its number. |
+| Color alone | Never the only signal: the shown day is a disc plus a numeral, done is a filled coin plus a check, today is a dot plus Night Ink letter, Today's hero prints and reads its count ("Runs this week, 0 of 4. 0 of 15.5 miles"). |
 | Dynamic Type | Every size in rem with px floors (11, 12, 13). Check every screen at 200 percent: nothing clips, nothing overlaps, cards grow, two-column grids may become one column. Above 150 percent, tab labels hide and icons grow to 26 px. |
 | Targets | 44 x 44 pt minimum for anything tappable, including week cells, chips and dots that act. |
 | Reduce Motion | Section 9.4. Test with the iOS setting on. |
 | Increase Contrast | `prefers-contrast: more` remaps both the semantic aliases and the palette names, so a component gets the step whichever it uses: `--ink-2/3/4` and `--dusk` to Graphite `#33475B`; `--accent-text`, `--ok`, `--deep-sky`, `--t-long`, `--star`, `--prio-3` and `--tag-blue` to `#085A8C`; `--ink-faint`, `--pencil` and `--t-rest` to `#5F6D7B`; `--line` .30, `--line-strong` .55, `--edge` .30, `--tick` .45, `--coin-ring` .55, `--dot-ahead` .22; card edge `1px solid rgba(14,34,54,.16)`, field edge .7 (5.98); glass opaque Paper. In `tokens.css`. |
-| VoiceOver | The Orb's label is "Assistant" when it opens the assistant, "Orby" as the logo; decorative Orbs are hidden. Gauges read their readout ("0 of 23 miles this week, 0 of 4 runs"). Stamps read as "Day 12 streak". The Progress chart is one slider: its value is the focused bucket in words ("Last week: 23.8 miles, 4 runs"), a swipe up or down (or an arrow key) moves it, and a double tap (or Enter) opens a running week. |
+| VoiceOver | The Orb's label is "Assistant" when it opens the assistant, "Orby" as the logo; decorative Orbs are hidden. Today's hero reads its count from the band ("Runs this week, 0 of 4. 0 of 15.5 miles. Open the week"); the drawing is hidden. Stamps read as "Day 12 streak". The Progress chart is one slider: its value is the focused bucket in words ("Last week: 23.8 miles, 4 runs"), a swipe up or down (or an arrow key) moves it, and a double tap (or Enter) opens a running week. |
 | Captions | Caption style is never the only label on a control. |
 | Working states | Any animated indicator (the thinking arc, a skeleton) has a text status with `role="status"`. |
 
@@ -829,7 +835,7 @@ From `lib/haptics.ts`: named events, at most one per action, fired on the visual
 
 | Screen | What changes | Mockup |
 |---|---|---|
-| Today | Dawn wash ground; Fraunces 650 title and italic quote in Dusk; the title-line sunrise (5.3); week strip with the 34 px Sky shown-day disc, today's Sunrise dot and one kind pill a day (6.7); the status row of glass pills (6.13); the hero card in Paper with the sunrise glow; the gauge per 6.5 (Haze track, Deep Sky fill, Sunrise pointer, horizontal end labels, the readout inside the bowl, "Strength A" in Fraunces); Sky segmented thumb; habit tiles per 6.6 (Inter initials, sentence-case names, lit coins Sky); the 28 px Orb in the ask bar; the Sky active-tab disc. | `mockups/today.png`, `today-habits.png`, `today-before-after.png` |
+| Today | Dawn wash ground; Fraunces 650 title and italic quote in Dusk; the title-line sunrise (5.3); week strip with the 34 px Sky shown-day disc, today's Sunrise dot and one kind pill a day (6.7); the status row of glass pills (6.13); the hero card in Paper with the sunrise glow; the week horizon per 6.5 (the sky wash, the three hills, the Sunrise sun, the band with its label and view pill; dusk on a day with no run and no workout); Sky segmented thumb; habit tiles per 6.6 (Inter initials, sentence-case names, lit coins Sky); the 28 px Orb in the ask bar; the Sky active-tab disc. | `mockups/today.png`, `today-habits.png`, `today-before-after.png` |
 | Goals | Paper chips with Haze icon discs (no per-feature hues); "+ Set" as quiet Deep Sky links; the Today card's sun in Apricot (no extra glow); "TODAY" eyebrow in Ember; one Sky primary ("Set today's goal"); "Review it" a secondary; Fraunces italic prompt. | `mockups/goals.png` |
 | Learned | Fraunces italic prompt; the input in Inter 17 with a Dusk placeholder (never Fraunces); Sky Save (Haze and Dusk when empty); stat tiles in Paper. | `mockups/learned.png` |
 | Plan | Week / Month segmented in Sky; "Your plan" hero card with the sunrise glow; the morning timeline in the easy tone (Lagoon) with Night Ink nodes and a Sunrise live node; session cards with Haze icon tiles and the tone on the glyph only; the Today tag in Ember on Paper. The week's header is one row (its name, the pager); the week's line under it ends in the quiet "+ Add" (6.3), which opens the Add sheet (`layout-and-hierarchy.md` 6.12); a day with nothing on it shows an 18 px Pencil plus from today on, never a dashed box (5.4), and takes a tap. | `mockups/plan.png` |
@@ -873,7 +879,7 @@ Full list with old values in `tokens.css` comments. The headline moves:
 4. **The Orb.** Render the Orb from `assets/logo-mark.svg` and `logo-mark-thinking.svg` (2.1, "Rendering in the app"), animate breath and orbit with CSS transforms, keep the shared loop in `ui/orbPaint.ts` and the idle, think and still states, add the size tiers. Ship the app icon, dark and tinted variants and the native splash; replace the stale source art.
 5. **Chrome.** Dock and capsule (6.1), nav bar and week strip (6.7, 6.14), the dawn wash, the title-line sunrise and the sticky bars (5.3).
 6. **Primitives.** Buttons, segmented controls, chips, cards, inset groups, sheets, toasts, fields, focus, switches, checkboxes, menus, skeletons (6.2 to 6.4, 6.9, 6.10, 6.14).
-7. **Today's hero.** The gauge per 6.5 (retire the gradient in `HeroGauge.tsx`), habit tiles per 6.6, the rest of Today per 6.13.
+7. **Today's hero.** The week horizon per 6.5 (built), habit tiles per 6.6, the rest of Today per 6.13.
 8. **Screens.** Goals, Learned, Plan, Progress (charts per 6.8), Journal, the assistant, Settings, onboarding, in that order. Compare each to its mockup.
 9. **Drift.** Remove raw hex, literal navy and orange rgba, ad hoc radii, off-step spacing and extra caps trackings (see 13) until `node apps/web/scripts/check-brand.mjs` reports 0, then add it to `pnpm test`. `mockups/override.css` lists the class-level changes that tokens alone do not reach; implement them in the component sheets, never by copying its `!important` rules.
 
@@ -886,11 +892,11 @@ Run all of it. A change is not done until every line is true. Lines marked (runt
 - [ ] Every color, radius, spacing, duration and font comes from a token in `tokens.css` (the one named exception: the sunrise splash's length and climb easing, 9.1). `node apps/web/scripts/check-brand.mjs <changed files>` adds no findings.
 - [ ] Every text and ground pairing is in 3.2. `pnpm test` passes (contrast and px-font checks). (runtime: the audit checks each text element against its effective ground)
 - [ ] No Sky text on light grounds, no white on Sky, no Sunrise text.
-- [ ] At most 3 Sunrise elements on the screen (3.5 priority), each with a Paper keyline of at least 2 px (the gauge pointer 3.5); no orange button, fill, selected state, series or session kind. (runtime)
+- [ ] At most 3 Sunrise elements on the screen (3.5 priority), each with a Paper keyline of at least 2 px (the week's sun 3.5); no orange button, fill, selected state, series or session kind. (runtime)
 - [ ] One Orb at most, and it is the assistant's (or the splash); its size follows the tiers (48+ full, 28 to 47 gloss, under 28 flat). (runtime)
 - [ ] One hero card and one sunrise glow at most. (runtime)
 - [ ] Fraunces only in titles, card titles, sentences and one static hero stat; never in buttons, tabs, chips, inputs, coins or live numbers. Weights 600 to 700 roman, 420 italic. No `font-variation-settings` outside the `html` rule. At most 4 Fraunces and 5 Inter sizes. (runtime)
-- [ ] Live numbers are Inter with `tabular-nums` ("1111" and "0000" match widths). Gauges print their readout. (runtime)
+- [ ] Live numbers are Inter with `tabular-nums` ("1111" and "0000" match widths). Today's hero prints its count on the band. (runtime)
 - [ ] Radii are 24, 18, 14, 12, pill or circle. Spacing is on the steps or a named exception (5.1). Gutter 16.
 - [ ] Captions: Inter Tight 600, caps, +0.14 em, one per card, 4 words at most.
 - [ ] Icons: 1.75 stroke, round caps, from the set or rule-abiding Lucide; no emoji; the Progress glyph is the set's.
