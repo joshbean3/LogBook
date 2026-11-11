@@ -62,6 +62,14 @@ let shown = false;
 
 type Moment = 'sunrise' | 'fade' | 'still';
 
+/** The system setting itself, read once: the stylesheet goes by it, so the choice of moment must too. */
+const prefersReducedMotion = () => {
+  try {
+    return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  } catch {
+    return false;
+  }
+};
 const playedThisSession = () => {
   try {
     return sessionStorage.getItem(PLAYED_KEY) === '1';
@@ -104,7 +112,7 @@ export const BrandSplash = () => {
   const held = useSplashHeld();
   const [on, setOn] = useState(() => !shown);
   // the sunrise for a cold open; the quiet fade when this session has already seen it; the still frame under Reduce Motion
-  const [moment] = useState<Moment>(() => (reduce ? 'still' : playedThisSession() ? 'fade' : 'sunrise'));
+  const [moment] = useState<Moment>(() => (reduce || prefersReducedMotion() ? 'still' : playedThisSession() ? 'fade' : 'sunrise'));
   const [ready, setReady] = useState(false);
   const [waiting, setWaiting] = useState(false);
   const [skipped, setSkipped] = useState(false);
