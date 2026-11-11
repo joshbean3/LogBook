@@ -223,13 +223,14 @@
 .jcal-num {
   display: grid;
   place-items: center;
-  min-width: var(--tile-ic);
-  height: var(--tile-ic);
+  /* grows with Larger Text so a ring never cuts through the numeral */
+  min-width: max(var(--tile-ic), 1.6em);
+  height: max(var(--tile-ic), 1.6em);
   border-radius: 50%;
 }
 .jcal-grid.is-month .jcal-num {
-  min-width: 28px;
-  height: 28px;
+  min-width: max(28px, 1.6em);
+  height: max(28px, 1.6em);
 }
 /* today: a 1.5 px Night Ink ring on the numeral, as today is in every calendar (guide 6.13, plan D14) */
 .jcal-cell.is-today .jcal-num {
@@ -478,7 +479,7 @@
   border: 0;
   background: none;
   color: var(--accent-text);
-  font: 600 var(--fs-row) / var(--lh-row) var(--sans);
+  font: 600 var(--fs-body) / var(--lh-body) var(--sans);
 }
 /* the first entry of a day is the card's one action: the primary, 44 inline at the text's leading edge (layout standard
    6.6) */
@@ -489,7 +490,7 @@
   background: var(--primary);
   box-shadow: var(--primary-glow);
   color: var(--primary-ink);
-  font-weight: 650;
+  font: 650 var(--fs-row) / var(--lh-row) var(--sans);
 }
 
 /* a year ago: a row at the card's foot, under a hairline */
@@ -517,7 +518,8 @@
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
-  font: italic 420 var(--fs-sentence-sm) / var(--lh-row) var(--serif);
+  /* the entry's size (16), so the day card keeps three sizes: 22, 16, 13 (layout standard 4.4) */
+  font: italic 420 var(--fs-body) / var(--lh-body) var(--serif);
   letter-spacing: 0;
   color: var(--j-ink);
 }

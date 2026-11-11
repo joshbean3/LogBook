@@ -255,7 +255,7 @@ export const Timeline = ({
                     <div key={keyOf(e.id)} data-key={keyOf(e.id)} role="listitem" className={`jtl-item ${first ? 'first' : ''}`}>
                       <SwipeRow
                         label={`Entry from ${entryDay(e.date, today)}`}
-                        left={{ label: 'Delete', icon: <Trash2 size={20} />, tone: 'bad', onCommit: () => act.del(e) }}
+                        left={{ label: 'Delete', icon: <Trash2 size={18} />, tone: 'bad', onCommit: () => act.del(e) }}
                         menuItems={[
                           { label: 'Edit', icon: <PenLine size={18} />, onSelect: () => sheet.open({ eyebrow: entryDay(e.date, today), title: 'Edit', body: <EntryEditor e={e} />, detent: 'large' }) },
                           { label: e.fav ? 'Unfavorite' : 'Favorite', icon: <FavoriteIcon size={18} />, onSelect: () => act.fav(e) },
@@ -273,7 +273,7 @@ export const Timeline = ({
                             <span className="jtl-meta">
                               <span className="jtl-when">{upperFirst(when)}</span>
                               {stamp ? <span className="jtl-stamp">{stamp}</span> : null}
-                              <FavStar on={e.fav} size={13} className="jtl-fav" />
+                              <FavStar on={e.fav} size={15} className="jtl-fav" />
                             </span>
                           </span>
                         </PressButton>

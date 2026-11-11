@@ -216,7 +216,7 @@ textarea.jtext:focus {
   color: var(--ink-3);
 }
 /* three equal verbs in one row, 12 apart (the heart's state is its fill, so the row never moves); Delete alone at the end,
-   a quiet word in Signal (layout standard 6.6) */
+   the destructive button: Paper, Signal words, the edge, 44 like the verbs above it (guide 6.2, layout standard 6.6) */
 .esheet-actions {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -225,9 +225,6 @@ textarea.jtext:focus {
 }
 .esheet-actions .btn.is-fav svg {
   color: var(--star);
-}
-:root .btn.quiet.danger-quiet {
-  color: var(--bad);
 }
 .esheet-actions .btn {
   min-width: 0;
@@ -248,8 +245,9 @@ textarea.jtext:focus {
   }
 }
 .btn.esheet-del {
+  width: 100%;
   min-height: var(--hit);
-  margin-bottom: var(--sp-2);
+  margin: var(--sp-3) 0 var(--sp-2);
 }
 /* the editor: the sheet is the surface, so the text sits on a hairline with 8px of air */
 .jsheet-text {
@@ -306,6 +304,13 @@ textarea.jsheet-text {
 /* ---------- the entries (layout standard 2.8, 6.2): one inset group per month, date-gutter rows ---------- */
 .jtl-sec.k-sec {
   scroll-margin-top: 96px;
+}
+/* the meta names the newest month (it titles the first group), so it stays on a narrow phone, where the shared header drops
+   a meta beside a slot; "Entries", "November" and the search glyph fit in 288 pt, and a longer meta ends in an ellipsis */
+@media (max-width: 359px) {
+  html:not([data-text-xl]) .jtl-sec > .lb-head:has(> .lb-slot) > .lb-meta {
+    display: block;
+  }
 }
 .jtl-sec .lb-slot .icon-btn {
   width: var(--hit);
@@ -365,7 +370,13 @@ textarea.jsheet-text {
    Text (2.5rem), so "Mon" at 200 percent never runs into the words */
 .jtl-row > .date-gutter {
   width: 2.5rem;
-  margin-top: calc((var(--lh-body) - var(--tile-ic)) / 2); /* brand-ok: geometry, the 32 px circle on a 24 px line */
+  /* brand-ok: geometry, the circle centered on the excerpt's first line */
+  margin-top: calc((var(--lh-body) - max(var(--tile-ic), 1.6 * var(--fs-row))) / 2);
+}
+/* the circle grows with Larger Text, so today's ring never cuts through its numeral (32 at the default size) */
+.jtl-row .date-gutter-num {
+  min-width: max(var(--tile-ic), 1.6em);
+  height: max(var(--tile-ic), 1.6em);
 }
 .jtl-body {
   display: grid;

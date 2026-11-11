@@ -153,9 +153,8 @@ export const EntrySheet = ({ e: opened, stamp }: { e: JournalEntry; stamp?: stri
         </Button>
       </div>
       <Button
-        variant="quiet"
-        block
-        className="danger-quiet esheet-del"
+        variant="danger"
+        className="esheet-del"
         onClick={() => {
           sheet.close();
           act.del(e);
