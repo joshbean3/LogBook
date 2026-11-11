@@ -816,20 +816,26 @@ html[data-text-xl] .ctx-row.ctx-row .ctx-chip {
   box-shadow: 0 0 0 0.5px var(--focus-edge), var(--focus-ring);
 }
 /* a stepper's value is part of the stepper, not a field of its own: no second edge inside the stepper's (the field rules
-   above had drawn one, in a sheet and out), and its focus is an inset outline, which the stepper's corners do not clip */
+   above had drawn one, in a sheet and out). Its focus is the field's focus pair, drawn on the stepper's own edge (the
+   stepper clips its insides, so a pair on the value would lose its ring) */
 :root .stepper .in,
 :root .sheet .stepper input.in {
   border: 0;
   border-radius: 0;
   background: transparent;
+  /* a number that changes as it is stepped (guide 4.4): 9.5 to 10 keeps its place */
+  font-variant-numeric: tabular-nums;
 }
 :root .stepper .in:focus,
 :root .sheet .stepper input.in:focus {
   border: 0;
   background: transparent;
   box-shadow: none;
-  outline: 1.5px solid var(--focus-edge);
-  outline-offset: -2px;
+  outline: none;
+}
+:root .stepper:has(> .in:focus) {
+  border-color: var(--focus-edge);
+  box-shadow: 0 0 0 0.5px var(--focus-edge), var(--focus-ring);
 }
 /* segmented: a Cloud track, the chosen segment a Sky pill; the label's weight and Night Ink carry the state */
 :root .seg {
