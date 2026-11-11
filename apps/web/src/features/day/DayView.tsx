@@ -22,6 +22,7 @@ import { deferChange, recheckDeferred, setTodayActive } from './useDeferred';
 import { seedTrainWhen } from './trainWhen';
 import { useStravaPull } from './useStravaPull';
 import { STRAVA_BUILT } from '@/lib/features';
+import { useOpenStatusSheet } from './StatusChip';
 import { saveFocus, useFocus, useOpenWordSheet } from './WordSheet';
 import './day.css';
 
@@ -44,7 +45,8 @@ const hooks = (TEST_HOOKS ? ((window as unknown as { __today?: TodayHooks }).__t
  *   slides). The lit tab re-tapped off today slides home (`useHomeControl`).
  * - Three ways to change the day (§0.1): swipe anywhere under the bar (the strip and the large title row are attached to the
  *   pager), tap a strip cell, come home (the title block, the Today pill, today's cell, the lit tab). The calendar is a jump
- *   behind the title's hold menu (`Set a word for the day · Clear the word for the day · Go to a day…`).
+ *   behind the title's hold menu (`Set a word for the day · Clear the word for the day · Go to a day… · Change training
+ *   status…`); the last item opens the status sheet, which has no pill of its own in ordinary training (StatusChip.tsx).
  * - The bar's stacked labels follow the pager's `progress` with no render; during a 2–7 day `goTo` the label in the direction
  *   of travel shows the destination (`handle.target`: one render at the start of the slide).
  */
@@ -150,12 +152,16 @@ function TodayRoot({ roll, setHeld }: { roll: React.RefObject<(to: ISODate) => v
   useEffect(() => setTodayActive(active), [active]);
 
   const openCalendar = useOpenCalendar({ mode: 'day', value: date, onPick: (d) => handle.goTo(d) });
+  const openStatus = useOpenStatusSheet(today);
   const titleMenu = (): ContextMenuItem[] => [
     // the items say what the word is for (today-top-24)
     { label: focus.word.trim() ? 'Change the word for the day' : 'Set a word for the day', onSelect: openWord },
     // the settings patch takes the whole focus (word, sentence, by): only the word is cleared
     { label: 'Clear the word for the day', disabled: !focus.word.trim(), onSelect: () => saveFocus(settings, { word: '', quote: focus.quote, by: focus.by }) },
     { label: 'Go to a day…', onSelect: openCalendar },
+    // the status sheet (Training, Taper, Rest, Sick, Injured, Travel, and for how long). In ordinary training Today shows
+    // no status pill, so a status starts here; while one is on, its pill under the strip opens the same sheet
+    { label: 'Change training status…', onSelect: openStatus },
   ];
 
   // the destination of a 2–7 day goTo shows in the label in its direction (one render at its start, one at its end)
