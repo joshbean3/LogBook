@@ -698,6 +698,8 @@ export const WeekPage = memo(function WeekPage({ mon, onThisWeek, onStep, still 
         />
         {words ? (
           <p className="pl-wk-line">
+            {/* under 360 pt the header has no room for its dates (styles/layout.css): the line carries them there */}
+            {far ? null : <span className="pl-wk-range" aria-hidden="true">{`${weekRange(mon)} · `}</span>}
             <b>{words.head}.</b>
             {words.sub ? ` ${words.sub}` : null}
           </p>
