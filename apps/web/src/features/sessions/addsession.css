@@ -1,0 +1,141 @@
+/* The Add sheet (AddSessionSheet.tsx): the open week's days, Run or Lift, the essentials, one line and Add. The day cells are the
+   day picker's (daypicker.css: `.dpk-*`). Groups sit 16 apart, a group's own parts 12 (layout standard 3.2). Nothing here
+   animates but the press and the controls' own color changes. */
+.sa {
+  display: grid;
+  gap: var(--sp-4);
+  min-width: 0;
+}
+/* the strip is full-bleed, as the day picker's: seven cells of W/7, at least 44 wide at 320 */
+.sa-days {
+  margin-inline: calc(-1 * var(--gutter));
+}
+/* a day already past reads a step back (Dusk), as its row in the week does; the picked day keeps Night Ink on Sky */
+.sa-days .dpk-day.is-past:not(.is-sel) .dpk-num {
+  color: var(--ink-2);
+}
+/* what it is: one Paper card (the sheet's ground is Cloud: on Paper the controls draw as the guide draws them), its two
+   groups 16 apart (Run or Lift, then that kind's own parts, 12 apart) */
+.sa-card.card {
+  display: grid;
+  gap: var(--sp-4);
+  min-width: 0;
+}
+.sa-block {
+  display: grid;
+  gap: var(--sp-3);
+  min-width: 0;
+}
+.sa-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-3);
+  min-width: 0;
+}
+/* the four runs share one row at every width, in equal parts (a fourth chip alone on a second row read as an afterthought) */
+.sa-chips.is-four {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+.sa-chips.is-four .chip-btn {
+  justify-content: center;
+  padding: 0;
+}
+/* at 320 a quarter of the card is 55 wide, too tight for "Tempo": two by two there */
+@media (max-width: 359px) {
+  .sa-chips.is-four {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+/* a long saved name ends in an ellipsis inside its chip, never past the sheet's edge */
+.sa-chips .chip-btn {
+  min-width: 0;
+  max-width: 100%;
+}
+.sa-chip-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* the run's tone as a 6 px marker (guide 3.1: data tones are glyphs and small markers); on the Sky fill it keeps a Paper
+   keyline, so the tone never touches Sky */
+.sa-dot {
+  flex: none;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--tone);
+}
+.chip-btn.on .sa-dot {
+  box-shadow: 0 0 0 1.5px var(--surface);
+}
+/* how far: the stepper, and beside it the unit (miles or minutes) as a quiet two-segment control of the same height */
+.sa-amount {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--sp-3);
+  min-width: 0;
+}
+.sa-unit.seg {
+  height: 48px;
+  min-width: 112px;
+}
+@media (max-width: 359px) {
+  .sa-unit.seg {
+    min-width: 96px;
+  }
+}
+.sa .in.sa-name {
+  min-height: 48px;
+}
+/* the foot: what goes in and where, on one line; then Add, full width; then the quiet way to the full editor, 8 under it */
+.sheet .sheet-foot.sa-foot {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--sp-3);
+  margin-top: 0;
+  padding-top: var(--sp-1);
+}
+.sa-sum {
+  display: flex;
+  min-width: 0;
+  margin: 0;
+  font: 500 var(--fs-sub) / var(--lh-sub) var(--sans);
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-2);
+  white-space: nowrap;
+}
+.sa-sum > b {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-weight: 600;
+  color: var(--ink);
+}
+.sa-sum > span {
+  flex: none;
+  white-space: pre;
+}
+.sa-foot > .btn.block {
+  width: 100%;
+}
+.sa-foot > .btn.quiet {
+  margin-top: calc(var(--sp-2) - var(--sp-3));
+}
+/* a larger text size: the unit goes under the stepper, and the line may wrap rather than cut the day */
+html[data-text-xl] .sa-amount {
+  grid-template-columns: minmax(0, 1fr);
+}
+html[data-text-xl] .sa-chips.is-four {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+html[data-text-xl] .sa-sum {
+  flex-wrap: wrap;
+  white-space: normal;
+}
+html[data-text-xl] .sa-sum > b {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
