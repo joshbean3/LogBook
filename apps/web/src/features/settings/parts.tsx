@@ -28,7 +28,7 @@ export const Tile = ({ icon: Icon, tone }: { icon: RowIcon; tone?: 'muted' }): R
  * content in one Paper container, then an optional Dusk footnote under it (`foot`). Every section page is built from these.
  */
 const SSec = ({ title, meta, foot, className, children }: { title: string; meta?: ReactNode; foot?: ReactNode; className: string; children: ReactNode }): React.JSX.Element => (
-  <PageSection size="sm" title={title} meta={meta} className={`s-sec ${className}`.trim()}>
+  <PageSection title={title} meta={meta} className={`s-sec ${className}`.trim()}>
     {children}
     {foot ? <Footnote>{foot}</Footnote> : null}
   </PageSection>

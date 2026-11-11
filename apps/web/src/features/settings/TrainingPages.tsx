@@ -305,7 +305,7 @@ export const YouPage = () => {
         <Row title="Email" sub={boot.data?.user.email} className="s-wrap s-email-row" />
       </SGroup>
       <section className="lb-sec s-sec" aria-labelledby="s-goal-h">
-        <SectionHeader size="sm" id="s-goal-h" title="Training for" />
+        <SectionHeader id="s-goal-h" title="Training for" />
         {!d.loaded ? (
           <Shape />
         ) : (

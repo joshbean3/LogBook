@@ -14,15 +14,6 @@
 .s-set > .pushed-bar + .card {
   margin-top: var(--sp-3);
 }
-/* the section title at the guide's section size, Fraunces 600 26/32 (12.1, the mockup), capped as every section title is,
-   so at 200 percent it is never smaller than the rows under it */
-.s-sec > .lb-head.is-sm {
-  min-height: 32px;
-}
-.s-sec > .lb-head.is-sm .lb-title {
-  font-size: clamp(22px, var(--fs-section), 34px);
-  line-height: clamp(28px, var(--lh-section), 40px);
-}
 .s-card.card {
   gap: var(--sp-3);
 }
