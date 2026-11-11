@@ -1,7 +1,22 @@
-import type { ISODate, Snapshot } from '@logbook/shared';
+import { counts, dayKey, sessionStatus, type ISODate, type Snapshot, type StatusKey } from '@logbook/shared';
 import { fmt } from '@/ui/captions';
 import type { StripKind, StripStatus } from '@/ui/NavBar';
 const ORDER: readonly StripKind[] = ['run', 'lift', 'cross'];
+
+/** The day's word (`dayKey`) as the strip draws it: a day still open is planned; rest has no mark. */
+const STRIP: Partial<Record<StatusKey, StripStatus>> = { done: 'done', bonus: 'bonus', floor: 'floor', planned: 'planned', today: 'planned', missed: 'missed', skipped: 'skipped' };
+
+/**
+ * The day's state for its strip cell, which is the kind pill's fill (guide 6.7): the fill says how much of the day is done.
+ * It is the day's own word, with one addition: a day that is still open with one of its sessions already done is part done
+ * ('floor', Haze), as a day that passed with one of two done is. Without it a run finished at 7 left the pill of a run and
+ * lift day looking untouched until the lift was done too.
+ */
+export const stripStatus = (snap: Snapshot, d: ISODate): StripStatus => {
+  const key = dayKey(snap, d);
+  if ((key === 'today' || key === 'planned') && snap.sessionsOn(d).some((s) => counts(sessionStatus(snap, d, s)))) return 'floor';
+  return STRIP[key] ?? null;
+};
 
 /**
  * The kinds a day calls for, for the strip's glyph: the planned sessions that still stand (rest and skipped or sick ones

@@ -1405,14 +1405,22 @@
   opacity: 0.5;
 }
 
-/* ---------- the status row (layout plan 2.1 T1, guide 6.13): two glass pills, the row's own rules in styles/layout.css ----------
-   Pill 1 is as wide as its words and gives way last; the phase pill shrinks first. When a label would be cut, the row is
-   marked short (StatusChip measures it) and pill 1 shows the kind alone */
-.status-row > .st-pill:first-child {
-  flex-shrink: 0;
+/* ---------- the status row (guide 6.13, layout standard 2.3): glass pills, the row's own rules in styles/layout.css ----------
+   The plan pill alone on most days; the status pill before it while a status is on. The status pill is as wide as its
+   words and gives way last; the plan pill shrinks first. When a label would be cut, the row is marked short (StatusChip
+   measures it): first the plan pill drops the plan's name, then the status pill shows the kind alone */
+/* no pill is ever wider than the row: stacked (large text), a pill is as wide as its words, so the cap is what lets
+   StatusChip see a label that would run off the screen */
+.status-row > .st-pill {
   max-width: 100%;
 }
-.status-row[data-short] .st-end {
+.status-row > .st-status {
+  flex-shrink: 0;
+}
+.status-row[data-short] .st-name {
+  display: none;
+}
+.status-row[data-short='both'] .st-end {
   display: none;
 }
 /* even the kind alone is cut (large text on a small phone): the pills stack, as at 200 percent (styles/layout.css) */

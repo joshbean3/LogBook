@@ -1,4 +1,4 @@
-import { dayKey, mondayOf, monthOf, shiftDays, type ISODate } from '@logbook/shared';
+import { mondayOf, monthOf, shiftDays, type ISODate } from '@logbook/shared';
 import { useMotionValueEvent } from 'motion/react';
 import type * as React from 'react';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
@@ -15,13 +15,14 @@ import type { ContextMenuItem } from '@/ui/ContextMenu';
 import { useLog } from '../log/useLog';
 import { useOpenCalendar } from './Calendar';
 import { DayPage, Sentence } from './DayPage';
-import { stripKinds, stripLabel } from './stripKinds';
+import { stripKinds, stripLabel, stripStatus } from './stripKinds';
 import { setLiveDate, setPagerMoving } from './live';
 import { morningLineId, morningPath } from './Hero';
 import { deferChange, recheckDeferred, setTodayActive } from './useDeferred';
 import { seedTrainWhen } from './trainWhen';
 import { useStravaPull } from './useStravaPull';
 import { STRAVA_BUILT } from '@/lib/features';
+import { useOpenStatusSheet } from './StatusChip';
 import { saveFocus, useFocus, useOpenWordSheet } from './WordSheet';
 import './day.css';
 
@@ -33,7 +34,6 @@ const ISO = /^\d{4}-\d{2}-\d{2}$/;
 const TEST_HOOKS = typeof window !== 'undefined' && !!(import.meta.env.DEV || import.meta.env.VITE_FAKE_CLOCK);
 type TodayHooks = { date: () => string; today: () => string; setDate: (d: string) => void; renders: number; pageRenders: number };
 const hooks = (TEST_HOOKS ? ((window as unknown as { __today?: TodayHooks }).__today ??= { date: () => '', today: () => '', setDate: () => {}, renders: 0, pageRenders: 0 }) : null) as TodayHooks | null;
-const STRIP: Partial<Record<ReturnType<typeof dayKey>, StripStatus>> = { done: 'done', bonus: 'bonus', floor: 'floor', planned: 'planned', today: 'planned', missed: 'missed', skipped: 'skipped' };
 
 /**
  * Today (docs/feel.md §2, §3; build-plan §3.2 item 1): the tab root. One page element whose first content is the bar
@@ -45,7 +45,8 @@ const STRIP: Partial<Record<ReturnType<typeof dayKey>, StripStatus>> = { done: '
  *   slides). The lit tab re-tapped off today slides home (`useHomeControl`).
  * - Three ways to change the day (§0.1): swipe anywhere under the bar (the strip and the large title row are attached to the
  *   pager), tap a strip cell, come home (the title block, the Today pill, today's cell, the lit tab). The calendar is a jump
- *   behind the title's hold menu (`Set a word for the day · Clear the word for the day · Go to a day…`).
+ *   behind the title's hold menu (`Set a word for the day · Clear the word for the day · Go to a day… · Change training
+ *   status…`); the last item opens the status sheet, which has no pill of its own in ordinary training (StatusChip.tsx).
  * - The bar's stacked labels follow the pager's `progress` with no render; during a 2–7 day `goTo` the label in the direction
  *   of travel shows the destination (`handle.target`: one render at the start of the slide).
  */
@@ -151,12 +152,16 @@ function TodayRoot({ roll, setHeld }: { roll: React.RefObject<(to: ISODate) => v
   useEffect(() => setTodayActive(active), [active]);
 
   const openCalendar = useOpenCalendar({ mode: 'day', value: date, onPick: (d) => handle.goTo(d) });
+  const openStatus = useOpenStatusSheet(today);
   const titleMenu = (): ContextMenuItem[] => [
     // the items say what the word is for (today-top-24)
     { label: focus.word.trim() ? 'Change the word for the day' : 'Set a word for the day', onSelect: openWord },
     // the settings patch takes the whole focus (word, sentence, by): only the word is cleared
     { label: 'Clear the word for the day', disabled: !focus.word.trim(), onSelect: () => saveFocus(settings, { word: '', quote: focus.quote, by: focus.by }) },
     { label: 'Go to a day…', onSelect: openCalendar },
+    // the status sheet (Training, Taper, Rest, Sick, Injured, Travel, and for how long). In ordinary training Today shows
+    // no status pill, so a status starts here; while one is on, its pill under the strip opens the same sheet
+    { label: 'Change training status…', onSelect: openStatus },
   ];
 
   // the destination of a 2–7 day goTo shows in the label in its direction (one render at its start, one at its end)
@@ -169,7 +174,7 @@ function TodayRoot({ roll, setHeld }: { roll: React.RefObject<(to: ISODate) => v
   const titleRef = useRef<HTMLElement | null>(null);
   useEffect(() => handle.attach([stripRef.current, titleRef.current]), [handle]);
 
-  const statusOf = (d: string): StripStatus => (log.loaded(d) ? (STRIP[dayKey(log.snap, d)] ?? null) : null);
+  const statusOf = (d: string): StripStatus => (log.loaded(d) ? stripStatus(log.snap, d) : null);
   const kindsOf = (d: string) => (log.loaded(d) ? stripKinds(log.snap, d) : []);
   // two glyphs at most, but the spoken name says every kind (today-top-29)
   const labelOf = (d: string) => stripLabel(d, log.loaded(d) ? stripKinds(log.snap, d, 3) : [], statusOf(d));

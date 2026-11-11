@@ -1,7 +1,7 @@
 import { TRAINING_STATUS_INFO, TRAINING_STATUS_KINDS, fmtDate, mondayOf, shiftDays, STATUS_LENGTHS, statusOn, untilFor, type TrainingStatus, type TrainingStatusKind, type ISODate, type PlanBlock } from '@logbook/shared';
 import { Check } from 'lucide-react';
 import type * as React from 'react';
-import { useLayoutEffect, useRef, useState } from 'react';
+import { useCallback, useLayoutEffect, useRef, useState } from 'react';
 import { useNav } from '@/app/NavController';
 import { useBootstrap, useSetStatus } from '@/api/queries';
 import { haptics } from '@/lib/haptics';
@@ -80,6 +80,16 @@ const StatusSheet = ({ current, today }: { current: TrainingStatus | null; today
   );
 };
 
+/**
+ * Opens the status sheet. Two ways in: the status pill, which shows only while a status is on, and Today's title menu
+ * (hold the title or the date: `Change training status…`), which is where a status starts in ordinary training.
+ */
+export const useOpenStatusSheet = (today: ISODate): (() => void) => {
+  const sheet = useSheet();
+  const current = useBootstrap().data?.user.status ?? null;
+  return useCallback(() => sheet.open({ eyebrow: 'Status', title: 'How are you training?', body: <StatusSheet current={current} today={today} /> }), [sheet, current, today]);
+};
+
 /** A plan's name without the length the template appends ("Half marathon · 12 weeks" is "Half marathon"): the goal. */
 export const goalName = (name: string) => name.replace(/\s*·\s*\d+\s*weeks?$/i, '').trim() || name;
 
@@ -109,19 +119,24 @@ export const blockWords = (blocks: PlanBlock[], date: ISODate) => {
   return { title, sub: `Week ${Math.min(total, Math.floor(days(m, date) / 7) + 1)} of ${total}` };
 };
 
-/** Pill 1's words (layout plan 2.1 T1): the kind, and its end after a dot ("Sick · until Tue"); training says how. */
-export const statusWords = (kind: TrainingStatusKind, until: ISODate | null | undefined, today: ISODate, planned: boolean): { head: string; end: string; dot: 'sky' | 'pencil' } => {
-  if (kind === 'training') return { head: planned ? 'On the plan' : 'Day by day', end: '', dot: 'sky' };
+/**
+ * The status pill's words (guide 6.13): the kind, and its end after a dot ("Sick · until Tue"). Null in ordinary training:
+ * a day that runs as planned has no status pill, since the plan pill and the hero already say what the day is.
+ */
+export const statusWords = (kind: TrainingStatusKind, until: ISODate | null | undefined, today: ISODate): { head: string; end: string; dot: 'sky' | 'pencil' } | null => {
+  if (kind === 'training') return null;
   const u = until ? untilWords(until, today) : '';
   return { head: TRAINING_STATUS_INFO[kind].label, end: u === 'today' ? 'today only' : u, dot: kind === 'taper' ? 'sky' : 'pencil' };
 };
 
 /**
- * Fit by measure (layout plan 2.1 T1): the row never wraps and never cuts a word. When a label would be cut, pill 1 drops its
- * end and shows the kind alone ("Injured"); the end stays in its VoiceOver label and in the status sheet. When even that is
- * cut (large text on a small phone), the pills stack, as they do at 200 percent, and pill 1 gets its end back if it fits.
- * Measured on mount, whenever the row resizes, and when the words change.
+ * Fit by measure (guide 6.13): the row never wraps and never cuts a word. It gives up words in this order until every
+ * label fits: the plan pill drops the plan's name and keeps its phase ("Week 3 of 12"); then the status pill drops its end
+ * and shows the kind alone ("Injured"). What is dropped stays in the pill's VoiceOver label, on Plan and in the status
+ * sheet. When even that is cut (large text on a small phone), the pills stack, as they do at 200 percent, and each gets
+ * back what fits. Measured on mount, whenever the row resizes, and when the words change.
  */
+const SHORT = ['', 'plan', 'both'] as const;
 const useFit = (key: string) => {
   const ref = useRef<HTMLDivElement>(null);
   useLayoutEffect(() => {
@@ -129,14 +144,15 @@ const useFit = (key: string) => {
     if (!row) return;
     const cut = () => [...row.querySelectorAll<HTMLElement>('.status-pill-label')].some((l) => l.scrollWidth > l.clientWidth + 0.5);
     const fit = () => {
-      delete row.dataset.short;
-      delete row.dataset.stack;
-      if (!cut()) return;
-      row.dataset.short = '';
-      if (!cut()) return;
-      row.dataset.stack = '';
-      delete row.dataset.short;
-      if (cut()) row.dataset.short = '';
+      for (const stack of [false, true]) {
+        for (const short of SHORT) {
+          if (stack) row.dataset.stack = '';
+          else delete row.dataset.stack;
+          if (short) row.dataset.short = short;
+          else delete row.dataset.short;
+          if (!cut()) return;
+        }
+      }
     };
     fit();
     const ro = new ResizeObserver(() => fit());
@@ -154,39 +170,77 @@ const useFit = (key: string) => {
   return ref;
 };
 
+/** What the row shows, as data: the status pill while a status is on, the plan pill, or the offer to make a plan. */
+export interface StatusRow {
+  /** While a status is on: its kind, its words and what VoiceOver says. Null in ordinary training. */
+  status: { kind: TrainingStatusKind; head: string; end: string; dot: 'sky' | 'pencil'; said: string } | null;
+  /** The plan the day belongs to (now or next): its name, where the day is in it, and what VoiceOver says. */
+  plan: { name: string; phase: string; said: string } | null;
+  /** No plan now or ahead, and the page can open the builder: the pill offers one. */
+  make: boolean;
+}
+export const statusRow = (status: TrainingStatus | null | undefined, blocks: PlanBlock[], date: ISODate, today: ISODate, canPlan: boolean): StatusRow => {
+  const kind = statusOn(status, date);
+  const w = statusWords(kind, status?.until, today);
+  const blk = blockWords(blocks, date);
+  return {
+    status: w ? { kind, ...w, said: `Status: ${TRAINING_STATUS_INFO[kind].label}, ${w.end || 'until changed'}. Change` } : null,
+    plan: blk ? { name: blk.title, phase: blk.sub, said: `${blk.title}, ${blk.sub}. Open Plan` } : null,
+    make: !blk && canPlan,
+  };
+};
+
 /**
- * The status row under Today's title (layout plan 2.1 T1, guide 6.13): two glass pills on the ground, 12 apart. Pill 1 is how
- * you are training and until when (a tap opens the status sheet); pill 2 is the plan's phase alone (a tap opens Plan; the
- * plan's name is in its VoiceOver label and on Plan). With no plan now or ahead, pill 2 offers to make one.
+ * The row under Today's week strip (guide 6.13, layout standard 2.3): glass pills on the ground, 12 apart, from the left.
+ *
+ * - The plan pill is always there: the plan's name and where the day is in it ("Half marathon · Week 3 of 12"), and a tap
+ *   opens Plan. With no plan now or ahead it offers one ("Make a plan") and opens the builder.
+ * - The status pill comes first, and only while a status is on (Taper, Rest, Sick, Injured, Travel): what it is and until
+ *   when. A tap opens the status sheet. In ordinary training there is no status pill: "On the plan" and "Day by day" said
+ *   nothing the plan pill and the hero do not, and the sheet is in Today's title menu (`useOpenStatusSheet`).
+ *
+ * So the row holds one pill on most days and two while a status is on. With nothing to show it is not rendered, and the
+ * hero starts 16 under the strip.
  */
-export const StatusChip = ({ date, today, onPlan }: { date: ISODate; today: ISODate; onPlan?: () => void }): React.JSX.Element => {
+export const StatusChip = ({ date, today, onPlan }: { date: ISODate; today: ISODate; onPlan?: () => void }): React.JSX.Element | null => {
   const boot = useBootstrap();
-  const sheet = useSheet();
   const nav = useNav();
-  const s = boot.data?.user.status ?? null;
-  const kind = statusOn(s, date);
-  const blk = blockWords(boot.data?.blocks ?? [], date);
-  const w = statusWords(kind, s?.until, today, !!blk);
-  const said = kind === 'training' ? w.head : `${TRAINING_STATUS_INFO[kind].label}, ${w.end || 'until changed'}`;
-  const ref = useFit(`${w.head}|${w.end}|${blk?.sub ?? ''}|${onPlan ? 1 : 0}`);
+  const openStatus = useOpenStatusSheet(today);
+  const row = statusRow(boot.data?.user.status, boot.data?.blocks ?? [], date, today, !!onPlan);
+  const { status, plan } = row;
+  const ref = useFit(`${status?.head ?? ''}|${status?.end ?? ''}|${plan?.name ?? ''}|${plan?.phase ?? ''}|${row.make ? 1 : 0}`);
+  if (!status && !plan && !row.make) return null;
   return (
     <div className="status-row" ref={ref}>
-      <StatusPill
-        className={`st-pill st-pill-${kind}`}
-        dot={w.dot}
-        chevron="down"
-        label={
-          <>
-            {w.head}
-            {w.end ? <span className="st-end"> · {w.end}</span> : null}
-          </>
-        }
-        voiceLabel={`Status: ${said}. Change`}
-        onPress={() => sheet.open({ eyebrow: 'Status', title: 'How are you training?', body: <StatusSheet current={s} today={today} /> })}
-      />
-      {blk ? (
-        <StatusPill className="st-pill st-phase" label={blk.sub} voiceLabel={`${blk.title}, ${blk.sub}. Open Plan`} onPress={() => nav.go('/plan')} />
-      ) : onPlan ? (
+      {status ? (
+        <StatusPill
+          className={`st-pill st-status st-pill-${status.kind}`}
+          dot={status.dot}
+          chevron="down"
+          label={
+            <>
+              {status.head}
+              {status.end ? <span className="st-end"> · {status.end}</span> : null}
+            </>
+          }
+          voiceLabel={status.said}
+          onPress={openStatus}
+        />
+      ) : null}
+      {plan ? (
+        <StatusPill
+          className="st-pill st-phase"
+          chevron="right"
+          label={
+            <>
+              <span className="st-name">{plan.name} · </span>
+              {plan.phase}
+            </>
+          }
+          voiceLabel={plan.said}
+          onPress={() => nav.go('/plan')}
+        />
+      ) : row.make ? (
         // no plan now or ahead: the pill offers one and opens the plan builder (today-top-12)
         <StatusPill className="st-pill st-phase st-noplan" label="Make a plan" chevron="right" voiceLabel="No plan yet. Make a plan" onPress={onPlan} />
       ) : null}

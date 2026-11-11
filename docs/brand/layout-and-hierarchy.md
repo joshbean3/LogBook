@@ -50,6 +50,8 @@ Each change below is written into `docs/brand/brand-guide.md` in the same words.
 | C22 | 9.2 Brand moments | Adds **The Orb lifts**: 150 ms after Send the Orb leaves its place beside the words and flies to the middle of the veil, growing from 28 to 56 px, 350 ms on `springs.page`, and turns to its thinking state. When the answer lands it flies back to the pill, and the pill's own Orb takes over. One Orb the whole time. |
 | C23 | 9.4 Reduce Motion | One named exception, the plan builder's veil: the Orb appears in place and holds its still frame, and its `opacity` goes from 1 to 0.6 and back every 1.2 s. The changed-control ring stays as a fade, on every changed control at once, and changed numbers jump. |
 | C24 | 2.1, 6.9, 12.1 | Pointers: the plan builder's pill is a 28 px gloss Orb, still; in the New plan sheet the assistant's composer changes the pinned primary button while it is in use; a New plan row in the screen table. |
+| C25 | 6.7 The week strip | The kind pill is one size on every day and in every state (34 x 22, centered on its column, 8 px under the numeral), with two glyphs inside the same pill on a two-session day, and one fill system: Paper for nothing done yet, Haze for part, Sky for all, hollow for a day that passed with nothing done. Today's pill loses its Deep Sky ring: today is the Sunrise dot. A day with no session keeps the empty slot. The cell is 83 tall (was 81). Owner request: the pills were uneven. |
+| C26 | 6.13 Status row and status sheet; 12.1 Today | The row is the plan pill, with the status pill before it only while a status is on. "On the plan" and "Day by day" are gone (owner request). The plan pill shows the plan's name with its phase and a right chevron. The status sheet opens from the status pill, and in ordinary training from Today's title menu. |
 
 **Considered and not changed.** The screen title stays at 38/42 (`--fs-title`). Apple's Large Title is 34 and the hero's session name (40) is within 5 percent of the title, but the brand raised the title from 34 to 38 on purpose. The hero card already wins on Today by area (about 360 pt tall against a 42 pt title line), by the glow and by position once the rows above it are compacted (section 2.3). Body text stays 16/24: Apple's own advice is loose leading for long passages, and 16/24 measures 49 characters a line in a card at 390. The 16 px gutter stays at every width. It is inside Apple's 16 to 20 pt system margin, and one gutter keeps every edge aligned.
 
@@ -89,12 +91,14 @@ Each table names the screen's job, its focal point, its one Sky button, what is 
 | Job | See today's session and get through the day. |
 | Focal point | The hero card (the U-arc gauge). |
 | Sky button | "Set the goal" in Plan your day, only while today's goal is unset. Otherwise none. The habit coins are the screen's most used control. |
-| Read in passing, above the hero | The title block (date caption, "Today", the quote), the week strip, one row of status pills. Nothing else sits above the hero. |
+| Read in passing, above the hero | The title block (date caption, "Today", the quote), the week strip, one row of status pills (the plan pill; the status pill before it only while a status is on). Nothing else sits above the hero. |
 | Order of emphasis | 1. Hero: the session name ("Easy 6.5"), then the readout pill ("0 of 23 mi · 0 of 4 runs"), then the detail line ("Out the door in 4 h 40 min"). Below a hairline in the same card: the Morning / Afternoon / No time control, then the morning line. 2. Habits: the two-column tile grid. 3. Plan your day: today's goal, the carry-over row, the top three. 4. The fold ("3 more") and "All to-dos". |
 
 Build:
 
-- **Status chips become the brand's status pills.** One row of 32 pt `--glass` pills ("On the plan", "Half marathon · Warm-up week"), each with a 44 pt hit, 12 px apart. This is the spec in brand 6.13. Today they render as two-line context chips 56 pt tall. Why: it removes 24 pt above the hero, and these are status, not content.
+- **Status chips become the brand's status pills.** One row of 32 pt `--glass` pills, each with a 44 pt hit, 12 px apart, from the left gutter: 16 px under the week strip and 12 px above the hero. This is the spec in brand 6.13. They used to render as two-line context chips 56 pt tall. Why: it removes 24 pt above the hero, and these are status, not content.
+- **One pill on most days.** The plan pill is always there: the plan's name and the phase ("Half marathon · Warm-up week"), or "Make a plan" with no plan now or ahead. The status pill sits before it only while a status is on ("Sick · until Fri"). Ordinary training has no status pill: "On the plan" and "Day by day" said what the plan pill and the hero already say (owner request, and principle 5: say each thing once). The status sheet opens from the status pill, and in ordinary training from Today's title menu ("Change training status…"), so it stays one labeled step away. When two pills do not fit, the plan pill drops the plan's name first, then the status pill drops its end. With nothing to show there is no row, and the hero starts 16 px under the strip.
+- **The week strip's kind pills are one size** (brand 6.7): 34 x 22 on every day, centered under the numeral, the same 8 px gap on every day, and a day with no session keeps the empty slot. Why: pills of two widths and five fills under seven equal columns read as a mistake, not as a state. One shape lets the fill carry the state (Paper, Haze, Sky, hollow).
 - **"Close yesterday" moves into the carry-over row of Plan your day.** Why: it is yesterday's business, and the carry-over row is where yesterday lives. Today it is a seventh row above the hero.
 - **The quote wraps to 2 lines at most** (line clamp 2, the full quote on tap). Why: an unbounded quote pushes the hero down by a different amount each day.
 - **Target: hero card top at 300 pt or less** (now 358) in Playwright at 390 x 844, and the whole gauge with its readout above the dock on a device (Playwright top + 59 pt Dynamic Island inset + 222 pt to the arc's bottom ≤ 690). Why: the 14 peer apps put their focal element 11 to 32 percent down, median 22 [Peers], and attention falls off toward the fold [NN/g].
@@ -473,7 +477,7 @@ Alternatives differ by style, never by size [HIG Buttons]. Labels start with a v
 
 | Part | Value |
 |---|---|
-| Status pill (Today) | `--glass`, 32 tall, 44 hit, Inter 15 500 Night Ink, a 6 px state dot (brand 6.13, 6.14). One row, 12 apart. |
+| Status pill (Today) | `--glass`, 32 tall, 44 hit, Inter 15 500 Night Ink, a 16 px chevron (right: it goes somewhere; down: it opens a sheet), and on the status pill a 6 px state dot (brand 6.13, 6.14). One row from the left gutter, 12 apart: the plan pill, with the status pill before it only while a status is on. |
 | Context chip (Goals) | Brand 6.3. Two side by side, 12 apart. Lighter than the hero below it: no glow, no tint. |
 | Filter chip | Brand 6.3, 32 tall, 44 hit, 12 apart. |
 | Tag | Brand 6.3, 28 tall, not tappable. One per row at most. |
@@ -545,7 +549,7 @@ Brand 6.16 has the parts. The layout:
 
 | Screen | Up front | One tap away |
 |---|---|---|
-| Today | Hero, habits, today's goal, carry-over, top three | Week detail (the readout), habit history, the rest of the to-dos, the status sheet, the session |
+| Today | Hero, habits, today's goal, carry-over, top three | Week detail (the readout), habit history, the rest of the to-dos, the status sheet (the status pill while a status is on; in ordinary training, the title menu: hold the title or the date), the session |
 | Goals | Today's goal, carry-over, tomorrow and next week, further out | Goal history ("See all"), the review sheet, each period's goal |
 | Learned | Streak, prompt, this year's months | A month's items, older years |
 | Plan | Your plan, this week's days, "+ Add" | The plan summary with the assistant, a session, the Add sheet (and the full editor behind its "More options"), the month view, other weeks, the morning schedule |
