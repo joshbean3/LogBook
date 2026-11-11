@@ -1,5 +1,6 @@
 import { fmtDate, type JournalEntry, type Quote, linkTitle } from '@logbook/shared';
-import { BookMarked, ChevronRight, EyeOff, PenLine, Plus, Search, Share, Star, Trash2 } from 'lucide-react';
+import { BookMarked, ChevronRight, EyeOff, PenLine, Plus, Search, Share, Trash2 } from 'lucide-react';
+import { FavoriteIcon } from '@/ui/icons';
 import { useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useNav } from '@/app/NavController';
 import { seedOf, usePick, useJournalList, useJournalMutations, useQuotes, useQuoteThemes, useReads, useThemeQuotes, type QuoteTheme } from '@/api/queries';
@@ -100,7 +101,7 @@ const QuoteRow = ({ q, open, onWrite }: { q: Quote; open: (q: Quote) => void; on
   return (
     <SwipeRow
       label={q.author ? `Quote by ${q.author}` : 'Quote'}
-      right={{ label: q.fav ? 'Unfavorite' : 'Favorite', icon: <Star size={20} />, tone: 'warn', onCommit: () => act.fav(q) }}
+      right={{ label: q.fav ? 'Unfavorite' : 'Favorite', icon: <FavoriteIcon size={20} />, tone: 'ok', onCommit: () => act.fav(q) }}
       left={q.mine ? { label: 'Delete', icon: <Trash2 size={20} />, tone: 'bad', onCommit: () => act.remove(q) } : { label: 'Hide', icon: <EyeOff size={20} />, tone: 'neutral', destructive: false, onCommit: () => act.hide(q) }}
       menuItems={[{ label: 'Write about it', icon: <PenLine size={18} />, onSelect: () => onWrite(q) }]}
     >
@@ -161,7 +162,7 @@ const Favorites = ({ open, onWrite }: { open: (q: Quote) => void; onWrite: (q: Q
         <ul className="k-rows has-icons lib-fav-empty">
           <li className="k-row two">
             <span className="icon-tile" aria-hidden="true">
-              <Star size={17} />
+              <FavoriteIcon size={17} />
             </span>
             <span className="k-row-main">
               <span className="k-row-title">No favorites yet</span>
@@ -178,7 +179,7 @@ const Favorites = ({ open, onWrite }: { open: (q: Quote) => void; onWrite: (q: Q
                 label={`Quote by ${it.q.author || 'you'}`}
                 items={[
                   { label: 'Write about it', icon: <PenLine size={18} />, onSelect: () => onWrite(it.q) },
-                  { label: 'Unfavorite', icon: <Star size={18} />, onSelect: () => act.fav(it.q) },
+                  { label: 'Unfavorite', icon: <FavoriteIcon size={18} />, onSelect: () => act.fav(it.q) },
                 ]}
               >
                 <Pressable role="listitem" className="fav-card" onPress={() => open(it.q)} label={`${it.q.text}. ${it.q.author}`}>
@@ -191,7 +192,7 @@ const Favorites = ({ open, onWrite }: { open: (q: Quote) => void; onWrite: (q: Q
                 key={it.e.id}
                 label={`Entry from ${fmtDate('short', it.e.date)}`}
                 items={[
-                  { label: 'Unfavorite', icon: <Star size={18} />, onSelect: () => entryAct.fav(it.e) },
+                  { label: 'Unfavorite', icon: <FavoriteIcon size={18} />, onSelect: () => entryAct.fav(it.e) },
                   { label: 'Share', icon: <Share size={18} />, onSelect: () => entryAct.share(it.e) },
                 ]}
               >

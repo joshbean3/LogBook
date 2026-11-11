@@ -1,7 +1,7 @@
-import wordmarkInk from '@/ui/brand/wordmark-ink.svg?url';
+import { ART, CAPTION, drawGrain, drawLockup, loadMark, SERIF } from '../share/brandArt';
 
 /**
- * "Remember when" as a card to keep or send: drawn on a canvas (the soft Columbia header, the words in the serif, the date)
+ * "Remember when" as a card to keep or send: drawn on a canvas (Linen and grain, the Haze header, the words in the Fraunces italic, the date)
  * and saved as a PNG, or copied as text. The canvas work is in the browser; the line breaking is pure and tested.
  */
 
@@ -55,29 +55,24 @@ const W = 1080;
 const H = 1350;
 const PAD = 96;
 
-/** The card as a PNG: 1080 by 1350, the size a phone keeps and shares as a photo. */
+/** The card as a PNG: 1080 by 1350, the size a phone keeps and shares as a photo. A light brand surface (plan 2.5): Linen
+ *  with paper grain, a Paper card with its edge, the in-app card's Haze wash at the top, the reminder in the Fraunces
+ *  italic, and the Orby lockup at the foot. */
 export const drawRecall = async (summary: string, when: string): Promise<Blob> => {
   try {
-    await Promise.all([document.fonts.load('italic 64px "Fraunces Card"'), document.fonts.load('600 30px Inter')]);
+    await Promise.all([document.fonts.load('italic 64px "Fraunces Card"'), document.fonts.load('600 30px "Inter Tight"'), loadMark('ink')]);
   } catch {
     /* the fallbacks draw it */
   }
-  // the logo is the outlined wordmark, never canvas text (guide 2.2); a card without it still draws
-  const mark = await new Promise<HTMLImageElement | null>((ok) => {
-    const img = new Image();
-    img.onload = () => ok(img);
-    img.onerror = () => ok(null);
-    setTimeout(() => ok(img.complete && img.naturalWidth ? img : null), 1500);
-    img.src = wordmarkInk;
-  });
   const c = document.createElement('canvas');
   c.width = W;
   c.height = H;
   const g = c.getContext('2d');
   if (!g) throw new Error('No canvas');
-  // the page, a whisper of Columbia, and the card on it
-  g.fillStyle = '#f3f8fb';
+  // the page: Linen with grain, and the card on it
+  g.fillStyle = ART.linen;
   g.fillRect(0, 0, W, H);
+  drawGrain(g, W, H);
   const x = 56;
   const y = 56;
   const cw = W - 2 * x;
@@ -87,25 +82,28 @@ export const drawRecall = async (summary: string, when: string): Promise<Blob> =
   g.beginPath();
   g.roundRect(x, y, cw, ch, r);
   g.clip();
-  g.fillStyle = '#ffffff';
+  g.fillStyle = ART.paper;
   g.fillRect(x, y, cw, ch);
-  // the soft Columbia header, lit from below like the app's halo
+  // the header: the Haze wash settling into the Paper, as the card is drawn in the app
   const hh = 300;
   const head = g.createLinearGradient(0, y, 0, y + hh);
-  head.addColorStop(0, '#b9d9eb');
-  head.addColorStop(1, '#e8f3f9');
+  head.addColorStop(0, ART.haze);
+  head.addColorStop(1, ART.paper);
   g.fillStyle = head;
   g.fillRect(x, y, cw, hh);
-  const glow = g.createRadialGradient(W / 2, y + hh + 40, 10, W / 2, y + hh + 40, 520);
-  glow.addColorStop(0, 'rgba(255,255,255,0.9)');
-  glow.addColorStop(1, 'rgba(255,255,255,0)');
-  g.fillStyle = glow;
-  g.fillRect(x, y, cw, hh);
   g.restore();
-  // the caps line
-  g.fillStyle = '#2f5d85';
-  g.font = '600 30px Inter, -apple-system, sans-serif';
-  if ('letterSpacing' in g) (g as unknown as { letterSpacing: string }).letterSpacing = '4px';
+  // Paper on Linen gets the 1 px edge (guide 5.4), drawn at the card's scale
+  g.save();
+  g.strokeStyle = ART.edge;
+  g.lineWidth = 3;
+  g.beginPath();
+  g.roundRect(x, y, cw, ch, r);
+  g.stroke();
+  g.restore();
+  // the caption: Inter Tight 600, caps, +0.14 em, Dusk
+  g.fillStyle = ART.dusk;
+  g.font = `600 30px ${CAPTION}`;
+  if ('letterSpacing' in g) (g as unknown as { letterSpacing: string }).letterSpacing = '4.2px';
   g.fillText(`REMEMBER WHEN · ${when.toUpperCase()}`, x + PAD - 40, y + 120);
   if ('letterSpacing' in g) (g as unknown as { letterSpacing: string }).letterSpacing = '0px';
   // the words, as large as they fit
@@ -115,24 +113,24 @@ export const drawRecall = async (summary: string, when: string): Promise<Blob> =
   const room = ch - hh - 220;
   const measure = (t: string) => g.measureText(t).width;
   for (; size >= 44; size -= 4) {
-    g.font = `italic ${size}px "Fraunces Card", Georgia, serif`;
+    g.font = `italic 400 ${size}px ${SERIF}`;
     lines = wrapLines(summary, maxW, measure);
     if (lines.length * size * 1.25 < room) break;
   }
   // still too long at the smallest size: as many lines as fit, the last one ending in an ellipsis
   if (size < 44) {
     size = 44;
-    g.font = `italic ${size}px "Fraunces Card", Georgia, serif`;
+    g.font = `italic 400 ${size}px ${SERIF}`;
     lines = clampLines(lines, Math.max(1, Math.floor(room / (size * 1.25))), maxW, measure);
   }
-  g.fillStyle = '#0f2a44';
+  g.fillStyle = ART.nightInk;
   const lh = size * 1.25;
   let ty = y + hh + 90 + size;
   for (const l of lines) {
     g.fillText(l, x + PAD - 40, ty);
     ty += lh;
   }
-  // the mark of where it was kept: the wordmark, 120 px wide (4393 x 1988 units), sitting on the old baseline
-  if (mark) g.drawImage(mark, x + PAD - 40, y + ch - 72 - 54, 120, 54);
+  // where it was kept: the Orby lockup, the flat Orb and the outlined wordmark in Night Ink (never canvas text)
+  drawLockup(g, 'ink', x + PAD - 40, y + ch - 72, 228);
   return new Promise((ok, no) => c.toBlob((b) => (b ? ok(b) : no(new Error('No image'))), 'image/png'));
 };

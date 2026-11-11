@@ -1,6 +1,7 @@
 import type * as React from 'react';
 import { fmtDate, parseISO, type JournalEntry, type Quote } from '@logbook/shared';
-import { EyeOff, PenLine, Search, Share, Star, Trash2, X } from 'lucide-react';
+import { EyeOff, PenLine, Search, Share, Trash2, X } from 'lucide-react';
+import { FavoriteIcon } from '@/ui/icons';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useDaily, useJournalList, useJournalMutations } from '@/api/queries';
 import { haptics } from '@/lib/haptics';
@@ -33,7 +34,7 @@ export const QuoteLine = ({ date, onInsert, labelled = false }: { date: string; 
   const items = [
     {
       label: q.fav ? 'Unfavorite' : 'Favorite',
-      icon: <Star size={18} />,
+      icon: <FavoriteIcon size={18} />,
       onSelect: () => {
         if (!q.fav) popFav();
         quotePrefs.mutate({ id: q.id, fav: !q.fav });
@@ -236,7 +237,7 @@ export const Timeline = ({
                   left={{ label: 'Delete', icon: <Trash2 size={20} />, tone: 'bad', onCommit: () => act.del(e) }}
                   menuItems={[
                     { label: 'Edit', icon: <PenLine size={18} />, onSelect: () => sheet.open({ eyebrow: entryDay(e.date, today), title: 'Edit', body: <EntryEditor e={e} />, detent: 'large' }) },
-                    { label: e.fav ? 'Unfavorite' : 'Favorite', icon: <Star size={18} />, onSelect: () => act.fav(e) },
+                    { label: e.fav ? 'Unfavorite' : 'Favorite', icon: <FavoriteIcon size={18} />, onSelect: () => act.fav(e) },
                     { label: 'Share', icon: <Share size={18} />, onSelect: () => act.share(e) },
                   ]}
                 >

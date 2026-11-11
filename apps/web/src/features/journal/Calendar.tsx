@@ -1,28 +1,30 @@
-import type * as React from 'react';
 import { fmtDate, parseISO, type JournalEntry } from '@logbook/shared';
-import { ChevronLeft, ChevronRight, PenLine, Plus, Star } from 'lucide-react';
+import { ChevronLeft, ChevronRight, PenLine, Plus } from 'lucide-react';
 import { haptics } from '@/lib/haptics';
 import { Pressable, Segmented, Skeleton } from '@/ui';
-import { Orb } from '@/ui/Orb';
+import { Disc, type DiscTone } from '@/ui/Disc';
+import { FavoriteIcon } from '@/ui/icons';
 import { dayLabel, monthGrid, ORB_KEY, orbVariant, pageBy, pageHolds, pageTitle, weekDays, type CalView, type OrbVariant } from './calDays';
 
-type OrbProps = React.ComponentProps<typeof Orb>;
-/** The brand orb with its palette (`variant` lands with the canvas orb; until then the prop is passed through as is). */
-const BrandOrb = Orb as unknown as (p: OrbProps & { variant?: OrbVariant }) => React.JSX.Element;
+/** The guide's entry marks (12.1): one entry a Haze disc ringed in Deep Sky, two `--entry-2`, three or more Sky, a Favorite Deep Sky. */
+const TONE: Record<Exclude<OrbVariant, 'brand'>, DiscTone> = { sky: 'haze', dusk: 'two', tide: 'sky', sun: 'deep' };
 
 /**
- * A day's mark: the orb in the palette its entries pick (calDays.ts `orbVariant`), one still frame. `live`: the brand's own
- * orb inside a soft pulse (none under Reduce Motion), for the card's one invitation to write. The orb itself holds still,
- * so the Journal tab at rest draws no orb frames (perf-06); only the CSS pulse moves.
+ * A day's mark: a flat disc in the tone its entries pick (calDays.ts `orbVariant`), never the Orb (guide 2.1). The count is
+ * the numeral inside it and a Favorite carries a heart instead, so the tone is never the only signal (guide 3.3). With no
+ * variant it is the empty Haze disc of "Write today's entry".
  */
-export const DayOrb = ({ variant, size, live = false }: { variant: OrbVariant | null; size: number; live?: boolean }) =>
-  live ? (
-    <span className="jcal-pulse" aria-hidden="true">
-      <BrandOrb size={size} variant={variant ?? 'brand'} state="still" />
-    </span>
-  ) : (
-    <BrandOrb size={size} variant={variant ?? 'brand'} state="still" />
-  );
+export const DayDisc = ({ variant, size, n }: { variant: OrbVariant | null; size: number; n?: number }) => {
+  if (!variant || variant === 'brand') return <Disc size={size} tone="haze" className="jcal-disc" />;
+  if (variant === 'sun')
+    return (
+      <span className="jcal-disc is-fav" style={{ width: size, height: size }}>
+        <Disc size={size} tone="deep" />
+        <FavoriteIcon size={Math.round(size * 0.62)} fill="currentColor" strokeWidth={0} className="jcal-disc-heart" />
+      </span>
+    );
+  return <Disc size={size} tone={TONE[variant]} n={n == null ? undefined : n > 9 ? '9+' : n} className="jcal-disc" />;
+};
 
 const WEEKDAYS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
 
@@ -49,8 +51,8 @@ export interface CalendarProps {
 
 /**
  * The Journal's calendar card: the page's name with how many days have entries, Week · Month and the paging arrows, then
- * the days. A day with entries wears a small still orb in its palette with the count beside it (and a star on a day with
- * a favorite), so nothing rests on color alone; a day without is a plain number. Today is ringed and, until it has an
+ * the days. A day with entries wears a flat disc in its tone with the count inside it (a heart on a day with a
+ * favorite), so nothing rests on color alone; a day without is a plain number. Today is ringed and, until it has an
  * entry, holds a plus and the card ends in "Write today's entry". Tap a day to open it; days to come are quiet.
  */
 export const Calendar = ({ today, byDate, loading = false, failed = false, onRetry, view, onView, anchor, onAnchor, open, onPick, writingToday }: CalendarProps) => {
@@ -68,7 +70,7 @@ export const Calendar = ({ today, byDate, loading = false, failed = false, onRet
     haptics.select();
     onAnchor(today);
   };
-  const markSize = view === 'week' ? 22 : 16;
+  const markSize = view === 'week' ? 22 : 18;
   const unknown = loading || failed;
   const title = pageTitle(anchor, view, today);
   return (
@@ -150,11 +152,7 @@ export const Calendar = ({ today, byDate, loading = false, failed = false, onRet
               <span className="jcal-num">{parseISO(d).getDate()}</span>
               <span className="jcal-mark" aria-hidden="true">
                 {variant ? (
-                  <>
-                    {fav ? <Star className="jcal-fav" size={view === 'week' ? 11 : 9} fill="currentColor" strokeWidth={0} /> : null}
-                    <DayOrb variant={variant} size={markSize} />
-                    <span className="jcal-n">{n}</span>
-                  </>
+                  <DayDisc variant={variant} size={markSize} n={n} />
                 ) : isToday && !unknown ? (
                   <span className="jcal-plus" style={{ width: markSize, height: markSize }}>
                     <Plus size={view === 'week' ? 14 : 11} strokeWidth={2.4} />
@@ -167,7 +165,7 @@ export const Calendar = ({ today, byDate, loading = false, failed = false, onRet
       </div>
       {todayEmpty && !writingToday && !unknown ? (
         <Pressable className="jcal-write" press="scale" onPress={() => onPick(today)} label="Write today’s entry">
-          <DayOrb variant={null} size={26} live />
+          <DayDisc variant={null} size={26} />
           <span className="jcal-write-t">
             <b>Write today’s entry</b>
             <span>A line or two is plenty</span>
@@ -180,9 +178,9 @@ export const Calendar = ({ today, byDate, loading = false, failed = false, onRet
           Entries
         </span>
         <ul aria-labelledby="jcal-key-k">
-          {ORB_KEY.map(({ v, label }) => (
+          {ORB_KEY.map(({ v, label }, i) => (
             <li key={v}>
-              <BrandOrb size={14} variant={v} state="still" />
+              <DayDisc variant={v} size={18} n={i + 1} />
               <span>{label}</span>
             </li>
           ))}

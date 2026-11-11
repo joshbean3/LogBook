@@ -7,7 +7,8 @@
   z-index: 19;
   margin: 0 calc(-1 * var(--gutter));
   padding: 6px var(--gutter);
-  background: var(--bg);
+  /* the switch row carries the wash it sits on, as the week strip does on Today (guide 12.1): no seam under the bar */
+  background: linear-gradient(180deg, var(--wash-bar), var(--wash-strip));
 }
 /* a short fade under the pinned switch, so cards slide away under it instead of being cut at its edge */
 .j-segrow::after {
@@ -17,7 +18,7 @@
   right: 0;
   top: 100%;
   height: 18px;
-  background: linear-gradient(var(--bg), rgba(243, 248, 251, 0));
+  background: linear-gradient(var(--wash-strip), transparent);
   pointer-events: none;
 }
 /* two mounted panes (M28): the shown one in flow; the leaving one absolute, held still by a transform while it fades; the
@@ -77,7 +78,7 @@
 .composer-saved {
   display: inline-flex;
 }
-/* Save: a 32 px pill, the one blue, at 40 % until there is text (§8); a 44 px target */
+/* Save: a 32 px pill, the one Sky primary; Haze with Dusk words until there is text (guide 6.2); a 44 px target */
 .save-pill.pressable {
   position: relative;
   /* 32 px at the default text size, taller with Larger Text */
@@ -86,14 +87,18 @@
   padding: 0 16px;
   border: 0;
   border-radius: var(--r-pill);
-  background: var(--primary);
-  color: var(--primary-ink);
-  font: 600 var(--fs-sub) / var(--lh-sub) var(--sans);
-  opacity: 0.4;
-  transition: transform 160ms cubic-bezier(0.23, 1, 0.32, 1), opacity 200ms var(--ease-out);
+  background: var(--haze);
+  color: var(--ink-2);
+  font: 650 var(--fs-sub) / var(--lh-sub) var(--sans);
+  transition:
+    transform var(--dur-fast) var(--ease-out),
+    background-color var(--dur-color) var(--ease-out),
+    color var(--dur-color) var(--ease-out);
 }
 .save-pill.is-ready {
-  opacity: 1;
+  background: var(--primary);
+  box-shadow: var(--primary-glow);
+  color: var(--primary-ink);
 }
 .save-pill::after {
   content: '';
@@ -111,7 +116,7 @@
   color: var(--ink-2);
 }
 .composer-saved svg {
-  color: var(--accent-text);
+  color: var(--deep-sky);
 }
 /* a new row, a search field, a form: opacity in over 150 ms, nothing else */
 .fade-in {
@@ -135,11 +140,11 @@
   border: 0;
   background: transparent;
   padding: 12px 16px;
-  font-size: 1.0625rem;
+  font-size: var(--fs-row);
   line-height: 1.5rem;
   resize: none;
   outline: none;
-  color: var(--ink);
+  color: var(--j-ink);
   overflow-wrap: anywhere;
 }
 .jtext.serif {
@@ -157,7 +162,7 @@ textarea.jtext:focus {
   outline: none;
 }
 .jtext::placeholder {
-  color: var(--ink-3);
+  color: var(--ink-2);
 }
 /* ---------- the quote of the day, a prompt line inside the composer ---------- */
 .qline-wrap {
@@ -178,7 +183,7 @@ textarea.jtext:focus {
   border-top: 1px solid var(--line);
   background: none;
   text-align: left;
-  color: var(--ink-3);
+  color: var(--ink-2);
   cursor: pointer;
   -webkit-touch-callout: none;
   user-select: none;
@@ -195,7 +200,7 @@ textarea.jtext:focus {
 .qline-text {
   font: italic 420 var(--fs-sentence-sm) / var(--lh-row) var(--serif);
   letter-spacing: 0;
-  color: var(--ink-3);
+  color: var(--ink-2);
   display: -webkit-box;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
@@ -205,15 +210,15 @@ textarea.jtext:focus {
 .qline-by {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  font-size: 0.75rem;
-  line-height: 1rem;
-  color: var(--ink-4);
+  gap: 4px;
+  font-size: var(--fs-foot);
+  line-height: var(--lh-foot);
+  color: var(--ink-2);
 }
 .qline-hint {
-  font-size: 0.75rem;
-  line-height: 1rem;
-  color: var(--ink-4);
+  font-size: var(--fs-foot);
+  line-height: var(--lh-foot);
+  color: var(--ink-2);
   margin: -4px 0 4px;
 }
 /* the whole quote, as the hold lifts it */
@@ -221,9 +226,9 @@ textarea.jtext:focus {
   display: grid;
   gap: 8px;
   padding: 16px;
-  background: var(--surface-2);
-  border: 1px solid var(--line-strong);
-  border-radius: var(--r-lg);
+  background: var(--surface);
+  box-shadow: var(--shadow-2);
+  border-radius: var(--r-card);
   max-height: 46vh;
   overflow: auto;
 }
@@ -234,29 +239,29 @@ textarea.jtext:focus {
   overflow-wrap: anywhere;
 }
 .qpreview-by {
-  font-size: 0.9375rem;
-  line-height: 1.25rem;
+  font-size: var(--fs-sub);
+  line-height: var(--lh-sub);
   font-weight: 600;
   color: var(--ink-2);
 }
 .qpreview-by cite {
   font-weight: 400;
-  color: var(--ink-3);
+  color: var(--ink-2);
 }
 
-/* ---------- small marks: the run stamp, the favorite star ---------- */
+/* ---------- small marks: the run stamp (a Dusk-on-Cloud tag in caption style), the favorite heart ---------- */
 .jstamp {
   display: inline-flex;
   align-items: center;
-  height: 18px;
-  padding: 0 6px;
-  border: 1px solid var(--line-strong);
-  border-radius: 4px;
+  height: 20px;
+  padding: 0 8px;
+  border-radius: var(--r-pill);
+  background: var(--cloud);
   font-family: var(--stamp);
-  font-weight: 800;
+  font-weight: 600;
   font-size: var(--fs-caps);
   line-height: 1;
-  letter-spacing: 0.04em;
+  letter-spacing: var(--tr-caps);
   text-transform: uppercase;
   color: var(--ink-2);
   white-space: nowrap;
@@ -305,14 +310,15 @@ textarea.jtext:focus {
   margin: 0;
   width: 100%;
   display: grid;
-  grid-template-columns: 40px minmax(0, 1fr);
+  /* 40 px at the default size, wider with Larger Text, so the day's number never runs into its words */
+  grid-template-columns: 2.5rem minmax(0, 1fr);
   gap: 12px;
   padding: 14px var(--gutter);
   min-height: 60px;
   text-align: left;
   color: inherit;
   cursor: pointer;
-  transition: background var(--dur-fast);
+  transition: background-color var(--dur-color) var(--ease-out);
 }
 .jtl-item:not(.first) .jtl-row {
   padding-top: 2px;
@@ -328,14 +334,11 @@ textarea.jtext:focus {
   display: grid;
   justify-items: start;
 }
+/* the day's number: a date that never changes after it is drawn, so Fraunces 600 at the card-title size (guide 4.4) */
 .jtl-day {
-  font-family: var(--stamp);
-  font-weight: 800;
-  font-size: 1.375rem;
-  line-height: 1.5rem;
-  letter-spacing: -0.03em;
+  font: 600 var(--fs-head) / 1.5rem var(--serif);
+  letter-spacing: 0;
   color: var(--ink);
-  font-variant-numeric: tabular-nums;
 }
 .jtl-body {
   display: grid;
@@ -352,6 +355,9 @@ textarea.jtext:focus {
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 4;
   overflow: hidden;
+}
+.jtl-meta .caps {
+  font-variant-numeric: tabular-nums;
 }
 .jtl-meta {
   display: flex;
@@ -494,10 +500,10 @@ textarea.jsheet-text {
   font-style: italic;
 }
 .fav-by {
-  font-size: 0.75rem;
-  line-height: 1rem;
+  font-size: var(--fs-foot);
+  line-height: var(--lh-foot);
   font-weight: 600;
-  color: var(--ink-3);
+  color: var(--ink-2);
 }
 /* quote lists, edge to edge */
 .lib-list > .lib-item {
@@ -533,11 +539,11 @@ textarea.jsheet-text {
 .qrow-by {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
   min-width: 0;
-  font-size: 0.75rem;
-  line-height: 1rem;
-  color: var(--ink-3);
+  font-size: var(--fs-foot);
+  line-height: var(--lh-foot);
+  color: var(--ink-2);
 }
 .by {
   display: inline-flex;
@@ -551,8 +557,8 @@ textarea.jsheet-text {
   color: var(--ink-2);
 }
 .by cite {
-  font-style: italic;
-  color: var(--ink-3);
+  font-style: normal;
+  color: var(--ink-2);
 }
 .sec-verb {
   height: 44px;
@@ -570,7 +576,7 @@ textarea.jsheet-text {
 .qsearch-hint {
   margin: 12px 4px 0;
   font: 400 var(--fs-sub) / var(--lh-sub) var(--sans);
-  color: var(--ink-3);
+  color: var(--ink-2);
 }
 .anchor {
   display: block;
@@ -603,18 +609,20 @@ textarea.jsheet-text {
 }
 .theme-card-top {
   display: flex;
+  flex-wrap: wrap;
   align-items: baseline;
   justify-content: space-between;
-  gap: 8px;
+  gap: 0 8px;
 }
+/* a name breaks between words, never inside one ("Acceptanc / e" in the wider Fraunces): when the name and its count do
+   not fit on one line, the count drops under the name instead */
 .theme-name {
   font: 600 var(--fs-head) / var(--lh-head) var(--serif);
   letter-spacing: 0;
   color: var(--ink);
   min-width: 0;
-  /* a name breaks between words, never inside one ("Acceptan / ce" at 320, review feel F9): a long word hyphenates */
   overflow-wrap: break-word;
-  hyphens: auto;
+  hyphens: manual;
 }
 @media (max-width: 359px) {
   .theme-name {
@@ -624,15 +632,16 @@ textarea.jsheet-text {
 }
 .theme-count {
   flex: none;
-  font-size: 0.75rem;
-  line-height: 1rem;
+  font-size: var(--fs-foot);
+  line-height: var(--lh-foot);
   font-weight: 600;
-  color: var(--ink-3);
+  color: var(--ink-2);
+  font-variant-numeric: tabular-nums;
 }
 .theme-sample {
   font: italic 420 var(--fs-sentence-sm) / var(--lh-row) var(--serif);
   letter-spacing: 0;
-  color: var(--ink-3);
+  color: var(--ink-2);
   overflow-wrap: anywhere;
   display: -webkit-box;
   -webkit-box-orient: vertical;
@@ -666,11 +675,12 @@ textarea.jsheet-text {
   line-height: 1.75rem;
 }
 .qsheet-work {
+  font-family: var(--serif);
   font-style: italic;
   font-weight: 420;
   font-size: var(--fs-sentence-sm);
   line-height: var(--lh-row);
-  color: var(--ink-3);
+  color: var(--ink-2);
 }
 .qsheet .sheet-foot .btn svg {
   margin-right: 2px;
@@ -709,9 +719,8 @@ textarea.jsheet-text {
 }
 .qline.quote-line.is-labelled .qline-hint {
   margin: 0;
-  font: 600 var(--fs-caps) / var(--lh-caps) var(--sans);
-  letter-spacing: 0.02em;
-  color: var(--ink-3);
+  font: 600 var(--fs-foot) / var(--lh-foot) var(--sans);
+  color: var(--ink-2);
 }
 .qline.quote-line.is-labelled .qline-text {
   -webkit-line-clamp: 2;
@@ -785,7 +794,7 @@ textarea.jsheet-text {
   width: 44px;
   height: 44px;
   margin-right: -10px;
-  color: var(--ink-2);
+  color: var(--ink);
 }
 
 /* ---------- the Library ---------- */
