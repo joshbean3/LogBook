@@ -41,8 +41,11 @@ export const weekTakeaway = (w: RunBucket, last: RunBucket | null) => {
   return over >= 1 ? `${miShort(over)} mi ahead of plan, ${miShort(w.ahead)} mi to go` : `On plan, ${miShort(w.ahead)} mi to go`;
 };
 
-/** The running headline at rest. `week` is this week whatever the range; `byWeek` reads this week against its plan (1W). */
-export const runRest = (span: RangeSpan, buckets: RunBucket[], week: RunBucket, last: RunBucket | null, today: ISODate, byWeek: boolean, firstWeek = false): Readout => {
+/**
+ * The running headline at rest. `week` is this week whatever the range; `byWeek` reads this week against its plan (1W).
+ * `start` is the first day of run history when it is known: the week or month it fell in partway is not a usual one.
+ */
+export const runRest = (span: RangeSpan, buckets: RunBucket[], week: RunBucket, last: RunBucket | null, today: ISODate, byWeek: boolean, firstWeek = false, start: ISODate | null = null): Readout => {
   if (byWeek)
     return {
       big: miShort(week.done),
@@ -52,7 +55,7 @@ export const runRest = (span: RangeSpan, buckets: RunBucket[], week: RunBucket, 
   const live = buckets.filter((b) => !b.missing);
   const total = live.reduce((s, b) => s + b.done, 0);
   const runs = live.reduce((s, b) => s + b.runs, 0);
-  const usual = span.unit === 'day' ? null : usualOver(buckets);
+  const usual = span.unit === 'day' ? null : usualOver(buckets, start);
   return {
     big: miShort(total),
     context: `mi ${rangeContext(span, today)}`,
@@ -83,8 +86,8 @@ export const runWords = (unit: BucketUnit, b: RunBucket, today: ISODate) => {
 /** What a stretch of lifting was made of: "18 sets · 9,270 lb"; bodyweight sets have no pounds. */
 const madeOf = (b: Pick<LiftBucket, 'sets' | 'volume'>) => `${setsWord(b.sets)}${b.volume > 0 ? ` · ${lbShort(b.volume)} lb` : ''}`;
 
-/** The strength headline at rest: this week against its plan (1W), else the range's sessions and its usual week. */
-export const liftRest = (span: RangeSpan, buckets: LiftBucket[], week: LiftBucket, today: ISODate, byWeek: boolean): Readout => {
+/** The strength headline at rest: this week against its plan (1W), else the range's sessions and its usual week (`start` as for running). */
+export const liftRest = (span: RangeSpan, buckets: LiftBucket[], week: LiftBucket, today: ISODate, byWeek: boolean, start: ISODate | null = null): Readout => {
   if (byWeek) {
     const unit = plural(week.planned || week.done, 'session');
     return {
@@ -94,7 +97,7 @@ export const liftRest = (span: RangeSpan, buckets: LiftBucket[], week: LiftBucke
     };
   }
   const total = buckets.reduce((s, b) => s + (b.missing ? 0 : b.done), 0);
-  const usual = span.unit === 'day' ? null : usualOver(buckets);
+  const usual = span.unit === 'day' ? null : usualOver(buckets, start);
   return {
     big: String(total),
     context: `${plural(total, 'session')} ${rangeContext(span, today)}`,

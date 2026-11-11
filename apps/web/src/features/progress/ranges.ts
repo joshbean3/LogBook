@@ -217,14 +217,18 @@ export const bucketLifts = (buckets: Bucket[], day: (d: ISODate) => DayLift, tod
   });
 
 /**
- * The usual bucket of a range: the mean of its finished buckets (the one holding today is not over, and the days ahead
- * have nothing), counted from the first bucket with anything in it, so a new log is not averaged over the empty weeks
- * before it began. Null with no finished bucket to count.
+ * The usual bucket of a range: the mean of its whole buckets that are over, counted from the first bucket with anything in
+ * it, so a new log is not averaged over the empty weeks before it began. Left out: the bucket holding today (it is not
+ * over) and the days ahead; a bucket that has not loaded; and a bucket only part of which counts, which would pull the
+ * mean down: one the range cuts short (YTD's first week, from January 1; All's first, from the day history starts), and
+ * the one the log began in after its first day (`start`, the first day of history when it is known: someone who began on
+ * October 31 has no usual month yet). Null with no such bucket to count.
  */
-export const usualOver = (buckets: Array<Pick<Bucket, 'current' | 'future'> & { done: number; missing: boolean }>): { mean: number; buckets: number } | null => {
-  const start = buckets.findIndex((b) => !b.missing && b.done > 0);
-  if (start < 0) return null;
-  const done = buckets.filter((b, i) => i >= start && !b.current && !b.future && !b.missing);
+export const usualOver = (buckets: Array<Pick<Bucket, 'key' | 'from' | 'to' | 'current' | 'future'> & { done: number; missing: boolean }>, start: ISODate | null = null): { mean: number; buckets: number } | null => {
+  const begin = buckets.findIndex((b) => !b.missing && b.done > 0);
+  if (begin < 0) return null;
+  const part = (b: Pick<Bucket, 'key' | 'from' | 'to'>) => b.from > b.key || (!!start && b.from < start && start <= b.to);
+  const done = buckets.filter((b, i) => i >= begin && !b.current && !b.future && !b.missing && !part(b));
   if (!done.length) return null;
   return { mean: done.reduce((s, b) => s + b.done, 0) / done.length, buckets: done.length };
 };

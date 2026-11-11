@@ -302,10 +302,10 @@ export const HeroChart = ({
     view.mode === 'run'
       ? reading
         ? runAt(unit, view.buckets[ati]!, t)
-        : runRest(span, view.buckets, week, lastWeek, t, byWeek, firstWeek)
+        : runRest(span, view.buckets, week, lastWeek, t, byWeek, firstWeek, first)
       : reading
         ? liftAt(unit, view.buckets[ati]!, t)
-        : liftRest(span, view.buckets, liftWeek, t, byWeek);
+        : liftRest(span, view.buckets, liftWeek, t, byWeek, liftStart);
   const marks: BarMark[] = view.buckets.map((b) => ({ key: b.key, value: b.done, ahead: b.ahead, current: b.current, future: b.future, missing: b.missing }));
   const words = (i: number) => (view.mode === 'run' ? runWords(unit, view.buckets[i]!, t) : liftWords(unit, view.buckets[i]!, t));
   const chartLabel = `${UNIT_TITLE[unit]} ${view.mode === 'run' ? 'miles' : 'lift sessions'}, ${RANGE_WORDS[span.range].toLowerCase()}.`;

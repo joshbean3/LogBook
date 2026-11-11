@@ -173,6 +173,25 @@ describe('bucket sums', () => {
     expect(usualOver(bucketRuns(s.buckets, reader({}, { [e!]: 7 }), T))).toBeNull();
   });
 
+  it('leaves out a bucket only part of which counts: the one the log began in partway, or one the range cuts short', () => {
+    // a log that began on Saturday Oct 31: its week held two days of it, its month one
+    const ran = { '2026-10-31': 3.2, '2026-11-02': 4, '2026-11-04': 3.5, '2026-11-07': 6.1, '2026-11-10': 4.4 };
+    const weeks = bucketRuns(rangeSpan('3M', T).buckets, reader({}, ran), T);
+    expect(usualOver(weeks)!.mean).toBeCloseTo(8.4);
+    expect(usualOver(weeks, '2026-10-31')).toEqual({ mean: 13.6, buckets: 1 });
+    // begun on the Monday, that week is whole
+    expect(usualOver(weeks, '2026-10-26')!.buckets).toBe(2);
+    // by month there is no usual month yet: October held one day of the log, and November is not over
+    expect(usualOver(bucketRuns(rangeSpan('YTD', T).buckets, reader({}, ran), T), '2026-10-31')).toBeNull();
+    // All starts on the day history does (a Wednesday): its first week is cut short, whatever is known of the start
+    const all = bucketRuns(rangeSpan('All', T, '2026-08-12').buckets, reader({}, { '2026-08-12': 5, '2026-08-18': 6 }), T);
+    expect(all[0]).toMatchObject({ key: '2026-08-10', from: '2026-08-12' });
+    expect(usualOver(all)).toEqual({ mean: 0.5, buckets: 12 });
+    // YTD's first week, from January 1 (a Thursday), is not a usual week either
+    const jan = bucketRuns(rangeSpan('YTD', '2026-02-11').buckets, reader({}, { '2026-01-02': 2, '2026-01-06': 6, '2026-01-13': 6, '2026-01-20': 6, '2026-01-27': 6, '2026-02-03': 6, '2026-02-10': 3 }), '2026-02-11');
+    expect(usualOver(jan)).toEqual({ mean: 6, buckets: 5 });
+  });
+
   it('sums lifting the same way: sessions done up to today, what is still ahead, sets and pounds', () => {
     const lift = (plan: Record<string, number>, did: Record<string, [number, number, number]>) => (d: ISODate): DayLift => ({ planned: plan[d] ?? 0, done: did[d]?.[0] ?? 0, sets: did[d]?.[1] ?? 0, volume: did[d]?.[2] ?? 0 });
     const day = lift({ '2026-11-10': 1, '2026-11-11': 1, '2026-11-12': 1 }, { '2026-11-10': [1, 9, 9270], '2026-11-08': [1, 3, 600] });

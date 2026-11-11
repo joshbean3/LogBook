@@ -48,6 +48,19 @@ describe('the running headline at rest', () => {
     expect(runRest(span, buckets, buckets.at(-1)!, null, T, false)).toEqual({ big: '170', context: 'mi in 12 months', take: '75 mi a month on average' });
   });
 
+  it('takes no usual week or month from one the log began in partway', () => {
+    // history began on Saturday Oct 31: 3M's usual week is the one whole week since; this year has no usual month yet
+    const ran = { '2026-10-31': 3.2, '2026-11-02': 4, '2026-11-04': 3.5, '2026-11-07': 6.1, '2026-11-10': 4.4 };
+    const q = run('3M', {}, ran);
+    expect(runRest(q.span, q.buckets, q.buckets.at(-1)!, q.buckets.at(-2)!, T, false, false, '2026-10-31').take).toBe('13.6 mi a week on average');
+    const y = run('YTD', {}, ran);
+    expect(runRest(y.span, y.buckets, y.buckets.at(-1)!, null, T, false, false, '2026-10-31')).toEqual({ big: '21.2', context: 'mi this year', take: '5 runs' });
+    // strength the same way: one session on Oct 31 is not a usual month
+    const l = lift('YTD', {}, { '2026-10-31': [1, 9, 9000], '2026-11-03': [1, 9, 9000], '2026-11-05': [1, 9, 9000] });
+    expect(liftRest(l.span, l.buckets, l.buckets.at(-1)!, T, false).take).toBe('1 a month on average');
+    expect(liftRest(l.span, l.buckets, l.buckets.at(-1)!, T, false, '2026-10-31').take).toBe('27 sets · 27.0K lb');
+  });
+
   it('counts runs when no bucket is finished yet, and says so when there are none', () => {
     const young = run('1M', {}, { '2026-11-09': 3 });
     expect(runRest(young.span, young.buckets, young.buckets.at(-1)!, null, T, false).take).toBe('1 run');
