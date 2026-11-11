@@ -1,6 +1,6 @@
 import AxeBuilder from '@axe-core/playwright';
-import { expect, test, type Page } from '@playwright/test';
-import { go, signUpByApi } from './helpers';
+import type { Page } from '@playwright/test';
+import { expect, go, signUpByApi, test } from './helpers';
 
 /**
  * The accessibility scan (requirement QUA-44): every route and the main sheets, at 390 and 320 wide, checked by axe-core

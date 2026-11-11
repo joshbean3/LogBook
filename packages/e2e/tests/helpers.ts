@@ -1,7 +1,30 @@
-import { expect, type Page } from '@playwright/test';
+import { expect, test as base, type Page } from '@playwright/test';
 import fs from 'node:fs';
 
 export const PASSWORD = 'correct-horse-battery-9';
+
+/**
+ * The app opens with a 2.8 second sunrise once per session (apps/web/src/app/BrandSplash.tsx), and with a quiet 300 ms
+ * fade whenever the same session opens it again. Tests are about the app, so every test's session starts with the
+ * opening already seen: the same mark the app itself leaves in sessionStorage. A test of the opening asks for it with
+ * `test.use({ opening: 'sunrise' })`.
+ */
+export const test = base.extend<{ opening: 'quiet' | 'sunrise' }>({
+  opening: ['quiet', { option: true }],
+  context: async ({ context, opening }, use) => {
+    if (opening === 'quiet') {
+      await context.addInitScript(() => {
+        try {
+          sessionStorage.setItem('logbook.splash.played', '1');
+        } catch {
+          /* a page with no storage */
+        }
+      });
+    }
+    await use(context);
+  },
+});
+export { expect };
 
 /** A fresh address for every account, so tests never share one (and can run side by side). */
 export const newEmail = (tag: string) => `e2e-${tag}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}@example.com`;
