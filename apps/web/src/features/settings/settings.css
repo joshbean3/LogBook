@@ -10,10 +10,7 @@
   margin-top: var(--section);
   min-width: 0;
 }
-.s-set > .pushed-bar + .s-sec,
-.s-set > .pushed-bar + .card {
-  margin-top: var(--sp-3);
-}
+/* the first group under the pushed bar starts 16 below it: the layout kit's one rule (styles/layout.css, layout standard 3.2) */
 .s-card.card {
   gap: var(--sp-3);
 }

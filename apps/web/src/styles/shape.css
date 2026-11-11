@@ -894,8 +894,9 @@ html[data-text-xl] .ctx-row.ctx-row .ctx-chip {
   letter-spacing: 0;
   color: var(--ink);
 }
+/* in a head row the title pushes its meta to the trailing edge */
 .card-head .card-title {
-  margin: 0;
+  margin: 0 auto 0 0;
 }
 .card > :is(.card-title, .card-head) {
   margin-bottom: calc(var(--sp-2) - var(--gap));

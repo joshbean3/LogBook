@@ -1291,13 +1291,7 @@ textarea.in {
   gap: 10px;
   flex-wrap: wrap;
 }
-.card-title {
-  font-size: 1.0625rem;
-  line-height: 1.375rem;
-  font-weight: 600;
-  margin-right: auto;
-  letter-spacing: -0.02em;
-}
+/* .card-title, the card-title role (Fraunces 22/28), is one rule in styles/shape.css */
 .card-meta {
   font-size: 0.75rem;
   line-height: 1rem;
