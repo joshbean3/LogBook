@@ -45,6 +45,8 @@ const STILL_OUT_MS = 150;
 /** A tap runs what is left of the sunrise this many times faster, then lets the app through. */
 const SKIP_RATE = 8;
 const SKIP_SETTLE_MS = 120;
+/** The animation's own start is used as the clock's zero only when it is within this of the component's mount (ms). */
+const START_SLACK_MS = 5000;
 /** The clear space between the words and the nearest sun ring, in px: a ring that would come closer is dropped (guide 8.3). */
 const RING_CLEAR = 16;
 /** While it says "Still loading", the words keep this far above the Orb, and never rise past this far from the top (px). */
@@ -112,11 +114,12 @@ export const BrandSplash = () => {
   const [room, setRoom] = useState(Infinity);
   const t0 = useRef(performance.now());
   // ms since the opening's first frame. The climb's keyframes say when that was: they start on the frame they first draw,
-  // however long the start-up kept that frame waiting, and performance.now() is on their timeline's own time base
+  // however long the start-up kept that frame waiting, and performance.now() is on their timeline's own time base. A start
+  // time that is not near this component's own (an engine that counts differently) is not believed
   const climb = useRef<Animation | null>(null);
   const clock = () => {
     const began = climb.current?.startTime;
-    return performance.now() - (typeof began === 'number' ? began : t0.current);
+    return performance.now() - (typeof began === 'number' && Math.abs(began - t0.current) < START_SLACK_MS ? began : t0.current);
   };
   const stopHaptics = useRef<(() => void) | null>(null);
   const out = moment === 'sunrise' ? PLAN.exit.for : moment === 'fade' ? FADE_MS : STILL_OUT_MS;
