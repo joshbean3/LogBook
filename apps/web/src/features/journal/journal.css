@@ -211,13 +211,13 @@ textarea.jtext:focus {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  font-size: var(--fs-orb);
-  line-height: var(--lh-orb);
+  font-size: var(--fs-foot);
+  line-height: var(--lh-foot);
   color: var(--ink-2);
 }
 .qline-hint {
-  font-size: var(--fs-orb);
-  line-height: var(--lh-orb);
+  font-size: var(--fs-foot);
+  line-height: var(--lh-foot);
   color: var(--ink-2);
   margin: -4px 0 4px;
 }
@@ -355,6 +355,9 @@ textarea.jtext:focus {
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 4;
   overflow: hidden;
+}
+.jtl-meta .caps {
+  font-variant-numeric: tabular-nums;
 }
 .jtl-meta {
   display: flex;
@@ -497,8 +500,8 @@ textarea.jsheet-text {
   font-style: italic;
 }
 .fav-by {
-  font-size: var(--fs-orb);
-  line-height: var(--lh-orb);
+  font-size: var(--fs-foot);
+  line-height: var(--lh-foot);
   font-weight: 600;
   color: var(--ink-2);
 }
@@ -538,8 +541,8 @@ textarea.jsheet-text {
   align-items: center;
   gap: 4px;
   min-width: 0;
-  font-size: var(--fs-orb);
-  line-height: var(--lh-orb);
+  font-size: var(--fs-foot);
+  line-height: var(--lh-foot);
   color: var(--ink-2);
 }
 .by {
@@ -629,8 +632,8 @@ textarea.jsheet-text {
 }
 .theme-count {
   flex: none;
-  font-size: var(--fs-orb);
-  line-height: var(--lh-orb);
+  font-size: var(--fs-foot);
+  line-height: var(--lh-foot);
   font-weight: 600;
   color: var(--ink-2);
   font-variant-numeric: tabular-nums;
@@ -716,7 +719,7 @@ textarea.jsheet-text {
 }
 .qline.quote-line.is-labelled .qline-hint {
   margin: 0;
-  font: 600 var(--fs-orb) / var(--lh-orb) var(--sans);
+  font: 600 var(--fs-foot) / var(--lh-foot) var(--sans);
   color: var(--ink-2);
 }
 .qline.quote-line.is-labelled .qline-text {

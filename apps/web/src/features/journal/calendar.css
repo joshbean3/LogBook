@@ -314,7 +314,7 @@
   flex-wrap: wrap;
   gap: 4px 12px;
   padding: 2px 4px 0;
-  font: 400 var(--fs-orb) / var(--lh-orb) var(--sans);
+  font: 400 var(--fs-foot) / var(--lh-foot) var(--sans);
   color: var(--ink-2);
 }
 .jcal-key-k {
@@ -455,7 +455,7 @@
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  font: 500 var(--fs-orb) / var(--lh-orb) var(--sans);
+  font: 500 var(--fs-foot) / var(--lh-foot) var(--sans);
   color: var(--ink-2);
 }
 .jday-list > li > .jday-write {
@@ -597,7 +597,7 @@
   display: inline-flex;
   align-items: center;
   gap: 2px;
-  font: 600 var(--fs-orb) / var(--lh-orb) var(--sans);
+  font: 600 var(--fs-foot) / var(--lh-foot) var(--sans);
   color: var(--ink-2);
 }
 .jday-ago-t {
