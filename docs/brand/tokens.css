@@ -190,6 +190,7 @@
   --tr-caps: 0.14em;                                        /* Caption tracking. The only caps tracking. was .02 to .12em (six values) */
   --tr-title: -0.015em;                                     /* Screen title and stamp tracking. */
   --tr-hero: -0.02em;                                       /* Hero and stat tracking. */
+  --tr-value: var(--tr-title);                              /* A stat in a tile or card (layout standard C1). */
 
   /* ---------- shape ---------- */
   --r-card: 24px;                                           /* Cards, the hero card, sheets (top corners). was 22px */
@@ -236,6 +237,11 @@
   --tabbar-h: 56px;                                         /* Tab capsule height. was 56px */
   --ask-h: 48px;                                            /* Ask bar height. was 48px */
   --dock-gap: 8px;                                          /* Ask bar to capsule. was 8px */
+  --row-h: 56px;                                            /* A one-line list row. A component size, not spacing (layout standard 6.2). */
+  --row-h-2: 64px;                                          /* A list row with a subtitle. */
+  --tile-ic: 32px;                                          /* A row's Haze icon tile. */
+  --gutter-date: 40px;                                      /* A date-gutter row's day column. */
+  --scroll-end: var(--sp-6);                                /* The last content of a scroll ends this far above the dock (layout standard 3.2). */
 
   /* ---------- motion ---------- */
   --ease-out: cubic-bezier(0.22, 1, 0.36, 1);               /* Everything that moves in. was same */
@@ -270,6 +276,7 @@
   --orb-assistant: 56px;                                    /* Assistant empty state. */
   --orb-splash: 96px;                                       /* Splash. */
   --chrome-h: calc(var(--ask-h) + var(--dock-gap) + var(--tabbar-h) + 8px);
+  --chrome-folded-h: calc(var(--tabbar-h) + 8px);           /* The dock with the ask bar folded: what shows at the end of a scroll. */
 }
 
 /* iOS Increase Contrast (prefers-contrast: more): grey words step to Graphite, Deep Sky and Pencil one step darker,

@@ -179,6 +179,7 @@
   --fs-stamp: 2.5rem; --lh-stamp: 2.625rem; /* the session name in the gauge, Fraunces 650 */
   --fs-stat: 2.75rem; /* static hero stat, Fraunces 650, line 1 */
   --fs-stat-live: 2.75rem; /* a hero stat that changes, Inter 650 tnum, line 1 */
+  --fs-value: 1.625rem; --lh-value: 2rem; /* a stat in a tile or card that changes, Inter 650 tnum: the section-title size, no new size (layout standard C1) */
   --fs-section: 1.625rem; --lh-section: 2rem; /* section title, Fraunces 600 */
   --fs-head: 1.375rem; --lh-head: 1.75rem; /* card and sheet title, Fraunces 600 */
   --fs-sentence: 1.375rem; --lh-sentence: 1.75rem; /* prompt or greeting, Fraunces italic 420 */
@@ -194,6 +195,7 @@
   --tr-caps: 0.14em; /* the only caps tracking */
   --tr-title: -0.015em;
   --tr-hero: -0.02em;
+  --tr-value: var(--tr-title); /* a stat in a tile or card (guide 4.2) */
 
   /* ---------- shape (guide 5.2): 24, 18, 14, 12, pill, circle ---------- */
   --r-card: 24px;
@@ -236,11 +238,20 @@
   /* the gap between a date pager's pages while they slide */
   --dpager-gap: 16px;
   --hit: 44px;
+  /* component sizes, not spacing (layout standard 3.1, 6.2): one list row, one icon tile, one date gutter */
+  --row-h: 56px; /* a one-line row */
+  --row-h-2: 64px; /* a row with a subtitle */
+  --tile-ic: 32px; /* a row's Haze icon tile */
+  --gutter-date: 40px; /* a date-gutter row's day column */
+  /* the end of a scroll: the last content ends 24 above the dock's top (layout standard 3.2) */
+  --scroll-end: var(--sp-6);
   --tabbar-h: 56px;
   --ask-h: 48px;
   --dock-gap: 8px;
   /* the floating dock's height above the safe area: the ask bar, the gap, the capsule and the 8 px under it */
   --chrome-h: calc(var(--ask-h) + var(--dock-gap) + var(--tabbar-h) + 8px);
+  /* the dock folded (the ask bar sunk into a round button beside the capsule, guide 6.1): what shows at the end of a scroll */
+  --chrome-folded-h: calc(var(--tabbar-h) + 8px);
   /* the keyboard's height (lib/keyboard.ts writes it; 0 while it is down) */
   --kb: 0px;
   --safe-b: env(safe-area-inset-bottom, 0px);
