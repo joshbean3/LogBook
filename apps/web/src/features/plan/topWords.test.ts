@@ -13,7 +13,7 @@ describe('the plan card', () => {
     expect(nb(planCardWords({ ...base, t: '2026-10-01' })!.state)).toBe('Starts Nov 10 · 12 weeks');
   });
   it('the warm-up week, then the week, its phase, and how far through', () => {
-    expect(nb(planCardWords({ ...base, t: '2026-11-11', st: 'Active' })!.state)).toBe('Warm-up week · Week 1 starts Monday');
+    expect(nb(planCardWords({ ...base, t: '2026-11-11', st: 'Active' })!.state)).toBe('Warm-up · Week 1 starts Mon');
     const phases = { '2026-11-30': { phase: 'build' as const, down: false }, '2026-12-07': { phase: 'build' as const, down: true }, '2027-02-01': { phase: 'race' as const, down: false } };
     const w3 = planCardWords({ ...base, t: '2026-11-30', st: 'Active', wk: 3, phases })!;
     expect(w3.state).toBe('Week 3 of 12 · Build');

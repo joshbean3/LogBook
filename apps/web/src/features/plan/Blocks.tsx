@@ -1,4 +1,4 @@
-import { mondayOf, monthsBetween, num, shiftDays, weekTotals, fmtDate, type PlanBlock } from '@logbook/shared';
+import { mondayOf, monthsBetween, shiftDays, weekTotals, fmtDate, type PlanBlock } from '@logbook/shared';
 import { CalendarRange, ChevronRight, MessageCircle, Plus } from 'lucide-react';
 import { useMemo, useRef } from 'react';
 import { Pressable } from '@/ui/Pressable';
@@ -15,7 +15,6 @@ import { livePlans } from './planList';
 import './plan.css';
 import { dayRange } from '@/ui/charts/range';
 
-const tenth = (v: number) => num(Math.round(v * 10) / 10);
 export const stateOf = (b: PlanBlock, t: string) => (t < b.start ? 'Upcoming' : t > b.end ? 'Finished' : 'Active');
 /**
  * The plan to show: the one running today, else the next one to start, else the last one. A block that a newer one has

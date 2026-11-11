@@ -8,23 +8,25 @@ import { crossfadeSlow, ease } from '@/lib/motion';
 import { useToday } from '@/lib/useToday';
 import type { ContextMenuItem } from '@/ui/ContextMenu';
 import { DayPager, useDayPagerHandle } from '@/ui/DayPager';
-import { monthCaption, NavBar, weekCaption } from '@/ui/NavBar';
-import { Note, Segmented } from '@/ui/primitives';
+import { monthCaption, NavBar } from '@/ui/NavBar';
+import { dayCaption } from '@/ui/captions';
+import { Note, SEG_TONE_WAYFINDING, Segmented } from '@/ui/primitives';
 import { useOpenCalendar } from '../day/Calendar';
 import { STRAVA_BUILT } from '@/lib/features';
 import { useLog } from '../log/useLog';
 import { usePlanBlock } from './Blocks';
 import { HeldBanner } from './Held';
 import { MonthPage } from './Month';
-import { PlanCard, TodaySection } from './PlanTop';
+import { PlanCard } from './PlanTop';
 import { WeekPage } from './Week';
 import './plan.css';
 
 /**
- * Plan (docs/feel.md §7, contracts §A.3 page-root): the NavBar (caps `THIS WEEK · OCT 19–25` / `OCTOBER 2026` as stacked
- * labels bound to the shown pager's progress; title `Plan`, tap → this week / this month, hold → `Go to a week…`; the
+ * Plan (docs/feel.md §7, contracts §A.3 page-root): the NavBar (caps: today's date in Week, as on the other tabs, since the
+ * week's header says its dates; `OCTOBER 2026` in Month, bound to the month pager's progress; title `Plan`, tap → this week / this month, hold → `Go to a week…`; the
  * `Week | Month` segmented in the 96 px slot); then the plan card across the top (its name, where it stands, a tap for its summary: PlanTop),
- * the held banner, Today (the morning plan and today's session); then two mounted panes: the week pager (`DayPager
+ * the held banner; then two mounted panes (today's row in the week carries the morning: no separate Today section, layout
+ * plan P1): the week pager (`DayPager
  * step='week'`, full-bleed, each page the week's header with previous and next, its one line and the seven days) and the
  * month pager (`step='month'`). No chart on the page. Switching is a 200 ms crossfade of the two panes (both in the DOM
  * during it); the segmented's thumb rides `settle`. No haptic on any of it.
@@ -362,12 +364,12 @@ export default function PlanView(): React.JSX.Element {
   const [tgt, setTgt] = useState<string | null>(null);
   useMotionValueEvent(weekH.target, 'change', (v) => live.current.st.view === 'week' && setTgt(v));
   useMotionValueEvent(monthH.target, 'change', (v) => live.current.st.view === 'month' && setTgt(v));
+  // the week's dates are in its header ("This week Nov 9 to 15"): the caption is today's date, as on the other tabs
   const caps =
     view === 'week'
       ? (() => {
-          const prev = tgt && tgt < mon ? tgt : shiftDays(mon, -7);
-          const next = tgt && tgt > mon ? tgt : shiftDays(mon, 7);
-          return { prev: weekCaption(prev, today), cur: weekCaption(mon, today), next: weekCaption(next, today) };
+          const d = dayCaption(today, today);
+          return { prev: d, cur: d, next: d };
         })()
       : (() => {
           const prev = tgt && tgt < first ? tgt : addMonths(first, -1);
@@ -637,7 +639,7 @@ export default function PlanView(): React.JSX.Element {
         title={{ cur: 'Plan' }}
         progress={handle.progress}
         wideTrailing
-        trailing={<Segmented key="seg" className="in-bar" label="Week or month" value={view} onChange={(v: View) => v !== live.current.st.view && show(v)} options={[['week', 'Week'], ['month', 'Month']]} />}
+        trailing={<Segmented key="seg" className="in-bar" tone={SEG_TONE_WAYFINDING} label="Week or month" value={view} onChange={(v: View) => v !== live.current.st.view && show(v)} options={[['week', 'Week'], ['month', 'Month']]} />}
         onTitlePress={() => {
           const s = live.current.st;
           if (s.view === 'week' ? s.mon !== live.current.thisMon : s.first !== live.current.thisFirst) goHome();
@@ -650,8 +652,6 @@ export default function PlanView(): React.JSX.Element {
       {/* the plan across the top: its name, where it stands, how far through; a tap opens its summary */}
       <PlanCard block={block} />
       <HeldBanner />
-      {/* the morning and today's session belong to the day, not to the week or month shown: above both panes, outside the pagers */}
-      <TodaySection />
       <div className="pl-panes">
         <section ref={weekPane} className={`pl-pane pl-week-pane ${paneCls('week')}`} inert={hidden('week')} aria-hidden={hidden('week')} aria-label="Week">
           <Activity mode={mode('week')}>

@@ -31,7 +31,7 @@ export interface TopBlock {
 
 /**
  * The plan card across the top of Plan: the plan's name, one line on where it stands (`Week 3 of 12 · Build`, a down week
- * or race week said so; `Warm-up week · Week 1 starts Nov 16`; `Starts Tuesday · 12 weeks`; `Plan ended Feb 7. Build the next one`), and how far through
+ * or race week said so; `Warm-up · Week 1 starts Mon` (one line at 320); `Starts Tuesday · 12 weeks`; `Plan ended Feb 7. Build the next one`), and how far through
  * the block today is (0 to 1: the days from week 1's Monday over its weeks; 0 before, 1 after). Null with no block.
  */
 export const planCardWords = (d: TopBlock): { title: string; state: string; progress: number; ended?: boolean } | null => {
@@ -41,7 +41,7 @@ export const planCardWords = (d: TopBlock): { title: string; state: string; prog
   const soon = (day: string) => (daysBetween(d.t, day) <= 6 ? fmtDate('dowLong', day) : md(day));
   if (d.st === 'Upcoming') return { title, state: `Starts ${soon(b.start)} · ${d.weeks} ${d.weeks === 1 ? 'week' : 'weeks'}`, progress: 0 };
   if (d.st === 'Finished') return { title, state: `Plan ended ${md(b.end)}. Build the next one`, progress: 1, ended: true };
-  if (!d.wk) return { title, state: `Warm-up week · Week 1 starts ${soon(firstMonOf(b))}`, progress: 0 };
+  if (!d.wk) return { title, state: `Warm-up · Week 1 starts ${daysBetween(d.t, firstMonOf(b)) <= 6 ? fmtDate('dow', firstMonOf(b)) : md(firstMonOf(b))}`, progress: 0 };
   const ph = d.phases[mondayOf(d.t)];
   const phase = !ph ? '' : ph.phase === 'race' ? ' · Race week' : ph.down ? ' · Down week' : ` · ${PHASE_WORDS[ph.phase]}`;
   const progress = Math.min(1, Math.max(0, (daysBetween(firstMonOf(b), d.t) + 1) / (d.weeks * 7)));
