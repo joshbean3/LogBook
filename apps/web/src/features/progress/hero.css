@@ -217,18 +217,18 @@
 }
 /* a new range or mode: each bar rises from the horizon (its own box's foot) over 480 ms, --bar-stagger after the bar
    before it, the last no later than 240 ms after the first (so 26 bars, or 60, spread evenly inside it). `--i` is the bar's
-   place from the first one drawn and `--n` the last bar's, set by RangeBars. What is drawn over the bars (the plan outline,
+   place from the first one drawn and `--n` the last bar's (1 at least), set by RangeBars. What is drawn over the bars (the plan outline,
    its label, the now dot) fades in half way through the last bar's rise, when it is all but up. Only transform and opacity
    move (guide 9.1); nothing does under Reduce Motion */
 .rb-rise {
   transform-box: fill-box;
   transform-origin: 50% 100%;
   animation: rb-rise var(--dur-number) var(--ease-out) backwards;
-  animation-delay: calc(var(--i, 0) * min(var(--bar-stagger), 240ms / max(var(--n, 1), 1)));
+  animation-delay: calc(var(--i, 0) * min(var(--bar-stagger), 240ms / var(--n, 1)));
 }
 .rb-fade {
   animation: rb-fade var(--dur-in) var(--ease-out) backwards;
-  animation-delay: calc(min(var(--n, 0) * var(--bar-stagger), 240ms) + var(--dur-number) / 2);
+  animation-delay: calc(min(var(--n, 1) * var(--bar-stagger), 240ms) + var(--dur-number) / 2);
 }
 @keyframes rb-rise {
   from {

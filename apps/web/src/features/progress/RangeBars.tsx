@@ -164,7 +164,7 @@ export const RangeBars = ({
     const own = topOf(marks[pi]!.value + marks[pi]!.ahead);
     const others = marks.filter((m, i) => i !== pi && i >= first && !m.missing && m.value + m.ahead > 0 && x(i) + lay.barW / 2 > l - 2 && x(i) - lay.barW / 2 < r + 2);
     const clear = others.every((m) => topOf(m.value + m.ahead) >= own - 2);
-    return clear ? { x: (l + r) / 2, y: own - 6, lead: null } : { x: (l + r) / 2, y: capH, lead: { x: x(pi), y1: capH + 4, y2: own - 4 } };
+    return clear ? { x: (l + r) / 2, y: own - 6, l, r, lead: null } : { x: (l + r) / 2, y: capH, l, r, lead: { x: x(pi), y1: capH + 4, y2: own - 4 } };
   })();
   // the bars rise a few milliseconds apart (guide 9.1): the sheet works each bar's delay out from its place (`--i`) and the
   // last bar's (`--n`, on the plot), and fades in what is drawn over them (the plan outline, its label, the now dot) after
@@ -180,8 +180,9 @@ export const RangeBars = ({
   const atY = at ? (at.value > 0 ? topOf(at.value) : at.future && at.ahead > 0 ? topOf(at.ahead) : Y0) : 0;
   // while the outline "Plan" sits on is being read, the word makes way for the reading's dot (the headline says "planned")
   const planShown = !!planLabel && !(a === pi && !planLabel.lead && marks[pi]!.future);
-  // the marker comes down from the top of the plot; over the bucket "Plan" names it starts under the word
-  const ruleTop = planLabel && planShown && a === pi ? planLabel.y + 4 : 3;
+  // the marker comes down from the top of the plot; under the word "Plan" (over the bucket it names, or a neighbor its
+  // width reaches) it starts under the word, so it never runs through it
+  const ruleTop = planLabel && planShown && a != null && x(a) > planLabel.l - 3 && x(a) < planLabel.r + 3 ? planLabel.y + 4 : 3;
 
   return (
     <div className="rb-chart">
@@ -209,7 +210,7 @@ export const RangeBars = ({
         {!width ? (
           <div style={{ height: H }} />
         ) : (
-          <svg width="100%" height={H} viewBox={`0 0 ${W} ${H}`} aria-hidden="true" style={{ '--n': Math.max(0, n - 1 - first) } as React.CSSProperties}>
+          <svg width="100%" height={H} viewBox={`0 0 ${W} ${H}`} aria-hidden="true" style={{ '--n': Math.max(1, n - 1 - first) } as React.CSSProperties}>
             {lines.map((v) => (
               <g key={v}>
                 <line x1={0} x2={GRID_END} y1={y(v)} y2={y(v)} className="rb-grid" />
@@ -251,7 +252,8 @@ export const RangeBars = ({
             ) : null}
             {at ? (
               <g className="rb-read">
-                {atY - 6 > ruleTop ? <line x1={x(a!)} x2={x(a!)} y1={ruleTop} y2={atY - 6} className="rb-rule" /> : null}
+                {/* a stub shorter than 8 reads as a mark of its own: the lit bar and its dot say it alone */}
+                {atY - 6 - ruleTop >= 8 ? <line x1={x(a!)} x2={x(a!)} y1={ruleTop} y2={atY - 6} className="rb-rule" /> : null}
                 {at.current ? null : <circle cx={x(a!)} cy={atY} r={5} className="rb-dot" />}
               </g>
             ) : null}
