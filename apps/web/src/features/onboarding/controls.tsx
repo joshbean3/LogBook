@@ -14,22 +14,26 @@ import { addHabit, DAY_LETTER, DAY_NAME, fixLongRun, GOALS, HABIT_LIMIT, HABIT_N
  */
 
 // ---------- goal ----------
-/** Each goal's choice card: an icon and one plain line under the name (the race distance, then what the plan does). */
+/**
+ * Each goal's choice row: an icon and one plain line under the name (the race distance, then what the plan does), short
+ * enough to stay one line at 390 (layout standard 6.2).
+ */
 export const GOAL_CARD: Record<Goal, { Icon: LucideIcon; line: string }> = {
   base: { Icon: Footprints, line: 'A steady build, no race day.' },
-  '5k': { Icon: Zap, line: '3.1 miles. Speed, then a short taper.' },
-  '10k': { Icon: Timer, line: '6.2 miles. Speed and a longer long run.' },
-  half: { Icon: Medal, line: '13.1 miles. Long runs, then a taper.' },
-  marathon: { Icon: Trophy, line: '26.2 miles. The longest build, then a taper.' },
+  '5k': { Icon: Zap, line: '3.1 miles. Speed, a short taper.' },
+  '10k': { Icon: Timer, line: '6.2 miles. Speed and long runs.' },
+  half: { Icon: Medal, line: '13.1 miles. Long runs, a taper.' },
+  marathon: { Icon: Trophy, line: '26.2 miles. The longest build.' },
 };
 const goalCard = (g: Goal) => GOAL_CARD[g] ?? { Icon: Flag, line: '' };
 
-/**
- * What you are training for, as choice cards (inspiration §3, reference 165 and 171): an icon, the name and one line;
- * the chosen one gets a Deep Sky ring, a lit icon disc and a check. A radio group: arrows move the choice.
- */
 /** The sixth choice on first run (onboarding-09): setup finishes with no running plan. */
-const NO_PLAN = { id: 'none' as const, label: 'No running plan for now', Icon: CircleSlash, line: 'Habits, goals and the journal. Add a plan any time.' };
+const NO_PLAN = { id: 'none' as const, label: 'No running plan for now', Icon: CircleSlash, line: 'Habits, goals and the journal.' };
+/**
+ * What you are training for, as one inset group of radio rows (layout standard 2.11, 6.2; plan O5): a 32 px Haze tile,
+ * the name 17/600 and one 15 Dusk line, hairlines from the words; the chosen row carries a Deep Sky check. One container,
+ * not six cards. A radio group: arrows move the choice.
+ */
 export const GoalChips = ({ value, onChange, id = 'ob-goal', noneOn, onNone }: { value: Goal | null; onChange: (g: Goal) => void; id?: string; /** Offer "No running plan for now" (first run only): chosen when `noneOn`. */ noneOn?: boolean; onNone?: () => void }) => {
   const reduce = useReducedMotion();
   const refs = useRef<Array<HTMLElement | null>>([]);
@@ -50,7 +54,7 @@ export const GoalChips = ({ value, onChange, id = 'ob-goal', noneOn, onNone }: {
     refs.current[n]?.focus();
   };
   return (
-    <div className="ob-goals" role="radiogroup" aria-label="What are you training for?">
+    <div className="group ob-goals" role="radiogroup" aria-label="What are you training for?">
       {choices.map((g, i) => {
         const on = current === g.id;
         const { Icon, line } = g;
@@ -74,7 +78,7 @@ export const GoalChips = ({ value, onChange, id = 'ob-goal', noneOn, onNone }: {
               <span className="ob-goal-text">{g.label}</span>
               {line ? <span className="ob-goal-line">{line}</span> : null}
             </span>
-            {/* the check fades onto the chosen card (opacity only, §10) */}
+            {/* the check fades onto the chosen row (opacity only, §10) */}
             <motion.span className="ob-goal-check" initial={false} animate={{ opacity: on ? 1 : 0 }} transition={reduce ? { duration: 0 } : crossfade} aria-hidden="true">
               <Check size={18} />
             </motion.span>
@@ -270,12 +274,14 @@ export const DayLetters = ({ runDays, longRunDay, onChange, hint = true }: { run
           );
         })}
       </div>
-      <p className="ob-long">
-        <span>Long run on</span>
-        <Pressable className="ob-long-btn" onPress={cycle} label={`Long run on ${DAY_NAME[longRunDay]}. Move it to the next run day`}>
-          {DAY_NAME[longRunDay]}
-        </Pressable>
-      </p>
+      {/* the long run is said once, by LONG under its day; this moves it to the next run day without a hold (plan S4) */}
+      {runDays.length > 1 ? (
+        <p className="ob-long">
+          <Pressable className="ob-long-btn" onPress={cycle} label={`Change long run. Now ${DAY_NAME[longRunDay]}. Moves it to the next run day`}>
+            Change long run
+          </Pressable>
+        </p>
+      ) : null}
       {hint ? <p className="ob-long-hint">Tap a day to run on it. Hold a run day to make it the long run.</p> : null}
     </div>
   );
