@@ -2,12 +2,13 @@ import { floorFor, floorMinutes, fmtDate, label, monthsBetween, num, shiftDays, 
 import { Repeat } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { ApiError } from '@/api/client';
-import { useAllLifts, useSessionMutations } from '@/api/queries';
+import { newSessionId, useAllLifts, useSessionMutations } from '@/api/queries';
 import { haptics } from '@/lib/haptics';
 import { Button, Segmented, Stepper } from '@/ui/primitives';
 import { useSheet, useSheetDepth } from '@/ui/Sheet';
 import { useToast } from '@/ui/Toast';
 import { useLog } from '../log/useLog';
+import { afterSheetLeft, useAddSession } from './addSession';
 import { DayPicker } from './DayPicker';
 import { PressButton } from './PressButton';
 
@@ -34,10 +35,13 @@ const splitExercises = (s: string | null) => (s ? s.split(/\s*,\s*/).filter((x) 
  * Add or edit a session, shaped by its kind: a run picks a type and steps its miles (or takes the floor); a lift picks its
  * exercises; cross training counts minutes; rest is just the day. The date is a strip of days, not a calendar field.
  * "Repeat last Easy" copies the last session of that type. Saving pops back to the session sheet when this was pushed there.
+ * A new session goes in the way the Add sheet's does (addSession.ts): the sheet closes, the row lands at once with Undo, and
+ * a day already past is added as done, which the Day group says.
  */
 export const SessionEditor = ({ date, session, restore }: { date: string; session: Session | null; restore?: boolean }) => {
   const isNew = !session || !!restore;
   const { upsert } = useSessionMutations();
+  const addNew = useAddSession();
   const sheet = useSheet();
   const depth = useSheetDepth();
   const toast = useToast();
@@ -127,6 +131,9 @@ export const SessionEditor = ({ date, session, restore }: { date: string; sessio
     minutes: kind === 'rest' ? null : minutes,
   };
   const valid = !(kind === 'run' && miles == null && minutes == null);
+  /** A new session as it is written: its id made here; added as done on a day already past (rest has nothing to do). */
+  const fresh = (p: typeof payload): Session => ({ id: newSessionId(), date: p.date, position: 999, kind: p.kind, type: p.type, title: p.title, details: p.details, miles: p.miles, minutes: p.minutes, blockId: null, movedFrom: null, mark: p.date < log.today && p.kind !== 'rest' ? 'done' : null });
+  const today = log.today;
   // what the editor opened with: a change from it is unsaved work (today-body-34)
   const [initial] = useState(() => JSON.stringify(payload));
   const dirty = JSON.stringify(payload) !== initial;
@@ -143,8 +150,13 @@ export const SessionEditor = ({ date, session, restore }: { date: string; sessio
         const p = pending.current;
         if (p.done || !p.dirty || !p.valid) return;
         p.done = true;
+        // a new session lands as an Add does (with Undo), once the sheet has left
+        if (isNew) {
+          const s = fresh(p.payload);
+          return void afterSheetLeft(() => addNew(s, today));
+        }
         upsert.mutateAsync(p.payload).then(
-          () => toast(isNew ? 'Session added' : 'Changes saved'),
+          () => toast('Changes saved'),
           () => (haptics.error(), toast('Changes not saved. Try again.')),
         );
       },
@@ -155,6 +167,14 @@ export const SessionEditor = ({ date, session, restore }: { date: string; sessio
 
   const save = async (e?: React.FormEvent) => {
     e?.preventDefault();
+    if (isNew) {
+      // one tap, one session; the sheet falls away first, then the row lands (addSession.ts)
+      if (pending.current.done) return;
+      pending.current.done = true;
+      const s = fresh(payload);
+      sheet.close();
+      return void afterSheetLeft(() => addNew(s, today));
+    }
     setBusy(true);
     try {
       pending.current.done = true;
@@ -249,6 +269,7 @@ export const SessionEditor = ({ date, session, restore }: { date: string; sessio
       <div className="ed-group">
         <span className="ed-label">Day</span>
         <DayPicker value={d} onPick={(x) => setD(x)} origin={session && !restore ? session.date : undefined} skipId={session?.id} />
+        {isNew && kind !== 'rest' && d < today ? <p className="t-sub ink2">A day already past is added as done.</p> : null}
       </div>
       {kind !== 'rest' ? (
         <div className="ed-group">
