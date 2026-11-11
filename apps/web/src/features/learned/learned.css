@@ -124,8 +124,9 @@
 .ln-bulb-day {
   display: grid;
   place-items: center;
-  min-width: 22px;
-  height: 22px;
+  /* 22 at the default size; it grows with the letter at larger text sizes so the ring never cuts it */
+  min-width: max(22px, calc(var(--lh-caps) + var(--sp-2)));
+  height: max(22px, calc(var(--lh-caps) + var(--sp-2)));
   border-radius: var(--r-pill);
   font: 600 var(--fs-caps) / var(--lh-caps) var(--stamp);
   letter-spacing: var(--tr-caps);
@@ -479,6 +480,13 @@ textarea.ln-field {
   margin-bottom: 2px;
 }
 
+/* ---------- a month's page: the bar holds the back button and the two month buttons (40 round, 12 apart, LM4), so both
+   side columns take the pair's width and the title (the month over its year) stays centred and whole at 320 ---------- */
+.ln-month-page > .pushed-bar {
+  grid-template-columns: var(--pb-side) minmax(0, 1fr) var(--pb-side);
+  --pb-side: calc(2 * 40px + var(--sp-3) + var(--gutter));
+}
+
 /* ---------- a month's page (LM1): the days with something kept, as date-gutter rows of one inset group ---------- */
 .ln-mdays {
   margin: 0;
@@ -561,4 +569,14 @@ html[data-text-xl] .ln-save.pressable {
 html[data-text-xl] .ln-streak-head {
   flex-direction: column;
   align-items: flex-start;
+}
+/* the date column at this size: the numeral and its weekday outgrow 40 px, so the column grows with them and today's ring
+   grows with its numeral (a request to move this into DateGutter itself is with the merge owner) */
+html[data-text-xl] .ln-mday .date-gutter {
+  width: auto;
+  min-width: var(--gutter-date);
+}
+html[data-text-xl] .ln-mday .date-gutter-num {
+  min-width: calc(var(--lh-row) + var(--sp-2));
+  height: calc(var(--lh-row) + var(--sp-2));
 }

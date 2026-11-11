@@ -7,7 +7,7 @@ import { useToday } from '@/lib/useToday';
 import { dayCaption, NavBar } from '@/ui/NavBar';
 import { Pressable } from '@/ui/Pressable';
 import { Button } from '@/ui/primitives';
-import { SkeletonRows } from '@/ui/Skeleton';
+import { Skeleton, SkeletonGroup } from '@/ui/Skeleton';
 import { Stack } from '@/ui/layout';
 import { Switch } from '../settings/parts';
 import '../settings/settings.css';
@@ -227,7 +227,16 @@ export default function GoalsView(): React.JSX.Element {
           </Button>
         </section>
       ) : goals.isPending && !goals.data ? (
-        <SkeletonRows rows={4} label="Loading goals" />
+        // the shape of the tab (two chips, the hero, the three rows of Further out), so it lays out once
+        <SkeletonGroup label="Loading goals" className="g-skel">
+          <div className="ga-row">
+            <Skeleton h={64} r="card" />
+            <Skeleton h={64} r="card" />
+          </div>
+          <Skeleton h={168} r="card" />
+          <Skeleton w={160} h={28} r="control" className="g-skel-head" />
+          <Skeleton h={192} r="card" />
+        </SkeletonGroup>
       ) : (
         <>
           <Stack className="g-top">

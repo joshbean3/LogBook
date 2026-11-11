@@ -66,7 +66,7 @@ export default function LearnedMonth(): React.JSX.Element {
   );
   return (
     <div className="page ln-page ln-month-page" ref={top}>
-      <PushedBar title={`${name} ${month.slice(0, 4)}`} trailing={pager} />
+      <PushedBar title={name} eyebrow={month.slice(0, 4)} trailing={pager} />
       {list.isError && !list.data ? (
         <section className="k-card ln-error" role="alert">
           <p className="k-row-title">Couldn’t load {name}.</p>

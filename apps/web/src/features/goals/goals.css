@@ -660,6 +660,14 @@ html[data-text-xl] .ga-row {
   width: 100%;
   min-width: 0;
   transition: transform var(--dur-fast) var(--ease-out);
+  container: ga-chip / inline-size;
+}
+/* the title stays whole: with larger text a chip too narrow for the disc and the name (under 10rem, so 160 pt at the
+   default size and 216 at 135 percent) lets the disc go, as narrow phones do */
+@container ga-chip (max-width: 10rem) {
+  .ga-chip .ctx-ic {
+    display: none;
+  }
 }
 
 /* ---------- the four numbers: goals kept per level (G4) ----------
@@ -1223,6 +1231,14 @@ html[data-text-xl] .ga-row {
   min-height: 56px;
   padding: 10px 16px;
 }
+/* the tab on its way: its own shape, 12 between the parts and a section's 32 above the Further out header */
+.g-skel {
+  display: grid;
+  gap: var(--gap);
+}
+.g-skel-head {
+  margin-top: calc(var(--section) - var(--gap));
+}
 /* goals that did not load */
 .g-error {
   display: grid;
@@ -1246,15 +1262,15 @@ html[data-text-xl] .ga-row {
 @media (max-width: 359px) {
   /* 320: the sun sits further into its corner, clear of the button */
   .gh-sun {
-    right: -64px;
-    bottom: -80px;
+    right: -80px;
+    bottom: -76px;
   }
 }
 
 /* ---------- Larger Text (above 150 percent, html[data-text-xl]): nothing clips, rows grow (guide 11) ---------- */
-/* the question takes the card's width (the sun sits behind it: Night Ink on Apricot is 9.42) */
-html[data-text-xl] .gh-ask {
-  max-width: none;
+/* the words and the button fill the card at this size, so the sun steps out rather than sit under them */
+html[data-text-xl] .gh-sun {
+  display: none;
 }
 /* the primary grows with its words (two lines at 320) instead of spilling out of its 44 px pill */
 html[data-text-xl] .gh-cta {
@@ -1266,4 +1282,30 @@ html[data-text-xl] .gh-cta {
 html[data-text-xl] .g-scores-row {
   grid-template-columns: repeat(2, minmax(0, 1fr));
   row-gap: var(--sp-3);
+}
+/* rows at this size: the words get the row's width. The icon tile steps out, the period, the goal and its line wrap
+   whole, and the time left (or the row's action) moves to its own line under them instead of squeezing the words */
+html[data-text-xl] :is(.gl-row, .g-follow-row) {
+  flex-wrap: wrap;
+  row-gap: var(--sp-1);
+}
+html[data-text-xl] :is(.gl-row, .g-follow-row) > .icon-tile {
+  display: none;
+}
+html[data-text-xl] :is(.gl-row, .g-follow-row) .k-row-main {
+  flex: 1 1 0;
+}
+html[data-text-xl] :is(.gl-row, .g-follow-row) .k-row-title,
+html[data-text-xl] :is(.gl-row, .g-follow-row) .k-row-sub {
+  white-space: normal;
+  overflow-wrap: break-word;
+}
+html[data-text-xl] .gl-end.k-row-end,
+html[data-text-xl] .g-follow-act {
+  order: 3;
+  flex: 1 0 100%;
+  white-space: normal;
+}
+html[data-text-xl] :is(.gl-list, .g-follow) {
+  --k-sep: var(--sp-4);
 }
