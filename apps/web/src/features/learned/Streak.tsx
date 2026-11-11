@@ -1,9 +1,9 @@
 import { fmtDate, shiftDays, type Learning, type LearningStats } from '@logbook/shared';
 import { Check } from 'lucide-react';
-import { motion } from 'motion/react';
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { haptics } from '@/lib/haptics';
-import { springs, useReduced } from '@/lib/motion';
+import { animate, motion, motionValue, useMotionValue } from 'motion/react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { hapticAtPeak } from '@/lib/haptics';
+import { reducedFade, springs, useReduced } from '@/lib/motion';
 import { Skeleton, SkeletonGroup } from '@/ui/Skeleton';
 import { useLearnings } from './queries';
 
@@ -38,17 +38,27 @@ export const streakWords = (streak: number, lit: ReadonlySet<string>, today: str
   return `${head}${now}${learned}`;
 };
 
+/** The light-up's start velocity: `springs.complete` from rest at 1 overshoots to about 1.12 and back (OrbRow's POP_V). */
+const POP_V = 5.5;
+
 /**
- * The bulb: the icon set's Learned glyph (guide 7, its path unmodified) with its glass as a separate closed shape so it can
- * be filled, and three short rays above it that only a lit bulb shows (shape plus color, guide 3.3). A 26 unit box keeps
- * the 24 px glyph at its own scale with room for the rays.
+ * The bulb: the icon set's Learned glyph (guide 7, its path unmodified) drawn at 22 px, with three short rays above it that
+ * only a lit bulb shows (shape plus color, guide 3.3). The 26 unit box keeps the glyph at its own scale with room for the
+ * rays; at 24 px the glyph is the guide's 22. The lit layer (the glass fill, the rays and the soft glow behind them) is its
+ * own layer, so under Reduce Motion it can fade in (guide 9.4) while the outline stays put.
  */
 const Bulb = () => (
-  <svg viewBox="-1 -3 26 26" className="ln-bulb-svg" aria-hidden="true">
-    <path className="ln-bulb-glass" d="M12 3a6 6 0 0 0-3.6 10.8c.7.6 1.1 1.4 1.1 2.2h5c0-.8.4-1.6 1.1-2.2A6 6 0 0 0 12 3z" />
-    <path d="M9 17.5h6M10 21h4" />
-    <path className="ln-bulb-rays" d="M12 -0.6v-1.9M6.2 2.6 4.9 1.3M17.8 2.6l1.3-1.3" />
-  </svg>
+  <>
+    <span className="ln-bulb-glow" aria-hidden="true" />
+    <svg viewBox="-1 -3 26 26" className="ln-bulb-svg" aria-hidden="true">
+      <g className="ln-bulb-on">
+        <path className="ln-bulb-glass" d="M12 3a6 6 0 0 0-3.6 10.8c.7.6 1.1 1.4 1.1 2.2h5c0-.8.4-1.6 1.1-2.2A6 6 0 0 0 12 3z" />
+        <path d="M12 -0.6v-1.9M6.2 2.6 4.9 1.3M17.8 2.6l1.3-1.3" />
+      </g>
+      <path d="M12 3a6 6 0 0 0-3.6 10.8c.7.6 1.1 1.4 1.1 2.2h5c0-.8.4-1.6 1.1-2.2A6 6 0 0 0 12 3z" />
+      <path d="M9 17.5h6M10 21h4" />
+    </svg>
+  </>
 );
 
 /**
@@ -59,7 +69,9 @@ const Bulb = () => (
  *
  * The count is the server's (`LearningStats.streak`, raised at once by the save's cache patch); which bulbs are lit comes
  * from this month's learnings, plus last month's only while the seven days reach back into it, so a save lights today's
- * bulb the moment it lands in the cache (optimistic), with a small light-up and a haptic (no light-up under Reduce Motion).
+ * bulb the moment it lands in the cache (optimistic). It lights with the app's completion beat (guide 9.1: one pop to about
+ * 1.12 on `springs.complete`) and `orb` fires on the pop's peak frame through `hapticAtPeak`; under Reduce Motion there is no
+ * pop, the light fades in over 150 ms (guide 9.4) and the haptic lands when it has, as a habit orb's does.
  * Display only: one element with one label.
  */
 export const Streak = ({ today, stats, month }: { today: string; stats: LearningStats | undefined; month: { data?: { pages: Array<{ learnings: Learning[] }> }; isPending: boolean } }) => {
@@ -76,24 +88,34 @@ export const Streak = ({ today, stats, month }: { today: string; stats: Learning
   const loading = !stats || month.isPending || (!!prevMonth && prev.isPending);
   const litToday = lit.has(today);
 
-  // today lighting up while the tab is open (not on load): the light-up and one haptic
+  // today lighting up while the tab is open (not on load): the completion beat and one haptic on its peak frame. Under
+  // Reduce Motion the lit layer fades in with CSS (is-fading, set before paint so it never shows at full first) and a value
+  // run over the same 150 ms times the haptic
   const was = useRef<boolean | null>(null);
-  const [pop, setPop] = useState(0);
-  useEffect(() => {
+  const pop = useMotionValue(1);
+  const [fading, setFading] = useState(false);
+  const unpeak = useRef<() => void>(() => {});
+  useEffect(() => () => unpeak.current(), []);
+  useLayoutEffect(() => {
     if (loading) return;
     const before = was.current;
     was.current = litToday;
-    if (before === false && litToday) {
-      setPop((n) => n + 1);
-      if (reduce) haptics.orb();
-      else {
-        // on the light-up's peak frame (guide 9.5)
-        const t = setTimeout(() => haptics.orb(), 140);
-        return () => clearTimeout(t);
-      }
+    if (!litToday) {
+      setFading(false);
+      return;
     }
-    return undefined;
-  }, [litToday, loading, reduce]);
+    if (before !== false) return;
+    unpeak.current();
+    if (reduce) {
+      setFading(true);
+      const fill = motionValue(0);
+      unpeak.current = hapticAtPeak(fill, 'orb');
+      animate(fill, 1, reducedFade);
+    } else {
+      unpeak.current = hapticAtPeak(pop, 'orb');
+      animate(pop, 1, { ...springs.complete, velocity: POP_V });
+    }
+  }, [litToday, loading, reduce, pop]);
 
   if (loading)
     return (
@@ -105,7 +127,7 @@ export const Streak = ({ today, stats, month }: { today: string; stats: Learning
           {days.map((d) => (
             <li key={d} className="ln-bulb">
               <span className="ln-bulb-glyph">
-                <Skeleton circle h={20} />
+                <Skeleton circle h={22} />
               </span>
               <span className="ln-bulb-day">{letterOf(d)}</span>
             </li>
@@ -128,7 +150,7 @@ export const Streak = ({ today, stats, month }: { today: string; stats: Learning
         {streak ? (
           litToday ? (
             <span className="ln-streak-today is-done">
-              <Check size={16} aria-hidden="true" /> Done today
+              <Check size={18} aria-hidden="true" /> Done today
             </span>
           ) : (
             <span className="ln-streak-today">Not yet today</span>
@@ -140,9 +162,9 @@ export const Streak = ({ today, stats, month }: { today: string; stats: Learning
           const on = lit.has(d);
           const isToday = d === today;
           return (
-            <li key={d} className={`ln-bulb ${on ? 'is-lit' : ''} ${isToday ? 'is-today' : ''}`.replace(/\s+/g, ' ').trim()}>
-              {isToday && pop && !reduce ? (
-                <motion.span key={pop} className="ln-bulb-glyph is-popping" initial={{ scale: 0.7 }} animate={{ scale: 1 }} transition={springs.complete}>
+            <li key={d} className={`ln-bulb ${on ? 'is-lit' : ''} ${isToday ? 'is-today' : ''} ${isToday && fading ? 'is-fading' : ''}`.replace(/\s+/g, ' ').trim()}>
+              {isToday ? (
+                <motion.span className="ln-bulb-glyph" style={{ scale: pop }}>
                   <Bulb />
                 </motion.span>
               ) : (

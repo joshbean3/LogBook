@@ -12,10 +12,11 @@
 
 /* ---------- the streak tracker: on the ground, no card, read in passing (owner request; L 6.8 as amended) ----------
  * Line one: the count (Inter 600 17, even figures, Night Ink) and its words (Inter 500 15 Dusk) on one baseline; whether
- * today is done at the trailing edge. Line two, 8 below: seven equal columns, a 26 px bulb over its day letter (caption
- * style, 4 below). Lit: Apricot glass, a Night Ink outline and three short Night Ink rays (shape plus color, guide 3.3:
- * Apricot alone is light, not ink) over a soft warm glow. Unlit: a Pencil outline (a mark, 3.6 on Cloud). Today unlit: a
- * Night Ink outline. Today's letter is Night Ink in a 1.5 px Night Ink ring, the app's today mark (guide 6.13). */
+ * today is done at the trailing edge. Line two, 8 below: seven equal columns, a 22 px bulb (in a 24 px box that holds its
+ * rays) over its day letter (caption style, 4 below). Lit: Apricot glass, a Night Ink outline and three short Night Ink
+ * rays (shape plus color, guide 3.3: Apricot alone is light, not ink) over a small soft warm glow, the owner's "soft glow",
+ * kept inside its own column at 320. Unlit: a Pencil outline (a mark, 3.6 on Cloud). Today unlit: a Night Ink outline.
+ * Today's letter is Night Ink in a 1.5 px Night Ink ring, the app's today mark (guide 6.13). */
 .ln-streak {
   display: grid;
   gap: var(--sp-2);
@@ -35,7 +36,6 @@
   color: var(--ink-3);
 }
 .ln-streak-count b {
-  margin-right: var(--sp-1);
   font: 600 var(--fs-row) / var(--lh-row) var(--sans);
   font-variant-numeric: tabular-nums;
   color: var(--ink);
@@ -80,43 +80,52 @@
   isolation: isolate;
   display: grid;
   place-items: center;
-  width: 26px;
-  height: 26px;
+  width: 24px;
+  height: 24px;
   color: var(--ink-faint);
 }
 .ln-bulb-svg {
-  width: 26px;
-  height: 26px;
+  width: 24px;
+  height: 24px;
   fill: none;
   stroke: currentColor;
   stroke-width: 1.75;
   stroke-linecap: round;
   stroke-linejoin: round;
+  overflow: visible;
+}
+/* the lit layer: shown only on a lit bulb */
+.ln-bulb:not(.is-lit) .ln-bulb-on,
+.ln-bulb:not(.is-lit) .ln-bulb-glow {
+  display: none;
 }
 .ln-bulb-glass {
-  fill: transparent;
+  fill: var(--sun);
+  stroke: none;
 }
-.ln-bulb-rays {
-  opacity: 0;
-}
-.ln-bulb.is-today .ln-bulb-glyph {
-  color: var(--ink);
-}
+.ln-bulb.is-today .ln-bulb-glyph,
 .ln-bulb.is-lit .ln-bulb-glyph {
   color: var(--ink);
 }
-.ln-bulb.is-lit .ln-bulb-glass {
-  fill: var(--sun);
+/* Reduce Motion: today's light fades in, 150 ms linear, in place of the pop (guide 9.4). The class is only set under
+   Reduce Motion, where base.css cuts every animation to 0.01 ms, so this one fade keeps its 150 ms */
+@media (prefers-reduced-motion: reduce) {
+  .ln-bulb.is-fading .ln-bulb-on,
+  .ln-bulb.is-fading .ln-bulb-glow {
+    animation: ln-bulb-in var(--dur-reduce) linear both;
+    animation-duration: var(--dur-reduce) !important;
+  }
 }
-.ln-bulb.is-lit .ln-bulb-rays {
-  opacity: 1;
+@keyframes ln-bulb-in {
+  from {
+    opacity: 0;
+  }
 }
-/* the lit bulb's light: the Apricot glow, small and soft, behind the glass */
-.ln-bulb.is-lit .ln-bulb-glyph::before {
-  content: '';
+/* the lit bulb's light: the Apricot glow, small and soft, behind the glass and inside the bulb's column */
+.ln-bulb-glow {
   position: absolute;
   z-index: -1;
-  inset: calc(-1 * var(--sp-3));
+  inset: calc(-1 * var(--sp-2));
   border-radius: 50%;
   background: var(--glow-hero);
   pointer-events: none;
@@ -368,7 +377,8 @@ textarea.ln-field {
   display: flex;
   align-items: center;
   min-width: 0;
-  min-height: var(--hit);
+  /* a field is 48 tall (guide 6.14) */
+  min-height: 48px;
   border-radius: var(--r-control);
   background: var(--surface);
   border: 1px solid var(--field-edge);
@@ -386,7 +396,7 @@ textarea.ln-field {
 .ln-search-in {
   flex: 1;
   min-width: 0;
-  height: 42px;
+  height: 46px;
   padding: 0 var(--hit) 0 calc(var(--sp-8) + var(--sp-2));
   border: 0;
   background: transparent;
@@ -435,7 +445,9 @@ textarea.ln-field {
 /* the month's tile: 32 px, its short name in caption style, Dusk on Haze (5.65) */
 .ln-mtile.icon-tile {
   font: 600 var(--fs-caps) / 1 var(--stamp);
-  letter-spacing: 0;
+  /* the one caps tracking (guide 4.3); the indent balances the tracking after the last letter so the name stays centered */
+  letter-spacing: var(--tr-caps);
+  text-indent: var(--tr-caps);
   text-transform: uppercase;
   color: var(--ink-2);
 }
