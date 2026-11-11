@@ -1,0 +1,988 @@
+import { fmtDate, PHASE_WORDS, type AssistantLive, type AssistantScreen, type AssistantTurn, type ISODate } from '@logbook/shared';
+import { Orb } from '@/ui/Orb';
+import {
+  ArrowDown,
+  ArrowUp,
+  Check,
+  ChevronDown,
+  ChevronRight,
+  ChevronUp,
+  CircleAlert,
+  Copy,
+  FileText,
+  History,
+  Pencil,
+  Plus,
+  RotateCw,
+  Share,
+  SquarePen,
+  ThumbsDown,
+  ThumbsUp,
+  Volume2,
+  VolumeX,
+  X,
+} from 'lucide-react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { onUnauthorized } from '@/api/client';
+import { useBootstrap } from '@/api/queries';
+import { useNavInternal } from '@/app/NavController';
+import { useConsent } from '@/lib/consent';
+import { AI_LABEL, DISCLAIMER } from '@/lib/copy';
+import { haptics } from '@/lib/haptics';
+import { revealField } from '@/lib/keyboard';
+import { isNative } from '@/lib/native';
+import { useToday } from '@/lib/useToday';
+import { GoalsIcon, JournalIcon, LearnedIcon, PlanIcon, ProgressIcon, TodayIcon, type BrandIconComponent } from '@/ui/icons';
+import { useSheet } from '@/ui/Sheet';
+import { useToast } from '@/ui/Toast';
+import { ATTACHMENT_LIMITS, type AssistantFileShown } from '@logbook/shared';
+import { askAssistant, stopAssistant, waitForJob } from './api';
+import { AttachError, prepareFile, type PreparedFile } from './attach';
+import { editTurn, regenerate, resumeAsk, retryAsk, runAsk, sendTurn, stopAsk } from './conversation';
+import { attachNoteSeen, markAttachNoteSeen } from './attachNote';
+import { readDraft, writeDraft } from './drafts';
+import { HistoryPanel } from './History';
+import { plainOf } from './plain';
+import { AssistantPermission, useAssistantGate } from './Permission';
+import { ProposalCard } from './Proposal';
+import { ReportPanel } from './Report';
+import { Rich } from './Rich';
+import { assistantStore, useAssistantBusy, useAssistantBusyChat, useAssistantChatId, useAssistantChats, useAssistantLive, useAssistantOffline, useAssistantSaveFailed, useAssistantStopped, useAssistantTurns } from './store';
+import './assistant.css';
+
+/** The files a turn carried, as the thread shows them: a photo's preview, a PDF's name. */
+const TurnFiles = ({ files }: { files: AssistantFileShown[] }) => (
+  <div className="as-turn-files">
+    {files.map((f, i) =>
+      f.thumb ? (
+        <img key={i} className="as-turn-photo" src={f.thumb} alt={f.name} />
+      ) : (
+        <span key={i} className="as-turn-doc">
+          <FileText size={15} aria-hidden="true" />
+          <span>{f.name}</span>
+        </span>
+      ),
+    )}
+  </div>
+);
+
+/** The screen it was opened from, in the set's own tab glyphs (guide 7; plan 5.4: never a pulse for Progress). */
+const SCREEN_ICON: Record<AssistantScreen['tab'], BrandIconComponent> = { today: TodayIcon, plan: PlanIcon, progress: ProgressIcon, goals: GoalsIcon, learned: LearnedIcon, journal: JournalIcon };
+
+/** Ways to start an empty chat: two lines each (what, then the rest), as ChatGPT's starter cards read. */
+type Starter = { title: string; sub: string; send?: string; attach?: true };
+const READ_PLAN: Starter = { title: 'Read a plan', sub: 'from a photo or a PDF', attach: true };
+/**
+ * The starters for where the sheet was opened. With training data off the assistant can't see the plan, so the plan
+ * starters give way to general questions.
+ */
+export const startersFor = (tab: AssistantScreen['tab'] | undefined, date: ISODate, today: ISODate, training: boolean): Starter[] => {
+  if (!training)
+    return [
+      { title: 'Pace a long run', sub: 'how easy it should feel', send: 'How easy should a long run feel?' },
+      { title: 'Fit in strength', sub: 'around running', send: 'How do I fit strength work around running?' },
+      READ_PLAN,
+    ];
+  const run = date === today ? 'today’s run' : `${fmtDate('short', date)}’s run`;
+  const left: Starter = { title: 'What’s left', sub: 'on the plan this week', send: 'What’s left on the plan this week?' };
+  const push: Starter = { title: 'Push missed runs', sub: 'to next week', send: 'Push the runs I missed this week to next week' };
+  const goal: Starter = { title: 'Set this week’s goal', sub: 'from my plan', send: 'Set this week’s goal from my plan' };
+  switch (tab) {
+    case 'today':
+      return [{ title: `Move ${run}`, sub: 'to the next day', send: `Move ${run} to the next day` }, left, push, READ_PLAN];
+    case 'goals':
+      return [goal, { title: 'How my goals', sub: 'are going', send: 'How are my goals going?' }, READ_PLAN];
+    case 'progress':
+      return [{ title: 'How this week', sub: 'went against the plan', send: 'How did this week go against the plan?' }, { title: 'Am I on track', sub: 'for my race', send: 'Am I on track for my race?' }, READ_PLAN];
+    default:
+      return [left, push, goal, READ_PLAN];
+  }
+};
+
+/**
+ * The chip shows only where it changes what the assistant reads: the day on Today, the week or month on Plan. In words:
+ * "Today", "Thu, Nov 12", "Week of Nov 9", "November".
+ */
+export const chipOf = (s: AssistantScreen | undefined, today: ISODate): string | null => {
+  if (s?.tab === 'today' && s.date) return s.date === today ? 'Today' : `${fmtDate('dow', s.date)}, ${fmtDate('md', s.date)}`;
+  if (s?.tab === 'plan' && s.week) return `Week of ${fmtDate('md', s.week)}`;
+  if (s?.tab === 'plan' && s.month) return fmtDate('month', `${s.month}-01`);
+  return null;
+};
+
+const greeting = (h = new Date().getHours()) => (h < 5 ? 'Good evening' : h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening');
+
+/** Seconds since `since`, ticking once a second while shown. */
+const useSeconds = (since: number) => {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, []);
+  return Math.max(0, Math.floor((now - since) / 1000));
+};
+
+/**
+ * The words as they arrive, revealed smoothly: the server's text comes in chunks a third of a second apart; this lets
+ * the shown text catch up a few characters a frame, so it flows instead of jumping.
+ */
+const useSmoothText = (target: string) => {
+  const [n, setN] = useState(target.length);
+  const want = useRef(target);
+  want.current = target;
+  useEffect(() => {
+    let raf = 0;
+    const step = () => {
+      setN((cur) => {
+        const goal = want.current.length;
+        if (cur > goal) return goal;
+        if (cur === goal) return cur;
+        return Math.min(goal, cur + Math.max(1, Math.ceil((goal - cur) / 9)));
+      });
+      raf = requestAnimationFrame(step);
+    };
+    raf = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(raf);
+  }, []);
+  return target.slice(0, Math.min(n, target.length));
+};
+
+/**
+ * How it got to the answer (Claude's and ChatGPT's fold above a reply): "Thought for 7s ›" opens the steps it took
+ * ("Read your plan, Nov 2 to Nov 8") and its reasoning. Nothing shows for an answer that took no time and no steps.
+ */
+const Process = ({ thoughts, seconds, steps }: { thoughts?: string; seconds?: number; steps?: string[] }) => {
+  const [open, setOpen] = useState(false);
+  const secs = Math.max(1, seconds ?? 0);
+  if (!thoughts && !steps?.length && (seconds ?? 0) < 2) return null;
+  return (
+    <div className={`as-process${open ? ' is-open' : ''}`}>
+      <button type="button" className="as-process-toggle" aria-expanded={open} onClick={() => setOpen((v) => !v)}>
+        {thoughts ? `Thought for ${secs}s` : steps?.length ? `${steps.length === 1 ? steps[0] : `${steps.length} steps`} · ${secs}s` : `Worked for ${secs}s`}
+        <ChevronRight size={15} strokeWidth={2.4} aria-hidden="true" />
+      </button>
+      {open ? (
+        <div className="as-process-body">
+          {steps?.map((s, i) => (
+            <p key={i} className="as-step">
+              <Check size={14} strokeWidth={2.6} aria-hidden="true" />
+              {s}
+            </p>
+          ))}
+          {thoughts ? <p className="as-thought-text">{thoughts}</p> : null}
+          <p className="as-step is-done">
+            <Check size={14} strokeWidth={2.6} aria-hidden="true" />
+            Done
+          </p>
+        </div>
+      ) : null}
+    </div>
+  );
+};
+
+/**
+ * The answer while it is written: what it is doing now with the seconds running ("Reading your plan · 4s", beside the
+ * thinking Orb), the steps so far, the latest line of its reasoning; then its words fading in one by one behind a dot.
+ * Before anything comes back it says Thinking. After 20 s a line says closing is fine.
+ */
+const LiveAnswer = ({ since, live }: { since: number; live: AssistantLive | null }) => {
+  const secs = useSeconds(since);
+  const text = useSmoothText(live?.text ?? '');
+  const offline = useAssistantOffline();
+  const [open, setOpen] = useState(false);
+  const phase = live?.phase ?? 'thinking';
+  const writing = text.length > 0;
+  const lastThought = (live?.thoughts ?? '').trim().split(/\n+/).pop() ?? '';
+  return (
+    <div className="as-turn is-assistant is-live" aria-busy="true">
+      {writing ? (
+        <Process thoughts={live?.thoughts} seconds={live?.seconds ?? secs} steps={live?.steps} />
+      ) : (
+        <div className="as-working">
+          <button type="button" className="as-phase" aria-expanded={open} onClick={() => setOpen((v) => !v)} disabled={!live?.thoughts && !live?.steps?.length}>
+            <Orb size={28} state="think" className="as-orb" />
+            <span className="as-phase-words" role="status">
+              {PHASE_WORDS[phase]}
+            </span>
+            <span className="as-phase-secs">{secs}s</span>
+            {live?.thoughts || live?.steps?.length ? <ChevronDown size={14} strokeWidth={2.4} className="as-phase-chev" aria-hidden="true" /> : null}
+          </button>
+          {live?.steps?.map((s, i) => (
+            <p key={i} className="as-step is-new">
+              <Check size={14} strokeWidth={2.6} aria-hidden="true" />
+              {s}
+            </p>
+          ))}
+          {open && live?.thoughts ? <p className="as-thought-text">{live.thoughts}</p> : lastThought ? <p className="as-thought-line">{lastThought}</p> : null}
+          {offline ? <p className="as-slow">Waiting for a connection.</p> : null}
+          {secs >= 20 && !offline ? <p className="as-slow">Still working. A plan from photos can take a minute or two. You can close this and come back.</p> : null}
+        </div>
+      )}
+      {writing ? (
+        <div className="as-answer">
+          <Rich text={text} fade after={<span className="as-caret" aria-hidden="true" />} />
+        </div>
+      ) : null}
+    </div>
+  );
+};
+
+/** One speaker for the whole chat: Read aloud on one answer stops any other. */
+const useSpeaker = () => {
+  const [speaking, setSpeaking] = useState<number | null>(null);
+  const ok = typeof window !== 'undefined' && 'speechSynthesis' in window;
+  useEffect(() => () => void (ok && window.speechSynthesis.cancel()), [ok]);
+  const toggle = useCallback(
+    (i: number, text: string) => {
+      if (!ok) return;
+      window.speechSynthesis.cancel();
+      if (speaking === i) return setSpeaking(null);
+      const u = new SpeechSynthesisUtterance(plainOf(text));
+      u.rate = 1.02;
+      u.onend = u.onerror = () => setSpeaking((s) => (s === i ? null : s));
+      setSpeaking(i);
+      window.speechSynthesis.speak(u);
+    },
+    [ok, speaking],
+  );
+  return { speaking, toggle, ok };
+};
+
+const shareText = async (text: string) => {
+  if (isNative) {
+    const { Share: S } = await import('@capacitor/share');
+    await S.share({ text });
+    return true;
+  }
+  if (navigator.share) {
+    await navigator.share({ text });
+    return true;
+  }
+  return false;
+};
+
+/** Under a finished answer, as ChatGPT lays them out: Copy, Read aloud, thumbs, Share, and Ask again on the newest. */
+const AnswerActions = ({ t, index, chat, newest, speaker, onRegenerate, onReport }: { t: AssistantTurn; index: number; chat: string; newest: boolean; speaker: ReturnType<typeof useSpeaker>; onRegenerate: () => void; onReport: () => void }) => {
+  const [copied, setCopied] = useState(false);
+  const toast = useToast();
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(plainOf(t.text));
+      haptics.select();
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1400);
+    } catch {
+      toast('Couldn’t copy that.');
+    }
+  };
+  const share = async () => {
+    try {
+      if (!(await shareText(plainOf(t.text)))) await copy();
+    } catch {
+      /* the owner closed the share sheet */
+    }
+  };
+  const rate = (r: 'up' | 'down') => {
+    haptics.select();
+    assistantStore.rate(index, r, chat);
+    if (t.rating === r) return;
+    // thumbs down opens a small report: what was wrong, a note, and an email to Logbook with the answer
+    if (r === 'down') onReport();
+    else toast('Thanks. Glad that helped.');
+  };
+  const speaking = speaker.speaking === index;
+  return (
+    <div className="as-actions" role="group" aria-label="Answer actions">
+      <button type="button" className="as-act" aria-label={copied ? 'Copied' : 'Copy'} onClick={() => void copy()}>
+        {copied ? <Check size={16} strokeWidth={2.6} aria-hidden="true" /> : <Copy size={16} strokeWidth={2.1} aria-hidden="true" />}
+      </button>
+      {speaker.ok ? (
+        <button type="button" className={`as-act${speaking ? ' is-on' : ''}`} aria-label={speaking ? 'Stop reading' : 'Read aloud'} aria-pressed={speaking} onClick={() => speaker.toggle(index, t.text)}>
+          {speaking ? <VolumeX size={16} strokeWidth={2.1} aria-hidden="true" /> : <Volume2 size={16} strokeWidth={2.1} aria-hidden="true" />}
+        </button>
+      ) : null}
+      {t.rating !== 'down' ? (
+        <button type="button" className={`as-act${t.rating === 'up' ? ' is-on' : ''}`} aria-label="Good answer" aria-pressed={t.rating === 'up'} onClick={() => rate('up')}>
+          <ThumbsUp size={16} strokeWidth={2.1} fill={t.rating === 'up' ? 'currentColor' : 'none'} aria-hidden="true" />
+        </button>
+      ) : null}
+      {t.rating !== 'up' ? (
+        <button type="button" className={`as-act${t.rating === 'down' ? ' is-on' : ''}`} aria-label="Bad answer" aria-pressed={t.rating === 'down'} onClick={() => rate('down')}>
+          <ThumbsDown size={16} strokeWidth={2.1} fill={t.rating === 'down' ? 'currentColor' : 'none'} aria-hidden="true" />
+        </button>
+      ) : null}
+      <button type="button" className="as-act" aria-label="Share" onClick={() => void share()}>
+        <Share size={16} strokeWidth={2.1} aria-hidden="true" />
+      </button>
+      {newest ? (
+        <button type="button" className="as-act" aria-label="Ask again" onClick={onRegenerate}>
+          <RotateCw size={16} strokeWidth={2.1} aria-hidden="true" />
+        </button>
+      ) : null}
+      {t.stopped ? <span className="as-stopped">Stopped</span> : null}
+    </div>
+  );
+};
+
+/** The owner's words: a soft bubble at the right. A tap shows Copy and Edit under it (ChatGPT's message menu). */
+const UserTurn = ({ t, canEdit, confirmEdit, onEdit }: { t: AssistantTurn; canEdit: boolean; confirmEdit: boolean; onEdit: () => void }) => {
+  const [open, setOpen] = useState(false);
+  // editing takes the answers after it off: when one of them has changes applied, it asks first
+  const [asking, setAsking] = useState(false);
+  const toast = useToast();
+  return (
+    <>
+      {t.files?.length ? <TurnFiles files={t.files} /> : null}
+      {t.text ? (
+        <button type="button" className={`as-bubble${open ? ' is-open' : ''}`} aria-expanded={open} onClick={() => setOpen((v) => !v)}>
+          {t.text}
+        </button>
+      ) : null}
+      {open ? (
+        <div className="as-user-actions">
+          <button
+            type="button"
+            className="as-act"
+            aria-label="Copy"
+            onClick={() => {
+              void navigator.clipboard.writeText(t.text).then(
+                () => haptics.select(),
+                () => toast('Couldn’t copy that.'),
+              );
+              setOpen(false);
+            }}
+          >
+            <Copy size={16} strokeWidth={2.1} aria-hidden="true" />
+          </button>
+          {canEdit ? (
+            <button
+              type="button"
+              className="as-act"
+              aria-label="Edit"
+              onClick={() => {
+                setOpen(false);
+                if (confirmEdit) setAsking(true);
+                else onEdit();
+              }}
+            >
+              <Pencil size={16} strokeWidth={2.1} aria-hidden="true" />
+            </button>
+          ) : null}
+        </div>
+      ) : null}
+      {asking ? (
+        <div className="as-confirm" role="group" aria-label="Edit this message?">
+          <p>This removes the answers after it. Changes you applied stay.</p>
+          <div className="as-confirm-actions">
+            <button type="button" className="as-confirm-btn" onClick={() => setAsking(false)}>
+              Cancel
+            </button>
+            <button
+              type="button"
+              className="as-confirm-btn is-go"
+              onClick={() => {
+                setAsking(false);
+                onEdit();
+              }}
+            >
+              Edit
+            </button>
+          </div>
+        </div>
+      ) : null}
+    </>
+  );
+};
+
+/** The "storage full" toast shows once per launch. */
+let warnedFull = false;
+
+/** Runs `onGone` when a pushed panel leaves (no timer watching for it). */
+const PanelLife = ({ onGone, children }: { onGone: () => void; children: React.ReactNode }) => {
+  const gone = useRef(onGone);
+  gone.current = onGone;
+  useEffect(() => () => gone.current(), []);
+  return <>{children}</>;
+};
+
+/** The waiting proposal, when it has scrolled out of view: a bar over the composer that brings it back. */
+const useOutOfView = (el: HTMLElement | null) => {
+  const [out, setOut] = useState(false);
+  useEffect(() => {
+    if (!el || typeof IntersectionObserver === 'undefined') return setOut(false);
+    const root = el.closest<HTMLElement>('[data-pane-scroll], .sheet-body');
+    // the composer sits over the bottom of the scroller: a proposal behind it is not in view
+    const io = new IntersectionObserver(([e]) => setOut(!e!.isIntersecting), { root, rootMargin: '0px 0px -160px 0px' });
+    io.observe(el);
+    return () => io.disconnect();
+  }, [el]);
+  return out;
+};
+
+/** The chat's title and its History and New buttons, in the sheet's header (one white capsule at the right). */
+const useHeader = (onHistory: () => void, pushed: React.RefObject<boolean>, own: boolean) => {
+  const sheet = useSheet();
+  const id = useAssistantChatId();
+  const chats = useAssistantChats();
+  const title = chats.find((c) => c.id === id)?.title ?? 'New chat';
+  useEffect(() => {
+    // a pane inside another sheet (the plan summary) leaves its host's header alone
+    if (!own || pushed.current) return;
+    sheet.update({
+      title: <span className="as-title">{title}</span>,
+      action: (
+        <span className="as-head-actions">
+          <button type="button" className="as-head-btn" aria-label="History" title="History" onClick={onHistory}>
+            <History size={18} strokeWidth={2.2} aria-hidden="true" />
+          </button>
+          <button
+            type="button"
+            className="as-head-btn"
+            aria-label="New chat"
+            title="New chat"
+            onClick={() => {
+              haptics.select();
+              assistantStore.clear();
+            }}
+          >
+            <SquarePen size={18} strokeWidth={2.2} aria-hidden="true" />
+          </button>
+        </span>
+      ),
+    });
+  }, [title]); // eslint-disable-line react-hooks/exhaustive-deps
+};
+
+/** Which chat a pane shows: the open chat (the dock's sheet), a new one of its own, or a given saved chat. */
+export type PaneChat = 'current' | 'new' | (string & {});
+
+export interface AssistantPaneProps {
+  /** 'current': the store's open chat, with History and New in the sheet's header (the dock). 'new': a chat of its own,
+   *  saved and listed in History once it has a turn; with `screen.plan` it is that plan block's chat. A chat id: that one. */
+  chat: PaneChat;
+  date: ISODate;
+  /** The screen it was opened from, which the assistant reads (the plan summary passes `{ tab: 'plan', plan: id }`). */
+  screen?: AssistantScreen;
+  /** The composer's words while the chat is empty ("Describe what to change"). */
+  placeholder?: string;
+  /** The host's content above the thread, scrolling with it (the plan summary's body). It takes the greeting's place. */
+  lead?: React.ReactNode;
+  /** Called once a proposal in this chat has been applied (the host refreshes what it shows). */
+  onApplied?: () => void;
+  className?: string;
+  /** A request handed in pre-filled (Plan's "Move them"). */
+  initial?: string;
+}
+
+/**
+ * The assistant, laid out the way ChatGPT and Claude are on a phone: a greeting and starter cards on a
+ * new chat; the owner's words in soft bubbles at the right; the answers straight on the page, full width, with how it got
+ * there folded above and its actions below; the question just sent pinned at the top while the answer streams in under
+ * it; a composer box with the attach button, the screen it was opened from and Send (Stop while it works). Every chat is
+ * kept in History. It answers, or proposes changes that run only when Apply is tapped (and Undo takes back).
+ *
+ * One pane, two hosts (layout plan C-1): the dock's sheet (AssistantSheet, `chat="current"`, exactly as before) and a
+ * host that gives it a chat of its own (the plan summary). A pane with its own chat never moves the store's open chat, so
+ * the dock's conversation is left alone. One ask at a time stays app-wide: while any chat is busy, Send waits. The
+ * composer and the disclosure under it stay at the bottom of the host's scroller (`.sheet-body`, or an element marked
+ * `data-pane-scroll`). The permission step stands in for the thread and composer until it is answered; with the assistant
+ * off on the server, a pane renders nothing.
+ */
+export const AssistantPane = (props: AssistantPaneProps) => {
+  const boot = useBootstrap().data;
+  // the permission step comes first: the conversation (and its composer) is not there to send from until it is answered
+  const { gate, retry } = useAssistantGate();
+  const own = props.chat === 'current';
+  const fresh = useRef<string | null>(null);
+  const currentId = useAssistantChatId();
+  // a pane's new chat is made once, on first draw, and kept for the life of the pane
+  if (props.chat === 'new' && !fresh.current) fresh.current = assistantStore.newChat(props.screen?.plan);
+  const chatId = props.chat === 'current' ? currentId : props.chat === 'new' ? fresh.current! : props.chat;
+  if (!own && boot && boot.features.claude === false) return null;
+  if (gate !== 'open') return <AssistantPermission gate={gate} retry={retry} date={props.date} screen={props.screen} chat={own ? undefined : chatId} inPane={!own} />;
+  return <Conversation {...props} chatId={chatId} own={own} />;
+};
+
+const Conversation = ({ date, initial, screen: openedFrom, chatId, own, placeholder, lead, onApplied, className = '' }: AssistantPaneProps & { chatId: string; own: boolean }) => {
+  const today = useToday();
+  const turns = useAssistantTurns(own ? undefined : chatId);
+  const busySince = useAssistantBusy();
+  const busyChat = useAssistantBusyChat();
+  const live = useAssistantLive();
+  // the chat a write goes to, read at the time of the write (a pane's chat id never changes; the open chat can)
+  const chatRef = useRef(chatId);
+  chatRef.current = chatId;
+  const target = own ? undefined : chatId;
+  const busyAnywhere = busySince !== null;
+  // the answer being written belongs to this chat (one can carry on in another while this one is open)
+  const busy = busyAnywhere && busyChat === chatId;
+  const boot = useBootstrap().data;
+  const name = boot?.user.name?.trim().split(/\s+/)[0];
+  const sheet = useSheet();
+  const speaker = useSpeaker();
+  // turns added while the sheet is open come in with a rise; the ones already there just show
+  const mountedAt = useRef(turns.length);
+  useEffect(() => {
+    mountedAt.current = turns.length;
+  }, [chatId]); // eslint-disable-line react-hooks/exhaustive-deps
+  const [kept, setKept] = useState(true);
+  // with training data off nothing about the page goes; with the chip removed, the question is about no page: today
+  const consentQ = useConsent();
+  const consent = consentQ.data ?? boot?.consent;
+  const training = consent?.training === true;
+  const chip = training ? chipOf(openedFrom, today) : null;
+  const screen = training && (kept || !chip) ? openedFrom : undefined;
+  const askDate = chip && !kept ? today : date;
+  const nav = useNavInternal();
+  const toPrivacy = () => {
+    sheet.close();
+    if (nav.getState().active === 'today') nav.push('/settings/privacy');
+    else nav.go('/settings/privacy');
+  };
+  const [draft, setDraftState] = useState(() => initial ?? readDraft(chatId));
+  const [editing, setEditing] = useState<number | null>(null);
+  // what is typed is kept for this chat (not the words of a message being edited)
+  const setDraft = (text: string, keep = editing === null) => {
+    setDraftState(text);
+    if (keep) writeDraft(chatRef.current, text);
+  };
+  const firstChat = useRef(chatId);
+  useEffect(() => {
+    if (chatId === firstChat.current) return;
+    firstChat.current = chatId;
+    setEditing(null);
+    setDraftState(readDraft(chatId));
+  }, [chatId]);
+  const [pending, setPending] = useState<PreparedFile[]>([]);
+  const [preparing, setPreparing] = useState(false);
+  // the first file ever attached on this phone: one line says where it goes, until that message is sent
+  const [attachNote, setAttachNote] = useState(false);
+  const toast = useToast();
+  const root = useRef<HTMLDivElement>(null);
+  const tail = useRef<HTMLDivElement>(null);
+  const compose = useRef<HTMLDivElement>(null);
+  const field = useRef<HTMLTextAreaElement>(null);
+  const picker = useRef<HTMLInputElement>(null);
+  // the host's scroller: the sheet's body, or the element a host marks as the pane's scroller
+  const bodyOf = () => root.current?.closest<HTMLElement>('[data-pane-scroll], .sheet-body') ?? null;
+
+  // the phone's storage is full even after old chats were trimmed: said once
+  const saveFailed = useAssistantSaveFailed();
+  useEffect(() => {
+    if (!saveFailed || warnedFull) return;
+    warnedFull = true;
+    toast('This chat can’t be saved on this phone. Delete old chats in History.');
+  }, [saveFailed]); // eslint-disable-line react-hooks/exhaustive-deps
+  // an answer a reload interrupted carries on (or says it is gone, with Retry)
+  useEffect(() => void resumeAsk(waitForJob, stopAssistant), []);
+  // signed out mid-chat: the app goes to sign in, so the sheet closes
+  useEffect(() => {
+    const fn = () => sheet.close();
+    onUnauthorized.add(fn);
+    return () => void onUnauthorized.delete(fn);
+  }, [sheet]);
+
+  // a panel pushed inside the sheet (History, Report) has its own header; the chat's comes back when it goes
+  const pushed = useRef(false);
+  const openPanel = (title: string, body: (done: () => void) => React.ReactNode) => {
+    pushed.current = true;
+    const done = () => sheet.pop();
+    sheet.push({ title, body: <PanelLife onGone={() => (pushed.current = false)}>{body(done)}</PanelLife> });
+  };
+  useHeader(() => openPanel('History', (done) => <HistoryPanel onDone={done} />), pushed, own);
+
+  const fitField = (el: HTMLTextAreaElement | null) => {
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = `${Math.min(el.scrollHeight, 140)}px`;
+  };
+  // a request handed in pre-filled (Plan's "Move them") shows whole, not cut to one line
+  useEffect(() => fitField(field.current), [initial]);
+
+  // ---------- scrolling, the ChatGPT way ----------
+  // The last exchange (the newest question and everything after it) sits in a block at least a screen tall, so the
+  // question just sent can rise to the top and the answer stream in below it without the page jumping. Open a chat and
+  // it shows its end.
+  const [tailMin, setTailMin] = useState(0);
+  useLayoutEffect(() => {
+    const body = bodyOf();
+    if (!body || typeof ResizeObserver === 'undefined') return;
+    const measure = () => setTailMin(Math.max(0, body.clientHeight - (compose.current?.offsetHeight ?? 0) - 12));
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(body);
+    if (compose.current) ro.observe(compose.current);
+    return () => ro.disconnect();
+  }, []);
+  useLayoutEffect(() => {
+    const body = bodyOf();
+    if (body) body.scrollTop = body.scrollHeight;
+  }, [chatId]); // eslint-disable-line react-hooks/exhaustive-deps
+  const last = turns[turns.length - 1];
+  const sentAt = useRef(0);
+  useLayoutEffect(() => {
+    if (last?.role !== 'user' || turns.length <= mountedAt.current) return;
+    const body = bodyOf();
+    const el = tail.current;
+    if (!body || !el) return;
+    sentAt.current = Date.now();
+    const top = el.getBoundingClientRect().top - body.getBoundingClientRect().top + body.scrollTop - 4;
+    body.scrollTo({ top, behavior: 'smooth' });
+  }, [turns.length]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // scrolled up from the end: a round arrow over the composer takes it back down
+  const [away, setAway] = useState(false);
+  useEffect(() => {
+    const body = bodyOf();
+    if (!body) return;
+    const on = () => setAway(body.scrollHeight - body.scrollTop - body.clientHeight > 160);
+    on();
+    body.addEventListener('scroll', on, { passive: true });
+    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(on) : null;
+    if (root.current) ro?.observe(root.current);
+    return () => {
+      body.removeEventListener('scroll', on);
+      ro?.disconnect();
+    };
+  }, []);
+  const toBottom = () => {
+    const body = bodyOf();
+    body?.scrollTo({ top: body.scrollHeight, behavior: 'smooth' });
+  };
+
+  // the newest proposal still waiting for a decision, and whether it has scrolled away
+  const waiting = [...turns].reverse().find((t) => t.proposal?.status === 'proposed')?.proposal ?? null;
+  const [waitingEl, setWaitingEl] = useState<HTMLElement | null>(null);
+  useLayoutEffect(() => setWaitingEl(root.current?.querySelector<HTMLElement>('.as-proposal[data-waiting]') ?? null), [waiting?.id, turns.length]);
+  const outOfView = useOutOfView(waitingEl);
+  const waitingCount = waiting ? waiting.changes.length - (waiting.skipped?.length ?? 0) : 0;
+
+  /** Picked files: each becomes a photo (shrunk, as a JPEG) or a PDF, up to four with a message. */
+  const addFiles = async (list: FileList | null) => {
+    const files = Array.from(list ?? []);
+    if (!files.length) return;
+    const room = ATTACHMENT_LIMITS.perTurn - pending.length;
+    if (files.length > room) toast(`Up to ${ATTACHMENT_LIMITS.perTurn} files with a message. ${room > 0 ? `The first ${room} ${room === 1 ? 'was' : 'were'} added.` : ''}`.trim());
+    setPreparing(true);
+    try {
+      const ready: PreparedFile[] = [];
+      for (const f of files.slice(0, Math.max(0, room))) {
+        try {
+          ready.push(await prepareFile(f));
+        } catch (e) {
+          toast(e instanceof AttachError ? e.message : `Couldn’t add ${f.name || 'that file'}.`);
+        }
+      }
+      if (ready.length) {
+        setPending((p) => [...p, ...ready].slice(0, ATTACHMENT_LIMITS.perTurn));
+        if (!attachNoteSeen()) {
+          markAttachNoteSeen();
+          setAttachNote(true);
+        }
+      }
+    } finally {
+      setPreparing(false);
+      if (picker.current) picker.current.value = '';
+    }
+  };
+
+  const send = (text: string) => {
+    const t = text.trim();
+    const files = pending;
+    if ((!t && !files.length) || busyAnywhere || preparing) return;
+    setDraft('', true);
+    setPending([]);
+    setAttachNote(false);
+    // the field grew with the words; empty again, it goes back to one line
+    if (field.current) field.current.style.height = '';
+    if (editing !== null) {
+      setEditing(null);
+      void editTurn(askAssistant, askDate, screen, editing, t, stopAssistant, target);
+      return;
+    }
+    void sendTurn(askAssistant, askDate, screen, t, { shown: files.length ? files.map((f) => f.shown) : undefined, data: files.map((f) => f.file) }, stopAssistant, target);
+  };
+  const startEdit = (i: number) => {
+    setEditing(i);
+    setDraft(turns[i]!.text, false);
+    requestAnimationFrame(() => {
+      const el = field.current;
+      if (!el) return;
+      fitField(el);
+      el.focus();
+      el.setSelectionRange(el.value.length, el.value.length);
+    });
+  };
+
+  const replies = !busy && last?.role === 'assistant' && !last.error && last.replies?.length ? last.replies : null;
+  const tailFrom = (() => {
+    for (let i = turns.length - 1; i >= 0; i--) if (turns[i]!.role === 'user') return i;
+    return turns.length;
+  })();
+  const newestAnswer = turns.length - 1;
+
+  const renderTurn = (t: AssistantTurn, i: number) => (
+    <div key={`${chatId}-${i}`} className={`as-turn is-${t.role}${t.error ? ' is-error' : ''}${i >= mountedAt.current ? ' is-new' : ''}${editing === i ? ' is-editing' : ''}`}>
+      {t.role === 'user' ? (
+        <UserTurn t={t} canEdit={!busyAnywhere && !t.files?.length} confirmEdit={turns.slice(i + 1).some((x) => x.proposal?.status === 'applied')} onEdit={() => startEdit(i)} />
+      ) : t.error ? (
+        <div className="as-error" role="alert">
+          <CircleAlert size={16} className="as-error-ic" aria-hidden="true" />
+          <p>{t.text}</p>
+          {i === turns.length - 1 && !busyAnywhere ? (
+            <button type="button" className="as-retry" onClick={() => void retryAsk(askAssistant, askDate, screen, stopAssistant, target)}>
+              <RotateCw size={14} strokeWidth={2.4} aria-hidden="true" /> Retry
+            </button>
+          ) : null}
+        </div>
+      ) : (
+        <>
+          <Process thoughts={t.thoughts} seconds={t.thoughtSeconds} steps={t.steps} />
+          {t.text ? (
+            <div className="as-answer">
+              <Rich text={t.text} />
+            </div>
+          ) : null}
+          {t.proposal ? <ProposalCard p={t.proposal} waiting={t.proposal.id === waiting?.id} chat={target} onApplied={onApplied} /> : null}
+          <AnswerActions
+            t={t}
+            index={i}
+            chat={chatId}
+            newest={i === newestAnswer && !busyAnywhere && t.proposal?.status !== 'applied'}
+            speaker={speaker}
+            onRegenerate={() => void regenerate(askAssistant, askDate, screen, stopAssistant, target)}
+            onReport={() => openPanel('Report this answer', (done) => <ReportPanel answer={t.text} onDone={done} />)}
+          />
+        </>
+      )}
+    </div>
+  );
+
+  // VoiceOver: a finished answer is read once, as words (never word by word while it streams); a proposal adds a line
+  const [said, setSaid] = useState('');
+  const heard = useRef(turns.length);
+  useEffect(() => {
+    const was = heard.current;
+    heard.current = turns.length;
+    if (turns.length <= was || turns.length <= mountedAt.current) return;
+    const t = turns[turns.length - 1]!;
+    if (t.role !== 'assistant' || t.error) return;
+    setSaid(`${plainOf(t.text)}${t.proposal?.status === 'proposed' ? ' Changes ready to review.' : ''}`.trim());
+  }, [turns]);
+  useEffect(() => setSaid(''), [chatId]);
+
+  const empty = turns.length === 0 && !busy;
+  const stoppedHere = useAssistantStopped() === chatId;
+  // an answer being written in another chat: one line over the composer, and a way there
+  const elsewhere = busyAnywhere && !busy && busyChat !== null;
+  const ScreenIcon = openedFrom ? SCREEN_ICON[openedFrom.tab] : null;
+  const canSend = (draft.trim() || pending.length) && !preparing && !busyAnywhere;
+
+  return (
+    <div className={`as-sheet${empty ? ' is-empty' : ''}${own ? '' : ' as-pane'}${className ? ` ${className}` : ''}`} ref={root}>
+      <p className="sr-only" role="status" aria-live="polite" aria-atomic="true">
+        {said}
+      </p>
+      {lead}
+      <div className="as-thread">
+        {empty && lead ? (
+          // a host's lead takes the greeting's place; the legal line stays
+          <p className="as-hello-legal">{DISCLAIMER}</p>
+        ) : empty ? (
+          <div className="as-hello">
+            <Orb size={56} className="as-hello-mark" />
+            <p className="as-hello-title">
+              {greeting()}
+              {name ? `, ${name}` : ''}.
+            </p>
+            {training ? (
+              <>
+                <p className="as-hello-sub">Ask about your plan, or ask for a change.</p>
+                {!chip ? <p className="as-hello-foot">The assistant sees your plan, sessions, training status, goals and to-dos. It can’t read your journal.</p> : null}
+                <p className="as-hello-foot">Nothing changes until you tap Apply.</p>
+              </>
+            ) : (
+              <>
+                <p className="as-hello-sub">The assistant can’t see your training data. It answers in general terms.</p>
+                <button type="button" className="as-hello-link" onClick={toPrivacy}>
+                  Change in Settings, Privacy
+                </button>
+              </>
+            )}
+            <p className="as-hello-legal">{DISCLAIMER}</p>
+          </div>
+        ) : (
+          <>
+            {turns.slice(0, tailFrom).map((t, i) => renderTurn(t, i))}
+            <div className="as-tail" ref={tail} style={{ minHeight: tailFrom < turns.length || busy ? tailMin : undefined }}>
+              {turns.slice(tailFrom).map((t, j) => renderTurn(t, tailFrom + j))}
+              {replies ? (
+                <div className="as-followups" role="group" aria-label="Suggested replies">
+                  {replies.map((s) => (
+                    <button key={s} type="button" className="as-followup" onClick={() => send(s)}>
+                      {s}
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+              {busy && busySince !== null ? <LiveAnswer since={busySince} live={live} /> : null}
+              {last?.role === 'user' && !busy ? (
+                <div className="as-turn is-assistant as-noanswer">
+                  <p className="as-noanswer-text">{stoppedHere ? 'Stopped' : busyAnywhere ? 'Waiting for the other chat to finish.' : 'No answer.'}</p>
+                  {!busyAnywhere ? (
+                    <button type="button" className="as-retry" onClick={() => void runAsk(askAssistant, askDate, screen, Date.now, stopAssistant, target)}>
+                      <RotateCw size={14} strokeWidth={2.4} aria-hidden="true" /> Retry
+                    </button>
+                  ) : null}
+                </div>
+              ) : null}
+            </div>
+          </>
+        )}
+      </div>
+
+      <div className="as-compose" ref={compose}>
+        {away && !empty && !(waiting && outOfView) ? (
+          <button type="button" className="icon-btn as-jump" aria-label="Jump to the newest" onClick={toBottom}>
+            <ArrowDown size={18} strokeWidth={2.4} aria-hidden="true" />
+          </button>
+        ) : null}
+        {waiting && outOfView ? (
+          <button type="button" className="as-review" onClick={() => waitingEl?.scrollIntoView({ block: 'start', behavior: 'smooth' })}>
+            <span className="as-review-n" aria-hidden="true">
+              {waitingCount}
+            </span>
+            <span className="as-review-text">
+              Review changes<span className="sr-only"> ({waitingCount})</span>
+            </span>
+            <ChevronUp size={18} strokeWidth={2.4} aria-hidden="true" />
+          </button>
+        ) : null}
+        {elsewhere && own ? (
+          <button type="button" className="as-elsewhere" onClick={() => assistantStore.open(busyChat!)}>
+            <Orb size={16} state="think" className="as-orb" />
+            <span>Answering in another chat</span>
+            <ChevronRight size={15} strokeWidth={2.4} aria-hidden="true" />
+          </button>
+        ) : elsewhere ? (
+          // a pane cannot open another chat in place: it says why Send waits
+          <p className="as-elsewhere" role="status">
+            <Orb size={16} state="think" className="as-orb" />
+            <span>Answering in another chat</span>
+          </p>
+        ) : null}
+        {empty && !lead && !draft && !pending.length ? (
+          <div className="as-starters" role="group" aria-label="Ways to start">
+            {startersFor(openedFrom?.tab, askDate, today, training).map((s) => (
+              <button key={s.title} type="button" className="as-starter" onClick={() => (s.attach ? picker.current?.click() : send(s.send!))}>
+                <span className="as-starter-title">{s.title}</span>
+                <span className="as-starter-sub">{s.sub}</span>
+              </button>
+            ))}
+          </div>
+        ) : null}
+        {editing !== null ? (
+          <div className="as-editing">
+            <Pencil size={14} strokeWidth={2.2} aria-hidden="true" />
+            <span>Editing your message</span>
+            <button
+              type="button"
+              className="as-editing-x"
+              aria-label="Cancel editing"
+              onClick={() => {
+                setEditing(null);
+                setDraft(readDraft(chatId), false);
+                if (field.current) field.current.style.height = '';
+              }}
+            >
+              <X size={14} strokeWidth={2.6} aria-hidden="true" />
+            </button>
+          </div>
+        ) : null}
+        <div className="as-box">
+          {pending.length || preparing ? (
+            <div className="as-files" aria-label="Files to send">
+              {pending.map((f, i) => (
+                <span key={i} className={`as-file ${f.shown.thumb ? 'is-photo' : 'is-doc'}`}>
+                  {f.shown.thumb ? <img src={f.shown.thumb} alt="" /> : <FileText size={18} aria-hidden="true" />}
+                  {f.shown.thumb ? null : <span className="as-file-name">{f.shown.name}</span>}
+                  <button type="button" className="as-file-x" aria-label={`Remove ${f.shown.name}`} onClick={() => setPending((p) => p.filter((_, j) => j !== i))}>
+                    <X size={12} strokeWidth={2.6} aria-hidden="true" />
+                  </button>
+                </span>
+              ))}
+              {preparing ? (
+                <span className="as-file is-preparing" aria-label="Preparing">
+                  <Orb size={18} state="think" className="as-orb" />
+                </span>
+              ) : null}
+            </div>
+          ) : null}
+          {attachNote && pending.length ? (
+            <p className="as-attach-note" role="status">
+              {pending.length === 1 ? 'This file goes' : 'These files go'} to Claude, by Anthropic, to answer you.
+            </p>
+          ) : null}
+          <textarea
+            ref={field}
+            className="as-input"
+            rows={1}
+            maxLength={2000}
+            placeholder={pending.length ? 'Add a note (optional)' : turns.length ? 'Reply' : placeholder ? placeholder : askDate !== today ? `Ask about ${fmtDate('short', askDate)}` : 'Ask anything'}
+            aria-label="Ask the assistant"
+            enterKeyHint="send"
+            value={draft}
+            autoFocus={own}
+            onFocus={(e) => revealField(e.currentTarget)}
+            onChange={(e) => {
+              setDraft(e.target.value);
+              fitField(e.currentTarget);
+            }}
+            onKeyDown={(e) => {
+              // Enter that confirms an IME's word (Japanese, Chinese, Korean) only picks the word: it never sends
+              if (e.nativeEvent.isComposing || e.keyCode === 229) return;
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                send(draft);
+              }
+            }}
+          />
+          <div className="as-tools">
+            <button type="button" className="as-plus" aria-label="Attach a photo or a PDF" disabled={busyAnywhere || preparing || pending.length >= ATTACHMENT_LIMITS.perTurn} onClick={() => picker.current?.click()}>
+              <Plus size={20} strokeWidth={2.2} aria-hidden="true" />
+            </button>
+            <input ref={picker} type="file" accept="image/*,application/pdf,.pdf" multiple hidden onChange={(e) => void addFiles(e.currentTarget.files)} />
+            {chip && ScreenIcon ? (
+              kept ? (
+                <span className="as-ctx-pill">
+                  <ScreenIcon size={15} aria-hidden="true" />
+                  <span className="as-ctx-pill-text">{chip}</span>
+                  <button type="button" className="as-ctx-pill-x" aria-label={`Don’t send ${chip} with the question`} onClick={() => setKept(false)}>
+                    <X size={12} strokeWidth={2.8} aria-hidden="true" />
+                  </button>
+                </span>
+              ) : (
+                <button type="button" className="as-ctx-pill is-off" aria-label={`Send ${chip} with the question`} onClick={() => setKept(true)}>
+                  <Plus size={14} strokeWidth={2.4} aria-hidden="true" />
+                  <span className="as-ctx-pill-text">{chip}</span>
+                </button>
+              )
+            ) : null}
+            {busy ? (
+              <button type="button" className="as-send is-stop" aria-label="Stop" onClick={() => void stopAsk(stopAssistant)}>
+                <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true">
+                  <rect width="12" height="12" rx="4" fill="currentColor" />
+                </svg>
+              </button>
+            ) : (
+              <button type="button" className={`as-send${canSend ? ' is-ready' : ''}`} aria-label={editing !== null ? 'Send edit' : 'Send'} disabled={!canSend} onClick={() => send(draft)}>
+                <ArrowUp size={18} strokeWidth={2.6} aria-hidden="true" />
+              </button>
+            )}
+          </div>
+        </div>
+        <p className="as-ai-label">{AI_LABEL}</p>
+      </div>
+    </div>
+  );
+};

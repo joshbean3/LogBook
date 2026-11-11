@@ -18,6 +18,8 @@ export interface AssistantChat {
   named?: boolean;
   updatedAt: number;
   turns: AssistantTurn[];
+  /** The plan block this chat was started for (the assistant inside the plan summary); absent for the dock's chats. */
+  plan?: string;
 }
 
 const CHATS = 'logbook.assistant.chats';
@@ -107,6 +109,12 @@ const subs = new Set<() => void>();
  * look again at a photo for as long as the app is open.
  */
 const fileData = new WeakMap<AssistantTurn, Attachment[]>();
+/**
+ * Chats a pane opened (AssistantPane with chat="new") that have no turns yet, and so are not saved: an answer may still
+ * land in one, and its first turn saves it with the plan block it was started for. Memory only.
+ */
+const fresh = new Map<string, { plan?: string }>();
+const NO_TURNS: AssistantTurn[] = [];
 
 /** What chats may take on the phone, in characters of JSON (localStorage holds about 5 MB per app, shared with the rest). */
 export const STORE_CAP = 2_000_000;
@@ -178,7 +186,9 @@ const write = (id: string, next: AssistantTurn[]) => {
   if (!next.length) chats = chats.filter((c) => c.id !== id);
   else {
     const first = next.find((t) => t.role === 'user');
-    const chat: AssistantChat = had ? { ...had, turns: next.slice(-MAX_TURNS), updatedAt: Date.now() } : { id, title: titleFrom(first?.text ?? ''), updatedAt: Date.now(), turns: next.slice(-MAX_TURNS) };
+    const plan = fresh.get(id)?.plan;
+    const chat: AssistantChat = had ? { ...had, turns: next.slice(-MAX_TURNS), updatedAt: Date.now() } : { id, title: titleFrom(first?.text ?? ''), updatedAt: Date.now(), turns: next.slice(-MAX_TURNS), ...(plan ? { plan } : {}) };
+    fresh.delete(id);
     chats = [chat, ...chats.filter((c) => c.id !== id)].slice(0, MAX_CHATS);
   }
   save();
@@ -205,7 +215,7 @@ const writeJob = (j: PendingJob | null) => {
     /* private mode: a reload loses the answer, and the thread offers Retry */
   }
 };
-const turnsOf = (id: string) => (id === current ? turns : (chats.find((c) => c.id === id)?.turns ?? []));
+const turnsOf = (id: string) => (id === current ? turns : (chats.find((c) => c.id === id)?.turns ?? NO_TURNS));
 
 export const assistantStore = {
   get: () => turns,
@@ -217,29 +227,47 @@ export const assistantStore = {
   chats: () => chats,
   /** The chat an ask now out belongs to. */
   busyChat: () => busyChat,
-  push: (t: AssistantTurn, files?: Attachment[]) => {
+  /** The turns of any chat: the open one, a saved one, or a pane's chat not saved yet (none). */
+  turnsFor: (id: string) => turnsOf(id),
+  /**
+   * A new chat for a pane (AssistantPane): it is not the open chat, so the dock's conversation is left alone, and it is
+   * saved, and shows in History, once it has a turn. `plan` names the plan block it was started for.
+   */
+  newChat: (plan?: string): string => {
+    const id = newId();
+    fresh.set(id, plan ? { plan } : {});
+    return id;
+  },
+  /** The newest saved chat started for a plan block, or null: the plan summary opens it again. */
+  chatForPlan: (blockId: string): string | null => {
+    let best: AssistantChat | null = null;
+    for (const c of chats) if (c.plan === blockId && (!best || c.updatedAt > best.updatedAt)) best = c;
+    return best?.id ?? null;
+  },
+  /** Adds a question to a chat: the open one, or a pane's own (`id`). */
+  push: (t: AssistantTurn, files?: Attachment[], id: string = current) => {
     if (files?.length) fileData.set(t, files);
-    write(current, [...turns, t]);
+    write(id, [...turnsOf(id), t]);
   },
   /**
    * Adds a turn to a given chat: an answer goes to the chat that asked, wherever the owner is now. A chat deleted while
    * its answer was being written stays deleted: the answer is dropped, not saved as a chat of its own.
    */
   pushTo: (id: string, t: AssistantTurn) => {
-    if (id !== current && !chats.some((c) => c.id === id)) return;
+    if (id !== current && !fresh.has(id) && !chats.some((c) => c.id === id)) return;
     write(id, [...turnsOf(id), t]);
   },
   filesOf: (t: AssistantTurn) => fileData.get(t),
   /** The proposal as the server now has it (applied, undone). An answer that is not a whole proposal changes nothing. */
-  setProposal: (next: AssistantProposal) => {
+  setProposal: (next: AssistantProposal, id: string = current) => {
     const p = cleanProposal(next);
-    if (p) write(current, turns.map((t) => (t.proposal?.id === p.id ? { ...t, proposal: p } : t)));
+    if (p) write(id, turnsOf(id).map((t) => (t.proposal?.id === p.id ? { ...t, proposal: p } : t)));
   },
   /** The owner's thumbs on an answer (tapping the same one again takes it off). */
-  rate: (index: number, rating: 'up' | 'down') =>
+  rate: (index: number, rating: 'up' | 'down', id: string = current) =>
     write(
-      current,
-      turns.map((t, i) => {
+      id,
+      turnsOf(id).map((t, i) => {
         if (i !== index) return t;
         const next: AssistantTurn = { ...t, rating };
         if (t.rating === rating) delete next.rating;
@@ -255,12 +283,13 @@ export const assistantStore = {
     notify();
   },
   /** Takes off the last turn when it is an ask that did not go through (Retry sends again without it). */
-  dropError: () => {
-    if (!turns[turns.length - 1]?.error) return;
-    write(current, turns.slice(0, -1));
+  dropError: (id: string = current) => {
+    const t = turnsOf(id);
+    if (!t[t.length - 1]?.error) return;
+    write(id, t.slice(0, -1));
   },
   /** Keeps the turns before `index` (editing a question sends it again from there). */
-  truncate: (index: number) => write(current, turns.slice(0, Math.max(0, index))),
+  truncate: (index: number, id: string = current) => write(id, turnsOf(id).slice(0, Math.max(0, index))),
   setBusy: (since: number | null, chat: string | null = since === null ? null : current) => {
     busySince = since;
     busyChat = chat;
@@ -311,9 +340,10 @@ export const assistantStore = {
     notify();
   },
   /** Takes off the last assistant turn (Regenerate asks again without it). */
-  dropLastAnswer: () => {
-    if (turns[turns.length - 1]?.role !== 'assistant') return;
-    write(current, turns.slice(0, -1));
+  dropLastAnswer: (id: string = current) => {
+    const t = turnsOf(id);
+    if (t[t.length - 1]?.role !== 'assistant') return;
+    write(id, t.slice(0, -1));
   },
   /** A new, empty chat. The one open stays in History; an answer it is waiting for still lands there. */
   clear: () => {
@@ -343,6 +373,7 @@ export const assistantStore = {
   /** Deletes a saved chat; deleting the open one starts a new one. */
   remove: (id: string) => {
     chats = chats.filter((c) => c.id !== id);
+    fresh.delete(id);
     writeDraft(id, '');
     if (id === current) {
       current = newId();
@@ -378,7 +409,11 @@ export const assistantStore = {
 export const ASSISTANT_RESET = 'logbook:assistant-reset';
 if (typeof window !== 'undefined') window.addEventListener(ASSISTANT_RESET, () => assistantStore.reset());
 
-export const useAssistantTurns = () => useSyncExternalStore(assistantStore.subscribe, assistantStore.get, assistantStore.get);
+/** The open chat's turns, or a given chat's (a pane's own). */
+export const useAssistantTurns = (chatId?: string) => {
+  const get = chatId ? () => assistantStore.turnsFor(chatId) : assistantStore.get;
+  return useSyncExternalStore(assistantStore.subscribe, get, get);
+};
 export const useAssistantBusy = () => useSyncExternalStore(assistantStore.subscribe, assistantStore.busySince, assistantStore.busySince);
 export const useAssistantLive = () => useSyncExternalStore(assistantStore.subscribe, assistantStore.live, assistantStore.live);
 export const useAssistantChats = () => useSyncExternalStore(assistantStore.subscribe, assistantStore.chats, assistantStore.chats);

@@ -20,6 +20,7 @@ import { useToast } from '@/ui/Toast';
 import { resetSeenToday, useFirstToday } from '@/ui/useFirstToday';
 import { WeekRing, type WeekDayStatus } from '@/ui/WeekRing';
 import { GhostBars, GhostRows } from '@/ui/Ghost';
+import { AssistantPane } from '@/features/assistant/AssistantPane';
 import { PagerLab } from './PagerLab';
 import './gallery.css';
 
@@ -751,6 +752,20 @@ function Gallery({ onLab }: { onLab: () => void }) {
             </Button>
             <Button variant="soft" className="gal-sheet-sticky" onClick={() => sheet.open({ title: 'Draft', sticky: true, body: <p className="ink2">Sticky: a scrim tap does not close it. Close, Escape, Back or a flick does.</p> })}>
               Sticky
+            </Button>
+            {/* the assistant pane with a chat of its own (layout plan C-1), the way the plan summary hosts it */}
+            <Button
+              variant="soft"
+              className="gal-sheet-pane"
+              onClick={() =>
+                sheet.open({
+                  title: 'Your plan',
+                  detent: 'large',
+                  body: <AssistantPane chat="new" date={today()} screen={{ tab: 'plan', plan: 'gallery' }} placeholder="Describe what to change" lead={<p className="ink2 gal-pane-lead">The host&rsquo;s content (the plan summary) scrolls above the thread.</p>} onApplied={() => galLog('pane-applied')} />,
+                })
+              }
+            >
+              Assistant pane
             </Button>
           </div>
         </div>

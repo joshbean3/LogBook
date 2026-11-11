@@ -86,11 +86,12 @@ const settle = async (chat: string, read: (watch: Watch) => Promise<AssistantRep
  * (assistantStore.live). One ask at a time; the answer lands in the chat that asked, even when the owner has opened
  * another or started a new one.
  */
-export const runAsk = async (ask: Ask, date: ISODate, screen: AssistantScreen | undefined, now = Date.now, stop?: Stop) => {
+export const runAsk = async (ask: Ask, date: ISODate, screen: AssistantScreen | undefined, now = Date.now, stop?: Stop, chatId?: string) => {
   if (assistantStore.busySince() !== null) return;
-  const chat = assistantStore.currentId();
+  // the open chat, or a pane's own (AssistantPane): the answer lands in the chat that asked
+  const chat = chatId ?? assistantStore.currentId();
   assistantStore.setBusy(now(), chat);
-  await settle(chat, (watch) => ask(date, requestTurns(assistantStore.get(), assistantStore.filesOf), screen, watch), stop);
+  await settle(chat, (watch) => ask(date, requestTurns(assistantStore.turnsFor(chat), assistantStore.filesOf), screen, watch), stop);
 };
 
 /**
@@ -118,26 +119,27 @@ export const stopAsk = async (stop: Stop) => {
 };
 
 /** Retry: the failed turn comes off and the same conversation goes again. */
-export const retryAsk = (ask: Ask, date: ISODate, screen: AssistantScreen | undefined, stop?: Stop) => {
-  assistantStore.dropError();
-  return runAsk(ask, date, screen, Date.now, stop);
+export const retryAsk = (ask: Ask, date: ISODate, screen: AssistantScreen | undefined, stop?: Stop, chatId?: string) => {
+  assistantStore.dropError(chatId);
+  return runAsk(ask, date, screen, Date.now, stop, chatId);
 };
 
 /** Regenerate: the last answer comes off and the same question goes again. */
-export const regenerate = (ask: Ask, date: ISODate, screen: AssistantScreen | undefined, stop?: Stop) => {
-  assistantStore.dropLastAnswer();
-  return runAsk(ask, date, screen, Date.now, stop);
+export const regenerate = (ask: Ask, date: ISODate, screen: AssistantScreen | undefined, stop?: Stop, chatId?: string) => {
+  assistantStore.dropLastAnswer(chatId);
+  return runAsk(ask, date, screen, Date.now, stop, chatId);
 };
 
-export const sendTurn = (ask: Ask, date: ISODate, screen: AssistantScreen | undefined, text: string, files: { shown: AssistantTurn['files']; data: Attachment[] }, stop?: Stop) => {
+export const sendTurn = (ask: Ask, date: ISODate, screen: AssistantScreen | undefined, text: string, files: { shown: AssistantTurn['files']; data: Attachment[] }, stop?: Stop, chatId?: string) => {
   haptics.select();
-  assistantStore.push({ role: 'user', text, ...(files.shown?.length ? { files: files.shown } : {}) }, files.data);
-  return runAsk(ask, date, screen, Date.now, stop);
+  assistantStore.push({ role: 'user', text, ...(files.shown?.length ? { files: files.shown } : {}) }, files.data, chatId);
+  return runAsk(ask, date, screen, Date.now, stop, chatId);
 };
 
 /** Edit a question already sent: everything from it on comes off, and the new words go in its place (ChatGPT's Edit). */
-export const editTurn = (ask: Ask, date: ISODate, screen: AssistantScreen | undefined, index: number, text: string, stop?: Stop) => {
-  if (assistantStore.busySince() !== null || assistantStore.get()[index]?.role !== 'user') return;
-  assistantStore.truncate(index);
-  return sendTurn(ask, date, screen, text, { shown: undefined, data: [] }, stop);
+export const editTurn = (ask: Ask, date: ISODate, screen: AssistantScreen | undefined, index: number, text: string, stop?: Stop, chatId?: string) => {
+  const chat = chatId ?? assistantStore.currentId();
+  if (assistantStore.busySince() !== null || assistantStore.turnsFor(chat)[index]?.role !== 'user') return;
+  assistantStore.truncate(index, chat);
+  return sendTurn(ask, date, screen, text, { shown: undefined, data: [] }, stop, chat);
 };

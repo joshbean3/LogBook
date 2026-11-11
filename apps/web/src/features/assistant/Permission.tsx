@@ -32,13 +32,17 @@ export const useAssistantGate = (): { gate: Gate; retry: () => void } => {
  * answers. Allow and Only what I type are stored on the server with the wording version, then the conversation opens.
  * Not now stores nothing and closes the sheet, so the step shows again next time. Nothing is sent before an answer.
  */
-export const AssistantPermission = ({ gate, retry, date, screen }: { gate: Exclude<Gate, 'open'>; retry: () => void; date: ISODate; screen?: AssistantScreen }) => {
+/**
+ * `chat`: a pane's own chat (AssistantPane), whose held question goes once answered; the open chat when absent. `inPane`:
+ * the step sits inside a host's sheet, whose header it leaves alone.
+ */
+export const AssistantPermission = ({ gate, retry, date, screen, chat, inPane }: { gate: Exclude<Gate, 'open'>; retry: () => void; date: ISODate; screen?: AssistantScreen; chat?: string; inPane?: boolean }) => {
   const sheet = useSheet();
   const save = useSaveConsent();
   const [failed, setFailed] = useState(false);
   // the header is the sheet's own here: no chat title, no History or New
   useEffect(() => {
-    sheet.update({ title: 'Assistant', action: undefined });
+    if (!inPane) sheet.update({ title: 'Assistant', action: undefined });
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const choose = async (training: boolean) => {
@@ -54,8 +58,8 @@ export const AssistantPermission = ({ gate, retry, date, screen }: { gate: Exclu
     // a question the server held back until this answer goes now
     const held = assistantStore.consentNeeded();
     assistantStore.setConsentNeeded(false);
-    const turns = assistantStore.get();
-    if (held && turns[turns.length - 1]?.role === 'user') void runAsk(askAssistant, date, screen, Date.now, stopAssistant);
+    const turns = chat ? assistantStore.turnsFor(chat) : assistantStore.get();
+    if (held && turns[turns.length - 1]?.role === 'user') void runAsk(askAssistant, date, screen, Date.now, stopAssistant, chat);
   };
 
   if (gate === 'checking')

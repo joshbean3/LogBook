@@ -53,7 +53,8 @@ export const countLine = (changes: AssistantChange[]): string => {
  * A proposal (docs/inspiration.md §3, Proposal card): the summary, then each change on its own card with its icon, its
  * words and its reason, and a Remove for leaving that one out. Apply names how many will run; after it, Undo.
  */
-export const ProposalCard = ({ p, waiting }: { p: AssistantProposal; waiting: boolean }) => {
+/** `chat`: the chat the card is in (a pane's own; the open chat when absent). `onApplied`: called once Apply has run. */
+export const ProposalCard = ({ p, waiting, chat, onApplied }: { p: AssistantProposal; waiting: boolean; chat?: string; onApplied?: () => void }) => {
   const { apply, undo, dismiss } = useAssistantActions();
   const [all, setAll] = useState(false);
   const toast = useToast();
@@ -64,13 +65,13 @@ export const ProposalCard = ({ p, waiting }: { p: AssistantProposal; waiting: bo
   const shown = all || p.changes.length <= FOLD_OVER ? p.changes : p.changes.slice(0, 6);
   const toggle = (i: number) => {
     const next = skipped.has(i) ? [...skipped].filter((x) => x !== i) : [...skipped, i];
-    assistantStore.setProposal({ ...p, skipped: next.sort((a, b) => a - b) });
+    assistantStore.setProposal({ ...p, skipped: next.sort((a, b) => a - b) }, chat);
   };
   const run = async (fn: () => Promise<AssistantProposal>, ok?: () => void) => {
     try {
       const next = await fn();
       // the server says what it skipped once applied; a dismissed one keeps what was removed here
-      assistantStore.setProposal(next.skipped || next.status !== 'dismissed' ? next : { ...next, skipped: p.skipped });
+      assistantStore.setProposal(next.skipped || next.status !== 'dismissed' ? next : { ...next, skipped: p.skipped }, chat);
       ok?.();
     } catch (e) {
       toast(proposalFailure(e));
@@ -121,7 +122,7 @@ export const ProposalCard = ({ p, waiting }: { p: AssistantProposal; waiting: bo
           <Button variant="quiet" disabled={busy} onClick={() => void run(() => dismiss.mutateAsync(p.id))}>
             Not now
           </Button>
-          <Button variant="primary" className="as-apply" disabled={busy || live === 0} aria-busy={apply.isPending} onClick={() => void run(() => apply.mutateAsync({ id: p.id, skip: p.skipped }), () => haptics.drop())}>
+          <Button variant="primary" className="as-apply" disabled={busy || live === 0} aria-busy={apply.isPending} onClick={() => void run(() => apply.mutateAsync({ id: p.id, skip: p.skipped }), () => (haptics.drop(), onApplied?.()))}>
             {apply.isPending ? 'Applying…' : live === 0 ? 'Apply' : `Apply ${changesWord(live)}`}
           </Button>
         </div>
