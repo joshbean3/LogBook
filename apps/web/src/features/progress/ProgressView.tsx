@@ -1,6 +1,6 @@
 import { monthsBetween, shiftDays } from '@logbook/shared';
 import { ChevronRight, Heart } from 'lucide-react';
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNav } from '@/app/NavController';
 import { ProgressIcon } from '@/ui/icons';
 import { HEALTH_BUILT, STRAVA_BUILT } from '@/lib/features';
@@ -10,6 +10,7 @@ import { useLog, type Log } from '../log/useLog';
 import { useMonthsFailed } from '../plan/LoadFail';
 import { splitTileUnit, tileContext } from './context';
 import { healthWord } from './healthDays';
+import { runRange } from './hero';
 import { HeroChart } from './HeroChart';
 import { MetricIcon } from './icons';
 import { HEALTH_IDS, METRICS, type MetricId } from './metrics';
@@ -38,7 +39,11 @@ export default function ProgressView() {
   const sheet = useSheet();
   const t = useAsOf(useToday());
   const [range, setRange] = useRange();
-  const start = useHistoryStart(t, range === 'All');
+  // a server that cannot say where history starts is read back month by month only when the answer matters: for the All
+  // range, and when the last 13 weeks have no run in them (someone back after months away, whose runs are further back
+  // than the page has looked)
+  const [quiet, setQuiet] = useState(false);
+  const start = useHistoryStart(t, range === 'All' || quiet);
   const liftStart = useLiftStart();
   const startReady = start.ready && liftStart.ready;
   // All reaches back to whichever began first, running or lifting, so both charts read the same months
@@ -48,6 +53,8 @@ export default function ProgressView() {
   const span = useMemo(() => rangeSpan(range, t, earliest), [range, t, earliest]);
   const months = useMemo(() => [...new Set([...monthsBetween(shiftDays(t, -150), span.to), ...(range === 'All' && !startReady ? [] : spanMonths(span))])].sort(), [t, span, range, startReady]);
   const log = useLog(months);
+  const quietNow = useMemo(() => !runRange(log.snap, t, '3M', null, (m) => log.snap.loaded(m)).buckets.some((b) => b.missing || b.planned > 0 || b.done > 0), [log.snap, t]);
+  useEffect(() => setQuiet(quietNow), [quietNow]);
   const fail = useMonthsFailed(months);
   const anyLoaded = months.some((m) => log.snap.loaded(m));
 

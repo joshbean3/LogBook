@@ -152,12 +152,17 @@ export const HeroChart = ({ log, t, range, onRange, first, liftFirst = null, fir
   const recentGaps = recentRun.buckets.some((b) => b.missing);
   const runBefore = recentRun.buckets.some((b) => !b.current && (b.planned > 0 || b.done > 0)) || (!!first && first < recentRun.span.from);
   const liftBefore = recentLift.buckets.some((b) => !b.current && (b.planned > 0 || b.done > 0)) || (!!liftFirst && liftFirst < recentLift.span.from);
-  const before = mode === 'run' ? runBefore : liftBefore;
+  // the chosen range, and this week by day
+  const chosen = useMemo<View>(() => (mode === 'run' ? { mode, ...runRange(snap, t, range, first, loaded) } : { mode, ...liftRange(snap, t, range, liftStart, loaded) }), [mode, snap, t, range, first, liftStart, loaded]);
+  const days = useMemo<View>(() => (mode === 'run' ? { mode, ...runRange(snap, t, '1W', first, loaded) } : { mode, ...liftRange(snap, t, '1W', liftStart, loaded) }), [mode, snap, t, first, liftStart, loaded]);
+  // anything before this week: in the last 13 weeks, by where history starts, or in the chosen range itself (a long range
+  // can reach runs the other two do not know of: back after months away, on a server that cannot say where history starts)
+  const monday = mondayOf(t);
+  const before = (mode === 'run' ? runBefore : liftBefore) || chosen.buckets.some((b) => b.to < monday && !b.missing && (b.planned > 0 || b.done > 0));
   // a range to choose needs a week before this one with something in it; until then this week draws by day
   const firstWeek = !recentGaps && !before;
   const shownRange: ProgressRange = firstWeek ? '1W' : range;
-
-  const fresh = useMemo<View>(() => (mode === 'run' ? { mode, ...runRange(snap, t, shownRange, first, loaded) } : { mode, ...liftRange(snap, t, shownRange, liftStart, loaded) }), [mode, snap, t, shownRange, first, liftStart, loaded]);
+  const fresh = firstWeek ? days : chosen;
   // a range whose months are still on their way keeps the last whole chart on screen (never a chart of gaps that fill in
   // one by one); a month that could not be read shows as a gap with Try again
   const lastWhole = useRef<View | null>(null);
@@ -199,9 +204,8 @@ export const HeroChart = ({ log, t, range, onRange, first, liftFirst = null, fir
   const rangeRow = <RangeControl className="ph-range" value={range} options={PROGRESS_RANGES} words={RANGE_WORDS} onChange={changeRange} label="Range" />;
 
   // ---------- nothing planned and nothing done, ever (in the loaded months): the screen's empty state ----------
-  const runAny = runBefore || week.planned > 0 || week.done > 0 || (view.mode === 'run' && view.buckets.some((p) => p.done > 0 || p.planned > 0));
-  const liftAny = liftBefore || recentLift.buckets.some((p) => p.done > 0 || p.planned > 0) || (view.mode === 'lift' && view.buckets.some((p) => p.done > 0 || p.planned > 0));
-  if (!recentGaps && !(mode === 'run' ? runAny : liftAny)) {
+  const any = before || (mode === 'run' ? week.planned > 0 || week.done > 0 : liftWeek.planned > 0 || liftWeek.done > 0) || view.buckets.some((p) => p.done > 0 || p.planned > 0);
+  if (!recentGaps && !any) {
     const strava = STRAVA_BUILT && !!onConnect;
     return (
       <section className="card is-hero has-glow ph" aria-label={title}>
