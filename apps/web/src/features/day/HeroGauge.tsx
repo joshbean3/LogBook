@@ -2,7 +2,7 @@ import { mondayOf, weekSummary, type ISODate } from '@logbook/shared';
 import { ChevronRight } from 'lucide-react';
 import { motion, useReducedMotion } from 'motion/react';
 import type * as React from 'react';
-import { useMemo } from 'react';
+import { useLayoutEffect, useMemo, useRef } from 'react';
 import { springs } from '@/lib/motion';
 import { useNowMark, usePageShown } from '@/ui/nowBudget';
 import { Pressable } from '@/ui/Pressable';
@@ -53,6 +53,53 @@ export const weekGauge = (log: Log, date: ISODate) => {
 /** The gauge draws (and so its pointer shows) when the week has a plan or any miles. */
 export const gaugeShown = (g: ReturnType<typeof weekGauge>) => g.planned > 0 || g.done > 0;
 
+/** The track's inner radius in the dial's units: the track is 16 wide on the circle of radius R. */
+const INNER = R - 8;
+/** How far (px) the readout must stay inside the track's inner edge (guide 6.5). */
+const CLEAR = 8;
+
+/**
+ * One line or two for the readout (layout plan 2.1 T12): the pill is measured against the bowl, at its lower corner arcs,
+ * the points nearest the track. One line when they clear the inner edge by 8 px; else `.is-two`. Runs on mount, when the words
+ * change, when the card resizes (the window, the text size) and once the fonts are in.
+ */
+const useReadoutFit = (dialRef: React.RefObject<SVGSVGElement | null>, key: string) => {
+  const ref = useRef<HTMLElement | null>(null);
+  useLayoutEffect(() => {
+    const pill = ref.current;
+    const dial = dialRef.current;
+    if (!pill || !dial) return;
+    const clears = () => {
+      const d = dial.getBoundingClientRect();
+      const p = pill.getBoundingClientRect();
+      if (!d.width || !p.width) return true;
+      const k = d.width / 300;
+      // the pill's farthest points from the circle's center are on its lower corner arcs: each arc's center, in the dial's
+      // units, plus its radius
+      const r = Math.min(parseFloat(getComputedStyle(pill).borderBottomLeftRadius) || 0, p.height / 2, p.width / 2);
+      const dx = Math.max(Math.abs(p.left + r - (d.left + CX * k)), Math.abs(p.right - r - (d.left + CX * k))) / k;
+      const dy = Math.max(0, (p.bottom - r - d.top) / k - CY);
+      return Math.hypot(dx, dy) + r / k <= INNER - CLEAR / k;
+    };
+    const fit = () => {
+      pill.classList.remove('is-two');
+      if (!clears()) pill.classList.add('is-two');
+    };
+    fit();
+    // the dial follows the card's width; the words above the pill (a long name stepping down, larger text) move it
+    const ro = new ResizeObserver(() => fit());
+    ro.observe(dial);
+    if (pill.parentElement) ro.observe(pill.parentElement);
+    let gone = false;
+    void document.fonts?.ready.then(() => !gone && fit());
+    return () => {
+      gone = true;
+      ro.disconnect();
+    };
+  }, [dialRef, key]);
+  return ref;
+};
+
 export const HeroGauge = ({ date, log, children }: { date: ISODate; log: Log; children: React.ReactNode }) => {
   const reduce = useReducedMotion();
   // the fill sweeps, the pointer settles and the ticks draw in on the first view of the day only (guide 6.5)
@@ -70,19 +117,21 @@ export const HeroGauge = ({ date, log, children }: { date: ISODate; log: Log; ch
   // the week to one decimal, as everywhere else ("7.1 of 40.5", never "7.12"; today-top-18)
   const tenth = (v: number) => milesText(Math.round(v * 10) / 10);
   /*
-   * The readout prints the gauge's value, the week's miles ("4.2 of 23 mi"), and VoiceOver hears the week in full with its
-   * runs. The runs are not printed: at Inter 17 the guide's "4.2 of 23 mi · 1 of 4 runs" is 200 to 230 px wide, and no pill
-   * that wide clears the track's inner edge by 8 px anywhere in this bowl (6.5). 320 already dropped them; the week strip
-   * shows each run's day, and the pill opens the week with every run in it.
+   * The readout prints the week (layout plan 2.1 T12, guide 6.5): "4.2 of 23 mi · 1 of 4 runs" on one line wherever that
+   * pill clears the track's inner edge by 8 px. Where it does not (the everyday state at 320, a long name pushing the words
+   * down, large text), the same pill takes two lines: the miles, then the runs in Dusk. The runs are never dropped.
+   * `useReadoutFit` measures it against the bowl. VoiceOver hears the whole week either way.
    */
   const week = g.planned > 0 ? `${tenth(g.done)} of ${tenth(g.planned)} mi` : `${tenth(g.done)} mi`;
   const weekSaid = g.planned > 0 ? `${tenth(g.done)} of ${tenth(g.planned)} miles this week` : `${tenth(g.done)} miles this week`;
   const runs = g.runsPlanned > 0 ? `${g.runsDone} of ${g.runsPlanned} runs` : null;
+  const dialRef = useRef<SVGSVGElement>(null);
+  const pillRef = useReadoutFit(dialRef, `${week}|${runs ?? ''}`);
   return (
     <div className={`hg ${show ? '' : 'is-empty'} ${still ? '' : 'is-first'}`}>
       {show ? (
         <>
-          <svg className="hg-dial" viewBox="0 0 300 200" aria-hidden="true">
+          <svg ref={dialRef} className="hg-dial" viewBox="0 0 300 200" aria-hidden="true">
             <path d={arc(1)} className="hg-track" />
             {ticks.map((k, i) => {
               const a = FROM - SWEEP * k.t;
@@ -121,6 +170,7 @@ export const HeroGauge = ({ date, log, children }: { date: ISODate; log: Log; ch
         {children}
         {show ? (
           <Pressable
+            ref={pillRef}
             className="hero-week"
             press="dim"
             label={`${weekSaid}${runs ? `, ${runs}` : ''}. Open the week`}
@@ -129,7 +179,15 @@ export const HeroGauge = ({ date, log, children }: { date: ISODate; log: Log; ch
               openWeek(g.mon);
             }}
           >
-            {week}
+            <span className="hw-text">
+              <span className="hw-mi">{week}</span>
+              {runs ? (
+                <>
+                  <span className="hw-dot"> · </span>
+                  <span className="hw-runs">{runs}</span>
+                </>
+              ) : null}
+            </span>
             <ChevronRight size={15} aria-hidden="true" />
           </Pressable>
         ) : null}

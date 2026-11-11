@@ -134,7 +134,8 @@ const NudgeSlot = ({ date, onMorning }: { date: ISODate; onMorning: (date: ISODa
 
 /**
  * Just after midnight, yesterday is still the day you mean to close (today-top-31): until 3 AM, if yesterday has no entry,
- * one line on Today opens yesterday's composer in a sheet. The date logic is untouched: Today is still the new day.
+ * one quiet row opens yesterday's composer in a sheet. It sits with yesterday's other business inside Plan your day (layout
+ * plan 2.1 T4), never above the hero. The date logic is untouched: Today is still the new day.
  */
 const LATE_UNTIL = 3 * 60;
 const CloseYesterday = ({ log }: { log: Log }) => {
@@ -150,8 +151,9 @@ const CloseYesterday = ({ log }: { log: Log }) => {
       body: <Composer date={yesterday} today={log.today} rows={3} placeholder="How did yesterday go?" autoFocus label="Yesterday's entry" onSaved={() => sheet.close()} />,
     });
   return (
-    <Pressable className="nudge close-yesterday" press="dim" label="Close yesterday. Write yesterday's entry" onPress={open}>
-      Close yesterday <ChevronRight size={14} aria-hidden="true" />
+    <Pressable className="pd-yrow pd-close-y" press="surface" label="Close yesterday. Write yesterday's entry" onPress={open}>
+      <span className="pd-yrow-text">Close yesterday</span>
+      <ChevronRight size={18} aria-hidden="true" />
     </Pressable>
   );
 };
@@ -255,12 +257,11 @@ const DayContent = memo(function DayContent({ date, onMorning }: { date: ISODate
     <div className="day-page" data-day={date}>
       {loaded ? <StatusChip date={date} today={today} onPlan={openPlan} /> : null}
       {loaded ? <HeldNote date={date} log={log} /> : null}
-      {loaded && isToday ? <CloseYesterday log={log} /> : null}
       {/* the day's training is the page's centrepiece: first, above the habits (HeroGauge carries the week's miles) */}
       {!loaded ? <HeroSkeleton /> : bare ? <FirstRunSlot date={date} log={log} /> : <Hero date={date} log={log} />}
       <LiveExtras date={date} loaded={loaded} />
       {loaded ? <HabitsTop date={date} log={log} /> : <section className="habits day-habits is-skel" aria-hidden="true" />}
-      {loaded ? <PlanDay date={date} today={today} /> : null}
+      {loaded ? <PlanDay date={date} today={today} yesterday={isToday ? <CloseYesterday log={log} /> : null} /> : null}
       {STRAVA_BUILT && loaded && isToday && !bare && primer.show ? (
         <div className="strava-primer">
           <StravaPrimer onLater={primer.later} />

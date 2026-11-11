@@ -1,11 +1,11 @@
 import { TRAINING_STATUS_INFO, TRAINING_STATUS_KINDS, fmtDate, mondayOf, shiftDays, STATUS_LENGTHS, statusOn, untilFor, type TrainingStatus, type TrainingStatusKind, type ISODate, type PlanBlock } from '@logbook/shared';
-import { Bandage, CalendarDays, Check, ChevronDown, ChevronRight, Footprints, Moon, Plane, Thermometer, TrendingDown } from 'lucide-react';
+import { Check } from 'lucide-react';
 import type * as React from 'react';
-import { useState } from 'react';
+import { useLayoutEffect, useRef, useState } from 'react';
 import { useNav } from '@/app/NavController';
 import { useBootstrap, useSetStatus } from '@/api/queries';
 import { haptics } from '@/lib/haptics';
-import { Button } from '@/ui/primitives';
+import { Button, StatusPill } from '@/ui/primitives';
 import { Pressable } from '@/ui/Pressable';
 import { useSheet } from '@/ui/Sheet';
 import { useToast } from '@/ui/Toast';
@@ -80,8 +80,6 @@ const StatusSheet = ({ current, today }: { current: TrainingStatus | null; today
   );
 };
 
-const KIND_ICON: Record<TrainingStatusKind, typeof Footprints> = { training: Footprints, taper: TrendingDown, rest: Moon, sick: Thermometer, injured: Bandage, travel: Plane };
-
 /** A plan's name without the length the template appends ("Half marathon · 12 weeks" is "Half marathon"): the goal. */
 export const goalName = (name: string) => name.replace(/\s*·\s*\d+\s*weeks?$/i, '').trim() || name;
 
@@ -111,9 +109,46 @@ export const blockWords = (blocks: PlanBlock[], date: ISODate) => {
   return { title, sub: `Week ${Math.min(total, Math.floor(days(m, date) / 7) + 1)} of ${total}` };
 };
 
+/** Pill 1's words (layout plan 2.1 T1): the kind, and its end after a dot ("Sick · until Tue"); training says how. */
+export const statusWords = (kind: TrainingStatusKind, until: ISODate | null | undefined, today: ISODate, planned: boolean): { head: string; end: string; dot: 'sky' | 'pencil' } => {
+  if (kind === 'training') return { head: planned ? 'On the plan' : 'Day by day', end: '', dot: 'sky' };
+  const u = until ? untilWords(until, today) : '';
+  return { head: TRAINING_STATUS_INFO[kind].label, end: u === 'today' ? 'today only' : u, dot: kind === 'taper' ? 'sky' : 'pencil' };
+};
+
 /**
- * The context row under Today's title (docs/shape-system.md §3, context chips): how you are training and until when (a tap
- * opens the status sheet), and the block this day belongs to (a tap opens Plan).
+ * Fit by measure (layout plan 2.1 T1): the row never wraps and never cuts a word. When a label would be cut, pill 1 drops its
+ * end and shows the kind alone ("Injured"); the end stays in its VoiceOver label and in the status sheet. Measured on mount,
+ * whenever the row resizes, and when the words change.
+ */
+const useFit = (key: string) => {
+  const ref = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    const row = ref.current;
+    if (!row) return;
+    const fit = () => {
+      delete row.dataset.short;
+      const cut = [...row.querySelectorAll<HTMLElement>('.status-pill-label')].some((l) => l.scrollWidth > l.clientWidth + 0.5);
+      if (cut) row.dataset.short = '';
+    };
+    fit();
+    const ro = new ResizeObserver(() => fit());
+    ro.observe(row);
+    // Inter may arrive after the first paint (web): measure again once it has
+    let gone = false;
+    void document.fonts?.ready.then(() => !gone && fit());
+    return () => {
+      gone = true;
+      ro.disconnect();
+    };
+  }, [key]);
+  return ref;
+};
+
+/**
+ * The status row under Today's title (layout plan 2.1 T1, guide 6.13): two glass pills on the ground, 12 apart. Pill 1 is how
+ * you are training and until when (a tap opens the status sheet); pill 2 is the plan's phase alone (a tap opens Plan; the
+ * plan's name is in its VoiceOver label and on Plan). With no plan now or ahead, pill 2 offers to make one.
  */
 export const StatusChip = ({ date, today, onPlan }: { date: ISODate; today: ISODate; onPlan?: () => void }): React.JSX.Element => {
   const boot = useBootstrap();
@@ -122,43 +157,29 @@ export const StatusChip = ({ date, today, onPlan }: { date: ISODate; today: ISOD
   const s = boot.data?.user.status ?? null;
   const kind = statusOn(s, date);
   const blk = blockWords(boot.data?.blocks ?? [], date);
-  // with no plan, training is not "on the plan" (today-top-12)
-  const sub = kind === 'training' ? (blk ? 'On the plan' : 'Day by day') : s?.until ? untilWords(s.until, today).replace(/^until /, 'Until ').replace(/^today$/, 'Today only') : 'Until changed';
-  const Icon = KIND_ICON[kind];
+  const w = statusWords(kind, s?.until, today, !!blk);
+  const said = kind === 'training' ? w.head : `${TRAINING_STATUS_INFO[kind].label}, ${w.end || 'until changed'}`;
+  const ref = useFit(`${w.head}|${w.end}|${blk?.sub ?? ''}|${onPlan ? 1 : 0}`);
   return (
-    <div className="ctx-row st-row">
-      <Pressable className={`ctx-chip st-chip st-chip-${kind}`} press="scale" onPress={() => sheet.open({ eyebrow: 'Status', title: 'How are you training?', body: <StatusSheet current={s} today={today} /> })} label={`Status: ${TRAINING_STATUS_INFO[kind].label}, ${sub}. Change`}>
-        <span className="ctx-ic" aria-hidden="true">
-          <Icon size={17} />
-        </span>
-        <span className="ctx-text">
-          <span className="ctx-title">{TRAINING_STATUS_INFO[kind].label}</span>
-          <span className="ctx-sub">{sub}</span>
-        </span>
-        <ChevronDown size={15} aria-hidden="true" />
-      </Pressable>
+    <div className="status-row" ref={ref}>
+      <StatusPill
+        className={`st-pill st-pill-${kind}`}
+        dot={w.dot}
+        chevron="down"
+        label={
+          <>
+            {w.head}
+            {w.end ? <span className="st-end"> · {w.end}</span> : null}
+          </>
+        }
+        voiceLabel={`Status: ${said}. Change`}
+        onPress={() => sheet.open({ eyebrow: 'Status', title: 'How are you training?', body: <StatusSheet current={s} today={today} /> })}
+      />
       {blk ? (
-        <Pressable className="ctx-chip st-block" press="scale" onPress={() => nav.go('/plan')} label={`${blk.title}, ${blk.sub}. Open Plan`}>
-          <span className="ctx-ic" aria-hidden="true">
-            <CalendarDays size={17} />
-          </span>
-          <span className="ctx-text">
-            <span className="ctx-title">{blk.title}</span>
-            <span className="ctx-sub">{blk.sub}</span>
-          </span>
-        </Pressable>
+        <StatusPill className="st-pill st-phase" label={blk.sub} voiceLabel={`${blk.title}, ${blk.sub}. Open Plan`} onPress={() => nav.go('/plan')} />
       ) : onPlan ? (
-        // no plan now or ahead: the chip says so and opens the plan builder (today-top-12)
-        <Pressable className="ctx-chip st-block st-noplan" press="scale" onPress={onPlan} label="No plan yet. Make a plan">
-          <span className="ctx-ic" aria-hidden="true">
-            <CalendarDays size={17} />
-          </span>
-          <span className="ctx-text">
-            <span className="ctx-title">No plan yet</span>
-            <span className="ctx-sub">Make one</span>
-          </span>
-          <ChevronRight size={15} aria-hidden="true" />
-        </Pressable>
+        // no plan now or ahead: the pill offers one and opens the plan builder (today-top-12)
+        <StatusPill className="st-pill st-phase st-noplan" label="Make a plan" chevron="right" voiceLabel="No plan yet. Make a plan" onPress={onPlan} />
       ) : null}
     </div>
   );

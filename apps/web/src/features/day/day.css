@@ -4,6 +4,15 @@
 .today-root {
   min-height: 100%;
 }
+/* Today's title (owner decision, layout plan 2.1): the section size, Fraunces 650 at 26, so the hero's session name (40)
+   leads the screen and the title reads in passing. The row keeps its 44 (a target, and the horizon's baseline at 33) */
+.today-root > .nb-title {
+  font-size: clamp(26px, var(--fs-section), 30px);
+}
+.today-root > .nb-title > .nb-sl {
+  padding-top: var(--sp-2);
+  line-height: var(--lh-section);
+}
 
 /* one day: the sections in order, quiet never absent; the bottom padding lives inside the cur page (§3.1) */
 .day-page {
@@ -131,30 +140,6 @@
   position: absolute;
   inset: 0;
   overflow: hidden;
-}
-.hero-eyebrow-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  min-height: var(--lh-caps);
-  min-width: 0;
-}
-.hero-eyebrow,
-.hero-aside {
-  /* caption style (guide 4.3): Inter Tight 600 caps, the one caps tracking, Dusk */
-  font: 600 var(--fs-caps) / var(--lh-caps) var(--stamp);
-  letter-spacing: var(--tr-caps);
-  color: var(--ink-2);
-  white-space: nowrap;
-}
-.hero-eyebrow {
-  flex: none;
-}
-.hero-aside {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 /* the session name (guide 4.2, 6.13): Fraunces 650 in title case, the person's words as the plan has them. One line, never
    broken mid-word (O4); a long name ellipsizes. It follows the text size up to a limit (a11y-02), never past one line */
@@ -1427,25 +1412,15 @@
   opacity: 0.5;
 }
 
-/* ---------- the context row: status and block chips (shape system §3), and the status sheet ---------- */
-.st-row .ctx-chip {
-  flex: 1 1 0;
+/* ---------- the status row (layout plan 2.1 T1, guide 6.13): two glass pills, the row's own rules in styles/layout.css ----------
+   Pill 1 is as wide as its words and gives way last; the phase pill shrinks first. When a label would be cut, the row is
+   marked short (StatusChip measures it) and pill 1 shows the kind alone */
+.status-row > .st-pill:first-child {
+  flex-shrink: 0;
+  max-width: 100%;
 }
-/* the status chip is as wide as its words; the plan's chip takes the rest, so its name shows whole (today-top-09) */
-.st-row .st-chip {
-  flex: 0 1 auto;
-}
-.st-row .st-chip:only-child {
-  flex: 1 1 0;
-}
-/* the status chip (plan 5.3, D27): the state is in its icon disc and its words. On the plan, the Deep Sky glyph; paused (ill,
-   hurt, resting, away), a Dusk glyph beside the word that says so (Pencil is 2.87 on the Haze disc, under the 3:1 a
-   meaningful mark needs: guide 3.3) */
-.st-chip-sick .ctx-ic,
-.st-chip-injured .ctx-ic,
-.st-chip-rest .ctx-ic,
-.st-chip-travel .ctx-ic {
-  color: var(--ink-2);
+.status-row[data-short] .st-end {
+  display: none;
 }
 /* the status sheet's marks: on the plan Deep Sky, tapering a Deep Sky ring, paused Pencil (each beside its words) */
 .st-dot {
@@ -1722,22 +1697,6 @@
   padding: var(--pad-hero) var(--pad-hero) var(--sp-4);
   align-items: stretch;
 }
-.hero.aura:not(.is-tall) .hero-eyebrow-row {
-  justify-content: center;
-  flex-wrap: wrap;
-  row-gap: 0;
-}
-/* centered over the dial, it may take a second line at large text rather than run off the card */
-.hero.aura:not(.is-tall) .hero-eyebrow {
-  flex: 0 1 auto;
-  white-space: normal;
-  text-align: center;
-}
-.hero.aura:not(.is-tall) .hero-aside::before {
-  content: '·';
-  margin-right: var(--sp-2);
-}
-
 /* the dial: 196 tall, and the words inside it in flow, so words that outgrow the bowl (large text) push the card taller
    instead of running under the When switch */
 .hg {
@@ -1936,6 +1895,28 @@
   flex: none;
   color: var(--deep-sky);
 }
+/* the week in words: the miles and the runs on one line; two lines where one would reach the track (HeroGauge measures) */
+.hw-text {
+  min-width: 0;
+}
+.hero-week.is-two {
+  padding-block: var(--sp-1);
+  border-radius: var(--r-tile);
+}
+.hero-week.is-two .hw-text {
+  display: grid;
+  justify-items: center;
+}
+.hero-week.is-two .hw-mi {
+  font-weight: 600;
+}
+.hero-week.is-two .hw-dot {
+  display: none;
+}
+.hero-week.is-two .hw-runs {
+  font: 500 clamp(15px, var(--fs-sub), 20px) / clamp(20px, var(--lh-sub), 26px) var(--sans);
+  color: var(--ink-2);
+}
 /* 30 drawn, 44 to touch */
 .hero-week::after {
   content: '';
@@ -1953,6 +1934,9 @@
 }
 .hero.aura:not(.is-tall) .hero-when + .hero-deck {
   margin-top: var(--sp-3);
+}
+.hero.aura:not(.is-tall) .hero-rule + .hero-deck {
+  margin-top: 0;
 }
 .hero.aura:not(.is-tall) .hero-deck:empty {
   display: none;
@@ -1976,8 +1960,12 @@
 @media (max-width: 359px) {
   .hg-in {
     margin-inline: var(--sp-6);
-    /* the bowl is 246 wide here: the words start 4 higher so the readout keeps its 8 px from the track */
-    padding-top: var(--sp-4);
+    /* the bowl is 246 wide here: the words start 12 higher and the readout sits 4 under them, so its two lines keep their
+       8 px from the track (measured: 9.4 with "Easy 6.5") */
+    padding-top: var(--sp-2);
+  }
+  .hero-week {
+    margin-top: var(--sp-1);
   }
   /* and the name takes the guide's long size (30/34) from the start: at 40 it pushed the readout onto the track */
   .hg .hero-stamp {
@@ -2004,49 +1992,37 @@
   }
 }
 
-/* ---------- when you train (WhenPill): Morning · Afternoon · No time under the dial ---------- */
-/* the segmented control (guide 6.3): a Cloud track, the Sky pill thumb with no shadow, Night Ink 650 on and Dusk 550 off */
+/* ---------- the hero's two zones (layout plan 2.1 T2): one full-bleed hairline, 16 above and below ---------- */
+.hero-rule {
+  display: block;
+  flex: none;
+  height: 1px;
+  margin: var(--sp-4) calc(-1 * var(--pad-hero));
+  border: 0;
+  background: var(--line);
+}
+/* ---------- when you train (WhenPill): Morning · Afternoon · No time, the control zone's first row ---------- */
+/* the shared segmented control (guide 6.3, Inter 15, 44 tall) across the card's inner width; its thumb's tone is the
+   wayfinding tone (SEG_TONE_WAYFINDING) */
 .hero-when {
   position: relative;
   z-index: 2;
-  display: flex;
-  justify-content: center;
-  gap: 2px;
-  align-self: center;
-  margin-top: 6px;
-  padding: 3px;
-  border-radius: var(--r-pill);
-  background: var(--cloud);
+  min-width: 0;
 }
-.hero-when-opt {
+.hero-when .seg {
+  width: 100%;
+}
+.hero-when .seg-label {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  height: 28px;
-  padding: 0 11px;
-  border: 0;
-  border-radius: var(--r-pill);
-  background: transparent;
-  /* a segmented control is chrome: it follows the text size to 130% and holds there, so three options stay on one line */
-  font: 550 clamp(12px, 0.75rem, 15.6px) / 1 var(--sans);
-  color: var(--ink-2);
-  white-space: nowrap;
-  transition:
-    background-color var(--dur-color) var(--ease-out),
-    color var(--dur-color) var(--ease-out);
+  gap: var(--sp-1);
 }
-.hero-when-opt.on {
-  background: var(--accent);
-  color: var(--accent-ink);
-  font-weight: 650;
+.hero-when .seg-btn {
+  padding-inline: var(--sp-1);
 }
-@media (max-width: 359px) {
-  .hero-when-opt {
-    padding: 0 8px;
-  }
-}
-@container card (max-width: 17rem) {
-  .hero-when-opt > svg {
+/* a narrow card: the words alone (the glyphs repeat them) */
+@container card (max-width: 21rem) {
+  .hero-when .seg-label > svg {
     display: none;
   }
 }
