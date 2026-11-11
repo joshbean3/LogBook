@@ -25,6 +25,7 @@
   touch-action: none;
   user-select: none;
   -webkit-user-select: none;
+  -webkit-touch-callout: none;
   -webkit-tap-highlight-color: transparent;
 }
 /* a short screen (an iPhone SE with Display Zoom is 568 tall): lower hills and the words higher, so the rings have their sky */
