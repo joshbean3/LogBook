@@ -12,7 +12,7 @@ import { isNative } from './native';
  * vibration API, so every meaning must also be carried visually.
  */
 
-export type HapticEvent = 'tick' | 'select' | 'toggle' | 'orb' | 'lift' | 'drop' | 'threshold' | 'success' | 'celebrate' | 'delete' | 'warning' | 'error';
+export type HapticEvent = 'tick' | 'select' | 'toggle' | 'orb' | 'lift' | 'drop' | 'threshold' | 'success' | 'celebrate' | 'delete' | 'warning' | 'error' | 'rise' | 'dawn';
 
 type Cap = typeof import('@capacitor/haptics');
 let cap: Cap | null = null;
@@ -144,7 +144,7 @@ export const haptics: Record<HapticEvent, () => void> = {
   }),
   /** The strip disc crossing a cell (a strip-origin drag), an alarm step, a reorder or Plan drag crossing a slot, a stepper step, the Progress scrub. Never a tab, a page commit or a segmented change. Throttled (SELECT_THROTTLE_MS). */
   select: fire('select', selection),
-  /** A to-do's mark, a favourite's star: only through `hapticAtPeak`, on the check's peak frame. */
+  /** A to-do's mark, a Favorite's star: only through `hapticAtPeak`, on the check's peak frame. */
   toggle: fire('toggle', () => impact('Light', 8)),
   /** A habit orb lit: only through `hapticAtPeak`, on the pop's peak frame. */
   orb: fire('orb', () => impact('Light', 8)),
@@ -167,11 +167,53 @@ export const haptics: Record<HapticEvent, () => void> = {
   warning: fire('warning', () => notify('Warning', [20, 40, 20])),
   /** Sync failed, an action blocked. */
   error: fire('error', () => notify('Error', [30, 40, 30, 40, 30])),
+  /** The opening sunrise, one light tap as each sun ring leaves the Orb: only through `playHaptics`, on the ring's first frame. */
+  rise: fire('rise', () => impact('Light', 6)),
+  /** The opening sunrise, the one fuller beat on the frame the Orb clears the horizon: only through `playHaptics`. */
+  dawn: fire('dawn', () => impact('Medium', 14)),
 };
 
 /** Fire a named event, or nothing for `undefined`/`false`: handy for an optional `haptic` prop. */
 export const fireHaptic = (e: HapticEvent | false | null | undefined) => {
   if (e) haptics[e]();
+};
+
+/**
+ * A timed phrase of haptics for a moment that plays by itself (the opening sunrise): each step fires at its time on `clock`
+ * (ms since the moment's first frame; pass a clock that starts when the animation did, so the taps stay on its frames
+ * however late that first frame was). A timer can only run when the main thread is free: a step that comes up more than
+ * its `late` allowance behind (`LATE_MS` unless it says otherwise) is dropped, never played out of time, and nothing fires
+ * while the page is hidden. Returns a cancel.
+ */
+const LATE_MS = 120;
+export interface HapticStep {
+  /** ms on the clock */
+  at: number;
+  kind: HapticEvent;
+  /** how far behind its time it may still play (ms) */
+  late?: number;
+}
+export const playHaptics = (steps: ReadonlyArray<HapticStep>, clock: () => number) => {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  let i = 0;
+  const queue = [...steps].sort((a, b) => a.at - b.at);
+  const next = () => {
+    for (; i < queue.length; i++) {
+      const step = queue[i]!;
+      const wait = step.at - clock();
+      if (wait > 4) {
+        // re-read the clock when the time comes: a timer can be late, and the clock is the truth
+        timer = setTimeout(next, wait);
+        return;
+      }
+      if (wait >= -(step.late ?? LATE_MS) && !(typeof document !== 'undefined' && document.hidden)) haptics[step.kind]();
+    }
+  };
+  next();
+  return () => {
+    i = queue.length;
+    clearTimeout(timer);
+  };
 };
 
 /**

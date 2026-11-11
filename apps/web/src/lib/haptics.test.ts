@@ -113,3 +113,87 @@ describe('hapticAtPeak', () => {
     expect(events).toEqual(['orb']);
   });
 });
+
+/** The opening sunrise's phrase (app/BrandSplash.tsx): taps on a clock, dropped when late, silent when hidden. */
+describe('playHaptics', () => {
+  beforeEach(() => vi.useFakeTimers());
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
+  });
+  const setup = async (doc: Record<string, unknown> = {}) => {
+    vi.resetModules();
+    const events: string[] = [];
+    vi.stubGlobal('navigator', {});
+    vi.stubGlobal('document', { addEventListener: () => undefined, removeEventListener: () => undefined, ...doc });
+    vi.stubGlobal('window', { dispatchEvent: (e: { detail: string }) => events.push(e.detail), addEventListener: () => undefined, removeEventListener: () => undefined });
+    vi.stubGlobal('localStorage', { getItem: () => null, setItem: () => undefined });
+    vi.stubGlobal('CustomEvent', class {
+      detail: string;
+      constructor(_t: string, o: { detail: string }) {
+        this.detail = o.detail;
+      }
+    });
+    const { playHaptics } = await import('./haptics');
+    return { events, playHaptics };
+  };
+  const steps = [
+    { at: 400, kind: 'rise' as const },
+    { at: 700, kind: 'rise' as const },
+    { at: 900, kind: 'dawn' as const },
+  ];
+
+  it('fires each step at its time on the clock it is given', async () => {
+    const { events, playHaptics } = await setup();
+    const t0 = Date.now();
+    playHaptics(steps, () => Date.now() - t0);
+    vi.advanceTimersByTime(399);
+    expect(events).toEqual([]);
+    vi.advanceTimersByTime(2);
+    expect(events).toEqual(['rise']);
+    vi.advanceTimersByTime(300);
+    expect(events).toEqual(['rise', 'rise']);
+    vi.advanceTimersByTime(200);
+    expect(events).toEqual(['rise', 'rise', 'dawn']);
+  });
+
+  it('follows the clock, not the timers: an animation that started late is felt late', async () => {
+    const { events, playHaptics } = await setup();
+    const t0 = Date.now();
+    // the first frame came 150 ms after the timers were set
+    playHaptics(steps, () => Math.max(0, Date.now() - t0 - 150));
+    vi.advanceTimersByTime(520);
+    expect(events).toEqual([]);
+    vi.advanceTimersByTime(40);
+    expect(events).toEqual(['rise']);
+  });
+
+  it('drops a step that comes up more than 120 ms late and plays the next in time', async () => {
+    const { events, playHaptics } = await setup();
+    let now = 0;
+    playHaptics(steps, () => now);
+    // the main thread was busy from 300 to 650: the 400 ms tap is 250 ms late when the timer runs
+    now = 650;
+    vi.advanceTimersByTime(400);
+    expect(events).toEqual([]);
+    now = 700;
+    vi.advanceTimersByTime(50);
+    expect(events).toEqual(['rise']);
+  });
+
+  it('is silent while the page is hidden, and after it is cancelled', async () => {
+    const hidden = await setup({ hidden: true });
+    const t0 = Date.now();
+    hidden.playHaptics(steps, () => Date.now() - t0);
+    vi.advanceTimersByTime(1000);
+    expect(hidden.events).toEqual([]);
+
+    const shown = await setup();
+    const t1 = Date.now();
+    const cancel = shown.playHaptics(steps, () => Date.now() - t1);
+    vi.advanceTimersByTime(450);
+    cancel();
+    vi.advanceTimersByTime(1000);
+    expect(shown.events).toEqual(['rise']);
+  });
+});
