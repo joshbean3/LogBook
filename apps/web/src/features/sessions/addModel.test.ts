@@ -1,6 +1,6 @@
 import type { Session } from '@logbook/shared';
 import { describe, expect, it } from 'vitest';
-import { addedWords, buildSession, dayWords, defaultDay, liftChoices, milesFor, minutesFor, retryOf, type AddHistory } from './addModel';
+import { addedWords, buildSession, dayWords, defaultDay, liftChoices, milesFor, minutesFor, retryOf, sayName, type AddHistory } from './addModel';
 
 // Wednesday, November 11, 2026: the week is Nov 9 to 15
 const TODAY = '2026-11-11';
@@ -137,7 +137,11 @@ describe('the words', () => {
     expect(dayWords('2026-11-12', TODAY)).toBe('tomorrow');
     expect(dayWords('2026-11-10', TODAY)).toBe('yesterday');
     expect(dayWords('2026-11-14', TODAY)).toBe('Saturday');
-    expect(dayWords('2026-11-05', TODAY)).toBe('Thursday');
+    expect(dayWords('2026-11-17', TODAY)).toBe('Tuesday');
+    // earlier this week: the weekday; before this week's Monday the date, since "Saturday" on a Wednesday is the one coming
+    expect(dayWords('2026-11-09', TODAY)).toBe('Monday');
+    expect(dayWords('2026-11-07', TODAY)).toBe('Sat, Nov 7');
+    expect(dayWords('2026-11-05', TODAY)).toBe('Thu, Nov 5');
     expect(dayWords('2026-11-20', TODAY)).toBe('Fri, Nov 20');
     expect(dayWords('2026-11-02', TODAY)).toBe('Mon, Nov 2');
   });
@@ -146,6 +150,14 @@ describe('the words', () => {
     expect(addedWords(buildSession('p', '2026-11-09', TODAY, { kind: 'run', type: 'Long', miles: 8.5, minutes: null }), TODAY)).toBe('Long 8.5 added to Monday as done');
     expect(addedWords(buildSession('p', TODAY, TODAY, { kind: 'lift', choice: null, name: 'Strength A' }), TODAY)).toBe('Strength A added to today');
     expect(addedWords(buildSession('p', TODAY, TODAY, { kind: 'lift', choice: null, name: 'A very long name for a lift session indeed' }), TODAY)).toBe('Session added to today');
+    expect(addedWords(buildSession('p', '2026-11-07', TODAY, { kind: 'run', type: 'Easy', miles: 5, minutes: null }), TODAY)).toBe('Easy 5 added to Sat, Nov 7 as done');
+  });
+  it('a run by minutes says them, in the toast and when it is refused', () => {
+    const s = buildSession('p', '2026-11-14', TODAY, { kind: 'run', type: 'Long', miles: null, minutes: 65 });
+    expect(addedWords(s, TODAY)).toBe('Long 65 min added to Saturday');
+    expect(sayName(s)).toBe('Long 65 min');
+    expect(sayName(buildSession('p', TODAY, TODAY, { kind: 'run', type: 'Easy', miles: 4, minutes: null }))).toBe('Easy 4');
+    expect(sayName(buildSession('p', TODAY, TODAY, { kind: 'lift', choice: null, name: 'Core' }))).toBe('Core');
   });
 });
 

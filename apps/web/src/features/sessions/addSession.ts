@@ -1,11 +1,11 @@
-import { label, type Session } from '@logbook/shared';
+import type { Session } from '@logbook/shared';
 import { useQueryClient } from '@tanstack/react-query';
 import { newSessionId, useSessionMutations } from '@/api/queries';
 import type { MonthBundle } from '@/api/types';
 import { haptics } from '@/lib/haptics';
 import { useToast } from '@/ui/Toast';
 import { beforeWeekChange, markArriving } from '../plan/weekLive';
-import { addedWords, retryOf } from './addModel';
+import { addedWords, retryOf, sayName } from './addModel';
 
 /*
  * Adding a session, for the Add sheet and the full editor alike (AddSessionSheet.tsx, SessionEditor.tsx): when the write may
@@ -60,7 +60,7 @@ export const useAddSession = () => {
       () => {
         if (undone) return;
         haptics.error();
-        const name = label(s);
+        const name = sayName(s);
         toast(`Couldn’t add ${name.length > 24 ? 'that' : name}.`, { label: 'Try again', fn: () => commit(retryOf(s, newSessionId()), today) });
       },
     );

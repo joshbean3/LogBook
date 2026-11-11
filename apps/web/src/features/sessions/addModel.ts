@@ -153,16 +153,26 @@ export const buildSession = (id: string, date: string, today: string, d: AddDraf
  */
 export const retryOf = (s: Session, id: string): Session => ({ ...s, id });
 
-/** A day in a sentence: today, tomorrow, yesterday, the weekday inside a week of today, else "Fri, Nov 27". */
+/**
+ * A day in a sentence: today, tomorrow, yesterday; the weekday for the rest of this week and the six days ahead; else
+ * "Sat, Nov 7". A day before this week's Monday takes its date: "Saturday" said on a Wednesday reads as the one coming.
+ */
 export const dayWords = (date: string, today: string): string => {
   if (date === today) return 'today';
   if (date === shiftDays(today, 1)) return 'tomorrow';
   if (date === shiftDays(today, -1)) return 'yesterday';
-  return date > shiftDays(today, -7) && date < shiftDays(today, 7) ? fmtDate('dowLong', date) : fmtDate('short', date);
+  const near = date < today ? date >= mondayOf(today) : date < shiftDays(today, 7);
+  return near ? fmtDate('dowLong', date) : fmtDate('short', date);
+};
+
+/** A session as the toasts name it: its label, and a run by minutes says them ("Long 65 min"; its label has no miles). */
+export const sayName = (s: Session): string => {
+  const name = label(s);
+  return s.kind === 'run' && !s.miles && s.minutes ? `${name} ${s.minutes} min` : name;
 };
 
 /** The toast: "Easy 4 added to Friday", "Strength A added to yesterday as done". A long name gives way to "Session". */
 export const addedWords = (s: Session, today: string): string => {
-  const name = label(s);
+  const name = sayName(s);
   return `${name.length > 24 ? 'Session' : name} added to ${dayWords(s.date, today)}${s.mark === 'done' ? ' as done' : ''}`;
 };
