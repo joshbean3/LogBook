@@ -229,6 +229,7 @@
 .pl-sub {
   overflow: hidden;
   font: 500 var(--fs-sub) / var(--lh-sub) var(--sans);
+  font-variant-numeric: tabular-nums;
   color: var(--ink-2);
   white-space: nowrap;
   text-overflow: ellipsis;

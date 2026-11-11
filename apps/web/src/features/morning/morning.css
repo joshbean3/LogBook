@@ -158,6 +158,7 @@
 /* one line at the default size; at large text it takes a second line rather than losing the time at its end */
 .sch-sub {
   font: 500 var(--fs-sub) / var(--lh-sub) var(--sans);
+  font-variant-numeric: tabular-nums;
   color: var(--ink-2);
   overflow: hidden;
   display: -webkit-box;
@@ -293,6 +294,7 @@
 }
 .late-text {
   font: 600 var(--fs-sub) / var(--lh-sub) var(--sans);
+  font-variant-numeric: tabular-nums;
   color: var(--warn-text);
   white-space: normal;
 }
@@ -326,6 +328,7 @@
 .se-chips .chip-btn,
 .rt-modes .chip-btn {
   min-width: 44px;
+  font-variant-numeric: tabular-nums;
   justify-content: center;
   z-index: 1;
 }
