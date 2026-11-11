@@ -12,13 +12,85 @@
 .group {
   border-radius: var(--r-tile);
 }
+/* ---------- the one list row (layout standard 6.2, F4) ----------
+ * 56 tall, 64 with a subtitle; content that wraps grows the row, never under 8 above and below (12 would make a subtitle
+ * row 67: the 64 wins). Leading: a 32 px Haze icon tile 16 from the edge, 12 to the words. Title Inter 17 Night Ink, its
+ * weight set per group, never per row: a group with any subtitle sets every title 600, a group of one-line rows 400;
+ * session names (`.is-head`) are always 600, the --fs-row headline role. Subtitle Inter 500 15 Dusk on one line (`.wrap`
+ * lets it take two, for rows whose subtitle is the content). Trailing: one value, tag or quiet link, then the chevron. */
 .group > .row,
 .lrow {
-  min-height: 56px;
+  min-height: var(--row-h);
+  padding-block: var(--sp-2);
 }
 .group > .row.two,
 .lrow.two {
-  min-height: 64px;
+  min-height: var(--row-h-2);
+}
+.lrow-title {
+  font-weight: 400;
+}
+:is(.group, .card, .k-rows, .k-card):has(.lrow-sub) .lrow-title,
+.lrow.two .lrow-title,
+.lrow.is-head .lrow-title {
+  font-weight: 600;
+}
+.lrow-sub.wrap,
+.lrow.wrap .lrow-sub {
+  white-space: normal;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+}
+/* the trailing value: Inter 400 17 Dusk, even figures, never cut (the title gives way first) */
+.lrow-value {
+  flex: none;
+  font: 400 var(--fs-row) / var(--lh-row) var(--sans);
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-3);
+  white-space: nowrap;
+}
+.lrow-right > .lrow-chev,
+.lrow-right > svg:last-child {
+  flex: none;
+  color: var(--ink-3);
+}
+
+/* ---------- the date-gutter row (layout standard 6.2): a 40 px day column, content 12 after it ----------
+ * DateGutter (ui/primitives.tsx): the day numeral Inter 600 17 Night Ink, even figures; the weekday Inter 500 13 Dusk 4
+ * below, sentence case. Today's numeral sits in a 32 px circle with a 1.5 px Night Ink ring (guide 6.13: a ring, never a
+ * filled disc). The same column on Plan, Journal, Learned's month and Progress's strength list. */
+.date-gutter {
+  flex: none;
+  display: grid;
+  justify-items: center;
+  align-content: center;
+  gap: var(--sp-1);
+  width: var(--gutter-date);
+  color: var(--ink);
+}
+.date-gutter-num {
+  display: grid;
+  place-items: center;
+  min-width: var(--tile-ic);
+  height: var(--tile-ic);
+  border-radius: 50%;
+  font: 600 var(--fs-row) / var(--lh-row) var(--sans);
+  font-variant-numeric: tabular-nums;
+}
+.date-gutter.is-today .date-gutter-num {
+  box-shadow: inset 0 0 0 1.5px var(--ink);
+}
+.date-gutter-dow {
+  font: 500 var(--fs-foot) / var(--lh-foot) var(--sans);
+  color: var(--ink-3);
+}
+.date-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  min-width: 0;
 }
 /* separators start where the words start, not at the card's edge */
 .group > * + * {
@@ -38,7 +110,7 @@
 /* a row that leads with an icon tile: the hairline starts where the words do, past the 32 px tile (guide 5.4, 6.4) */
 .group > :has(.icon-tile) + *::before,
 .group > * + :has(.icon-tile)::before {
-  left: calc(var(--sp-4) + 32px + var(--sp-3));
+  left: calc(var(--sp-4) + var(--tile-ic) + var(--sp-3));
 }
 
 /* a 2-column grid of tiles (Health Monitor in the references): label, big number with unit, status word */
@@ -172,8 +244,8 @@
   flex: none;
   display: grid;
   place-items: center;
-  width: 32px;
-  height: 32px;
+  width: var(--tile-ic);
+  height: var(--tile-ic);
   border-radius: var(--r-icon);
   background: var(--haze);
   color: var(--deep-sky);

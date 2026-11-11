@@ -395,11 +395,15 @@ export const onOwnControl = (e: { target: EventTarget | null; currentTarget: Eve
 };
 
 /**
- * A 44px list row. With `onClick` the whole row is the button (role, keyboard, press state); with `href` it is a link;
- * with `as="label"` a tap anywhere focuses the control it holds. Controls inside `right` keep their own tap: the row's action
- * does not fire for a tap that landed on one of them.
+ * The one list row (layout standard 6.2): 56 tall, 64 with a subtitle. With `onClick` the whole row is the button (role,
+ * keyboard, press state); with `href` it is a link; with `as="label"` a tap anywhere focuses the control it holds. Controls
+ * inside `right` keep their own tap: the row's action does not fire for a tap that landed on one of them.
+ *
+ * `left` is a 32 px icon tile (`.icon-tile`) or a `DateGutter`; `right` is one value (`<span className="lrow-value">`), a
+ * tag or a quiet link, then the chevron. The title's weight is set by its group (styles/shape.css); `head` keeps it 600
+ * for a session name; `wrap` lets the subtitle take two lines where the subtitle is the content.
  */
-export const Row = ({ left, title, sub, right, onClick, href, two, className = '', as = 'div', label, ...rest }: { left?: ReactNode; title: ReactNode; sub?: ReactNode; right?: ReactNode; onClick?: () => void; href?: string; two?: boolean; className?: string; as?: 'div' | 'li' | 'label'; label?: string } & Omit<React.HTMLAttributes<HTMLElement>, 'title' | 'onClick' | 'className'>) => {
+export const Row = ({ left, title, sub, right, onClick, href, two, head, wrap, className = '', as = 'div', label, ...rest }: { left?: ReactNode; title: ReactNode; sub?: ReactNode; right?: ReactNode; onClick?: () => void; href?: string; two?: boolean; head?: boolean; wrap?: boolean; className?: string; as?: 'div' | 'li' | 'label'; label?: string } & Omit<React.HTMLAttributes<HTMLElement>, 'title' | 'onClick' | 'className'>) => {
   const Tag = (href ? 'a' : as) as 'div';
   const Inner = as === 'label' ? 'span' : 'div';
   const tappable = !!onClick || !!href;
@@ -420,7 +424,7 @@ export const Row = ({ left, title, sub, right, onClick, href, two, className = '
     : undefined;
   const linkProps = href ? { href } : {};
   return (
-    <Tag className={`lrow ${two || sub ? 'two' : ''} ${tappable ? 'tappable' : ''} ${className}`} onClick={press} role={onClick && !href ? 'button' : undefined} tabIndex={onClick && !href ? 0 : undefined} onKeyDown={key} aria-label={label} {...linkProps} {...rest}>
+    <Tag className={`lrow ${two || sub ? 'two' : ''} ${head ? 'is-head' : ''} ${wrap ? 'wrap' : ''} ${tappable ? 'tappable' : ''} ${className}`.replace(/\s+/g, ' ').trim()} onClick={press} role={onClick && !href ? 'button' : undefined} tabIndex={onClick && !href ? 0 : undefined} onKeyDown={key} aria-label={label} {...linkProps} {...rest}>
       {left}
       <Inner className="lrow-main">
         <Inner className="lrow-title">{title}</Inner>
@@ -428,6 +432,25 @@ export const Row = ({ left, title, sub, right, onClick, href, two, className = '
       </Inner>
       {right ? <Inner className="lrow-right">{right}</Inner> : null}
     </Tag>
+  );
+};
+
+const DOW = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as const;
+
+/**
+ * The date column of a date-gutter row (layout standard 6.2): 40 px wide, the day numeral (Inter 600 17, even figures) over
+ * the weekday in sentence case (Inter 500 13 Dusk, 4 below). Today's numeral is ringed (guide 6.13). Put it as a row's
+ * `left`, or first in a `.date-row`; content starts 12 after it. It is a picture of the date: the row says the date in its
+ * own label, so the column is hidden from VoiceOver. It carries no handlers, so a dragged row can hold it.
+ */
+export const DateGutter = ({ date, today, className = '' }: { date: string; today?: boolean; className?: string }) => {
+  const [y, m, d] = date.split('-').map(Number) as [number, number, number];
+  const dow = DOW[new Date(Date.UTC(y, m - 1, d)).getUTCDay()];
+  return (
+    <span className={`date-gutter ${today ? 'is-today' : ''} ${className}`.replace(/\s+/g, ' ').trim()} aria-hidden="true">
+      <span className="date-gutter-num">{d}</span>
+      <span className="date-gutter-dow">{dow}</span>
+    </span>
   );
 };
 

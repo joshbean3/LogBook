@@ -1,4 +1,5 @@
 /*
+ * Foundation-owned (layout plan C-5): the files stay here so no import path changes; streams use these and never copy them.
  * The shape kit Goals, Learned, Journal, Library and Reads share: a section with its header, the segmented control (the
  * brand's Cloud track and Sky thumb), rows inside a card, the footnote, the sheet's trash, the sheet's section label. Built
  * from the tokens (docs/brand/brand-guide.md); shape.css holds the app-wide primitives (card, tiles, group, icon tile,
@@ -62,7 +63,9 @@
   margin: var(--sp-2) var(--pad-card) 0;
 }
 
-/* ---------- rows inside a card (an inset group): 56 tall, 64 with a sub; separators start at the words ---------- */
+/* ---------- rows inside a card (an inset group): the one row template (styles/shape.css, layout standard 6.2): 56
+   tall, 64 with a sub, the title's weight set per group, the sub Inter 500 15 Dusk on one line; separators start at the
+   words ---------- */
 .k-rows {
   list-style: none;
   margin: 0;
@@ -80,7 +83,7 @@
   align-items: center;
   gap: var(--sp-3);
   width: 100%;
-  min-height: 56px;
+  min-height: var(--row-h);
   padding: var(--sp-2) var(--sp-4);
   border: 0;
   background: transparent;
@@ -90,7 +93,7 @@
   -webkit-tap-highlight-color: transparent;
 }
 .k-row.two {
-  min-height: 64px;
+  min-height: var(--row-h-2);
 }
 .k-rows > * + *::before,
 .k-rows > * + .k-row::before {
@@ -107,7 +110,7 @@
   position: relative;
 }
 .k-rows.has-icons {
-  --k-sep: 60px;
+  --k-sep: calc(var(--sp-4) + var(--tile-ic) + var(--sp-3));
 }
 .k-row[data-pressed],
 button.k-row:active {
@@ -120,18 +123,23 @@ button.k-row:active {
   min-width: 0;
 }
 .k-row-title {
-  font: 500 var(--fs-row) / var(--lh-row) var(--sans);
+  font: 400 var(--fs-row) / var(--lh-row) var(--sans);
   color: var(--ink);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 .k-row-sub {
-  font: 400 var(--fs-foot) / var(--lh-foot) var(--sans);
+  font: 500 var(--fs-sub) / var(--lh-sub) var(--sans);
   color: var(--ink-3);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+/* a group with any subtitle sets every title 600; a group of one-line rows keeps 400 (layout standard 6.2) */
+.k-rows:has(.k-row-sub) .k-row-title,
+.k-row.two .k-row-title {
+  font-weight: 600;
 }
 .k-row-end {
   flex: none;

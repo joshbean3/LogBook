@@ -372,7 +372,8 @@
 .swipe-content {
   position: relative;
   z-index: 1;
-  background: var(--swipe-bg, var(--bg));
+  /* Paper wherever it sits (a row is a row, layout standard 6.2); a page that lays rows on its own ground sets --swipe-bg */
+  background: var(--swipe-bg, var(--surface));
 }
 .card .swipe-content,
 .group .swipe-content {
