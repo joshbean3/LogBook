@@ -1,10 +1,10 @@
 import { daysBetween, fmtDate, shiftDays, type ISODate } from '@logbook/shared';
 
-/** The range control's spans: `< 1M 3M 6M 1Y >`. */
-export type RangeKey = '1M' | '3M' | '6M' | '1Y';
-export const RANGE_KEYS: readonly RangeKey[] = ['1M', '3M', '6M', '1Y'];
-export const RANGE_DAYS: Record<RangeKey, number> = { '1M': 30, '3M': 91, '6M': 182, '1Y': 365 };
-export const RANGE_NAMES: Record<RangeKey, string> = { '1M': '1 month', '3M': '3 months', '6M': '6 months', '1Y': '1 year' };
+/** A metric page's spans (the Progress range control's labels, a subset: one control, learned once). */
+export type RangeKey = '1M' | '3M' | '6M' | '12M';
+export const RANGE_KEYS: readonly RangeKey[] = ['1M', '3M', '6M', '12M'];
+export const RANGE_DAYS: Record<RangeKey, number> = { '1M': 30, '3M': 91, '6M': 182, '12M': 365 };
+export const RANGE_NAMES: Record<RangeKey, string> = { '1M': '1 month', '3M': '3 months', '6M': '6 months', '12M': '12 months' };
 
 export interface RangeWindow {
   from: ISODate;

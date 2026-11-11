@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { buildSnapshot } from '@/api/snapshot';
 import type { MonthBundle } from '@/api/types';
 import { monotonePath } from './curve';
-import { completion, HERO_WEEKS, liftLog, liftWeeks, runWeeks, weekRate } from './hero';
+import { completion, liftLog, liftWeeks, runRange, weekRate } from './hero';
 
 const run = (date: string, miles: number): Activity => ({ id: `a-${date}`, date, time: null, name: 'Run', sportType: 'Run', kind: 'run', miles, movingSec: miles * 480, elevFt: 0, avgHr: 150, maxHr: null, cadence: null, laps: null, perfAt: null, polyline: null });
 const sess = (date: string, extra: Partial<Session> = {}): Session => ({ id: `s-${date}-${extra.kind ?? 'run'}`, date, position: 0, kind: 'run', type: 'Easy', title: null, details: null, miles: 5, minutes: null, blockId: null, movedFrom: null, mark: null, ...extra });
@@ -24,12 +24,22 @@ const snapOf = (today: string, acts: Activity[], sessions: Session[], lifts: Lif
 const T = '2026-11-11';
 
 describe('the progress hero', () => {
-  it('draws twelve weeks ending this week, planned against run', () => {
+  it('draws 13 weeks ending this week in 3M, planned against run', () => {
     const snap = snapOf(T, [run('2026-11-02', 6), run('2026-11-09', 3)], [sess('2026-11-02', { miles: 5 }), sess('2026-11-04', { miles: 5 }), sess('2026-11-09', { miles: 4 }), sess('2026-11-14', { miles: 8 })]);
-    const w = runWeeks(snap, T);
-    expect(w).toHaveLength(HERO_WEEKS);
-    expect(w[w.length - 1]).toMatchObject({ w: '2026-11-09', current: true, planned: 12, done: 3, runs: 1, plannedRuns: 2 });
-    expect(w[w.length - 2]).toMatchObject({ w: '2026-11-02', planned: 10, done: 6 });
+    const v = runRange(snap, T, '3M', null);
+    expect(v.buckets).toHaveLength(13);
+    expect(v.buckets.at(-1)).toMatchObject({ key: '2026-11-09', current: true, planned: 12, plannedPast: 4, done: 3, runs: 1, plannedRuns: 2 });
+    expect(v.buckets.at(-2)).toMatchObject({ key: '2026-11-02', planned: 10, done: 6 });
+    // 1W: the same week by day, Saturday's 8 miles still ahead (plan only)
+    const w = runRange(snap, T, '1W', null);
+    expect(w.buckets.map((b) => [b.planned, b.done])).toEqual([[4, 3], [0, 0], [0, 0], [0, 0], [0, 0], [8, 0], [0, 0]]);
+    expect(w.weeks).toHaveLength(1);
+    expect(w.weeks[0]).toMatchObject({ planned: 12, done: 3 });
+  });
+
+  it('counts a run marked done with no activity, and leaves skipped runs out of the plan', () => {
+    const snap = snapOf(T, [], [sess('2026-11-03', { miles: 5, mark: 'done' }), sess('2026-11-05', { miles: 6, mark: 'skip' })]);
+    expect(runRange(snap, T, '1M', null).buckets.at(-2)).toMatchObject({ planned: 5, done: 5, runs: 1, plannedRuns: 1 });
   });
 
   it('counts lift sessions done, planned or not, with their sets and volume', () => {

@@ -203,68 +203,74 @@
 }
 
 /* ---------- range control: < 1M 3M 6M 1Y >, round steps either side of a pale track ---------- */
-.ck-range {
-  display: flex;
-  align-items: center;
-  gap: 8px;
+/* ---------- the range control (guide 6.3, 6.8; layout standard 6.4): the app's segmented control, one segment per span,
+   44 tall. Each segment is at least 44 wide (the shell centers a 44 px hit box on it): where the row is wider than its
+   place it scrolls sideways (seven segments on a 320 pt phone) and the chosen one is scrolled into view ---------- */
+.rc {
+  min-width: 0;
 }
-.ck-range-keys {
-  flex: 1;
-  display: flex;
-  gap: 2px;
-  padding: 3px;
+.rc-scroll {
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
   border-radius: var(--r-pill);
-  background: var(--surface-2);
 }
-.ck-range-key,
-.ck-range-step {
-  appearance: none;
-  border: 0;
-  background: none;
-  position: relative;
-  color: var(--ink-2);
-  font: 600 var(--fs-foot) / var(--lh-foot) var(--sans);
+.rc-scroll::-webkit-scrollbar {
+  display: none;
+}
+.seg.rc-seg {
+  width: 100%;
+  min-width: max-content;
+  gap: 0;
+}
+.seg.rc-seg .seg-btn {
+  flex: 1 1 0;
+  min-width: 44px;
+  padding: 0 var(--sp-1);
   font-variant-numeric: tabular-nums;
 }
-.ck-range-key {
-  flex: 1 1 0;
-  height: 30px;
-  border-radius: var(--r-pill);
-}
-.ck-range-key::after,
-.ck-range-step::after {
-  content: '';
-  position: absolute;
-  inset: -7px 0;
-}
-/* the picked span: the segmented control's Sky thumb with Night Ink words a step heavier (guide 6.3) */
-.ck-range-key.on {
-  background: var(--accent);
-  color: var(--accent-ink);
-  font-weight: 650;
-}
-.ck-range-step {
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  display: grid;
-  place-items: center;
-  flex: none;
-  background: var(--surface-2);
-  color: var(--ink-2);
-}
-.ck-range-step::after {
-  inset: -4px;
-}
-.ck-range-step:disabled {
-  color: var(--ink-faint);
-  background: transparent;
-}
-.ck-range-key:focus-visible,
-.ck-range-step:focus-visible {
+.seg.rc-seg .seg-btn:focus-visible {
   outline: 1.5px solid var(--focus-edge);
-  outline-offset: 1px;
+  outline-offset: -2px;
+}
+/* above 150 percent text: one menu button, the range in words and a chevron; the system's picker lists the spans */
+.rc-menu {
+  display: none;
+  position: relative;
+  align-items: center;
+  gap: var(--sp-2);
+  justify-self: start;
+  width: max-content;
+  max-width: 100%;
+  min-height: 44px;
+  padding: 0 var(--sp-4);
+  border-radius: var(--r-pill);
+  background: var(--surface-2);
+  font: 650 var(--fs-sub) / var(--lh-sub) var(--sans);
+  color: var(--ink);
+}
+.rc-menu svg {
+  flex: none;
+  color: var(--deep-sky);
+}
+.rc-menu select {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  opacity: 0;
+  font-size: var(--fs-row);
+  appearance: none;
+}
+.rc-menu:focus-within {
+  outline: 1.5px solid var(--focus-edge);
   box-shadow: var(--focus-ring);
+}
+html[data-text-xl] .rc-scroll {
+  display: none;
+}
+html[data-text-xl] .rc-menu {
+  display: inline-flex;
 }
 
 /* ---------- trend table: a quiet header, then period, change and a soft sparkline per row ---------- */

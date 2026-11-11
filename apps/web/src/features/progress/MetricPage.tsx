@@ -5,7 +5,7 @@ import { useNav, useRouteParams } from '@/app/NavController';
 import { DISCLAIMER } from '@/lib/copy';
 import { STRAVA_BUILT } from '@/lib/features';
 import { Footnote, PageSection, PushedBar, Pressable, useSheet } from '@/ui';
-import { Gauge, maxOffset, RANGE_KEYS, RangeControl, rangeWindow, TrendChart, TrendTable, windowLabel, type RangeKey } from '@/ui/charts';
+import { Gauge, RANGE_KEYS, RANGE_NAMES, RangeControl, rangeWindow, TrendChart, TrendTable, windowLabel, type RangeKey } from '@/ui/charts';
 import { useLog } from '../log/useLog';
 import { trendTone } from './context';
 import { rangeLabel } from './data';
@@ -24,7 +24,8 @@ import './metric.css';
 const RANGE_KEY = 'logbook.metric.range';
 const readRange = (): RangeKey => {
   try {
-    const v = localStorage.getItem(RANGE_KEY);
+    // "1Y" was this span's name before it matched the Progress range control ("12M")
+    const v = localStorage.getItem(RANGE_KEY)?.replace(/^1Y$/, '12M');
     return (RANGE_KEYS as readonly string[]).includes(v ?? '') ? (v as RangeKey) : '3M';
   } catch {
     return '3M';
@@ -40,7 +41,7 @@ const saveRange = (k: RangeKey) => {
 
 const md = (d: string) => fmtDate('md', d);
 /** The chart card's title for a span that ends today: days for a month, months beyond it. */
-const SPAN_WORDS: Record<RangeKey, string> = { '1M': 'Last 30 days', '3M': 'Last 3 months', '6M': 'Last 6 months', '1Y': 'Last 12 months' };
+const SPAN_WORDS: Record<RangeKey, string> = { '1M': 'Last 30 days', '3M': 'Last 3 months', '6M': 'Last 6 months', '12M': 'Last 12 months' };
 const unitText = (u: string) => (u === '%' ? '%' : u);
 const TONE_ICON = { ok: CircleCheck, up: CircleArrowUp, down: CircleArrowDown, none: Hourglass } as const;
 
@@ -70,18 +71,16 @@ export default function MetricPage(): React.JSX.Element {
   const id: MetricId = isMetricId(params.id) ? params.id : 'mileage';
   const def = METRICS[id];
   const [range, setRangeState] = useState<RangeKey>(readRange);
-  const [offset, setOffset] = useState(0);
   // the chip the person picked; until they pick one the page opens on the variant that has something to show
   const [picked, setVariant] = useState<string | null>(null);
   const about = useRef<HTMLElement>(null);
   const setRange = (k: RangeKey) => {
     setRangeState(k);
-    setOffset(0);
     saveRange(k);
   };
   const log0 = useLog([]);
   const t = log0.today;
-  const window = rangeWindow(t, range, offset);
+  const window = rangeWindow(t, range);
   const start = useMemo(() => {
     const a = shiftDays(window.from, -(90 + 28));
     const b = shiftDays(t, -(HISTORY_DAYS + 28));
@@ -102,8 +101,6 @@ export default function MetricPage(): React.JSX.Element {
   const band = bandWords(m);
   const tone = trendTone(m);
   const ToneIcon = TONE_ICON[tone];
-  // `<` stops at the span that holds your first day of data
-  const canPrev = m.hasData && offset < maxOffset(t, range, m.since);
   const labels = m.dates.map((d) => md(d));
   const fmtVal = (x: number | null) => (x == null ? '–' : v.format(x));
   const when = valueDateWords(m, t);
@@ -111,7 +108,7 @@ export default function MetricPage(): React.JSX.Element {
   const name = id === 'hrv' ? 'HRV' : id === 'rhr' ? 'resting HR' : def.name.toLowerCase();
   // a share (consistency) reads best on the gauge; everything else is one big number
   const gauge = v.unit === '%';
-  const spanWords = offset === 0 ? SPAN_WORDS[range] : windowLabel(window, t);
+  const spanWords = SPAN_WORDS[range];
   const third = v.agg === 'sum' ? (m.hasData ? `${v.format(m.total)} ${unitText(v.unit)} in all` : null) : m.hasData ? daysWords(m.days, id === 'pace' ? 'run day' : 'day') : null;
 
   return (
@@ -225,7 +222,7 @@ export default function MetricPage(): React.JSX.Element {
             )
           }
         />
-        <RangeControl value={range} onChange={setRange} onPrev={() => setOffset((o) => o + 1)} onNext={() => setOffset((o) => Math.max(0, o - 1))} canPrev={canPrev} canNext={offset > 0} />
+        <RangeControl className="mp-range" value={range} options={RANGE_KEYS} words={RANGE_NAMES} onChange={setRange} label="Range" />
       </section>
 
       <PageSection className="mp-sec" title="Trend" meta="Up to today">

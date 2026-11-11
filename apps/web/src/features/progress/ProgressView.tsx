@@ -1,4 +1,4 @@
-import { mondayOf, monthsBetween, shiftDays } from '@logbook/shared';
+import { monthsBetween, shiftDays } from '@logbook/shared';
 import { ArrowRight, Heart } from 'lucide-react';
 import { useMemo } from 'react';
 import { useNav } from '@/app/NavController';
@@ -16,6 +16,8 @@ import { MetricIcon } from './icons';
 import { HEALTH_IDS, METRICS, type MetricId, type MetricModel } from './metrics';
 import { useHealthLink } from './useHealthDays';
 import { useMetricModels } from './useMetrics';
+import { rangeSpan, spanMonths } from './ranges';
+import { useHistoryStart, useRange } from './useRange';
 import './progress.css';
 import './metric.css';
 
@@ -36,8 +38,12 @@ const useAsOf = (real: string) => {
 export default function ProgressView() {
   const sheet = useSheet();
   const t = useAsOf(useToday());
-  // the hero's weeks, and the trend tiles' 30 days against the 90 behind them
-  const months = useMemo(() => monthsBetween(shiftDays(t, -150), shiftDays(mondayOf(t), 6)), [t]);
+  const [range, setRange] = useRange();
+  const start = useHistoryStart();
+  // the chart's range (All waits for where history starts), the last 13 weeks (this week's numbers, and whether there is a
+  // week before it), and the trend tiles' 30 days against the 90 behind them
+  const span = useMemo(() => rangeSpan(range, t, start.first), [range, t, start.first]);
+  const months = useMemo(() => [...new Set([...monthsBetween(shiftDays(t, -150), span.to), ...(range === 'All' && !start.ready ? [] : spanMonths(span))])].sort(), [t, span, range, start.ready]);
   const log = useLog(months);
   const fail = useMonthsFailed(months);
   const anyLoaded = months.some((m) => log.snap.loaded(m));
@@ -81,7 +87,7 @@ export default function ProgressView() {
   return (
     <div className="page pg-page">
       {header}
-      <HeroChart log={log} t={t} onConnect={connect} failed={fail.failed} onRetry={fail.retry} />
+      <HeroChart log={log} t={t} range={range} onRange={setRange} first={start.first} onConnect={connect} failed={fail.failed} onRetry={fail.retry} />
       <Trends log={log} onConnect={connect} />
       {HEALTH_BUILT ? <Health log={log} /> : null}
     </div>
