@@ -1,75 +1,148 @@
 /*
- * The launch (BrandSplash.tsx; guide 8.3, 9.2, 12.1; mockups/splash.png). Brand art, not chrome: the poster's sky and hills.
- * --hill-h is the hills' box at the bottom; the near hill's crest at the center is 0.71 of the way down from its top
- * (58 of 200 units), so the Orb's bottom sits at 0.71 x --hill-h plus 0.1 D above the screen's bottom edge.
+ * The opening (BrandSplash.tsx; guide 8.3, 9.2, 12.1). Brand art, not chrome: the poster's sky, hills and sun rings.
+ *
+ * The rules below draw the final frame: the Orb at rest over the hills, the sky warm, the rings out, the words in. The
+ * sunrise is keyframes that start each layer from its dawn state and bring it there, on transform and opacity only, so a
+ * layer is drawn once and then only moved or faded by the compositor (no filter, no gradient that changes, no layout).
+ * Every delay and length is a custom property BrandSplash.tsx sets from app/splashTimeline.ts.
+ *
+ * --hill-h is the hills' box at the bottom; the near hill's crest at the center is 0.71 of the way up it (58 of 200 units
+ * from its top), so the Orb's bottom rests at 0.71 x --hill-h plus 0.1 D above the screen's bottom edge.
  */
 .brand-splash {
   --hill-h: clamp(200px, 30svh, 290px);
   --crest: calc(var(--hill-h) * 0.71);
+  --d: var(--orb-splash);
+  --head-top: 29.6%;
   position: fixed;
   inset: 0;
   z-index: 1000;
   overflow: hidden;
-  /* the native launch screen's Cloud: the art fades in over it */
+  /* the native launch screen's Cloud */
   background: var(--bg);
-  /* opaque, it takes the taps (nothing under it is pressed by accident); its exit sets pointer-events: none */
+  /* opaque, it takes the taps (nothing under it is pressed by accident), and a tap runs it to its end */
   pointer-events: auto;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
 }
-.bs-art {
+/* a short screen (an iPhone SE with Display Zoom is 568 tall): lower hills and the words higher, so the rings have their sky */
+@media (max-height: 640px) {
+  .brand-splash {
+    --hill-h: 30svh;
+    --head-top: 20%;
+  }
+}
+.bs-art,
+.bs-sky,
+.bs-day,
+.bs-veil {
   position: absolute;
   inset: 0;
-  background: linear-gradient(180deg, var(--haze) 0, var(--cloud) 300px, var(--cloud) 52%, var(--horizon-1) 70%, var(--horizon-2) 90%);
 }
+/* the sky before the sun: the app's own dawn, Haze into Cloud */
+.bs-sky {
+  background: var(--dawn);
+}
+/* the day's colors, which come with the sun: the poster's sky blue from the top and its warm horizon band below, with the
+   Cloud between them left alone for the words (a gradient never transitions: this one layer's opacity comes up) */
+.bs-day {
+  background:
+    linear-gradient(180deg, var(--poster-sky-1) 0, var(--poster-sky-2) 12%, transparent 28%),
+    linear-gradient(180deg, transparent 48%, var(--horizon-1) 68%, var(--horizon-2) 88%);
+}
+/*
+ * The three soft lights (the horizon glow, the bloom, the Orb's halo) are drawn at half their size and scaled up 2x: they
+ * are all blur, so nothing is lost, and each is a quarter of the pixels to draw on the first frame and to hold.
+ * will-change keeps Chromium from redrawing them at the larger scale; WebKit never does.
+ */
 /* the horizon glow, an Apricot ellipse centered on the crest under the Orb: it carries the warmth (guide 8.3) */
 .bs-glow {
+  --w: 680px;
+  --h: 340px;
+  position: absolute;
+  left: calc(50% - var(--w) / 4);
+  bottom: calc(var(--crest) - var(--h) / 4);
+  width: calc(var(--w) / 2);
+  height: calc(var(--h) / 2);
+  background: var(--splash-glow);
+  opacity: 0.85;
+  transform: scale(2);
+  will-change: transform;
+}
+/* the bloom: one soft breath of light on the frame the Orb clears the crest. Gone at rest */
+.bs-bloom {
+  --s: calc(var(--d) * 4);
+  position: absolute;
+  left: calc(50% - var(--s) / 4);
+  bottom: calc(var(--crest) + var(--d) * (var(--bs-rest-gap) + 0.5) - var(--s) / 4);
+  width: calc(var(--s) / 2);
+  height: calc(var(--s) / 2);
+  background: var(--splash-bloom);
+  opacity: 0;
+  transform: scale(2);
+  will-change: transform;
+}
+/* the sun: a point at the Orb's center at rest. Its halo, its rings and the Orb hang on it and climb with it */
+.bs-sun {
   position: absolute;
   left: 50%;
-  bottom: var(--crest);
-  width: 640px;
-  height: 300px;
-  translate: -50% 50%;
-  background: radial-gradient(closest-side, var(--apricot), transparent);
-  opacity: 0.6;
+  bottom: calc(var(--crest) + var(--d) * (var(--bs-rest-gap) + 0.5));
+  width: 0;
+  height: 0;
 }
-/* the outlined wordmark, 150 pt wide (an image, never live text), and the line under it, in the sky */
-.bs-head {
+/* the Orb's own light on the sky around it */
+.bs-halo {
+  --s: calc(var(--d) * 3.2);
   position: absolute;
-  left: var(--gutter);
-  right: var(--gutter);
-  top: 29.6%;
-  display: grid;
-  justify-items: center;
-  gap: var(--sp-4);
-  text-align: center;
+  left: calc(var(--s) / -4);
+  top: calc(var(--s) / -4 + var(--d) * 0.1);
+  width: calc(var(--s) / 2);
+  height: calc(var(--s) / 2);
+  background: var(--splash-halo);
+  transform: scale(2);
+  will-change: transform;
 }
-.bs-word {
-  display: block;
+/* the poster's sun rings (guide 8.3): 1.5 px White, 70 percent stepping down 10 a ring, centered on the Orb, never across
+   words. Each carries a soft Apricot band just inside its line: on the pale sky, before the horizon has warmed, a ring
+   leaving the Orb is a wave of warm light; at rest on the warm sky the band melts in and the white line shows */
+.bs-rings {
+  position: absolute;
+  left: 0;
+  top: 0;
+  transition: opacity var(--dur) var(--ease-out);
 }
-.bs-line {
-  margin: 0;
-  font: italic 420 var(--fs-sentence-sm) / var(--lh-row) var(--serif);
-  color: var(--dusk);
+.bs-ring {
+  --s: calc(var(--d) * var(--k));
+  position: absolute;
+  left: calc(var(--s) / -2);
+  top: calc(var(--s) / -2);
+  box-sizing: border-box;
+  width: var(--s);
+  height: var(--s);
+  border: 1.5px solid var(--white);
+  border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(255, 182, 128, 0) calc(100% - 14px), rgba(255, 182, 128, 0.42) calc(100% - 2px), rgba(255, 182, 128, 0));
+  opacity: var(--o);
 }
 /* the 96 px Orb (full tier): its art box is 150/96 of the sphere and centered on it; nothing covers its lower half */
 .bs-orb {
   position: absolute;
-  left: 50%;
-  bottom: calc(var(--crest) + var(--orb-splash) * 0.1);
-  width: var(--orb-splash);
-  height: var(--orb-splash);
-  translate: -50% 0;
+  left: calc(var(--d) / -2);
+  top: calc(var(--d) / -2);
+  width: var(--d);
+  height: var(--d);
 }
 .bs-orb-art {
+  --a: calc(var(--d) * 150 / 96);
   position: absolute;
-  left: 50%;
-  top: 50%;
-  width: calc(var(--orb-splash) * 150 / 96);
-  height: calc(var(--orb-splash) * 150 / 96);
+  left: calc((var(--d) - var(--a)) / 2);
+  top: calc((var(--d) - var(--a)) / 2);
+  width: var(--a);
+  height: var(--a);
   max-width: none;
-  translate: -50% -50%;
   pointer-events: none;
-  user-select: none;
-  -webkit-user-select: none;
 }
 .bs-hills {
   position: absolute;
@@ -79,12 +152,12 @@
   height: var(--hill-h);
   display: block;
 }
-/* the caption on the far hill: White on Deep Sky (5.66), caption style */
+/* the caption on the far hill: White on Deep Sky (5.66), caption style. Low enough to stay on that hill at 200 percent text */
 .bs-cap {
   position: absolute;
   left: var(--gutter);
   right: var(--gutter);
-  bottom: max(var(--sp-8), calc(var(--safe-b) + var(--sp-3)));
+  bottom: max(var(--sp-3), calc(var(--safe-b) + var(--sp-2)));
   margin: 0;
   text-align: center;
   font: 600 var(--fs-caps) / var(--lh-caps) var(--stamp);
@@ -92,56 +165,248 @@
   text-transform: uppercase;
   color: var(--white);
 }
-
-/* the moments (guide 9.2, 9.4): only opacity and transform move */
-.brand-splash[data-moment='rise'] .bs-art,
-.brand-splash[data-moment='fade'] .bs-art {
-  animation: bs-fade var(--dur-launch) var(--ease-out) both;
+/* the launch image's Cloud over the picture: opaque on frame 0, lifted at rest */
+.bs-veil {
+  background: var(--bg);
+  opacity: 0;
+  pointer-events: none;
 }
-.brand-splash[data-moment='rise'] .bs-orb {
-  animation: bs-rise var(--dur-sunrise) var(--ease-out) both;
-}
-/* the sunrise underlight comes up as an overlay (a gradient never transitions) */
-.brand-splash[data-moment='rise'] .bs-orb-lit {
-  animation: bs-fade var(--dur-sunrise) var(--ease-out) both;
-}
-.brand-splash[data-moment='rise'] .bs-head {
-  animation: bs-fade var(--dur-title-in) var(--ease-out) var(--dur-sunrise) both;
-}
-.brand-splash[data-moment='still'] .bs-art {
-  animation: bs-fade var(--dur-reduce) linear both;
-}
-@keyframes bs-fade {
-  from {
-    opacity: 0;
-  }
-}
-@keyframes bs-rise {
-  from {
-    transform: translateY(24px);
-  }
-}
-@media (prefers-reduced-motion: reduce) {
-  .brand-splash .bs-orb,
-  .brand-splash .bs-orb-lit,
-  .brand-splash .bs-head {
-    animation: none;
-  }
-}
-
-/* still waiting on the server with nothing saved to draw: one line and Try again, in the sky under the line (shell-14) */
-.brand-splash-wait {
+/* the outlined wordmark, 150 pt wide (an image, never live text), and the line under it, in the sky */
+.bs-head {
   position: absolute;
   left: var(--gutter);
   right: var(--gutter);
-  top: calc(29.6% + 120px);
+  top: var(--head-top);
+  display: grid;
+  justify-items: center;
+  gap: var(--sp-4);
+  text-align: center;
+  pointer-events: none;
+  /* it only ever moves to make room for "Still loading" (BrandSplash.tsx) */
+  transition: transform var(--dur-settle) var(--ease-out);
+}
+.bs-word {
+  display: block;
+}
+.bs-line {
+  margin: 0;
+  font: italic 420 var(--fs-sentence-sm) / var(--lh-row) var(--serif);
+  color: var(--dusk);
+}
+
+/* ---------- the sunrise (a cold open): each layer from its dawn state to the frame above ----------
+   Every keyframe set names both its ends and animates one property (an element that fades and moves runs two), so each is
+   the plainest kind of animation there is and WebKit and Chromium both hand it to the compositor. */
+.brand-splash[data-moment='sunrise'] .bs-veil {
+  animation: bs-lift var(--bs-veil-for) var(--ease-out) var(--bs-veil-at) both;
+}
+.brand-splash[data-moment='sunrise'] .bs-sun {
+  animation: bs-climb var(--bs-climb-for) var(--bs-rise-ease) var(--bs-climb-at) both;
+}
+.brand-splash[data-moment='sunrise'] .bs-day {
+  animation: bs-in var(--bs-warm-for) ease-in-out var(--bs-warm-at) both;
+}
+.brand-splash[data-moment='sunrise'] .bs-glow {
+  animation:
+    bs-glow-in var(--bs-glow-for) ease-in-out var(--bs-glow-at) both,
+    bs-swell var(--bs-glow-for) ease-in-out var(--bs-glow-at) both;
+}
+/* the Orb's light: its pale underlight over the blue sphere first, then the sunrise art over both, and its light on the sky.
+   Blue to pale to warm never passes through grey, as blue straight to orange would */
+.brand-splash[data-moment='sunrise'] .bs-orb-first {
+  animation: bs-in var(--bs-first-for) ease-in-out var(--bs-first-at) both;
+}
+.brand-splash[data-moment='sunrise'] .bs-orb-lit {
+  animation: bs-in var(--bs-light-for) ease-in-out var(--bs-light-at) both;
+}
+.brand-splash[data-moment='sunrise'] .bs-halo {
+  animation:
+    bs-in var(--bs-light-for) ease-in-out var(--bs-light-at) both,
+    bs-swell var(--bs-light-for) ease-in-out var(--bs-light-at) both;
+}
+/* a ring leaves the Orb's own edge and widens to its place: bright as it leaves, fading to its resting opacity as it travels */
+.brand-splash[data-moment='sunrise'] .bs-ring {
+  animation:
+    bs-ring-out var(--for) var(--ease-out) var(--at) both,
+    bs-ring-fade var(--for) var(--ease-out) var(--at) both;
+}
+.brand-splash[data-moment='sunrise'] .bs-bloom {
+  animation:
+    bs-bloom-out var(--bs-bloom-for) var(--ease-out) var(--bs-bloom-at) both,
+    bs-bloom-fade var(--bs-bloom-for) var(--ease-out) var(--bs-bloom-at) both;
+}
+.brand-splash[data-moment='sunrise'] .bs-word {
+  animation:
+    bs-in var(--bs-word-for) var(--ease-out) var(--bs-word-at) both,
+    bs-arrive var(--bs-word-for) var(--ease-out) var(--bs-word-at) both;
+}
+.brand-splash[data-moment='sunrise'] .bs-line {
+  animation:
+    bs-in var(--bs-line-for) var(--ease-out) var(--bs-line-at) both,
+    bs-arrive var(--bs-line-for) var(--ease-out) var(--bs-line-at) both;
+}
+/* at rest the Orb breathes (guide 2.1), for as long as the app keeps it waiting */
+.brand-splash[data-moment='sunrise'] .bs-orb {
+  animation: bs-breath var(--orb-breath) ease-in-out var(--bs-rest-at) infinite;
+}
+/* the quiet fade, and Reduce Motion's crossfade: the final frame comes through the Cloud, words and all */
+.brand-splash[data-moment='fade'] .bs-veil {
+  animation: bs-lift var(--dur-launch) var(--ease-out) both;
+}
+.brand-splash[data-moment='fade'] .bs-head {
+  animation: bs-in var(--dur-launch) var(--ease-out) both;
+}
+.brand-splash[data-moment='still'] .bs-veil {
+  animation: bs-lift var(--dur-launch) linear both;
+}
+.brand-splash[data-moment='still'] .bs-head {
+  animation: bs-in var(--dur-launch) linear both;
+}
+/* then the app appears underneath: the picture dissolves, and the words go first so they never sit on the app's own */
+.brand-splash[data-leave] {
+  animation: bs-lift var(--bs-out) ease both;
+}
+.brand-splash[data-leave] .bs-head {
+  animation: bs-lift calc(var(--bs-out) * 0.45) ease both;
+}
+/* a natural exit lets taps through as it fades; after a tap that skipped, it keeps them until it is gone, so the tap's own
+   click cannot land on the app */
+.brand-splash[data-leave]:not([data-skipped]) {
+  pointer-events: none;
+}
+/* 1 to 0: the veil off the picture, and the whole splash off the app */
+@keyframes bs-lift {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+@keyframes bs-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+/* the horizon glow rests at 85 percent */
+@keyframes bs-glow-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 0.85;
+  }
+}
+@keyframes bs-climb {
+  from {
+    transform: translate3d(0, calc(var(--d) * var(--bs-rise)), 0);
+  }
+  to {
+    transform: translate3d(0, 0, 0);
+  }
+}
+/* the glow and the halo grow from half their size (they are drawn at half and rest at scale 2) */
+@keyframes bs-swell {
+  from {
+    transform: scale(1);
+  }
+  to {
+    transform: scale(2);
+  }
+}
+@keyframes bs-ring-out {
+  from {
+    transform: scale(var(--s0));
+  }
+  to {
+    transform: scale(1);
+  }
+}
+@keyframes bs-ring-fade {
+  from {
+    opacity: 0;
+  }
+  18% {
+    opacity: 1;
+  }
+  to {
+    opacity: var(--o);
+  }
+}
+/* the bloom: from a third of its size to a little past it (drawn at half, so 0.7 to 2.2), up to 90 percent and away */
+@keyframes bs-bloom-out {
+  from {
+    transform: scale(0.7);
+  }
+  to {
+    transform: scale(2.2);
+  }
+}
+@keyframes bs-bloom-fade {
+  from {
+    opacity: 0;
+  }
+  24% {
+    opacity: 0.9;
+  }
+  to {
+    opacity: 0;
+  }
+}
+@keyframes bs-arrive {
+  from {
+    transform: translate3d(0, 10px, 0);
+  }
+  to {
+    transform: translate3d(0, 0, 0);
+  }
+}
+@keyframes bs-breath {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.015);
+  }
+}
+/* Reduce Motion (guide 9.4): nothing moves. The final frame crossfades in and the splash fades out; base.css cuts every
+   animation to nothing under this setting, so these two fades keep their lengths by name */
+@media (prefers-reduced-motion: reduce) {
+  .brand-splash[data-moment='sunrise'] :is(.bs-sun, .bs-day, .bs-glow, .bs-orb, .bs-orb-first, .bs-orb-lit, .bs-halo, .bs-ring, .bs-bloom, .bs-word, .bs-line) {
+    animation: none;
+  }
+  .brand-splash[data-moment='still'] :is(.bs-veil, .bs-head) {
+    animation-duration: var(--dur-launch) !important;
+  }
+  .brand-splash[data-leave],
+  .brand-splash[data-leave] .bs-head {
+    animation-duration: var(--bs-out) !important;
+  }
+}
+
+/* still waiting on the server with nothing saved to draw: one line and Try again under the words, in their column, so
+   they stack at any text size (shell-14). The rings step back so none runs through them (guide 8.3) */
+.brand-splash-wait {
   display: grid;
   justify-items: center;
   gap: var(--sp-3);
   text-align: center;
+  pointer-events: auto;
+  animation: bs-in var(--dur-launch) var(--ease-out) both;
 }
 .brand-splash-wait p {
   margin: 0;
   font: 500 var(--fs-sub) / var(--lh-sub) var(--sans);
   color: var(--ink-2);
+}
+.brand-splash[data-waiting] .bs-rings {
+  opacity: 0;
+}
+/* no room for both under the wordmark (the smallest screen at the largest text): the status takes the line's place */
+.brand-splash[data-tight] .bs-line {
+  display: none;
 }

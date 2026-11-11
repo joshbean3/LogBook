@@ -35,6 +35,10 @@
   --hill-2: #4fa9db;
   --hill-3: #0a6ca6;
   --grain-opacity: 0.4;
+  /* the splash's sunrise (app/brandSplash.css; guide 9.2, 12.1): layers that are drawn once and then only fade and move */
+  --splash-glow: radial-gradient(closest-side, #ffb680 0, rgba(255, 182, 128, 0.82) 22%, rgba(255, 182, 128, 0.5) 42%, rgba(255, 182, 128, 0.2) 64%, rgba(255, 182, 128, 0.05) 84%, rgba(255, 182, 128, 0)); /* the horizon glow, centered on the crest under the Orb */
+  --splash-halo: radial-gradient(closest-side, rgba(255, 182, 128, 0.5) 30%, rgba(255, 182, 128, 0.3) 52%, rgba(255, 182, 128, 0.1) 76%, rgba(255, 182, 128, 0)); /* the Orb's own light on the sky around it */
+  --splash-bloom: radial-gradient(closest-side, #fff1e4 0, rgba(255, 214, 180, 0.8) 24%, rgba(255, 182, 128, 0.42) 46%, rgba(255, 182, 128, 0.14) 72%, rgba(255, 182, 128, 0)); /* one breath of light on the frame the Orb clears the crest */
 
   /* ---------- grounds, ink and lines ---------- */
   --bg: #eaf5fc; /* Cloud */
@@ -271,9 +275,8 @@
   --dur-needle: 480ms;
   --dur-settle: 300ms;
   --tick-stagger: 6ms;
-  --dur-sunrise: 900ms;
-  --dur-title-in: 200ms;
-  --dur-launch: 300ms;
+  /* the opening sunrise has one length, SPLASH_MS in app/splashTimeline.ts (2.8 s); its schedule is derived there */
+  --dur-launch: 300ms; /* the quiet opening (the same session opening again) and Reduce Motion's crossfade */
   --dur-dawn: 600ms;
   --orb-breath: 4000ms;
   --orb-orbit: 1200ms;
@@ -286,7 +289,7 @@
   --orb-fold: 28px;
   --orb-dock: 28px;
   --orb-assistant: 56px;
-  --orb-splash: 96px;
+  --orb-splash: clamp(96px, 13svh, 120px); /* the splash's sun: 96 on a short phone, 110 at 844 tall, 120 on the tallest */
 }
 
 /* iOS Increase Contrast (WebKit maps it to prefers-contrast: more): the semantic aliases and the palette names both step,
