@@ -1,5 +1,5 @@
 import { mondayOf, monthsBetween, shiftDays } from '@logbook/shared';
-import { ArrowRight, HeartPulse } from 'lucide-react';
+import { ArrowRight, Heart } from 'lucide-react';
 import { useMemo } from 'react';
 import { useNav } from '@/app/NavController';
 import { HEALTH_BUILT, STRAVA_BUILT } from '@/lib/features';
@@ -108,7 +108,7 @@ const Trends = ({ log, onConnect }: { log: Log; onConnect: (() => void) | null }
         <div className="card pg-first">
           <p className="pg-first-t">Your first week shows here after your first run.</p>
           <div className="pg-first-acts">
-            <Button variant="primary" size="sm" onClick={() => nav.go('/plan')}>
+            <Button size="sm" onClick={() => nav.go('/plan')}>
               Open this week’s plan
             </Button>
             {STRAVA_BUILT && onConnect ? (
@@ -167,7 +167,7 @@ const Health = ({ log }: { log: Log }) => {
       <PageSection className="pg-sec" id="pg-health" title="Health">
         <Pressable className="pg-slot is-connect is-row" press="scale" onPress={() => nav.go('/settings/connections')} label="Connect Apple Health. Sleep, HRV, resting HR. Open Data sources">
           <span className="pg-slot-ic" aria-hidden="true">
-            <HeartPulse size={18} />
+            <Heart size={18} />
           </span>
           <span className="pg-slot-words">
             <span className="pg-slot-title">Connect Apple Health</span>
@@ -216,7 +216,7 @@ const Health = ({ log }: { log: Log }) => {
         {/* where the readings come from: connected, or the way to connect */}
         <Pressable className={`pg-slot ${slot ? '' : 'is-connect'}`} press="scale" onPress={() => nav.go('/settings/connections')} label={slot ? `Apple Health. ${slot}. Open Data sources` : 'Connect Apple Health. Sleep, HRV, resting HR. Open Data sources'}>
           <span className="pg-slot-ic" aria-hidden="true">
-            <HeartPulse size={18} />
+            <Heart size={18} />
           </span>
           <span className="pg-slot-title">{slot ? 'Apple Health' : 'Connect Apple Health'}</span>
           <span className="pg-slot-sub">{slot ?? 'Sleep, HRV, resting HR'}</span>

@@ -24,6 +24,7 @@ import { isLanding, PLAN_DAY, useDayDrag } from './useDayDrag';
 import { weekWords } from './WeekLine';
 import { weekTitle } from './context';
 import { sessionIcon } from '../sessions/sessionIcon';
+import { dayRange } from '@/ui/charts/range';
 
 /**
  * One week of Plan, day by day: the week's header (its name, its dates, previous and next), one line on what the week holds,
@@ -621,8 +622,8 @@ export const StepNav = ({ unit, away, onStep, onHome }: { unit: 'week' | 'month'
   </span>
 );
 
-/** A week's dates for its header: `Nov 9 – 15`, or `Nov 30 – Dec 6` across a month. */
-const weekRange = (mon: string) => `${fmtDate('md', mon)} – ${monthOf(shiftDays(mon, 6)) === monthOf(mon) ? parseISO(shiftDays(mon, 6)).getDate() : fmtDate('md', shiftDays(mon, 6))}`;
+/** A week's dates for its header: `Nov 9 to 15`, or `Nov 30 to Dec 6` across a month. */
+const weekRange = (mon: string) => dayRange(mon, shiftDays(mon, 6));
 
 /**
  * One week page: the header (the week's name, `This week`, `Next week`, or its dates; the dates beside a named week; then the

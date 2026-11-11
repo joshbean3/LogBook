@@ -6,11 +6,12 @@ import { IconButton } from '@/ui/primitives';
 import { Pressable } from '@/ui/Pressable';
 import { useLog } from '../log/useLog';
 import './daypicker.css';
+import { dayRange } from '@/ui/charts/range';
 
 const DOW = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
 
 /**
- * A week of days to pick from (Move, the session editor's day): the day letter, the date, and a short bar in the colour of
+ * A week of days to pick from (Move, the session editor's day): the day letter, the date, and a short bar in the color of
  * what already sits there. Today is ringed, the picked day is filled, the session's own day (`origin`) sits back. The weeks
  * page on `DayPager` v2 (`step: 'week'`): a swipe tracks the finger 1:1, the chevrons slide one week; no haptic on a page or
  * a pick (spec §11.4). Each cell is a `Pressable` (0.97 on touch-down) at least 44 px wide at 320 (the pager bleeds to the
@@ -86,7 +87,7 @@ export const DayPicker = ({ value, onPick, origin, skipId, labelFor }: { value: 
     <div className="dpk">
       <div className="dpk-head">
         <span className="caps">
-          {fmtDate('md', week)} – {fmtDate('md', shiftDays(week, 6))}
+          {dayRange(week, shiftDays(week, 6))}
         </span>
         <span className="dpk-nav">
           <IconButton label="Previous week" onClick={() => step(-1)}>

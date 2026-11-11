@@ -18,6 +18,7 @@ import { applyChoice, draftMonths, mayDraft, replacedBy } from './applyModel';
 import { announceApplied, builderSpec } from './Builder';
 import type { BuilderPrefill } from './builderModel';
 import { requestDraft } from './draftRequest';
+import { dayRange } from '@/ui/charts/range';
 
 type Mode = 'file' | 'text' | 'describe' | 'revise';
 const MODES: Array<[Mode, string]> = [
@@ -84,10 +85,10 @@ const Preview = ({ draft, mode, onDone, onDiscard }: { draft: PlanDraft; mode: M
     <div className="pv">
       <SectionHeader size="sm" level={3} title="Preview" meta="Nothing is saved yet" />
       <div className="pv-hero">
-        <span className="caps pv-ai">Written by AI</span>
+        <span className="caps pv-ai">Written by the assistant</span>
         <input className="pv-name" value={name} onChange={(e) => setName(e.target.value)} maxLength={80} aria-label="Plan name" />
         <span className="t-cap muted">
-          {fmtDate('md', draft.start)} – {fmtDate('md', draft.end)}
+          {dayRange(draft.start, draft.end)}
         </span>
         {draft.summary ? <p className="t-sub ink2">{draft.summary}</p> : null}
         <StatStrip>

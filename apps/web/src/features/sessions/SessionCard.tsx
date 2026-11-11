@@ -1,5 +1,5 @@
 import { assess, clock, counts, e1rm, isAutoStatus, floorFor, fmtDate, label, METERS_PER_MILE, mi, mondayOf, monthOf, MORNING_DEFAULTS, num, sessionKey, sessionStatus, sessionWord, shiftDays, STATUS_WORDS, tone, weekTotals, zoneOf, type Activity, type Lap, type Session, type StatusKey } from '@logbook/shared';
-import { ArrowRightLeft, Check, ChevronRight, HeartPulse, MoreHorizontal, Pencil, Share2, SkipForward, Sparkles } from 'lucide-react';
+import { ArrowRightLeft, Check, ChevronRight, Heart, MoreHorizontal, Pencil, Share2, SkipForward } from 'lucide-react';
 import { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import { useContextMenu } from '@/ui/ContextMenu';
 import { Button } from '@/ui/primitives';
@@ -37,7 +37,7 @@ export const startClock = (hhmm: string) => {
   return h == null || m == null || Number.isNaN(h) || Number.isNaN(m) ? hhmm : dayClock(h * 60 + m);
 };
 
-/** The chip class for a status key: the colours `.chip` already has. A missed day is the plain chip, never red (§7.2). */
+/** The chip class for a status key: the colors `.chip` already has. A missed day is the plain chip, never red (§7.2). */
 export const chipKind = (k: StatusKey): string => ({ done: 'done', bonus: 'done', floor: 'floor', missed: '', today: 'open', planned: 'upcoming', skipped: '', rest: '' })[k];
 
 /** A number for the sheet: its label, the value, its unit, and an optional word under it ("of 6"). */
@@ -291,7 +291,7 @@ interface Num {
 const toNum = ([k, v, u, n]: SheetStat): Num => ({ k, v, u, n });
 
 /**
- * The sheet's hero (docs/shape-system.md §6, a detail page's recipe: a hero, then two-column stat tiles): one card, centred,
+ * The sheet's hero (docs/shape-system.md §6, a detail page's recipe: a hero, then two-column stat tiles): one card, centered,
  * the status as a small word with its icon (`✓ Done · Monday at 7:02 AM`), the one big stamped number with its unit, and
  * the word under it. A rest day has no number: its sentence instead.
  */
@@ -355,7 +355,7 @@ const ActRow = ({ icon, title, sub, right, on, onPress, className = '', disabled
 const chev = <ChevronRight size={18} className="ss-act-chev" aria-hidden="true" />;
 
 /**
- * The session, in full (docs/shape-system.md §5, a sheet: a centred title, content in cards on the sheet, one navy pill
+ * The session, in full (docs/shape-system.md §5, a sheet: a centered title, content in cards on the sheet, one navy pill
  * pinned at the bottom). Its name is the sheet's title (it flew in from the row or the hero), the route sits at the top
  * when there is one; the hero card (the status, the one big number), the other numbers as two-column tiles, the effort
  * row, the lift log's sets in their card, the workout's words, then the other verbs as one inset group (Floor, Skip, Move,
@@ -461,7 +461,7 @@ const SessionSheet = ({ date, id }: { date: string; id: string }) => {
         // §6.3: after a matched run the group is Not feeling 100% (Share is the pill; Move and Edit are under the ⋯)
         date === log.today ? (
           <div className="group ss-acts">
-            <ActRow icon={<HeartPulse size={18} />} title={nothingToEase ? 'Nothing hard ahead' : 'Not feeling 100%'} sub={nothingToEase ? 'The next days are easy already' : 'Ease the next three days'} disabled={nothingToEase} onPress={() => setNothingToEase(act.notFeeling(date, s) === 0)} right={nothingToEase ? undefined : chev} />
+            <ActRow icon={<Heart size={18} />} title={nothingToEase ? 'Nothing hard ahead' : 'Not feeling 100%'} sub={nothingToEase ? 'The next days are easy already' : 'Ease the next three days'} disabled={nothingToEase} onPress={() => setNothingToEase(act.notFeeling(date, s) === 0)} right={nothingToEase ? undefined : chev} />
           </div>
         ) : null
       ) : (

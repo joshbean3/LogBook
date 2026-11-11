@@ -48,17 +48,21 @@
   overflow: hidden;
   text-overflow: ellipsis;
 }
-/* the one line that matters now: the serif at 28 */
+/* the one line that matters now, in the sentence voice (Fraunces italic 420, guide 4.2): "Out the door at 6:45". Its
+   times and counts change (`in 43 min` ticks), so they are Inter 600 with even figures, upright (4.4: Fraunces has no tnum) */
 .mc-head {
   display: block;
   margin-top: 6px;
-  font-style: normal;
-  font-weight: 600;
-  font-size: var(--fs-section);
-  line-height: var(--lh-section);
+  /* capped under the "Today" section title (34 px) at a larger text size */
+  font: italic 420 min(var(--fs-sentence), 30px) / min(var(--lh-sentence), 38px) var(--display);
   letter-spacing: 0;
   color: var(--ink);
   overflow-wrap: break-word;
+}
+.mc-head-n {
+  font: 650 min(var(--fs-row), 30px) / min(var(--lh-sentence), 38px) var(--sans);
+  font-style: normal;
+  font-variant-numeric: tabular-nums;
 }
 
 /* ---------- the track: caps labels over the stops, the line, the stamped times under them ---------- */
@@ -68,13 +72,10 @@
   padding-bottom: 14px;
   --halo-blue: 0.42;
 }
-/* the stage light rises from under the track, wider than it (to the card's edges) and stopping at the footer's hairline */
-.mc-track.halo::before {
-  inset: -44px -18px 0;
-  border-radius: 0;
-}
+/* no light under the track: Plan's one warm light is the plan card (plan 5.3 glow inventory) */
+.mc-track.halo::before,
 .mc-track.halo::after {
-  display: none;
+  content: none;
 }
 .mc-row {
   position: relative;
@@ -90,7 +91,7 @@
 .mc-times {
   height: 22px;
 }
-/* everything on the track is placed at its fraction --p of the line between the edge dots' centres */
+/* everything on the track is placed at its fraction --p of the line between the edge dots' centers */
 .mc-at {
   position: absolute;
   top: 0;
@@ -110,38 +111,32 @@
   transform: none;
 }
 .mc-lab {
-  font-size: 0.6875rem;
-  line-height: 0.875rem;
-  font-weight: 600;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--ink-3);
+  color: var(--ink-2);
 }
 .mc-short {
   display: none;
 }
+/* the stop times: Inter 600, even figures (guide 6.13, 4.4) */
 .mc-time {
   display: inline-flex;
   align-items: baseline;
   gap: 2px;
-  font-size: 1.0625rem;
-  line-height: 1.375rem;
+  font: 600 var(--fs-row) / var(--lh-row) var(--sans);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0;
   color: var(--ink);
 }
 .mc-u {
-  font-family: var(--sans);
-  font-size: 0.6875rem;
-  line-height: 1;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  color: var(--ink-3);
+  font: 600 var(--fs-caps) / 1 var(--sans);
+  letter-spacing: 0;
+  color: var(--ink-2);
 }
 .is-today .mc-time.is-past,
 .is-today .mc-lab.is-past {
-  color: var(--ink-3);
+  color: var(--ink-2);
 }
 
-/* the line: a hairline rail, the part behind now in ink, the workout's stretch in its tone (a 3 px bar) */
+/* the line (guide 6.13): a hairline rail, the part behind now in Dusk, the workout's stretch in its data tone */
 .mc-rail,
 .mc-done {
   position: absolute;
@@ -149,7 +144,7 @@
   right: var(--mc-in);
   top: 11px;
   height: 2px;
-  border-radius: 1px;
+  border-radius: var(--r-pill);
 }
 .mc-rail {
   background: var(--line-strong);
@@ -162,21 +157,21 @@
   position: absolute;
   top: 10.5px;
   height: 3px;
-  border-radius: 2px;
+  border-radius: var(--r-pill);
   left: calc(var(--mc-in) + var(--a) * (100% - 2 * var(--mc-in)));
   width: calc((var(--b) - var(--a)) * (100% - 2 * var(--mc-in)));
   background: var(--tone, var(--ink-3));
 }
-/* stops: hollow ahead, filled once passed; Leave, the morning's end, a size up */
+/* stops: 10 px Paper dots with a 1.5 px Night Ink ring, filled once passed; Leave, the morning's end, a size up */
 .mc-dot {
   top: 7px;
   width: 10px;
   height: 10px;
   box-sizing: border-box;
   border-radius: 50%;
-  border: 2px solid var(--ink-3);
+  border: 1.5px solid var(--ink);
   background: var(--mc-bg);
-  transition: background var(--dur-fast);
+  transition: background-color var(--dur-color);
 }
 .mc-dot.k-leave {
   top: 6px;
@@ -188,17 +183,19 @@
   background: var(--ink);
   border-color: var(--ink);
 }
-/* now: the one blue dot on the line (static per minute) */
+/* now: the live node (guide 3.5 job 5): a 12 px Sunrise dot with a 2 px Paper keyline, no glow; Night Ink when the
+   screen's Sunrise budget is spent (data-now="ink", ui/nowBudget.ts). Static per minute */
 .mc-now {
   z-index: 2;
   top: 6px;
   width: 12px;
   height: 12px;
   border-radius: 50%;
-  background: var(--accent);
-  box-shadow:
-    0 0 0 3px rgba(242, 96, 12, 0.28),
-    0 0 14px var(--accent-bright);
+  background: var(--now);
+  box-shadow: 0 0 0 2px var(--now-keyline);
+}
+.mc-now[data-now='ink'] {
+  background: var(--ink);
 }
 /* the workout's name, on its stretch: a stamp in a pill that cuts the line, never wider than the stretch */
 .mc-work {
@@ -208,23 +205,22 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 0 9px 0 8px;
+  padding: 0 var(--sp-2);
   max-width: calc(var(--room) * (100% - 2 * var(--mc-in)) - 20px);
   border-radius: var(--r-pill);
-  border: 1px solid var(--line-strong);
+  border: 1px solid var(--edge);
   background: var(--mc-bg);
-  transition: background var(--dur-fast);
+  transition: background-color var(--dur-color);
 }
+/* the workout's name in caption style (guide 4.3), Night Ink, even figures for its miles */
 .mc-work-name {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
-  font-family: var(--stamp);
-  font-weight: 800;
-  font-size: 0.6875rem;
-  line-height: 1;
-  letter-spacing: 0.02em;
+  font: 600 var(--fs-caps) / 1 var(--stamp);
+  letter-spacing: var(--tr-caps);
   text-transform: uppercase;
+  font-variant-numeric: tabular-nums;
   color: var(--ink);
 }
 .mc-work.is-rest .mc-work-name {
@@ -246,20 +242,19 @@
 .mc-quiet {
   flex: 1 1 auto;
   min-width: 0;
-  font-size: 0.8125rem;
-  line-height: 1.125rem;
-  color: var(--ink-3);
+  font: 500 var(--fs-foot) / var(--lh-foot) var(--sans);
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-2);
 }
+/* the verb, a quiet Deep Sky link (guide 6.2) */
 .mc-open {
   margin-left: auto;
   display: inline-flex;
   align-items: center;
   gap: 2px;
-  font-size: 0.9375rem;
-  line-height: 1.25rem;
-  font-weight: 600;
-  letter-spacing: -0.01em;
-  color: var(--accent-text);
+  font: 600 var(--fs-sub) / var(--lh-sub) var(--sans);
+  letter-spacing: 0;
+  color: var(--deep-sky);
   white-space: nowrap;
 }
 
@@ -270,8 +265,8 @@
 .mc.is-setup .mc-quiet {
   display: block;
   margin: 6px 0 16px;
-  font-size: 0.9375rem;
-  line-height: 1.25rem;
+  font-size: var(--fs-sub);
+  line-height: var(--lh-sub);
   color: var(--ink-2);
 }
 
@@ -297,12 +292,12 @@
     display: inline;
   }
   .mc-time {
-    font-size: 0.9375rem;
+    font-size: var(--fs-sub);
   }
 }
 
-/* ---------- shape system v2 (docs/shape-system.md): one lifted card 22 round, 16 in; the stops named in small grey words
-   (the card keeps one caps eyebrow); the times stamped; the footer under a hairline ---------- */
+/* ---------- shape: one Paper card, r 24, 16 in; the stops named in small Dusk words (the card keeps one caption, the
+   eyebrow); the footer under a hairline ---------- */
 .mc-wrap {
   padding: 0 16px;
 }
@@ -314,10 +309,6 @@
   font: 500 var(--fs-orb) / 0.875rem var(--sans);
   letter-spacing: 0;
   text-transform: none;
-}
-.mc-time {
-  font-weight: 700;
-  font-size: 1.125rem;
 }
 .mc-foot {
   margin: 0 -16px;

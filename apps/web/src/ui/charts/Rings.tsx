@@ -26,7 +26,7 @@ export const Ring = ({ value, size = 64, stroke = 7, lit, children }: { value: n
           )
         ) : null}
       </svg>
-      <span className="ck-ring-mid stamp">{mid}</span>
+      <span className="ck-ring-mid">{mid}</span>
     </span>
   );
 };

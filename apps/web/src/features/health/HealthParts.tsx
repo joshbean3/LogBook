@@ -1,40 +1,26 @@
-import { Activity, ArrowDown, ArrowUp, Check, Heart, Moon, Sun, Watch, type LucideIcon } from 'lucide-react';
-import { useId } from 'react';
+import { ArrowDown, ArrowUp, Check, Heart, Moon, Sun, Watch, Waves, type LucideIcon } from 'lucide-react';
 import type * as React from 'react';
 import type { SleepSegment, SleepStage } from '@/lib/health';
 import './health.css';
 
 /**
- * Logbook's health pieces, drawn the way Bevel draws its own (docs/health/apple-health.md §4) in Columbia, white and
- * orange: a beveled dial (a raised white rim, a gradient arc, a recessed face), the slim range capsule pressed into a
- * tile, a status word with its icon, the hypnogram on a night-navy card, stage tiles with their share as a small ring,
- * frosted glass tiles, and the illustrated hero for connecting Apple Health.
+ * Orby's health pieces (docs/health/apple-health.md §4), flat in the brand (guide 5.3: no bevels, no glass, no glows): a
+ * dial (a Paper disc, a Deep Sky or Twilight arc on a Haze track, the number in Inter), the slim range capsule on Cloud,
+ * a status word with its icon (a worry in Marigold with its words), the hypnogram on a Paper card, stage tiles with their
+ * share as a small ring, Haze icon tiles, and the hero for connecting Apple Health.
  */
 
-// ---------- the beveled dial, in one of three colors ----------
+// ---------- the dial, in one of three tones (its arc's color is in health.css: warm and cool Deep Sky, night Twilight) ----------
 export type DialTone = 'warm' | 'cool' | 'night';
-const DIAL_STOPS: Record<DialTone, [string, string]> = {
-  warm: ['#ffd2ad', '#f2600c'],
-  cool: ['#cfe6f3', '#3a7fb9'],
-  night: ['#d7e7f4', '#1b3d63'],
-};
 export const BevelDial = ({ value, tone, label, size = 108 }: { value: number | null; tone: DialTone; label?: string; size?: number }) => {
-  const gid = useId().replace(/:/g, '');
   const r = 46;
   const c = 2 * Math.PI * r;
   const v = value == null ? 0 : Math.max(0, Math.min(100, value)) / 100;
-  const [a, b] = DIAL_STOPS[tone];
   return (
     <span className={`hd-dial is-${tone} ${value == null ? 'is-empty' : ''}`} style={{ '--sz': `${size}px` } as React.CSSProperties} role="img" aria-label={`${label ?? tone}: ${value == null ? 'no data yet' : `${Math.round(value)}%`}`}>
       <svg viewBox="0 0 120 120" aria-hidden="true">
-        <defs>
-          <linearGradient id={gid} x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0" stopColor={a} />
-            <stop offset="1" stopColor={b} />
-          </linearGradient>
-        </defs>
         <circle className="hd-track" cx="60" cy="60" r={r} />
-        {value != null && v > 0 ? <circle className="hd-arc" cx="60" cy="60" r={r} stroke={`url(#${gid})`} strokeDasharray={c} strokeDashoffset={c * (1 - v)} transform="rotate(-90 60 60)" /> : null}
+        {value != null && v > 0 ? <circle className="hd-arc" cx="60" cy="60" r={r} strokeDasharray={c} strokeDashoffset={c * (1 - v)} transform="rotate(-90 60 60)" /> : null}
       </svg>
       <span className="hd-face" aria-hidden="true">
         <b className="hd-num">
@@ -101,9 +87,9 @@ export const MonitorTile = ({ icon: Icon, label, value, unit, status = 'none', f
 
 // ---------- the hypnogram ----------
 const LEVEL: Record<SleepStage, number> = { awake: 0, rem: 1, core: 2, asleep: 2, deep: 3, in_bed: -1, unknown: -1 };
-const STAGE_COLOR: Record<string, string> = { awake: '#ff8a3d', rem: '#d8ecf8', core: '#8dbbe2', asleep: '#8dbbe2', deep: '#4f7fd6' };
 /**
- * The night as stepped bars, one row per stage (Awake on top, Deep at the bottom), on a night-navy card. Thin risers join
+ * The night as stepped bars, one row per stage (Awake on top, Deep at the bottom), on a Paper card; each stage's data
+ * color is in health.css (Awake Rose, REM Sky, Core Deep Sky, Deep Indigo: never orange for a series). Thin risers join
  * a stage to the next, so it reads as one line through the night.
  */
 export const Hypnogram = ({ segments, start, end }: { segments: SleepSegment[]; start: string; end: string }) => {
@@ -127,7 +113,7 @@ export const Hypnogram = ({ segments, start, end }: { segments: SleepSegment[]; 
         return (
           <g key={`${s.start}-${i}`}>
             {riser}
-            <rect x={x0} y={yOf(s)} width={Math.max(1.5, x(s.end) - x0)} height={BAR} rx="3" fill={STAGE_COLOR[s.stage]} className={`hd-hyp-bar is-${s.stage}`} />
+            <rect x={x0} y={yOf(s)} width={Math.max(1.5, x(s.end) - x0)} height={BAR} rx="3" className={`hd-hyp-bar is-${s.stage}`} />
           </g>
         );
       })}
@@ -150,7 +136,7 @@ export const StageTile = ({ stage, label, sec, total }: { stage: string; label: 
       <span className="hd-stage-pct tnum">{Math.round(share * 100)}%</span>
       <svg className="hd-stage-ring" viewBox="0 0 34 34" aria-hidden="true">
         <circle cx="17" cy="17" r={r} className="hd-stage-track" />
-        <circle cx="17" cy="17" r={r} className="hd-stage-arc" stroke={STAGE_COLOR[stage]} strokeDasharray={c} strokeDashoffset={c * (1 - share)} transform="rotate(-90 17 17)" />
+        <circle cx="17" cy="17" r={r} className="hd-stage-arc" strokeDasharray={c} strokeDashoffset={c * (1 - share)} transform="rotate(-90 17 17)" />
       </svg>
     </div>
   );
@@ -172,7 +158,7 @@ export const SourceLine = ({ source }: { source: string }) => (
   </span>
 );
 
-// ---------- glass ----------
+// ---------- icon tiles (once frosted glass: now a Haze tile with the glyph, guide 6.4) ----------
 export const GlassTile = ({ icon: Icon, tone = 'navy', size = 52, className = '' }: { icon: LucideIcon; tone?: 'navy' | 'orange' | 'columbia'; size?: number; className?: string }) => (
   <span className={`hd-glass is-${tone} ${className}`} style={{ '--gs': `${size}px` } as React.CSSProperties} aria-hidden="true">
     <Icon size={Math.round(size * 0.44)} strokeWidth={2.1} />
@@ -181,29 +167,22 @@ export const GlassTile = ({ icon: Icon, tone = 'navy', size = 52, className = ''
 
 // ---------- the heroes ----------
 /**
- * Connecting Apple Health: a beveled dial with tick marks and one orange arc with a lit end (one arc, never nested rings:
- * those read as Apple's Activity rings, gap-rev-28), glass tiles for the night and the two heart numbers floating around
- * it, over a faint grid.
+ * Connecting Apple Health: a Paper dial with tick marks and one Deep Sky arc with a Paper end (one arc, never nested
+ * rings: those read as Apple's Activity rings, gap-rev-28), Haze tiles for the night and the two heart numbers set around
+ * it (still: no floating loop, plan 4.3), over a faint grid in a Haze wash.
  */
 export const HealthHero = () => {
-  const gid = useId().replace(/:/g, '');
   const arc = (r: number, from: number, to: number) => {
     const p = (deg: number) => [60 + r * Math.cos(((deg - 90) * Math.PI) / 180), 60 + r * Math.sin(((deg - 90) * Math.PI) / 180)];
     const [x0, y0] = p(from);
     const [x1, y1] = p(to);
     return { d: `M ${x0} ${y0} A ${r} ${r} 0 ${to - from > 180 ? 1 : 0} 1 ${x1} ${y1}`, end: [x1, y1] as const };
   };
-  const rings = [{ r: 46, from: 210, to: 480, stroke: `url(#${gid}-o)`, dot: '#f2600c' }];
+  const rings = [{ r: 46, from: 210, to: 480 }];
   return (
     <div className="hd-hero" aria-hidden="true">
       <div className="hd-hero-dial">
         <svg viewBox="0 0 120 120">
-          <defs>
-            <linearGradient id={`${gid}-o`} x1="0" x2="1">
-              <stop offset="0" stopColor="#ffd2ad" />
-              <stop offset="1" stopColor="#f2600c" />
-            </linearGradient>
-          </defs>
           {Array.from({ length: 60 }, (_, i) => {
             const a = (i * 6 * Math.PI) / 180;
             const long = i % 5 === 0;
@@ -214,8 +193,8 @@ export const HealthHero = () => {
             return (
               <g key={g.r}>
                 <circle cx="60" cy="60" r={g.r} className="hd-hero-track" />
-                <path d={d} stroke={g.stroke} className="hd-hero-arc" />
-                <circle cx={end[0]} cy={end[1]} r="3.2" className="hd-hero-end" stroke={g.dot} />
+                <path d={d} className="hd-hero-arc" />
+                <circle cx={end[0]} cy={end[1]} r="3.2" className="hd-hero-end" />
               </g>
             );
           })}
@@ -225,7 +204,7 @@ export const HealthHero = () => {
         </span>
       </div>
       <GlassTile icon={Moon} tone="navy" size={46} className="hd-float is-a" />
-      <GlassTile icon={Activity} tone="orange" size={42} className="hd-float is-b" />
+      <GlassTile icon={Waves} tone="orange" size={42} className="hd-float is-b" />
       <GlassTile icon={Heart} tone="columbia" size={40} className="hd-float is-c" />
     </div>
   );

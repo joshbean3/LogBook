@@ -76,7 +76,7 @@ const Progress = ({ p }: { p: number }) => (
 /**
  * The alarm drag's flash (§4.2): an accent copy of a stamp over it, lit while the alarm moves and fading out over 400 ms on
  * release. Opacity on its own layer, so the fade runs on the compositor even while the release's write re-renders the
- * pages under this one (a colour tween would freeze with the main thread). The text is CSS content: not in textContent.
+ * pages under this one (a color tween would freeze with the main thread). The text is CSS content: not in textContent.
  */
 export const Flash = ({ t }: { t: string }) => <span className="sch-flash" aria-hidden="true" data-t={t} />;
 

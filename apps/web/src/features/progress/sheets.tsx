@@ -12,6 +12,7 @@ import { sessionSheetTitle, UnplannedSheet, usePushSession } from '../sessions/S
 import { LineChart, Spark } from './charts';
 import { easyPace, liftGroups, liftValue, paceText, plural, setWords, signedPct, weekTitle, type EasyPace, type LiftGroup, type Range, rangePhrase } from './data';
 import { miShort } from './hero';
+import { dayRange } from '@/ui/charts/range';
 
 const up = (s: string) => s.toUpperCase();
 const md = (d: string) => fmtDate('md', d);
@@ -20,7 +21,7 @@ const md = (d: string) => fmtDate('md', d);
 export const Stamp = ({ label: l, value, unit, note }: { label: string; value: ReactNode; unit?: string; note?: ReactNode }) => (
   <div className="pg-stamp">
     <span className="caps">{l}</span>
-    <span className="stamp pg-stamp-num">
+    <span className="pg-stamp-num">
       {value}
       {unit ? <small>{unit}</small> : null}
     </span>
@@ -159,7 +160,7 @@ export const WeekSheet = ({ w, today, onGone }: { w: string; today: string; onGo
 export const useOpenWeek = (today: string) => {
   const sheet = useSheet();
   return (w: string, how: 'open' | 'push' = 'open', onGone?: () => void) =>
-    sheet[how]({ title: weekTitle(w, today), eyebrow: `${up(md(w))} – ${up(md(shiftDays(w, 6)))}`, body: <WeekSheet w={w} today={today} onGone={onGone} />, wide: true });
+    sheet[how]({ title: weekTitle(w, today), eyebrow: up(dayRange(w, shiftDays(w, 6))), body: <WeekSheet w={w} today={today} onGone={onGone} />, wide: true });
 };
 
 // ---------- easy pace ----------
@@ -242,7 +243,7 @@ const EasyPaceBody = ({ ep, log, range }: { ep: EasyPace; log: Log; range: Range
               title={fmtDate('short', r.a.date)}
               sub={`${mi(r.a.miles)} mi${r.hr != null ? ` · ${r.hr} bpm` : ''}`}
               right={
-                <span className="stamp pg-row-num">
+                <span className="pg-row-num">
                   {paceText(r.pace)}
                   <small>/mi</small>
                 </span>
@@ -310,12 +311,12 @@ export const LiftSheet = ({ g }: { g: LiftGroup }) => {
             sub={g.reps ? 'Bodyweight' : `e1RM ${Math.round(d.e1rm)}`}
             right={
               g.reps ? (
-                <span className="stamp pg-row-num">
+                <span className="pg-row-num">
                   {d.reps}
                   <small>{plural(d.reps, 'rep')}</small>
                 </span>
               ) : (
-                <span className="stamp pg-row-num">{setWords(d)}</span>
+                <span className="pg-row-num">{setWords(d)}</span>
               )
             }
           />
@@ -379,7 +380,7 @@ export const LiftsSheet = ({ from, today, range }: { from: string; today: string
                 <>
                   <Spark values={g.days.map((d) => liftValue(g, d))} />
                   <span className="pg-num-col">
-                    <span className="stamp pg-row-num">{value}</span>
+                    <span className="pg-row-num">{value}</span>
                     <span className="caps">{g.change == null ? unit : signedPct(g.change)}</span>
                   </span>
                 </>

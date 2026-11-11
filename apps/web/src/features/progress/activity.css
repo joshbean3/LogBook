@@ -19,9 +19,10 @@
   white-space: nowrap;
   flex: none;
 }
+/* synced: Night Ink on Haze (12.64) */
 .pa-source.is-synced {
-  background: var(--accent-soft);
-  color: var(--accent-ink);
+  background: var(--haze);
+  color: var(--ink);
 }
 
 /* the map card: the route edge to edge in the card's top, the source and time under it */
@@ -76,14 +77,15 @@
 }
 .pa-h {
   font: 600 var(--fs-row) / var(--lh-row) var(--sans);
-  letter-spacing: -0.01em;
+  letter-spacing: 0;
   color: var(--ink);
 }
 .pa-card .pa-fine {
   padding-inline: 0;
 }
 
-/* the laps: number, a bar (the fastest longest), pace, heart rate */
+/* the laps: number, a bar (the fastest longest; done bars Sky with a Deep Sky edge so they pass 3:1, the best Deep Sky),
+   pace, heart rate */
 .pa-laps {
   display: grid;
 }
@@ -108,7 +110,7 @@
   text-align: right;
 }
 .pa-lap-n {
-  font: 600 var(--fs-sub) / 1 var(--stamp);
+  font: 600 var(--fs-sub) / 1 var(--sans);
   color: var(--ink-3);
   font-variant-numeric: tabular-nums;
 }
@@ -122,13 +124,14 @@
   display: block;
   height: 100%;
   border-radius: var(--r-pill);
-  background: var(--columbia);
+  background: var(--accent);
+  box-shadow: inset 0 0 0 1.5px var(--deep-sky);
 }
 .pa-lap.is-best .pa-lap-bar i {
-  background: var(--ink-2);
+  background: var(--deep-sky);
 }
 .pa-lap-pace {
-  font: 700 var(--fs-sub) / 1 var(--stamp);
+  font: 650 var(--fs-sub) / 1 var(--sans);
   text-align: right;
   color: var(--ink);
   font-variant-numeric: tabular-nums;

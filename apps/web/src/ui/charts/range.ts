@@ -25,11 +25,19 @@ export const rangeWindow = (today: ISODate, key: RangeKey, offset = 0): RangeWin
   return { from, to, days, dates: Array.from({ length: days }, (_, i) => shiftDays(from, i)) };
 };
 
-/** "Oct 10 – Nov 8", with the year on both ends when the window is not in this year. */
+/**
+ * A run of days in words (guide 10: ranges read "to", never a dash): `Nov 9 to 15` inside one month, `Nov 10 to Feb 7`
+ * across months. Plan's and Progress's local copy of the helper the plan gives `packages/shared` (plan 6.4); swap to the
+ * shared one when it lands.
+ */
+export const dayRange = (from: ISODate, to: ISODate): string =>
+  from.slice(0, 7) === to.slice(0, 7) ? `${fmtDate('md', from)} to ${Number(to.slice(8, 10))}` : `${fmtDate('md', from)} to ${fmtDate('md', to)}`;
+
+/** "Oct 10 to Nov 8", with the year on both ends when the window is not in this year. */
 export const windowLabel = (w: Pick<RangeWindow, 'from' | 'to'>, today: ISODate) => {
   const sameYear = w.from.slice(0, 4) === today.slice(0, 4) && w.to.slice(0, 4) === today.slice(0, 4);
   const d = (x: ISODate) => (sameYear ? fmtDate('md', x) : `${fmtDate('md', x)}, ${x.slice(0, 4)}`);
-  return `${d(w.from)} – ${d(w.to)}`;
+  return `${d(w.from)} to ${d(w.to)}`;
 };
 
 /** How many spans back the oldest data allows (so `<` stops where the log starts). */

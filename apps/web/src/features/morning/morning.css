@@ -1,6 +1,6 @@
 /* This morning (docs/feel.md §4): pushed over Today. The bar, the Now card where the hero's four-stop line lands, then the
    morning as one inset group of 60 px rows (time 48 · icon 32 · name and sub, nothing on the right) ending in the sticky
-   Leave row, and `+ Add a step`. Only transform and opacity animate (the stamps' colour flash is the one colour tween). */
+   Leave row, and `+ Add a step`. Only transform and opacity animate (the stamps' color flash is the one color tween). */
 
 .m-page {
   display: block;
@@ -44,6 +44,12 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+/* its times change, so they are Inter with even figures, upright (guide 4.4: Fraunces has no tnum) */
+.now-line .mc-head-n {
+  font: 650 var(--fs-row) / var(--lh-sentence) var(--sans);
+  font-style: normal;
+  font-variant-numeric: tabular-nums;
 }
 .now-card.is-past .now-line,
 .now-card.is-future .now-line {
@@ -107,12 +113,12 @@
   color: var(--ink);
   white-space: nowrap;
 }
-/* the alarm drag's flash (§4.2): a moved stamp is lit (its accent copy over it) while the alarm moves; on release the copy
-   fades out over 400 ms, by opacity on its own layer, so the stamp reads accent → ink even while the main thread is busy */
+/* the alarm drag's flash (§4.2): a moved stamp is lit (its Deep Sky copy over it) while the alarm moves; on release the
+   copy fades out over 400 ms, by opacity on its own layer, so the stamp reads Deep Sky → ink even while the main thread is busy */
 .sch-flash {
   position: absolute;
   inset: 0;
-  color: var(--accent-text);
+  color: var(--deep-sky);
   opacity: 0;
   pointer-events: none;
   will-change: opacity;
@@ -131,14 +137,15 @@
 .leave-stamp.is-moved {
   color: transparent;
 }
+/* the row's icon tile (guide 6.4, 6.13): 32 px, r 12, Haze, a Deep Sky glyph; the workout's glyph in its data tone */
 .sch-ico {
   display: grid;
   place-items: center;
   width: 32px;
   height: 32px;
   border-radius: var(--r-icon);
-  background: var(--columbia-wash);
-  color: var(--ink-2);
+  background: var(--haze);
+  color: var(--deep-sky);
 }
 .sch-main {
   display: grid;
@@ -153,24 +160,23 @@
 }
 /* one line at the default size; at large text it takes a second line rather than losing the time at its end */
 .sch-sub {
-  font: 400 var(--fs-sub) / var(--lh-sub) var(--sans);
-  color: var(--ink-3);
+  font: 500 var(--fs-sub) / var(--lh-sub) var(--sans);
+  color: var(--ink-2);
   overflow: hidden;
   display: -webkit-box;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
 }
 .sch-row.k-work .sch-ico {
-  background: var(--accent-soft);
-  color: var(--accent-text);
+  color: var(--tone, var(--deep-sky));
 }
-/* behind you on today: quiet; under way: the time in the accent and the 2 px line filling under the row */
+/* behind you on today: quiet; under way: the time in Ember (orange words, plan 1.4) and the 2 px line filling under the row */
 .sch-row.past .sch-time,
 .sch-row.past .sch-name {
-  color: var(--ink-3);
+  color: var(--ink-2);
 }
 .sch-row.is-now .sch-time {
-  color: var(--accent-text);
+  color: var(--now-text);
 }
 .sch-progress {
   position: absolute;
@@ -179,15 +185,15 @@
   right: 16px;
   bottom: 0;
   height: 2px;
-  border-radius: 1px;
-  background: var(--line-strong);
+  border-radius: var(--r-pill);
+  background: var(--haze);
   overflow: hidden;
   pointer-events: none;
 }
 .sch-progress i {
   display: block;
   height: 100%;
-  background: var(--accent-bright);
+  background: var(--deep-sky);
   transform-origin: 0 50%;
   transition: transform 1s linear;
 }
@@ -233,9 +239,10 @@
   opacity: 0.55;
 }
 .alarm-handle:focus-visible {
-  outline: 2px solid var(--accent-bright);
+  outline: 1.5px solid var(--focus-edge);
   outline-offset: -2px;
   border-radius: var(--r-control);
+  box-shadow: var(--focus-ring);
 }
 /* the two stacked labels: the new time fades in over the old one, 120 ms */
 .ah-d {
@@ -285,26 +292,26 @@
 }
 .late-hit .sch-ico {
   background: var(--warn-soft);
-  color: var(--warn-text, #8f5800);
+  color: var(--warn-text);
 }
 .late-text {
   font: 600 var(--fs-sub) / var(--lh-sub) var(--sans);
-  color: var(--warn-text, #8f5800);
+  color: var(--warn-text);
   white-space: normal;
 }
 .late-text.is-clear {
-  color: var(--ink-3);
+  color: var(--ink-2);
 }
 /* back in time while the finger holds the row (feel review 2 R2-3): a neutral disc, the line in the middle of the height
    the row holds (its min-height, set from the row as the drag found it: feel review 3 R3-1) */
-/* a late note with no fix left to offer (back home, or the run done: code review 3 N7) is one 60 row, its line centred */
+/* a late note with no fix left to offer (back home, or the run done: code review 3 N7) is one 60 row, its line centered */
 .late-hit.is-clear,
 .late-hit.is-quiet {
   align-items: center;
 }
 .late-hit.is-clear .sch-ico {
   background: var(--surface-2);
-  color: var(--ink-3);
+  color: var(--ink-2);
 }
 .late-fixes {
   grid-column: 1 / -1;
@@ -343,7 +350,7 @@
 .sch-hit[data-lifting] {
   background: var(--surface-2);
   border-radius: var(--r-group);
-  box-shadow: 0 10px 28px rgba(15, 42, 68, 0.165);
+  box-shadow: var(--shadow-float);
 }
 /* picked up, it stays picked up while it moves (feel review 1 FL16): the shadow is its own layer, faded in by opacity */
 .sch > li.is-lifted .sch-hit {
@@ -356,7 +363,7 @@
   inset: 0;
   z-index: -1;
   border-radius: var(--r-group);
-  box-shadow: 0 8px 24px rgba(15, 42, 68, 0.135);
+  box-shadow: var(--shadow-float);
   pointer-events: none;
   animation: ah-in 160ms var(--ease-out) both;
 }
@@ -389,14 +396,15 @@
   position: relative;
   /* the two stacked labels of its roll share one box */
   display: inline-grid;
-  /* a display stamp at the row's end: it follows the text size to a limit, so the row's words keep their room */
-  font: 700 clamp(24px, 1.5rem, 32px) / clamp(28px, 1.75rem, 38px) var(--stamp);
-  letter-spacing: -0.01em;
+  /* the morning's endpoint at the row's end: Inter 650 with even figures (it changes as the routine changes; Inter has no
+     24 px step, so it is the row headline a weight up, guide 4.2) */
+  font: 650 var(--fs-row) / var(--lh-row) var(--sans);
+  letter-spacing: 0;
   font-variant-numeric: tabular-nums;
   color: var(--ink);
 }
 .leave-row .sch-sub.is-late {
-  color: var(--warn-text, #8f5800);
+  color: var(--warn-text);
   /* `18 min later than your routine` whole (it is the row's news): it wraps rather than losing `routine` */
   white-space: normal;
 }
@@ -446,7 +454,7 @@
   gap: 8px;
 }
 .rt-verdict {
-  font-size: 0.75rem;
+  font-size: var(--fs-orb);
   line-height: 1rem;
   color: var(--ink-2);
 }
@@ -467,7 +475,7 @@
   border-bottom: 1px solid var(--line);
 }
 .rt-row.is-focus {
-  box-shadow: inset 3px 0 0 var(--accent-bright);
+  box-shadow: inset 3px 0 0 var(--deep-sky);
   padding-left: 12px;
 }
 .rt-line {
@@ -494,13 +502,13 @@
   cursor: default;
 }
 .rt-label {
-  font-size: 1.0625rem;
-  line-height: 1.375rem;
+  font-size: var(--fs-row);
+  line-height: var(--lh-row);
 }
 .rt-sub {
-  font-size: 0.75rem;
+  font-size: var(--fs-orb);
   line-height: 1rem;
-  color: var(--ink-3);
+  color: var(--ink-2);
 }
 .rt-chip {
   font-variant-numeric: tabular-nums;
@@ -511,12 +519,9 @@
   padding: 0 14px;
   border-radius: var(--r-pill);
   border: 1px solid var(--line-strong);
-  background: var(--surface-2);
+  background: var(--surface);
   color: var(--ink);
-  font-family: var(--stamp);
-  font-weight: 700;
-  font-size: 0.9375rem;
-  line-height: 1.25rem;
+  font: 600 var(--fs-sub) / var(--lh-sub) var(--sans);
   white-space: nowrap;
   overflow: hidden;
 }
@@ -529,12 +534,13 @@
   inset: -4px 0;
 }
 .rt-chip.off {
-  color: var(--ink-3);
+  color: var(--ink-2);
 }
 .rt-chip:focus-visible,
 .rt-name:focus-visible {
-  outline: 2px solid var(--accent-bright);
+  outline: 1.5px solid var(--focus-edge);
   outline-offset: 2px;
+  box-shadow: var(--focus-ring);
 }
 .rt-fine {
   padding-bottom: 2px;
@@ -553,7 +559,7 @@
   gap: 8px;
 }
 .se-name {
-  font-size: 1.1875rem;
+  font-size: var(--fs-row);
   font-weight: 600;
 }
 .se-length {
@@ -570,30 +576,32 @@
 }
 .se-hint,
 .se-note {
-  font-size: 0.8125rem;
-  line-height: 1.125rem;
-  color: var(--ink-3);
+  font-size: var(--fs-foot);
+  line-height: var(--lh-foot);
+  color: var(--ink-2);
 }
 .se-note {
-  color: var(--warn-text, #8f5800);
+  color: var(--warn-text);
 }
 .se-leave {
   padding: 12px 14px;
   border-radius: var(--r-md);
   background: var(--surface);
-  font-size: 0.9375rem;
-  line-height: 1.25rem;
+  font-size: var(--fs-sub);
+  line-height: var(--lh-sub);
   color: var(--ink-2);
 }
 .se-leave .stamp {
+  font: 650 var(--fs-row) / 1 var(--sans);
+  letter-spacing: 0;
+  text-transform: none;
   color: var(--ink);
-  font-size: 1.0625rem;
 }
 .se-leave .later {
-  color: var(--warn-text, #8f5800);
+  color: var(--warn-text);
 }
 .se-leave .sooner {
-  color: var(--accent-text);
+  color: var(--deep-sky);
 }
 
 

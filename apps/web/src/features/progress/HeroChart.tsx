@@ -1,8 +1,10 @@
+import type * as React from 'react';
 import { useMemo, useState } from 'react';
 import { useNav } from '@/app/NavController';
 import { haptics } from '@/lib/haptics';
 import { STRAVA_BUILT } from '@/lib/features';
 import { Button, EmptyState, Segmented } from '@/ui';
+import { useNowMark, usePageShown } from '@/ui/nowBudget';
 import type { Log } from '../log/useLog';
 import { plural, weekTitle } from './data';
 import { completion, HERO_MODES, HERO_WEEKS, lbShort, liftWeeks, miShort, runWeeks, weekRate, type HeroMode, type LiftWeek, type RunWeek } from './hero';
@@ -79,16 +81,33 @@ const CurveGhost = () => (
  */
 const FirstWeek = ({ p }: { p: RunWeek }) => {
   const share = p.planned > 0 ? Math.min(1, p.done / p.planned) : p.done > 0 ? 1 : 0;
+  // the ruler's NOW tick is a Sunrise mark (guide 3.5 job 6) while this week shows on the page on screen
+  const now = useNowMark('pointer', usePageShown() && p.current);
   return (
     <div className="ph-first">
       <span className="ph-first-bar" role="img" aria-label={p.planned > 0 ? `${miShort(p.done)} of ${miShort(p.planned)} miles this week` : `${miShort(p.done)} miles this week`}>
         <i style={{ transform: `scaleX(${share})` }} />
+        {p.current ? <b className="ph-first-now" data-now={now === 'ink' ? 'ink' : undefined} style={{ '--at': share } as React.CSSProperties} /> : null}
       </span>
       <span className="ph-first-ends" aria-hidden="true">
         <span>0</span>
         <span>{p.planned > 0 ? `${miShort(p.planned)} mi` : ''}</span>
       </span>
       <p className="ph-first-line">Your weeks draw here as you go.</p>
+    </div>
+  );
+};
+
+/** The key under the chart; its "This week" swatch is the now dot's, a stamp-priority Sunrise mark. */
+const Legend = () => {
+  const now = useNowMark('stamp', usePageShown());
+  return (
+    <div className="ph-legend" aria-hidden="true">
+      <span className="ph-key is-actual">Actual</span>
+      <span className="ph-key is-plan">Plan</span>
+      <span className="ph-key is-now" data-now={now === 'ink' ? 'ink' : undefined}>
+        This week
+      </span>
     </div>
   );
 };
@@ -132,7 +151,7 @@ export const HeroChart = ({ log, t, onConnect, failed, onRetry }: { log: Log; t:
         <EmptyState
           className="ph-empty"
           ghost={<CurveGhost />}
-          verb={mode === 'run' && strava ? { label: 'Connect Strava', onPress: onConnect! } : { label: 'Plan a week', onPress: () => nav.go('/plan'), primary: true }}
+          verb={mode === 'run' && strava ? { label: 'Connect Strava', onPress: onConnect! } : { label: 'Plan a week', onPress: () => nav.go('/plan') }}
         >
           {mode === 'run' ? 'Plan a week and run it. Planned and done miles show up here.' : 'No lifts yet. Add a lift day to your plan and log its sets.'}
         </EmptyState>
@@ -202,11 +221,7 @@ export const HeroChart = ({ log, t, onConnect, failed, onRetry }: { log: Log; t:
       ) : mode === 'run' ? (
         <>
           <PlanLine weeks={weeks} label={chartLabel} words={words} onScrub={setScrub} onOpen={openAt} />
-          <div className="ph-legend" aria-hidden="true">
-            <span className="ph-key is-actual">Actual</span>
-            <span className="ph-key is-plan">Plan</span>
-            <span className="ph-key is-now">This week</span>
-          </div>
+          <Legend />
           {gaps && failed && onRetry ? (
             <div className="ph-retry" role="alert">
               <span>Some weeks didn’t load.</span>

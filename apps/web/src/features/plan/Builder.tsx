@@ -14,6 +14,7 @@ import { useToast } from '@/ui/Toast';
 import { useLog, type Log } from '../log/useLog';
 import { builderNote, builderVerb, clampTyped, startWords, type BuilderPrefill } from './builderModel';
 import './plan.css';
+import { dayRange } from '@/ui/charts/range';
 
 /*
  * The block builder (docs/feel.md §7.4): a large sheet whose fixed header is the ghost preview (160 tall: the block's
@@ -99,7 +100,7 @@ const GhostHeader = ({ store }: { store: GhostStore }) => {
         </span>
         <span className="bh-name">{tpl.name}</span>
         <span className="bh-dates">
-          {fmtDate('md', tpl.start)} – {fmtDate('md', tpl.end)}
+          {dayRange(tpl.start, tpl.end)}
         </span>
         <GhostGrid tpl={tpl} />
       </>

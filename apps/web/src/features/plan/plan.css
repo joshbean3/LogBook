@@ -101,11 +101,12 @@
   column-gap: 4px;
   padding-left: 16px;
   background: var(--surface);
-  transition: background-color 200ms cubic-bezier(0.22, 1, 0.36, 1);
+  transition: background-color var(--dur-color) var(--ease-out);
 }
-/* today, lit: a wash of Columbia across its row, its number in the orange disc */
+/* today: a Cloud wash across its row, its numeral in a Night Ink ring (guide 6.13: today in a day list is a ring; a filled
+   Sky disc would read as the shown day) */
 .pl-day.is-today {
-  background: color-mix(in srgb, var(--columbia-wash) 75%, var(--surface));
+  background: var(--cloud);
 }
 /* hairlines between days, from the gutter */
 .pl-day + .pl-day::before,
@@ -134,21 +135,21 @@
   width: 30px;
   height: 30px;
   border-radius: 50%;
-  font: 700 1.125rem / 1 var(--stamp);
-  letter-spacing: -0.01em;
+  font: 600 var(--fs-row) / 1 var(--sans);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0;
   color: var(--ink);
 }
 .pl-dow {
   font: 500 var(--fs-orb) / 1rem var(--sans);
-  color: var(--ink-3);
+  color: var(--ink-2);
 }
 .pl-day.is-past .pl-num {
-  color: var(--ink-3);
+  color: var(--ink-2);
 }
 .pl-day.is-today .pl-num {
-  background: var(--accent);
-  color: var(--accent-ink);
-  box-shadow: 0 0 12px rgba(242, 96, 12, 0.32);
+  box-shadow: inset 0 0 0 1.5px var(--ink);
+  color: var(--ink);
 }
 .pl-day.is-today .pl-dow {
   color: var(--ink);
@@ -165,7 +166,8 @@
   background-position: right top;
   background-repeat: no-repeat;
 }
-/* a session: its icon tile in its tone, the name 17/22 600 over one line 15/20 grey, the status at the right */
+/* a session: its Haze icon tile with the glyph in its data tone (guide 6.4), the name 17/22 600 over one line 15/20 Dusk,
+   the status at the right */
 .pl-line.pressable {
   position: relative;
   display: flex;
@@ -182,11 +184,11 @@
   /* the foundation's press/pre-grow transform transition stays: the lift reads the pre-grow's 1.02 from it, so the hold
      never dips to 1.00 on the lift frame (review-feel-1 #3) */
   transition:
-    transform 160ms cubic-bezier(0.23, 1, 0.32, 1),
-    background-color 200ms cubic-bezier(0.22, 1, 0.36, 1);
+    transform var(--dur-fast) var(--ease-out),
+    background-color var(--dur-color) var(--ease-out);
 }
 .pl-line[data-pressed][data-press='surface'] {
-  background-color: color-mix(in srgb, var(--surface-2) 70%, transparent);
+  background-color: var(--cloud);
 }
 /* lifted in place for the menu (ui/lift.ts scales it to 1.03; the menu's cut-out shows it at full brightness) */
 .pl-line[data-lifting] {
@@ -228,7 +230,7 @@
   width: 34px;
   height: 34px;
   border-radius: var(--r-icon);
-  background: color-mix(in srgb, var(--tone, var(--t-rest)) 13%, var(--surface));
+  background: var(--haze);
   color: var(--tone, var(--t-rest));
 }
 .pl-ic.is-empty {
@@ -246,14 +248,14 @@
 .pl-name {
   overflow: hidden;
   font: 600 var(--fs-row) / var(--lh-row) var(--sans);
-  letter-spacing: -0.01em;
+  letter-spacing: 0;
   white-space: nowrap;
   text-overflow: ellipsis;
 }
 .pl-sub {
   overflow: hidden;
-  font: 400 var(--fs-sub) / var(--lh-sub) var(--sans);
-  color: var(--ink-3);
+  font: 500 var(--fs-sub) / var(--lh-sub) var(--sans);
+  color: var(--ink-2);
   white-space: nowrap;
   text-overflow: ellipsis;
 }
@@ -263,31 +265,31 @@
   place-items: center;
   min-width: 14px;
 }
-/* done: a check in a lit disc */
+/* done: a Night Ink check on a Sky disc (7.03), no glow */
 .pl-st.is-check {
   width: 26px;
   height: 26px;
   border-radius: 50%;
   background: var(--accent);
   color: var(--accent-ink);
-  box-shadow: 0 0 10px rgba(242, 96, 12, 0.3);
 }
 .pl-st.is-chev {
   color: var(--ink-4);
 }
 .pl-st.is-word {
   font: 500 var(--fs-foot) / var(--lh-foot) var(--sans);
-  color: var(--ink-3);
+  color: var(--ink-2);
 }
+/* floor is partly done (plan 1.7, D23): the word in Dusk, a step heavier; never Marigold */
 .pl-st.is-word.k-floor {
-  color: var(--warn-text, #8f5800);
+  color: var(--ink-2);
   font-weight: 600;
 }
-/* missed: the word in ink-3 and a 1 px strike on the name; never red */
+/* missed: the word in Dusk and a 1 px strike on the name; never red */
 .pl-line.k-missed .pl-name {
   text-decoration-line: line-through;
   text-decoration-thickness: 1px;
-  text-decoration-color: var(--ink-3);
+  text-decoration-color: var(--ink-2);
   color: var(--ink-2);
 }
 .pl-line.k-missed .pl-ic,
@@ -295,20 +297,21 @@
   opacity: 0.45;
 }
 .pl-line.k-skipped .pl-name {
-  color: var(--ink-3);
+  color: var(--ink-2);
 }
+/* the rest glyph on Haze is #5F6D7B (4.15; Pencil is 2.87 there, guide 3.3) */
 .pl-line.is-rest .pl-ic:not(.is-empty) {
-  background: var(--surface-2);
-  color: var(--ink-3);
+  background: var(--haze);
+  color: #5f6d7b; /* brand-ok: guide 3.3 names #5F6D7B for the rest glyph on Haze */
 }
 .pl-rest {
   font: 500 var(--fs-row) / var(--lh-row) var(--sans);
-  color: var(--ink-3);
+  color: var(--ink-2);
 }
-/* a day lit under a dragged session: the 2 px accent ring inside, --accent-tint */
+/* a day lit under a dragged session: the Sky tint with a 2 px Deep Sky ring inside (a Sky ring is 2.26 on Paper) */
 .pl-day.is-target {
   background: var(--accent-tint);
-  box-shadow: inset 0 0 0 2px var(--accent);
+  box-shadow: inset 0 0 0 2px var(--deep-sky);
 }
 /* the inline question under a hard pair */
 .pl-conflict {
@@ -375,11 +378,11 @@
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: var(--tone, var(--accent));
+  background: var(--tone, var(--deep-sky));
 }
 .drag-pill-name {
   font: 600 var(--fs-sub) / var(--lh-sub) var(--sans);
-  letter-spacing: -0.01em;
+  letter-spacing: 0;
 }
 /* skeleton: the seven rows' shape */
 .pl-skel {
@@ -412,30 +415,36 @@
   height: 100%;
   min-width: 0;
 }
+/* the weeks as bars (guide 6.8): planned a 1.5 px Deep Sky outline (dashed in the future), done Sky with a 1.5 px Deep Sky
+   top edge so the bar passes 3:1 */
 .pl-arc-wk i {
   position: absolute;
   left: 0;
   right: 0;
   bottom: 0;
-  border-radius: 4px 4px 2px 2px;
+  border-radius: var(--r-icon) var(--r-icon) 0 0;
   min-height: 3px;
 }
 .pl-arc-wk .plan {
-  background: var(--surface-3);
+  background: var(--haze);
 }
 .pl-arc-wk.ahead .plan {
-  background: var(--columbia-wash);
-  box-shadow: inset 0 0 0 1px var(--line);
+  background: transparent;
+  box-shadow: none;
+  border: 1.5px dashed var(--deep-sky);
+  border-bottom: 0;
 }
 .pl-arc-wk .ran {
-  background: var(--ink-2);
+  background: var(--accent);
+  box-shadow: inset 0 1.5px 0 var(--deep-sky);
 }
 .pl-arc-wk.is-now .plan {
-  box-shadow: inset 0 0 0 1.5px var(--accent);
-  background: var(--accent-soft);
+  box-shadow: inset 0 0 0 1.5px var(--deep-sky);
+  background: var(--surface);
 }
 .pl-arc-wk.is-now .ran {
   background: var(--accent);
+  box-shadow: inset 0 1.5px 0 var(--deep-sky);
 }
 
 /* ---------- the month: one card, the weekday letters over up to six week rows (a Wk column), this week lit ---------- */
@@ -458,7 +467,7 @@
 .mg-head span {
   text-align: center;
   font: 500 var(--fs-foot) / var(--lh-foot) var(--sans);
-  color: var(--ink-3);
+  color: var(--ink-2);
 }
 .mg-head .mg-wk-h {
   text-align: right;
@@ -469,10 +478,10 @@
   height: 60px;
   min-height: 60px;
   border-radius: var(--r-control);
-  transition: background-color 200ms cubic-bezier(0.22, 1, 0.36, 1);
+  transition: background-color var(--dur-color) var(--ease-out);
 }
 .mg-week.is-now {
-  background: color-mix(in srgb, var(--columbia-wash) 75%, var(--surface));
+  background: var(--cloud);
 }
 .mg-week[data-pressed][data-press='surface'] {
   background: var(--surface-2);
@@ -487,27 +496,29 @@
   padding-top: 8px;
   min-width: 0;
 }
+/* the day numeral: Inter 600, even figures; today a 1.5 px Night Ink ring (guide 6.13), never a filled disc */
 .mg-num {
   display: grid;
   place-items: center;
   min-width: 24px;
   height: 24px;
-  border-radius: 12px;
-  font: 600 var(--fs-sub) / 1 var(--stamp);
+  border-radius: 50%;
+  font: 600 var(--fs-sub) / 1 var(--sans);
+  font-variant-numeric: tabular-nums;
   color: var(--ink);
 }
 .mg-cell.is-today .mg-num {
-  background: var(--accent);
-  color: var(--accent-ink);
-  box-shadow: 0 0 10px rgba(242, 96, 12, 0.3);
+  box-shadow: inset 0 0 0 1.5px var(--ink);
+  color: var(--ink);
 }
 .mg-cell.is-out .mg-num,
 .mg-cell.is-out .mg-mi {
-  color: var(--ink-4);
+  color: var(--ink-2);
 }
 .mg-mi {
   font: 500 var(--fs-orb) / 0.875rem var(--sans);
-  color: var(--ink-3);
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-2);
 }
 .mg-mi.is-ran {
   color: var(--ink);
@@ -526,7 +537,7 @@
   content: '';
   width: var(--mw);
   height: var(--mh);
-  border-radius: 2px;
+  border-radius: var(--r-pill);
   background: var(--tone, var(--t-rest));
 }
 .mg-cell.has-tone::after {
@@ -560,7 +571,7 @@
 }
 .mg-cell.k-missed,
 .mg-cell.k-skipped {
-  --tone: var(--ink-4);
+  --tone: var(--ink-faint);
 }
 .mg-cell.k-planned::after,
 .mg-cell.k-today::after {
@@ -577,16 +588,39 @@
   min-width: 0;
 }
 .mg-wk b {
-  font: 700 var(--fs-row) / var(--lh-row) var(--stamp);
+  font: 650 var(--fs-row) / var(--lh-row) var(--sans);
+  font-variant-numeric: tabular-nums;
   color: var(--ink);
 }
 .mg-wk small {
-  font: 400 var(--fs-orb) / 0.875rem var(--sans);
-  color: var(--ink-3);
+  font: 500 var(--fs-orb) / 0.875rem var(--sans);
+  color: var(--ink-2);
   white-space: nowrap;
 }
 .mg-wk.is-plan b {
-  color: var(--ink-3);
+  color: var(--ink-2);
+}
+/* at a larger text size the week total keeps its number (the word under it goes: the header says Wk), and today's ring hugs
+   its numeral as a pill so it never runs into the next day */
+[data-text-xl] .mg-wk small {
+  display: none;
+}
+[data-text-xl] .mg-mi {
+  font-size: min(var(--fs-orb), 18px);
+}
+[data-text-xl] .mg-wk {
+  padding-right: var(--sp-1);
+}
+[data-text-xl] .mg-wk b {
+  font-size: min(var(--fs-row), 24px);
+}
+/* seven numerals share a 320 row: they stop growing at 22 px (the miles under them at 18) so neighbors never touch */
+[data-text-xl] .mg-cell .mg-num {
+  font-size: min(var(--fs-sub), 22px);
+  min-width: 0;
+  height: auto;
+  padding: 0 2px;
+  border-radius: var(--r-pill);
 }
 /* the key: one line under the grid (it wraps at 320), each mark as the cells draw it */
 .mg-key {
@@ -610,9 +644,9 @@
 .mg-key-i {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
+  gap: var(--sp-1);
   font: 500 var(--fs-orb) / 1rem var(--sans);
-  color: var(--ink-3);
+  color: var(--ink-2);
   white-space: nowrap;
 }
 .mg-mark {
@@ -632,7 +666,7 @@
   font: 500 var(--fs-sub) / var(--lh-sub) var(--sans);
   color: var(--ink-2);
 }
-/* the plan sheet's foot: the navy pill, then New plan and All plans side by side */
+/* the plan sheet's foot: the one Sky primary, then New plan and All plans side by side as secondaries */
 .pl-sum .sheet-foot .pl-sum-act {
   flex: 1 1 0;
   min-width: 0;
@@ -659,18 +693,19 @@
   text-align: left;
   color: inherit;
   background: var(--surface);
-  transition: background-color 200ms cubic-bezier(0.22, 1, 0.36, 1);
+  transition: background-color var(--dur-color) var(--ease-out);
 }
 .pl-plan-row[data-pressed] {
   background: var(--surface-2);
 }
+/* icon tiles (guide 6.4): Haze with a Deep Sky glyph; the active plan's the same tile, its words say Active */
 .pl-plan-ic.is-on {
-  background: var(--columbia);
-  color: var(--ink);
+  background: var(--haze);
+  color: var(--deep-sky);
 }
 .pl-ai-ic {
-  background: var(--accent-soft);
-  color: var(--accent-text);
+  background: var(--haze);
+  color: var(--deep-sky);
 }
 .pl-plan-main {
   display: grid;
@@ -679,14 +714,14 @@
 }
 .pl-plan-name {
   font: 600 var(--fs-row) / var(--lh-row) var(--sans);
-  letter-spacing: -0.01em;
+  letter-spacing: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 .pl-plan-sub {
-  font: 400 var(--fs-sub) / var(--lh-sub) var(--sans);
-  color: var(--ink-3);
+  font: 500 var(--fs-sub) / var(--lh-sub) var(--sans);
+  color: var(--ink-2);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -694,15 +729,15 @@
 .pl-plan-st {
   flex: none;
   font: 500 var(--fs-foot) / var(--lh-foot) var(--sans);
-  color: var(--ink-3);
+  color: var(--ink-2);
 }
 .pl-plan-st.on {
-  color: var(--accent-text);
+  color: var(--deep-sky);
   font-weight: 600;
 }
 .pl-plan-chev {
   flex: none;
-  color: var(--ink-4);
+  color: var(--ink-2);
 }
 .pl-plans-empty.card {
   display: grid;
@@ -712,8 +747,8 @@
   font: 600 var(--fs-row) / var(--lh-row) var(--sans);
 }
 .pl-plans-empty-s {
-  font: 400 var(--fs-sub) / var(--lh-sub) var(--sans);
-  color: var(--ink-3);
+  font: 500 var(--fs-sub) / var(--lh-sub) var(--sans);
+  color: var(--ink-2);
 }
 /* a plan's sheet: the arc card, two tiles, the words, the one pill */
 .pl-detail-arc.card {
@@ -730,7 +765,7 @@
 }
 .pl-sum-text {
   margin: 0;
-  font: 400 1.0625rem / 1.5rem var(--sans);
+  font: 400 var(--fs-row) / 1.5rem var(--sans);
   color: var(--ink);
   text-wrap: pretty;
 }
@@ -742,11 +777,11 @@
   padding-top: 10px;
   border-top: 1px solid var(--line);
   font: 500 var(--fs-foot) / var(--lh-foot) var(--sans);
-  color: var(--ink-3);
+  color: var(--ink-2);
 }
 .pl-sum-from svg {
   flex: none;
-  color: var(--accent-text);
+  color: var(--deep-sky);
 }
 .pl-sum .lb-head.pl-sum-head {
   margin: 10px 2px -2px;
@@ -770,8 +805,8 @@
 }
 .pl-sum-k {
   flex: none;
-  font: 400 var(--fs-sub) / var(--lh-sub) var(--sans);
-  color: var(--ink-3);
+  font: 500 var(--fs-sub) / var(--lh-sub) var(--sans);
+  color: var(--ink-2);
 }
 .pl-sum-v {
   display: grid;
@@ -782,16 +817,16 @@
   text-wrap: pretty;
 }
 .pl-sum-v small {
-  font: 400 var(--fs-foot) / var(--lh-foot) var(--sans);
-  color: var(--ink-3);
+  font: 500 var(--fs-foot) / var(--lh-foot) var(--sans);
+  color: var(--ink-2);
 }
 .pl-sum-tiles .tile-value {
   overflow: hidden;
   text-overflow: ellipsis;
 }
 .pl-sum-tsub {
-  font: 400 var(--fs-foot) / var(--lh-foot) var(--sans);
-  color: var(--ink-3);
+  font: 500 var(--fs-foot) / var(--lh-foot) var(--sans);
+  color: var(--ink-2);
 }
 /* the Goals tab's goals that name the plan: a target, the goal's words, its level */
 .pl-sum-aim {
@@ -803,7 +838,7 @@
 .pl-sum-aim svg {
   flex: none;
   margin-top: 1px;
-  color: var(--accent-text);
+  color: var(--deep-sky);
 }
 .pl-sum-aim .pl-sum-v {
   text-align: left;
@@ -812,14 +847,14 @@
   display: flex;
   justify-content: space-between;
   margin-top: 6px;
-  font: 400 var(--fs-foot) / var(--lh-foot) var(--sans);
-  color: var(--ink-3);
+  font: 500 var(--fs-foot) / var(--lh-foot) var(--sans);
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-2);
 }
-/* the red trash in a tinted circle at the sheet's top right */
+/* the trash at the sheet's top right: the 40 px round Paper button (guide 6.2) with a Signal glyph, as destructive
+   items read */
 .icon-btn.pl-del {
-  background: var(--bad-soft);
   color: var(--bad);
-  box-shadow: none;
 }
 /* a destructive verb reads red, as every destructive item does, over the quiet variant's ink (feel review 3 #7) */
 .btn.danger-text,
@@ -861,33 +896,29 @@
   align-content: center;
   height: 56px;
   min-width: 0;
-  border-radius: 14px;
+  border-radius: var(--r-control);
   background: var(--surface);
   box-shadow: inset 0 0 0 1px var(--line-strong);
-  font-family: var(--stamp);
-  font-weight: 800;
-  font-size: 1.0625rem;
-  color: var(--ink-3);
+  font: 600 var(--fs-row) / 1 var(--sans);
+  color: var(--ink-2);
   transition:
     background-color var(--dur-color) var(--ease-out),
     color var(--dur-color) var(--ease-out);
 }
+/* a picked day: Sky with Night Ink words a step heavier (the filter chip's on state, guide 6.3) */
 .tp-day.on {
-  background: var(--ink);
-  color: var(--bg);
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-weight: 650;
 }
+/* the long-run day: a 2 px ring in the long tone, no glow (plan 1.3) */
 .tp-day.long {
-  box-shadow:
-    inset 0 0 0 2px var(--accent-bright),
-    0 0 14px rgba(47, 93, 133, 0.45);
+  box-shadow: inset 0 0 0 2px var(--t-long);
 }
 .tp-day small {
-  font-family: var(--sans);
-  font-size: 0.6875rem;
-  font-weight: 700;
-  letter-spacing: 0.06em;
+  font: 600 var(--fs-caps) / 0.75rem var(--stamp);
+  letter-spacing: var(--tr-caps);
   text-transform: uppercase;
-  line-height: 0.75rem;
 }
 .tp-long {
   align-items: center;
@@ -941,8 +972,8 @@
   color: var(--ink);
 }
 .bh-dates {
-  font: 400 var(--fs-foot) / var(--lh-foot) var(--sans);
-  color: var(--ink-3);
+  font: 500 var(--fs-foot) / var(--lh-foot) var(--sans);
+  color: var(--ink-2);
 }
 .bh-grid {
   display: grid;
@@ -958,9 +989,9 @@
   min-width: 0;
 }
 .bh-cell {
-  border-radius: 2px;
+  border-radius: 2px; /* brand-ok: geometry, a 4 px ghost cell (a mark, not a surface) */
   background: var(--surface-2);
-  transition: opacity 200ms var(--ease-out);
+  transition: opacity var(--dur-color) var(--ease-out);
 }
 .bh-cell[class*='t-'] {
   background: var(--tone);
@@ -970,8 +1001,8 @@
 }
 .bh-error {
   padding-top: 8px;
-  font: 400 var(--fs-sub) / 1.375rem var(--sans);
-  color: var(--ink-3);
+  font: 500 var(--fs-sub) / 1.375rem var(--sans);
+  color: var(--ink-2);
 }
 /* the weeks, ghosted: real numbers, held back until the plan is used */
 .tp-weeks {
@@ -991,13 +1022,12 @@
   line-height: 1;
 }
 .tp-wk b {
-  font-family: var(--stamp);
-  font-size: 0.8125rem;
-  font-weight: 800;
+  font: 650 var(--fs-foot) / 1 var(--sans);
+  font-variant-numeric: tabular-nums;
 }
 .tp-wk small {
-  font-size: 0.6875rem;
-  color: var(--ink-3);
+  font-size: var(--fs-caps);
+  color: var(--ink-2);
   margin-top: 2px;
 }
 .tp-cells {
@@ -1005,21 +1035,20 @@
   grid-template-columns: repeat(7, minmax(0, 1fr));
   gap: 2px;
 }
+/* a ghost day: the miles in Inter 650 in the session's tone on a Haze cell (the tone on the mark, never a tinted wash) */
 .tp-cell {
   height: 24px;
-  border-radius: 6px;
+  border-radius: var(--r-icon);
   background: var(--surface);
   display: grid;
   place-items: center;
-  font-family: var(--stamp);
-  font-size: 0.6875rem;
-  font-weight: 800;
-  letter-spacing: -0.02em;
-  color: var(--tone, var(--ink-3));
+  font: 650 var(--fs-caps) / 1 var(--sans);
+  letter-spacing: 0;
+  color: var(--tone, var(--ink-2));
   font-variant-numeric: tabular-nums;
 }
 .tp-cell[class*='t-'] {
-  background: color-mix(in srgb, var(--tone) 16%, transparent);
+  background: var(--haze);
 }
 .tp-tot {
   display: grid;
@@ -1027,21 +1056,23 @@
   line-height: 1;
 }
 .tp-tot b {
-  font-family: var(--stamp);
-  font-size: 0.875rem;
-  font-weight: 800;
+  font: 650 var(--fs-sub) / 1 var(--sans);
+  font-variant-numeric: tabular-nums;
 }
 .tp-tot small {
-  font-size: 0.6875rem;
-  letter-spacing: 0.04em;
+  font: 600 var(--fs-caps) / 1 var(--stamp);
+  letter-spacing: var(--tr-caps);
   text-transform: uppercase;
-  color: var(--ink-3);
+  color: var(--ink-2);
   margin-top: 3px;
   white-space: nowrap;
 }
-.tp-week.k-race .tp-tot small,
+/* race week in the fast tone, taper in Dusk (plan 1.4) */
+.tp-week.k-race .tp-tot small {
+  color: var(--t-fast);
+}
 .tp-week.k-taper .tp-tot small {
-  color: var(--accent-text);
+  color: var(--ink-2);
 }
 /* the foot: what a tap does, in words, then the one verb across the sheet */
 .sheet-foot.tp-foot {
@@ -1051,8 +1082,8 @@
 }
 .tp-note {
   margin: 0;
-  font: 400 var(--fs-foot) / var(--lh-foot) var(--sans);
-  color: var(--ink-3);
+  font: 500 var(--fs-foot) / var(--lh-foot) var(--sans);
+  color: var(--ink-2);
 }
 .sheet-foot .btn.primary.tp-verb {
   min-width: 0;
@@ -1089,7 +1120,7 @@
   background: var(--surface-2);
 }
 .builder .in.bare:focus {
-  box-shadow: 0 0 0 3px var(--accent-tint);
+  box-shadow: 0 0 0 1.5px var(--focus-edge), var(--focus-ring);
 }
 .drop {
   display: grid;
@@ -1105,11 +1136,11 @@
 }
 .drop:hover,
 .drop.has {
-  border-color: var(--accent);
+  border-color: var(--deep-sky);
   color: var(--ink);
 }
 .drop svg {
-  color: var(--ink-3);
+  color: var(--ink-2);
   margin-bottom: 4px;
 }
 .drop .t-sub {
@@ -1145,7 +1176,7 @@
 }
 .pv-name:focus {
   outline: none;
-  border-bottom-color: var(--accent);
+  border-bottom-color: var(--focus-edge);
 }
 .pv-hero .t-sub {
   margin-top: 6px;
@@ -1159,7 +1190,7 @@
   background: var(--warn-soft);
 }
 .pv-notes .t-label {
-  color: var(--warn-text, #8f5800);
+  color: var(--warn-text);
 }
 .pv-notes ul {
   padding-left: 18px;
@@ -1181,7 +1212,7 @@
   align-items: baseline;
   font-size: var(--fs-orb);
   line-height: var(--lh-orb);
-  color: var(--ink-3);
+  color: var(--ink-2);
   letter-spacing: 0;
 }
 .pv-wk b {
@@ -1207,7 +1238,7 @@
 .pv-dow {
   font-size: var(--fs-orb);
   line-height: var(--lh-orb);
-  color: var(--ink-3);
+  color: var(--ink-2);
   white-space: nowrap;
 }
 .pv-day .chip {
@@ -1260,7 +1291,7 @@
   opacity: 0.55;
 }
 .pl-line.is-held .pl-sub {
-  color: var(--accent-text);
+  color: var(--deep-sky);
   font-weight: 600;
 }
 /* the held banner: one card under the morning, its status as an icon row, the sentence, the two ways out */
@@ -1277,17 +1308,9 @@
   border: var(--card-border);
   box-shadow: var(--shadow-1);
 }
+/* no glow: Plan's warm light is "Your plan" (plan 5.3 glow inventory) */
 .held-glow {
-  position: absolute;
-  inset: auto 0 0;
-  height: 80px;
-  z-index: -1;
-  background: var(--halo-amber);
-  opacity: 0.7;
-  pointer-events: none;
-}
-.held-rest .held-glow {
-  background: var(--halo);
+  display: none;
 }
 .held-top {
   display: flex;
@@ -1295,6 +1318,7 @@
   gap: 12px;
   min-width: 0;
 }
+/* the status as an icon disc: Haze with a Deep Sky glyph; a rest or travel hold a Pencil-free Dusk glyph on Cloud */
 .held-ic {
   flex: none;
   display: grid;
@@ -1302,12 +1326,12 @@
   width: 34px;
   height: 34px;
   border-radius: 50%;
-  background: var(--accent-soft);
-  color: var(--accent-text);
+  background: var(--haze);
+  color: var(--deep-sky);
 }
 .held-rest .held-ic,
 .held-travel .held-ic {
-  background: var(--columbia-wash);
+  background: var(--cloud);
   color: var(--ink-2);
 }
 .held-words {
@@ -1319,8 +1343,8 @@
   color: var(--ink);
 }
 .held-sub {
-  font: 400 var(--fs-sub) / var(--lh-sub) var(--sans);
-  color: var(--ink-3);
+  font: 500 var(--fs-sub) / var(--lh-sub) var(--sans);
+  color: var(--ink-2);
 }
 .held-line {
   margin: 0;
@@ -1335,7 +1359,7 @@
 
 /* ---------- the builder on the shape system (docs/shape-system.md §6, an entry sheet): the preview as a card in the fixed
    header, then each choice in its own card (a 17/22 title, the controls filled on white), the two numbers as tiles with
-   steppers, the two switches as an inset group, the weeks in a card, the one navy pill pinned ---------- */
+   steppers, the two switches as an inset group, the weeks in a card, the one Sky primary pinned ---------- */
 .sheet-header:has(> .bh) {
   box-shadow: none;
   padding-bottom: 4px;
@@ -1365,18 +1389,18 @@
 }
 .tp-card-h {
   font: 600 var(--fs-row) / var(--lh-row) var(--sans);
-  letter-spacing: -0.01em;
+  letter-spacing: 0;
   color: var(--ink);
 }
 .tp-card-s {
-  font: 400 var(--fs-foot) / var(--lh-foot) var(--sans);
-  color: var(--ink-3);
+  font: 500 var(--fs-foot) / var(--lh-foot) var(--sans);
+  color: var(--ink-2);
 }
 .tp-long > .tp-card-s {
   align-self: center;
   margin-right: 4px;
 }
-/* controls on a white card are filled, never outlined: the chosen one navy */
+/* controls on a Paper card are filled with Cloud; the chosen one Sky with Night Ink words a step heavier (guide 6.3) */
 .tp-card .pl-chip {
   height: 40px;
   border-color: transparent;
@@ -1384,24 +1408,29 @@
   color: var(--ink);
 }
 .tp-card .pl-chip.on {
-  background: var(--primary);
-  border-color: var(--primary);
-  color: var(--primary-ink);
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-ink);
+  font-weight: 650;
 }
 .tp-card .tp-day {
   border-radius: var(--r-control);
   background: var(--surface-2);
   box-shadow: none;
-  color: var(--ink-3);
+  color: var(--ink-2);
 }
 .tp-card .tp-day.on {
-  background: var(--primary);
-  color: var(--primary-ink);
+  background: var(--accent);
+  color: var(--accent-ink);
 }
+/* the long run's day: a 2 px ring in the long tone, no glow (plan 1.3); on a Sky day it sits inside a Paper keyline */
 .tp-card .tp-day.long {
+  box-shadow: inset 0 0 0 2px var(--t-long);
+}
+.tp-card .tp-day.on.long {
   box-shadow:
-    inset 0 0 0 2px var(--accent),
-    0 0 12px rgba(242, 96, 12, 0.35);
+    inset 0 0 0 2px var(--t-long),
+    inset 0 0 0 4px var(--surface);
 }
 /* at 320 the day letters keep inside the card's padding */
 .tp-card .tp-days {
@@ -1432,7 +1461,7 @@
   background: var(--surface);
   color: var(--ink);
   text-align: left;
-  transition: background-color 200ms cubic-bezier(0.22, 1, 0.36, 1);
+  transition: background-color var(--dur-color) var(--ease-out);
 }
 .tp-opt[data-pressed] {
   background: var(--surface-2);
@@ -1444,21 +1473,22 @@
 }
 .tp-opt-t {
   font: 600 var(--fs-row) / var(--lh-row) var(--sans);
-  letter-spacing: -0.01em;
+  letter-spacing: 0;
 }
 .tp-opt-s {
-  font: 400 var(--fs-foot) / var(--lh-foot) var(--sans);
-  color: var(--ink-3);
+  font: 500 var(--fs-foot) / var(--lh-foot) var(--sans);
+  color: var(--ink-2);
 }
-/* a switch: a pill track and a white knob; on, the track navy */
+/* a switch (guide 6.14): off a --line-strong track, on Sky; a Paper knob with the float shadow, a Night Ink check in it
+   when on (the state is not the color alone) */
 .pl-switch {
   position: relative;
   flex: none;
   width: 51px;
   height: 31px;
   border-radius: var(--r-pill);
-  background: var(--surface-3);
-  transition: background-color 200ms cubic-bezier(0.22, 1, 0.36, 1);
+  background: var(--line-strong);
+  transition: background-color var(--dur-color) var(--ease-out);
 }
 .pl-switch::after {
   content: '';
@@ -1468,12 +1498,15 @@
   width: 27px;
   height: 27px;
   border-radius: 50%;
-  background: var(--surface);
-  box-shadow: 0 2px 6px rgba(15, 42, 68, 0.2);
-  transition: transform 200ms cubic-bezier(0.22, 1, 0.36, 1);
+  background: var(--surface) no-repeat center / 13px 13px;
+  box-shadow: var(--shadow-float);
+  transition: transform var(--dur-settle) var(--ease-out);
 }
 .pl-switch.on {
-  background: var(--primary);
+  background: var(--accent);
+}
+.pl-switch.on::after {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%230E2236' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 6 9 17l-5-5'/%3E%3C/svg%3E"); /* brand-ok: Night Ink check, as the shared switch draws it */
 }
 .pl-switch.on::after {
   transform: translateX(20px);
@@ -1491,12 +1524,12 @@
   margin: 0;
   padding-top: 10px;
   border-top: 1px solid var(--line);
-  font: 400 var(--fs-foot) / var(--lh-foot) var(--sans);
-  color: var(--ink-3);
+  font: 500 var(--fs-foot) / var(--lh-foot) var(--sans);
+  color: var(--ink-2);
 }
 .sheet-foot.tp-foot .btn.primary.tp-verb {
   min-height: 54px;
-  font-size: 1.0625rem;
+  font-size: var(--fs-row);
 }
 .tp-note {
   text-align: center;
@@ -1519,12 +1552,11 @@
     grid-template-columns: minmax(0, 1fr);
   }
   .tp-cell {
-    font-size: 0.6875rem;
-    letter-spacing: -0.06em;
+    font-size: var(--fs-caps);
   }
 }
 
-/* the AI builder preview: sections 28 apart, the weeks in one group, the one pill pinned */
+/* the assistant's builder preview: sections apart, the weeks in one group, the one primary pinned */
 .pv-head {
   margin-top: var(--section);
 }
@@ -1569,7 +1601,7 @@
   margin-top: 0;
 }
 .pv-ai {
-  color: var(--accent-text);
+  color: var(--deep-sky);
 }
 .pv-retry {
   display: flex;
@@ -1613,7 +1645,7 @@
   border: 0;
   background: transparent;
   font: 600 var(--fs-sub) / var(--lh-sub) var(--sans);
-  color: var(--accent-text);
+  color: var(--deep-sky);
   text-decoration: underline;
   text-underline-offset: 3px;
   cursor: pointer;
@@ -1639,11 +1671,11 @@
 .pb-wait-clock {
   font-weight: 500;
   font-variant-numeric: tabular-nums;
-  color: var(--ink-3);
+  color: var(--ink-2);
 }
 .pb-wait-s {
-  font: 400 var(--fs-foot) / var(--lh-foot) var(--sans);
-  color: var(--ink-3);
+  font: 500 var(--fs-foot) / var(--lh-foot) var(--sans);
+  color: var(--ink-2);
 }
 .pb-attach {
   margin: 8px 0 0;
@@ -1679,7 +1711,7 @@
   padding: 0;
 }
 .tp .tp-days > .tp-day small {
-  font: 700 0.6875rem / 0.75rem var(--sans);
+  font: 600 var(--fs-caps) / 0.75rem var(--sans);
   letter-spacing: 0;
   color: inherit;
 }

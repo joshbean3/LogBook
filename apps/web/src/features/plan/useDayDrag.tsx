@@ -170,9 +170,9 @@ export const useDayDrag = ({
     light(f, dayAt(p.x, p.y));
   };
   /**
-   * Where the pill goes for a row `line` of the slot: its name's left edge on the row name's left edge and its centre on
-   * the name's centre line (the source row's own name offset, in layout px: the row may be scaled), at `scale` about the
-   * pill's centre. Returns the transform and the distance it travels.
+   * Where the pill goes for a row `line` of the slot: its name's left edge on the row name's left edge and its center on
+   * the name's center line (the source row's own name offset, in layout px: the row may be scaled), at `scale` about the
+   * pill's center. Returns the transform and the distance it travels.
    */
   const onto = (f: Flight, line: HTMLElement, scale: number, below = false) => {
     const r0 = line.getBoundingClientRect();

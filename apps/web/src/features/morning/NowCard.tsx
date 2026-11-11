@@ -2,6 +2,7 @@ import type { MorningTimeline } from '@logbook/shared';
 import type * as React from 'react';
 import { MiniTimeline } from '../day/MiniTimeline';
 import { nowLine, short, stopsOf } from './model';
+import { numParts } from './numParts';
 
 /** The four-stop line's shared id: the flyer travels from Today's hero to here (spec §4.1, M27; contracts §F). */
 export const morningLineId = (date: string) => `morning-line-${date}`;
@@ -20,7 +21,7 @@ export const NowCard = ({ T, date, now, rel }: { T: MorningTimeline; date: strin
     <section className={`now-card is-${rel}`} aria-label="Now">
       <MiniTimeline stops={stops} now={rel === 'today' ? now : rel === 'past' ? 1440 : -1} label={label} shared={morningLineId(date)} />
       {/* not a live region: the countdown changes every minute, and VoiceOver read it every minute (code review 1 F10) */}
-      <p className="now-line">{line}</p>
+      <p className="now-line">{numParts(line)}</p>
     </section>
   );
 };
