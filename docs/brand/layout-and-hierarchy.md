@@ -486,7 +486,7 @@ Alternatives differ by style, never by size [HIG Buttons]. Labels start with a v
 
 | Screen | Up front | One tap away |
 |---|---|---|
-| Today | Hero, habits, today's goal, carry-over, top three | Week detail (the readout), habit history, the rest of the to-dos, the status sheet (the title menu, or the status pill while a status is on), the session |
+| Today | Hero, habits, today's goal, carry-over, top three | Week detail (the readout), habit history, the rest of the to-dos, the status sheet (the status pill while a status is on; in ordinary training, the title menu: hold the title or the date), the session |
 | Goals | Today's goal, carry-over, tomorrow and next week, further out | Goal history ("See all"), the review sheet, each period's goal |
 | Learned | Streak, prompt, this year's months | A month's items, older years |
 | Plan | Your plan, this week's days | The plan summary with the assistant, a session, the month view, other weeks, the morning schedule |
