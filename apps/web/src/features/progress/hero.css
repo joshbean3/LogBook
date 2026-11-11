@@ -148,18 +148,19 @@
   stroke: var(--ink-2);
   stroke-width: 1;
 }
-/* done: a Sky dome with a 1.5 px Deep Sky rim (so the bar passes 3:1); a bar too thin to hold a rim is Deep Sky itself */
+/* done: a Sky dome with a 1.5 px Deep Sky arc over its top, the edge that says the value (so the bar passes 3:1, with no
+   border round it); a bar too thin for Sky to carry is Deep Sky itself */
 .rb-done {
   fill: var(--sky);
 }
 .rb-done.is-thin {
   fill: var(--deep-sky);
 }
-.rb-rim {
+.rb-cap {
   fill: none;
   stroke: var(--deep-sky);
   stroke-width: 1.5;
-  stroke-linejoin: round;
+  stroke-linecap: round;
 }
 /* what the plan still asks for: the same dome as a 1.5 px Deep Sky outline, dashed 3 / 3. Only ever ahead of today */
 .rb-plan {

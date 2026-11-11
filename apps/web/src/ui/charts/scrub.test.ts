@@ -14,7 +14,7 @@ describe('the bars', () => {
     expect(barCenter(l, 12) + l.barW / 2).toBeLessThan(288);
   });
 
-  it('keeps bars apart at every range and phone width, never wider than 28 or thinner than 2', () => {
+  it('keeps bars apart at every range and phone width, never wider than 24 or thinner than 2', () => {
     // the bars area on a 320, 390 and 440 pt phone, for 5 to 60 buckets (a five-year All by month)
     for (const plotW of [218, 288, 338])
       for (const n of [1, 5, 7, 11, 12, 13, 15, 26, 36, 60]) {

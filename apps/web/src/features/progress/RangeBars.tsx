@@ -19,9 +19,9 @@ export interface BarMark {
   missing: boolean;
 }
 
-/** The rim and the plan outline: 1.5 px (guide 6.8). A bar under 7 px wide has no room for a rim around a fill that still reads as Sky: it is the rim's color, whole. */
+/** The cap over a bar's top and the plan outline: 1.5 px (guide 6.8). A bar under 6 px wide is too thin for Sky to carry it: it is the cap's color, whole. */
 const EDGE = 1.5;
-const THIN = 7;
+const THIN = 6;
 
 /** The rise: each bar starts this long after the one before it, the last no later than the cap; the overlay follows. */
 const STAGGER_MS = 12;
@@ -42,11 +42,19 @@ const dome = (cx: number, w: number, top: number, base: number) => {
   const f = (v: number) => v.toFixed(1);
   return `M${f(cx - rx)},${f(base)}L${f(cx - rx)},${f(top + ry)}A${f(rx)},${f(ry)} 0 0 1 ${f(cx + rx)},${f(top + ry)}L${f(cx + rx)},${f(base)}`;
 };
+/** The same dome's cap alone: the arc over its top, where the value is. */
+const cap = (cx: number, w: number, top: number, base: number) => {
+  const rx = w / 2;
+  const ry = Math.min(rx, Math.max(0, base - top));
+  const f = (v: number) => v.toFixed(1);
+  return `M${f(cx - rx)},${f(top + ry)}A${f(rx)},${f(ry)} 0 0 1 ${f(cx + rx)},${f(top + ry)}`;
+};
 
 /**
  * The hero chart (guide 6.8): one bar per bucket of the range (a day, a week or a month), from a horizon baseline. What was
- * done is a Sky dome with a Deep Sky rim; what the plan still asks for (the days ahead, and the rest of the bucket holding
- * today) is a dashed Deep Sky outline on top of it, labeled "Plan" where it first shows. History is never two marks. The y
+ * done is a Sky dome with a Deep Sky arc over its top (the edge that says the value; no border round the bar); what the
+ * plan still asks for (the days ahead, and the rest of the bucket holding today) is a dashed Deep Sky outline on top of
+ * it, labeled "Plan" where it first shows. History is never two marks. The y
  * scale fits the tallest bar with two or three round gridlines (`gridFor`); the x labels are the set that fits
  * (`axisLabels`); the 8 px Sunrise now dot sits on the bucket holding today.
  *
@@ -193,13 +201,13 @@ export const RangeBars = ({ span, marks, label, words, format = String, hint, hi
               if (whole <= 0) return m.current ? null : <circle key={m.key} cx={cx} cy={Y0 - 4} r={2} className={`rb-rest ${m.future ? 'is-ahead' : ''}`} />;
               return (
                 <g key={m.key} className={a === i ? 'rb-bar is-lit' : 'rb-bar'}>
-                  {/* the strokes are drawn inside the bar's width (half a stroke in), so a rim never widens its bar */}
+                  {/* the strokes are drawn inside the bar's width (half a stroke in), so an edge never widens its bar */}
                   {m.ahead > 0 ? <path d={dome(cx, lay.barW - EDGE, topOf(whole) + EDGE / 2, Y0)} className="rb-plan rb-fade" style={after} /> : null}
                   {m.value > 0 ? (
                     <g className="rb-rise" style={riseAt(i)}>
-                      {/* under a rim the fill stops a hair short of the bar's edge, so no Sky fringe shows outside the rim */}
+                      {/* under its cap the fill stops a hair short of the bar's edge, so no Sky fringe shows outside the cap */}
                       <path d={`${thin ? dome(cx, lay.barW, topOf(m.value), Y0) : dome(cx, lay.barW - 1, topOf(m.value) + 0.5, Y0)}Z`} className={thin ? 'rb-done is-thin' : 'rb-done'} />
-                      {thin ? null : <path d={dome(cx, lay.barW - EDGE, topOf(m.value) + EDGE / 2, Y0)} className="rb-rim" />}
+                      {thin ? null : <path d={cap(cx, lay.barW - EDGE, topOf(m.value) + EDGE / 2, Y0)} className="rb-cap" />}
                     </g>
                   ) : null}
                 </g>

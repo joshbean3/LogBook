@@ -7,7 +7,7 @@ import { SCRUB_CLAIM_PX, SCRUB_SCROLL_PX } from '@/lib/gesture';
 
 // ---------- the bars ----------
 /** A bar is never wider than this: five weeks on a wide phone still read as bars, not blocks. */
-export const MAX_BAR = 28;
+export const MAX_BAR = 24;
 /** A bar is never thinner than this, however many there are. */
 export const MIN_BAR = 2;
 /** The share of its slot a bar fills; the rest is the gap between bars. */
