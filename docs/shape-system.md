@@ -1,6 +1,6 @@
 # Shape system v2
 
-> Superseded for color, type, surfaces, the Orb, icons and motion by `docs/brand/brand-guide.md` (November 2026). Structure and behavior notes here still apply.
+> Superseded for color, type, surfaces, the Orb, icons and motion by `docs/brand/brand-guide.md` (November 2026). Structure and behavior notes here still apply. Where this file and `docs/brand/layout-and-hierarchy.md` differ on spacing uses, containers, placement or emphasis (sections 3, 5, 6 and 7 here), the layout standard wins.
 
 How Logbook is built on the screen: shapes, structure, placement, borders, margins and containers. Measured from the
 reference screens (docs/research/inspiration/, the Bevel shots) and kept to Logbook's own voice and identity

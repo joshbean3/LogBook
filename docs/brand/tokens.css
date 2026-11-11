@@ -181,6 +181,8 @@
   --lh-tile: 1.125rem;                                      /* was 1.0625rem */
   --fs-tag: max(13px, 0.8125rem);                           /* Tag (Today, Planned). Inter 600, the footnote size. */
   --fs-stat-live: 2.75rem;                                  /* A hero stat that changes. Inter 650, line 1, -0.02em, tabular-nums. */
+  --fs-value: 1.625rem;                                     /* A stat in a tile or card that changes. Inter 650, line --lh-value, --tr-title, tabular-nums. The section-title size: no new size. */
+  --lh-value: 2rem;
   --fs-orb: max(12px, 0.75rem);                             /* Small tile label. Inter 600. Floor 12 px. was same */
   --lh-orb: max(16px, 1rem);                                /* was same */
   --fs-caps: max(11px, 0.6875rem);                          /* Caption and tab label. Floor 11 px. was same */

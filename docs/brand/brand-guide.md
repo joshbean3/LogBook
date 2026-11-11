@@ -1,6 +1,6 @@
 # Orby brand guide
 
-**Direction:** Sunrise optimism. **Version:** 1.1, November 10, 2026. **Status:** the source of truth for every visible part of Orby.
+**Direction:** Sunrise optimism. **Version:** 1.2, November 11, 2026 (layout and hierarchy, changes listed at the top of `docs/brand/layout-and-hierarchy.md`). **Status:** the source of truth for every visible part of Orby.
 
 This guide is for builders, people and AI agents, who change the app. Every rule is meant to be checked: a hex value, a size, a radius, a duration, or a do and don't pair. When this guide and the code disagree, the guide wins and the code gets fixed. When this guide is silent, ask before inventing.
 
@@ -8,6 +8,7 @@ This guide is for builders, people and AI agents, who change the app. Every rule
 
 | What | Where |
 |---|---|
+| Layout and hierarchy: spacing uses, emphasis order per screen, containers, layout components, per-screen checks | `docs/brand/layout-and-hierarchy.md` |
 | Tokens, machine readable | `docs/brand/tokens.json` |
 | Tokens as CSS, named to merge into `apps/web/src/styles/tokens.css` | `docs/brand/tokens.css` |
 | Mark, wordmark, lockups, app icon (SVG and PNG) | `docs/brand/assets/` |
@@ -348,6 +349,7 @@ Files in `docs/brand/fonts/`: `fraunces-latin-full-normal.woff2` (121 KB), `frau
 | Screen title (Today, Goals...) | Fraunces | 2.375 / 2.625 rem (38/42) | 650 | -0.015 em | Night Ink | `--fs-title` |
 | Session name in the gauge | Fraunces | 2.5 / 2.625 rem (40/42); 1.875 / 2.125 rem past 12 characters | 650 | -0.015 em | Night Ink | `--fs-stamp` |
 | Hero stat that changes (Progress, a count) | Inter | 2.75 rem, line 1 | 650, `tabular-nums` | -0.02 em | Night Ink; unit Inter 500 0.9375 rem Dusk | `--fs-stat-live` |
+| Stat in a tile or card (changes) | Inter | 1.625 / 2 rem (26/32), the section-title size, so no new size enters the scale | 650, `tabular-nums` | `--tr-title` | Night Ink; unit Inter 500 `--fs-sub` Dusk, 4 px after | `--fs-value`, `--lh-value` |
 | Hero stat, static (never changes after first paint) | Fraunces | 2.75 to 3.625 rem, line 1 | 650 (proportional figures: Fraunces has no tnum) | -0.02 em | Night Ink | `--fs-stat` |
 | Section title (Habits, Plan your day) | Fraunces | 1.625 / 2 rem (26/32) | 600 | 0 | Night Ink | `--fs-section` |
 | Card title, sheet title | Fraunces | 1.375 / 1.75 rem (22/28) | 600 | 0 | Night Ink | `--fs-head` |
@@ -399,7 +401,9 @@ Inter Tight 600, 11 px floor, uppercase, tracking +0.14 em (the only caps tracki
 | Between sections | 32 px (`--section`). |
 | Section header to first card | 12 px (`--sec-gap`). |
 | Card padding | 16 px; the hero card 20 px. |
-| Hit target | 44 x 44 pt minimum (`--hit`). |
+| Named uses | Screen title block to first content 16 px; caption eyebrow to the title under it 4 px; a title to its own subtitle, a label to its value, a number to its unit 4 px; card title to the card's content 8 px; groups inside a card 16 px, or a `--line` hairline with 16 px on each side where the kind of content changes; icon tile to its text 12 px; inline glyph to its label 8 px; neighboring bezeled controls 12 px; stacked buttons 12 px, a quiet link 8 px under the button above it; on list pages a group title sits 24 px below the group above it and 8 px above its own group; the last content of a scroll ends at least 24 px above the top of the dock. |
+| Proximity | The space above any heading is at least twice the space below it. Inside a card, no gap is larger than the card's padding unless a hairline marks it. |
+| Hit target | 44 x 44 pt minimum (`--hit`). One named exception: the Progress range control's seven segments may narrow to 36 pt wide (still 44 pt tall, contiguous, no gaps) on screens under 375 pt wide. |
 | Columns | Two-column grids at every phone width; a tile's content fits 150 px. |
 | Chrome | Tab capsule 56, ask bar 48, gap 8, 8 above the safe area (`--chrome-h`); the dock column 12 in from each edge (`--dock-inset`). |
 | Kept layout tokens | `--safe-t`, `--safe-b`, `--kb`, `--maxw` 720, `--sp-group` 12, `--sp-secondary` 24, `--dpager-gap` 16. They are live in the app; merge, never delete. |
@@ -435,13 +439,13 @@ Retired: inset bevels (`--bevel-hi`), pearl gradients, navy pills, pressed-in we
 
 ### 5.4 Dividers
 
-Hairlines inside cards are 1 px `rgba(14,34,54,.10)` (`--line`), inset 16 px from the leading edge (or aligned to the text after an icon tile). Light swatches, secondary buttons, the composer and Paper on Linen get a 1 px `--edge` `rgba(14,34,54,.12)`. `--line-strong` (.18) is only the off filter chip edge. Never a divider between cards; the gap is the divider.
+Hairlines inside cards are 1 px `rgba(14,34,54,.10)` (`--line`), inset 16 px from the leading edge (or aligned to the text after an icon tile). Light swatches, secondary buttons, the composer and Paper on Linen get a 1 px `--edge` `rgba(14,34,54,.12)`. `--line-strong` (.18) is only the off filter chip edge. Never a divider between cards; the gap is the divider. Inside a card, never a bordered or shadowed box: use a hairline row, a Haze icon tile or space. A dashed edge marks an empty add slot only, one per group.
 
 ---
 
 ## 6. Components
 
-Every value below is a token or a number to check. Mockups showing each in place: `docs/brand/mockups/`.
+Every value below is a token or a number to check. Mockups showing each in place: `docs/brand/mockups/`. Spacing uses, the order of emphasis on each screen, containers and the values for section headers, list rows, stat tiles and chart cards are in `docs/brand/layout-and-hierarchy.md`.
 
 ### 6.1 The floating dock and tab capsule
 
@@ -479,13 +483,13 @@ Every value below is a token or a number to check. Mockups showing each in place
 | Context chip (two lines, Today) | Paper, r 18, `--shadow-1`, padding 12. A 40 px Haze circle (a circle at any size: 5.2) with a Deep Sky 18 px glyph; title Inter 17 600 Ink; subtitle Inter 15 500 Dusk. |
 | Filter chip | Pill, 32 tall (44 hit with padding). Off: Paper, 1 px `--line-strong`, Dusk label. On: Sky fill, Night Ink 650 label. |
 | Tag (Today, Planned) | Pill, 28 tall, Inter `--fs-tag` 600. Today: Ember on Paper with a 1 px `rgba(180,67,12,.4)` keyline (5.51). Planned: Dusk on Cloud. |
-| Segmented control | Cloud track, pill; thumb Sky, pill, no shadow; labels Inter 15, Dusk 550 off, Night Ink 650 on. 44 tall in a card, 36 tall in a header bar (44 hit). Thumb slides on the settle spring (300 ms). |
+| Segmented control | Cloud track, pill; thumb Sky, pill, no shadow; labels Inter 15, Dusk 550 off, Night Ink 650 on. 44 tall in a card, 36 tall in a header bar (44 hit). Thumb slides on the settle spring (300 ms). At most 5 segments, equal widths, text only. The one exception is the Progress range control (1W, 1M, 3M, 6M, YTD, 12M, All): seven segments in one row under the hero chart, 12 px in from the card's edges. |
 | "+ Set" | A quiet link, not a pill: Deep Sky Inter 600 "+ Set" (5.57), 44 hit. A screen keeps its one Sky primary. |
 
 ### 6.4 Cards and the hero card
 
-- **Card:** Paper, r 24, padding 16, `--shadow-1`, no border. One caption at most. One primary action at most.
-- **Hero card:** one per screen. Padding 20. The sunrise glow under its bottom edge (5.3). Holds the screen's main thing: Today's session gauge, Goals' today card, Plan's "Your plan", Progress's this-week card.
+- **Card:** Paper, r 24, padding 16, `--shadow-1`, no border. One caption at most. One primary action at most. A card holds one unit people read or act on; three or more items of the same kind are one card with hairline rows (an inset group), never a card each (the habit grid is the exception). A screen uses at most three card templates.
+- **Hero card:** one per screen. Padding 20. The sunrise glow under its bottom edge (5.3). Holds the screen's main thing: Today's session gauge, Goals' today card, Plan's "Your plan", Progress's this-week card. Learned's prompt card is Learned's hero. Journal has no glow: its Remember when card, with the quote inside a Haze wash header, is Journal's hero when it shows.
 - **Icon tile in a row:** 32 px, r 12, Haze, Deep Sky glyph. Session tiles (48 px, r 12): Haze, glyph in the session's data tone. Never a tinted card or a per-feature hue.
 - **Inset group (Settings):** Paper card, rows 56 tall (64 with a subtitle), hairlines inset past the icon tile, chevron 18 px Dusk.
 
@@ -540,6 +544,10 @@ Retires the hard-coded orange gradient and bevel in `features/day/HeroGauge.tsx`
 | Axes | Caption style, Dusk, tnum. Gridlines 1 px `rgba(14,34,54,.08)`. No chart borders. |
 | Series colors | Session kinds use the data tones (3.1). Never orange for a series. Never more than 4 series. |
 | Values | Every chart prints its headline number as text above it, in Inter 650 with `tabular-nums` (never Fraunces). |
+| Range control | Progress's hero chart: seven segments (1W, 1M, 3M, 6M, YTD, 12M, All) in one row 12 px below the plot, 12 px in from the card's edges, the segmented control's look (6.3), 44 tall. Default 3M. The headline and takeaway follow the range. |
+| Labels | Direct labels at the line ends ("Plan", "You") in caption style; no legend for 4 series or fewer. Y labels short, on the trailing side, units in the headline; 3 to 5 horizontal gridlines at round steps (0, 5, 10 mi). |
+| Size | A detail plot spans the card's inner width, 160 px tall at 320 pt and 180 px at 390 pt and up. A sparkline in a tile is 32 px tall with no axes, labels or gridlines. |
+| Takeaway | One sentence, Inter `--fs-sub` Dusk, 4 px under the headline, says what the chart shows ("8 mi behind plan"). |
 | Week horizon (Progress) | The week as a horizon (8.5): a 1 px `--tick` horizon line; each run day a half-sun sitting on it, radius `min(20, 6 + 1.5 x miles)` px; done is a Sky half-sun with a 1.5 px Deep Sky arc; planned is a 1.5 px Deep Sky dashed arc (3 / 3); a lift, rest or cross day is a 2 px Pencil dot; day letters in caption style under the line, today's letter Night Ink. The ruler sits above it. Mockup: `mockups/progress.png`. |
 
 ### 6.9 Sheets
@@ -552,7 +560,10 @@ Night Ink pill, 48 tall, White text Inter 15 500 (16.14; White on Night Ink is a
 
 ### 6.11 Empty states
 
-A Fraunces italic sentence (1.375 rem, Night Ink), one Inter 15 Dusk line under it, and one secondary or quiet button. Optional art: flat circles in Haze and Sky (a rising disc, concentric rings). Never the glossy Orb (except the assistant's own empty state) and never a photo or clip art. Example: "Your first week shows here after your first run." with "Open this week's plan".
+Two forms.
+
+- **Screen empty state** (the whole screen or its hero has nothing yet): a Fraunces italic sentence (1.375 rem, Night Ink), one Inter 15 Dusk line under it, and one secondary or quiet button. Optional art: flat circles in Haze and Sky (a rising disc, concentric rings). Never the glossy Orb (except the assistant's own empty state) and never a photo or clip art. Example: "Your first week shows here after your first run." with "Open this week's plan".
+- **Section empty state** (one section of a screen that has other content): one 64 px row in the section's card: a 32 px Haze icon tile, a title in Inter 17 600 ("No trends yet"), one Inter 15 Dusk line, an optional trailing quiet link. Never a second button for an action the screen already offers.
 
 ### 6.12 The assistant: composer and working state
 
@@ -575,7 +586,7 @@ Every part on Today has a spec. Values not listed come from the nearest componen
 | Hold-to-complete ring (`HoldRing.tsx`) | Haze track 3 px, Deep Sky fill animating `stroke-dashoffset` over `--dur-ring` (600 ms); the face Paper with a 1 px `--line` edge and a Night Ink check; done: Sky face with a Night Ink check. Never Sky on Haze. |
 | Gauge start cap | A 9 px Deep Sky dot (the fill's round cap). |
 | The morning line (four stops: wake, run, back, leave) | 1.5 px line in the session's data tone; stops are 10 px Paper dots with a 1.5 px Night Ink ring; the current stop is the live node (12 px Sunrise, 2 px Paper keyline), which yields to Night Ink while the gauge pointer is on screen (3.5). Stop labels in caption style, times in Inter 600 tnum. |
-| Close the day | Three numbers in Inter 650 `--fs-stat-live` with `tabular-nums` (they change), labels in caption style. |
+| Close the day | Three numbers in Inter 650 `--fs-value` with `tabular-nums` (they change), labels in Inter `--fs-sub` Dusk (one big number and one caption per card). |
 | Week card (miles and runs tiles) | Two Paper tiles r 18, numbers Inter 650 tnum, labels caption style; the ring is the hold ring's track and fill at 4 px. |
 | Plan-end card | A card with a Fraunces card title, one Inter 15 Dusk line and one secondary button. |
 | Strava primer | Section 6.15 (third-party marks). |
@@ -769,9 +780,9 @@ Unchanged from `lib/haptics.ts`: named events, at most one per action, fired on 
 | Learned | Fraunces italic prompt; the input in Inter 17 with a Dusk placeholder (never Fraunces); Sky Save (Haze and Dusk when empty); stat tiles in Paper. | `mockups/learned.png` |
 | Plan | Week / Month segmented in Sky; "Your plan" hero card with the sunrise glow; the morning timeline in the easy tone (Lagoon) with Night Ink nodes and a Sunrise live node; session cards with Haze icon tiles and the tone on the glyph only; the Today tag in Ember on Paper. | `mockups/plan.png` |
 | Progress | Sky segmented; the hero stat in Inter 650 tnum (it changes); the ruler, the week horizon of half-suns and the line chart per 6.8 with the Sunrise now dot and Ember NOW label; empty state per 6.11. | `mockups/progress.png` |
-| Journal | Switch row carrying the wash; Sky segmented; calendar with the shown day ringed in Sky; entry marks as flat discs carrying their count as a numeral (Haze ringed with "1", `--entry-2` `#7FCBF3` with "2", Sky with "3+", Deep Sky for a Favorite), so the count is never lightness alone; no glossy Orbs. | `mockups/journal.png` |
+| Journal | No Entries / Library switch (owner request); the Remember when card with its quote inside the Haze wash header; Sky segmented (Week / Month) in the calendar card; calendar with the shown day ringed in Sky; entry marks as flat discs carrying their count as a numeral (Haze ringed with "1", `--entry-2` `#7FCBF3` with "2", Sky with "3+", Deep Sky for a Favorite), so the count is never lightness alone; no glossy Orbs. | `mockups/journal.png` |
 | The assistant | Per 6.12. | `mockups/assistant.png` |
-| Settings | Dawn wash on the pushed page header; Fraunces section titles; inset groups with Haze icon tiles; Deep Sky values where they are links. | `mockups/settings.png` |
+| Settings | Dawn wash on the pushed page header; Fraunces group titles at the card-title size (22/28); inset groups with Haze icon tiles; Deep Sky values where they are links. | `mockups/settings.png` |
 | Onboarding and welcome | The horizontal lockup at the top (outlined wordmark, the flat-Orb file at this size, never live caps); Fraunces 700 hero at `--fs-hero`; the sample card's line in Fraunces italic Night Ink and its session name at `--fs-stamp`; sample card in Paper; Sunrise live node; Sky "Next" with Ink words; Deep Sky "I have an account"; Apricot sunrise glow at the bottom. | `mockups/welcome.png` |
 | Splash | Dawn-to-sunrise ground with the poster's three hills as the horizon; the outlined wordmark 150 pt wide and "One good day at a time." in Fraunces italic Dusk (6.52 on the splash sky) in the sky; the 96 px Orb risen over the hills, staged per 8.3; a caption on the far hill in White (5.66 on Deep Sky) that follows the time of day: "GOOD MORNING" before 12:00, "GOOD AFTERNOON" from 12:00 to 17:00, "GOOD EVENING" after 17:00. Native splash: the still Orb centered on Cloud `#EAF5FC`; `capacitor.config.ts` `backgroundColor`, `theme-color` in `index.html` and the manifest become `#EAF5FC` (they are `#f3f8fb` today). | `mockups/splash.png`, `splash-evening.png` |
 | App icon | Replace `AppIcon-512@2x.png` with `assets/app-icon-1024.png`; dark and tinted variants in the asset catalog; replace the stale `apps/web/assets/*.png` and `public/icons/icon.svg` (they still hold the v2 ring-and-check) so `@capacitor/assets` cannot ship the old mark. | `assets/app-icon-homescreen.png` |
@@ -832,6 +843,7 @@ Run all of it. A change is not done until every line is true. Lines marked (runt
 - [ ] Tested at 200 percent text, with Reduce Motion and Increase Contrast on; targets 44 pt. (runtime)
 - [ ] Only transform and opacity animate, plus the named cases in 9.1; durations match section 9; haptics fire on the peak frame, at most one per action.
 - [ ] Third-party marks (6.15) are unmodified and marked `brand-ok: third-party`.
+- [ ] The checks in section 8 of `docs/brand/layout-and-hierarchy.md` pass (squint test, 3-second test, focal point high, proximity, type counts, containers, say it once, targets).
 - [ ] Internal identifiers unchanged (repo, `@logbook/*`, `com.joshbean.logbook`, storage keys, `LogbookAPIHost`).
 - [ ] A screenshot at 390 x 844 sits next to its mockup in `docs/brand/mockups/` without a visible difference in palette, type or shape.
 
