@@ -75,7 +75,7 @@
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
-  column-gap: 6px;
+  column-gap: 6px; /* brand-ok: geometry, the number keeps its 6 px to its unit */
   min-width: 0;
   font: 650 min(var(--fs-stat-live), 56px) / min(2.875rem, 60px) var(--sans);
   letter-spacing: var(--tr-hero);
