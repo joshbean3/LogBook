@@ -100,7 +100,8 @@ export const RangeBars = ({ span, marks, label, words, format = String, hint, on
     onTap: onOpen,
     onRead,
   });
-  const a = scrub.active;
+  // the bucket being read, while the chart still has it (a reading never outlives its bucket)
+  const a = scrub.active != null && scrub.active < n ? scrub.active : null;
   const bindRef = scrub.bind.ref;
   const setRefs = useCallback(
     (node: HTMLDivElement | null) => {
@@ -142,6 +143,10 @@ export const RangeBars = ({ span, marks, label, words, format = String, hint, on
   const at = a != null && !marks[a]!.missing ? marks[a]! : null;
   // where the reading sits on its bar: the top of what is done, the top of the plan for a bucket still ahead
   const atY = at ? (at.value > 0 ? topOf(at.value) : at.future && at.ahead > 0 ? topOf(at.ahead) : Y0) : 0;
+  // while the outline "Plan" sits on is being read, the word makes way for the reading's dot (the headline says "planned")
+  const planShown = !!planLabel && !(a === pi && !planLabel.lead && marks[pi]!.future);
+  // the marker comes down from the top of the plot; over the bucket "Plan" names it starts under the word
+  const ruleTop = planLabel && planShown && a === pi ? planLabel.y + 4 : 3;
 
   return (
     <div className="rb-chart">
@@ -201,7 +206,7 @@ export const RangeBars = ({ span, marks, label, words, format = String, hint, on
               );
             })}
             <line x1={0} x2={GRID_END} y1={Y0} y2={Y0} className="rb-base" />
-            {planLabel ? (
+            {planLabel && planShown ? (
               <g className="rb-fade" style={after}>
                 {planLabel.lead && planLabel.lead.y2 - planLabel.lead.y1 > 2 ? <line x1={planLabel.lead.x} x2={planLabel.lead.x} y1={planLabel.lead.y1} y2={planLabel.lead.y2} className="rb-lead" /> : null}
                 <text x={planLabel.x} y={planLabel.y} textAnchor="middle" className="rb-ax rb-plan-label">
@@ -211,7 +216,7 @@ export const RangeBars = ({ span, marks, label, words, format = String, hint, on
             ) : null}
             {at ? (
               <g className="rb-read">
-                {atY - 6 > 3 ? <line x1={x(a!)} x2={x(a!)} y1={3} y2={atY - 6} className="rb-rule" /> : null}
+                {atY - 6 > ruleTop ? <line x1={x(a!)} x2={x(a!)} y1={ruleTop} y2={atY - 6} className="rb-rule" /> : null}
                 {at.current ? null : <circle cx={x(a!)} cy={atY} r={5} className="rb-dot" />}
               </g>
             ) : null}

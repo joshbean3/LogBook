@@ -60,7 +60,10 @@ describe('the running headline at rest', () => {
     const week = run('3M', PLAN, RAN).buckets.at(-1)!;
     // "to go" is what the plan still asks for (Friday's 5 and Saturday's 9), the miles the dashed bars draw
     expect(runRest(span, buckets, week, null, T, true)).toEqual({ big: '9.3', context: 'of 23 mi · 2 of 4 runs', take: 'On plan, 14 mi to go' });
-    expect(runRest(span, buckets, week, null, T, true, true).take).toBe('Your weeks draw here as you go.');
+    const firstWeek = runRest(span, buckets, week, null, T, true, true);
+    expect(firstWeek.take).toBe('Your weeks draw here as you go.');
+    // a line that is already a sentence is not given a second period
+    expect(readoutWords(firstWeek)).toBe('9.3 of 23 mi · 2 of 4 runs. Your weeks draw here as you go.');
   });
 
   it('reads this week beside last week when it has no plan', () => {

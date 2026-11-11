@@ -21,8 +21,8 @@ const runsWord = (n: number) => `${n} ${plural(n, 'run')}`;
 const setsWord = (n: number) => `${n} ${plural(n, 'set')}`;
 /** A mean to one decimal, whole when it is whole ("1.4", "2"). */
 const mean1 = (v: number) => String(Math.round(v * 10) / 10);
-/** The readout as one sentence, for a screen reader. */
-export const readoutWords = (r: Readout) => `${r.big} ${r.context}. ${r.take}.`;
+/** The readout as sentences, for a screen reader. */
+export const readoutWords = (r: Readout) => `${r.big} ${r.context}. ${r.take.replace(/\.$/, '')}.`;
 
 // ---------- running ----------
 /**
