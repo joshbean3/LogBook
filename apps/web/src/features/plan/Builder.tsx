@@ -1,12 +1,12 @@
 import { BUILDER_LIMITS, builderDates, builderInput, counts, fmtDate, GOAL_SPECS, mondayOf, monthsBetween, num, sessionStatus, shiftDays, tone, WEEKDAYS, type AnswersFromRuns, type BuilderAnswers, type Goal, type PlanBlock, type Template, type Weekday } from '@logbook/shared';
-import { AnimatePresence, motion } from 'motion/react';
+import { animate, AnimatePresence, motion } from 'motion/react';
 import { useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type CSSProperties, type FocusEvent as ReactFocusEvent, type ReactNode } from 'react';
 import { useNav, useTab } from '@/app/NavController';
 import { ApiError } from '@/api/client';
 import { useTemplatePlan, useTemplateUndo, type PlanTemplateResult } from '@/api/queries';
 import { DISCLAIMER } from '@/lib/copy';
 import { haptics } from '@/lib/haptics';
-import { crossfade, reducedFade, useReduced } from '@/lib/motion';
+import { crossfade, forRange, reducedFade, springs, useReduced } from '@/lib/motion';
 import { Button, Note, Stepper } from '@/ui/primitives';
 import { Pressable } from '@/ui/Pressable';
 import { useSheet, type SheetSpec } from '@/ui/Sheet';
@@ -40,6 +40,36 @@ const selectAll = (e: ReactFocusEvent<HTMLInputElement>) => {
   el.select();
   // WebKit can drop a selection made on focus as the touch ends: once more on the next frame
   requestAnimationFrame(() => document.activeElement === el && el.select());
+};
+
+/**
+ * A number that rolls to its new value when the assistant changed it (the numbers' spring, 480 ms): `n` is the update's
+ * count and `roll` whether this number was part of it. A change by hand just shows, and so does every change under
+ * Reduce Motion.
+ */
+const useRolled = (value: number, roll: boolean, n: number): number => {
+  const reduce = useReduced();
+  const [inFlight, setInFlight] = useState<number | null>(null);
+  const last = useRef({ value, n });
+  useLayoutEffect(() => {
+    const from = last.current.value;
+    const rolls = roll && n !== last.current.n && from !== value && !reduce;
+    last.current = { value, n };
+    if (!rolls) return;
+    // before the first paint with the new value: it starts from the old one
+    setInFlight(from);
+    const ctl = animate(from, value, { ...forRange(springs.number, value - from), onUpdate: (v) => setInFlight(Math.round(v)), onComplete: () => setInFlight(null) });
+    return () => {
+      ctl.stop();
+      setInFlight(null);
+    };
+  }, [value, n]); // eslint-disable-line react-hooks/exhaustive-deps
+  return inFlight ?? value;
+};
+/** A stepper whose number rolls when the assistant changed it. Its own component, so a roll redraws one field, not the builder. */
+const RollStepper = ({ roll, n, ...rest }: Omit<React.ComponentProps<typeof Stepper>, 'format' | 'step'> & { roll: boolean; n: number }) => {
+  const shown = useRolled(rest.value, roll, n);
+  return <Stepper {...rest} step={1} format={() => `${shown}`} inputProps={{ inputMode: 'numeric', onFocus: selectAll }} />;
 };
 
 // ---------- the store the body writes and the header reads ----------
@@ -387,12 +417,12 @@ const BuilderBody = ({ log, store, seed, ghost, life }: { log: Log; store: Ghost
       <div className="tiles tp-steps">
         <div className="tile tp-step pa-flashable">
           <span className="tile-label">{raceDate ? 'Weeks to race day' : 'Weeks'}</span>
-          <Stepper label="Weeks" value={weeks} onChange={setWeeks} step={1} min={L.weeksMin} max={L.weeksMax} format={(v) => `${v}`} parse={(s) => clampTyped(s, L.weeksMin, L.weeksMax)} inputProps={{ inputMode: 'numeric', onFocus: selectAll }} />
+          <RollStepper label="Weeks" value={weeks} onChange={setWeeks} min={L.weeksMin} max={L.weeksMax} parse={(s) => clampTyped(s, L.weeksMin, L.weeksMax)} roll={flash.keys.includes('weeks')} n={flash.n} />
           {halo('weeks')}
         </div>
         <div className="tile tp-step pa-flashable">
           <span className="tile-label">Miles a week now</span>
-          <Stepper label="Weekly miles" value={miles} onChange={setMiles} step={1} min={L.milesMin} max={L.milesMax} format={(v) => `${v}`} parse={(s) => clampTyped(s, L.milesMin, L.milesMax)} inputProps={{ inputMode: 'numeric', onFocus: selectAll }} />
+          <RollStepper label="Weekly miles" value={miles} onChange={setMiles} min={L.milesMin} max={L.milesMax} parse={(s) => clampTyped(s, L.milesMin, L.milesMax)} roll={flash.keys.includes('miles')} n={flash.n} />
           {halo('miles')}
         </div>
         {a.peakMiles != null ? (
@@ -404,7 +434,7 @@ const BuilderBody = ({ log, store, seed, ghost, life }: { log: Log; store: Ghost
                 Let the plan pick
               </button>
             </span>
-            <Stepper label="Peak miles a week" value={a.peakMiles} onChange={setPeak} step={1} min={miles} max={L.milesMax} format={(v) => `${v}`} parse={(s) => clampTyped(s, miles, L.milesMax)} inputProps={{ inputMode: 'numeric', onFocus: selectAll }} />
+            <RollStepper label="Peak miles a week" value={a.peakMiles} onChange={setPeak} min={miles} max={L.milesMax} parse={(s) => clampTyped(s, miles, L.milesMax)} roll={flash.keys.includes('peak')} n={flash.n} />
             {halo('peak')}
           </div>
         ) : null}

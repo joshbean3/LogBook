@@ -34,6 +34,8 @@ import './assist.css';
 export const VEIL_AFTER_MS = 150;
 /** Once up, the veil stays at least this long: long enough to read as a pause, not a flicker. */
 export const VEIL_MIN_MS = 600;
+/** After this long the status line says it is still working. */
+const VEIL_LONG_MS = 8000;
 /** Under Reduce Motion the still Orb's opacity goes to this and back, once every `ORB_PULSE_S` seconds (one orbit's time). */
 const ORB_PULSE_TO = 0.6;
 const ORB_PULSE_S = 1.2;
@@ -377,6 +379,13 @@ const VeilInner = ({ shown, home, onStop, onGone }: { shown: boolean; home: RefO
   const orb = useRef<HTMLSpanElement>(null);
   const stop = useRef<HTMLButtonElement>(null);
   const wasShown = useRef(false);
+  // a slow answer: the line says it is still at it, so the wait never reads as stuck
+  const [long, setLong] = useState(false);
+  useEffect(() => {
+    if (!shown) return;
+    const t = setTimeout(() => setLong(true), VEIL_LONG_MS);
+    return () => clearTimeout(t);
+  }, [shown]);
   /** The move that puts the veil's Orb on the pill's Orb: an offset and a scale, or null when the pill is out of view. */
   const toHome = () => {
     const h = homeOf(home.current);
@@ -443,7 +452,7 @@ const VeilInner = ({ shown, home, onStop, onGone }: { shown: boolean; home: RefO
         {shown ? (
           <>
             <p className="pa-veil-line" role="status">
-              Shaping your plan
+              {long ? 'Still shaping your plan' : 'Shaping your plan'}
             </p>
             <button ref={stop} type="button" className="btn pa-stop" onClick={onStop}>
               Stop
