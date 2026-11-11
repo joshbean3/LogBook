@@ -36,7 +36,8 @@ describe('the hero chart, to a screen reader and the keyboard', () => {
 
   it('shows the first-use hint only while it is asked to', () => {
     expect(draw()).not.toContain('rb-hint');
-    expect(draw({ hint: 'Drag across to see each week' })).toContain('<p class="rb-hint">Drag across to see each week</p>');
+    // it is for the eye and the finger: the slider itself tells VoiceOver how it is moved
+    expect(draw({ hint: 'Drag across to see each week' })).toContain('<p class="rb-hint" aria-hidden="true">Drag across to see each week</p>');
   });
 
   it('draws nothing it cannot measure, and never a NaN', () => {

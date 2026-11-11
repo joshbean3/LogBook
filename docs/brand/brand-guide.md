@@ -291,18 +291,18 @@ Linen and Twilight never appear in app chrome. If a screen reads beige, Paper or
 Sunrise means **now**. It has these jobs and no others:
 
 1. **Today's dot** in the week strip: 6 px, above today's letter, 2 px Paper keyline.
-2. **The gauge pointer:** a 12 px dot at the week's progress, 3.5 px Paper keyline (on Progress the equivalent is the ruler's NOW tick).
+2. **The gauge pointer:** a 12 px dot at the week's progress, 3.5 px Paper keyline (on Progress the equivalent is the chart's now dot).
 3. **The badge dot:** 8 px, 2 px Paper keyline, top right of a tab icon or the ask bar.
 4. **The milestone stamp:** one round stamp per screen at most (section 8.4).
 5. **The live node** on a timeline (the current step), 12 px with a Paper keyline.
-6. **Now on a chart:** the now dot (8 px) and the NOW tick on the Progress ruler.
+6. **Now on a chart:** the now dot (8 px): on the latest point of a line, on the bucket holding today in the Progress bars.
 
 **Budget:** at most 3 Sunrise elements visible on one screen. Ember carries orange words (a Today tag, a streak label) and does not count. Apricot is light (glows, the Orb's underlight) and does not count; nor does the thinking arc `#FF9F5A`, which is Orb light. Orange never fills a button, a card, a selected state, a done state, a session kind or a chart series.
 
 **Priority when more than 3 would show** (highest first; what is past the third yields):
 
 1. Today's dot in the week strip.
-2. The gauge pointer, or on Progress the NOW tick and the now dot (they count as one job, two marks).
+2. The gauge pointer, or on Progress the chart's now dot.
 3. The live node on a timeline.
 4. The milestone stamp.
 5. Badge dots.
@@ -536,19 +536,19 @@ Retires the hard-coded orange gradient and bevel in `features/day/HeroGauge.tsx`
 
 | Part | Spec |
 |---|---|
-| Actual (line) | 2.5 px Deep Sky line, round joins; area under it Sky at 16 percent. |
-| Plan (line) | 1.5 px Dusk line, dashed 4 / 4. |
-| Bars | Done: Sky fill with a 1.5 px Deep Sky top edge (so the bar passes 3:1). Planned: 1.5 px Deep Sky outline, dashed 3 / 3 in the future. Rest: a 2 px Pencil dot. |
-| The now dot | 8 px Sunrise, 2 px Paper keyline, on the latest point. |
-| Progress ruler | A linear ruler above the bars: Haze track 6 px, Deep Sky fill to today's miles, a Sunrise NOW tick (2 x 14 px) with "NOW" in caption style Ember, and a Night Ink 8 px triangle for "plan by today". |
+| Hero chart (Progress) | Bars, in every range: one bar per bucket, standing on a 1 px `--tick` horizon baseline. A bucket is a day in 1W, a week in 1M, 3M and 6M, a month in 12M; YTD and All read by week up to 26 weeks and by month after that, and by day while they are under three weeks old. No range draws more than 26 weekly bars. Running draws miles run; Strength draws lift sessions done. Both use the same chart, the same ranges and one saved range. |
+| Bars | Done: a Sky dome (straight sides under a half ellipse as wide as the bar, the rising disc of 8.5) with a 1.5 px Deep Sky rim, so the bar passes 3:1; a bar under 7 px wide is solid Deep Sky. A bar fills 68 percent of its slot and is never wider than 28 px. Nothing done: a 2 px Pencil dot on the baseline. A bucket that has not loaded: a short Pencil dash. Bars start at the first bucket with anything in it. |
+| Plan | The plan is drawn only for what is still ahead: the days after today (1W), and the rest of the bucket holding today. It is the same dome as a 1.5 px Deep Sky outline, dashed 3 / 3, standing on top of what is done, with "Plan" in caption style over the first one: right on the outline, or, where a taller neighbor stands under the label's width, in the band over the bars with a 1 px Dusk hairline down to the outline. History is what was done, and is never two marks. |
+| Actual (line) | Metric pages and sheets: 2.5 px Deep Sky line, round joins; area under it Sky at 16 percent. |
+| The now dot | 8 px Sunrise, 2 px Paper keyline: on the latest point of a line; on top of what is done in the bucket holding today (on the baseline while that bucket is empty). |
 | Axes | Caption style, Dusk, tnum. Gridlines 1 px `rgba(14,34,54,.08)`. No chart borders. |
 | Series colors | Session kinds use the data tones (3.1). Never orange for a series. Never more than 4 series. |
 | Values | Every chart prints its headline number as text above it, in Inter 650 with `tabular-nums` (never Fraunces). |
-| Range control | Progress's hero chart: seven segments (1W, 1M, 3M, 6M, YTD, 12M, All) in one row 12 px below the plot, 12 px in from the card's edges, the segmented control's look (6.3), 44 tall. Default 3M. The headline and takeaway follow the range. |
-| Labels | Direct labels at the line ends ("Plan", "You") in caption style; no legend for 4 series or fewer. Y labels short, on the trailing side, units in the headline; 3 to 5 horizontal gridlines at round steps (0, 5, 10 mi). |
+| Range control | Progress's hero chart: seven segments (1W, 1M, 3M, 6M, YTD, 12M, All) in one row 12 px below the plot, 12 px in from the card's edges, the segmented control's look (6.3), 44 tall. Default 3M. The headline and takeaway follow the range. The card has the same parts in every range, so the control does not move when the range changes. |
+| Labels | Direct labels in caption style, no legend for 4 series or fewer: "Plan" over the first dashed bar. Y labels short, on the trailing side, units in the headline. The hero chart draws 2 or 3 horizontal gridlines on round steps (1, 2, 5, 10, 20, 50 and so on), fitted so its tallest bar stands in the top fifth of the plot; other charts 3 to 5. X labels: weekday letters in 1W (today's in Night Ink), month names or initials otherwise, and "Now" in Ember under the bucket holding today. |
 | Size | A detail plot spans the card's inner width, 160 px tall at 320 pt and 180 px at 390 pt and up. A sparkline in a tile is 32 px tall with no axes, labels or gridlines. |
-| Takeaway | One sentence, Inter `--fs-sub` Dusk, 4 px under the headline, says what the chart shows ("8 mi behind plan"). |
-| Week horizon (Progress) | The week as a horizon (8.5): a 1 px `--tick` horizon line; each run day a half-sun sitting on it, radius `min(20, 6 + 1.5 x miles)` px; done is a Sky half-sun with a 1.5 px Deep Sky arc; planned is a 1.5 px Deep Sky dashed arc (3 / 3); a lift, rest or cross day is a 2 px Pencil dot; day letters in caption style under the line, today's letter Night Ink. The ruler sits above it. Mockup: `mockups/progress.png`. |
+| Takeaway | One sentence, Inter `--fs-sub` Dusk, 4 px under the headline, says what the chart shows. The hero's says the usual bucket ("18.1 mi a week on average"); in 1W it says this week against its plan ("On plan, 14 mi to go"). History is not graded against a plan. |
+| Reading a bucket | Drag across the plot (a mouse hovers). A 1.5 px Night Ink marker comes down to the bucket under the finger and ends in a 10 px Paper dot with a 2 px Night Ink ring; that bar turns Deep Sky and the others drop to 50 percent; the headline shows the bucket's number, its dates and its runs (or sets); one `select` tick per bucket (9.5). Letting go returns to the headline. The headline block keeps its height while a bucket is read, so the plot never moves under the finger. The chart takes a touch only after 6 px of mostly sideways travel or a 180 ms press: a swipe up or down that starts on the plot scrolls the page. A tap opens a running day's or week's sheet; where nothing opens it shows the bucket for 1.6 s. Until the chart has been read once, one line 8 px under the plot (Inter `--fs-sub` Dusk) says how ("Drag across to see each week"). Metric pages and sheets read the same way. |
 
 ### 6.9 Sheets
 
@@ -666,7 +666,7 @@ A round Sunrise stamp for a streak or a finished block, rotated -10 degrees, Nig
 
 ### 8.5 The circle vocabulary
 
-Discs, rings, domes, half-suns on a horizon, orbits. A done run is a half-sun on the week's horizon (brand art: radius 7 + 2.6 x miles px; in the app: `min(20, 6 + 1.5 x miles)` px, 6.8); a planned run is its dashed outline. Never people, faces, photographs, clip art or the reference's own shapes.
+Discs, rings, domes, half-suns on a horizon, orbits. A done run is a half-sun on the week's horizon (brand art: radius 7 + 2.6 x miles px); a planned run is its dashed outline. In the app the same picture is the Progress chart (6.8): a dome rising from the horizon for what was done, its dashed outline for what is still planned. Never people, faces, photographs, clip art or the reference's own shapes.
 
 ---
 
@@ -690,6 +690,7 @@ Springs come from `apps/web/src/lib/motion.ts` (`springs.page`, `settle`, `sheet
 | Completion | 300 ms to 1.12, once | `springs.complete` (0.30 s, bounce 0.30), `orb` haptic on the peak |
 | Hold ring | 600 ms | `--dur-ring`, linear, `stroke-dashoffset` |
 | Gauge ticks | 6 ms stagger, 240 ms cap | linear |
+| Chart bars rising (a new range or mode) | 480 ms each, 12 ms apart, 240 ms from the first to the last at most | `--dur-number`, `--ease-out`; a `transform` on each bar's own box, from its foot. The plan outline, its label and the now dot fade in (120 ms) as the last bar arrives. |
 
 **What may animate:** `transform` and `opacity`, plus these named cases only: `color` and `background-color` (the 200 ms color and halo change), `stroke-dashoffset` (the gauge fill and the hold ring). A gradient never transitions: the dawn wash and the Orb's warming underlight fade in as an overlay layer's `opacity`.
 
@@ -763,7 +764,7 @@ Unchanged from `lib/haptics.ts`: named events, at most one per action, fired on 
 | Targets | 44 x 44 pt minimum for anything tappable, including week cells, chips and dots that act. |
 | Reduce Motion | Section 9.4. Test with the iOS setting on. |
 | Increase Contrast | `prefers-contrast: more` remaps both the semantic aliases and the palette names, so a component gets the step whichever it uses: `--ink-2/3/4` and `--dusk` to Graphite `#33475B`; `--accent-text`, `--ok`, `--deep-sky`, `--t-long`, `--star`, `--prio-3` and `--tag-blue` to `#085A8C`; `--ink-faint`, `--pencil` and `--t-rest` to `#5F6D7B`; `--line` .30, `--line-strong` .55, `--edge` .30, `--tick` .45, `--coin-ring` .55, `--dot-ahead` .22; card edge `1px solid rgba(14,34,54,.16)`, field edge .7 (5.98); glass opaque Paper. In `tokens.css`. |
-| VoiceOver | The Orb's label is "Assistant" when it opens the assistant, "Orby" as the logo; decorative Orbs are hidden. Gauges read their readout ("0 of 23 miles this week, 0 of 4 runs"). Stamps read as "Day 12 streak". |
+| VoiceOver | The Orb's label is "Assistant" when it opens the assistant, "Orby" as the logo; decorative Orbs are hidden. Gauges read their readout ("0 of 23 miles this week, 0 of 4 runs"). Stamps read as "Day 12 streak". The Progress chart is one slider: its value is the focused bucket in words ("Last week: 23.8 miles, 4 runs"), a swipe up or down (or an arrow key) moves it, and a double tap (or Enter) opens a running week. |
 | Captions | Caption style is never the only label on a control. |
 | Working states | Any animated indicator (the thinking arc, a skeleton) has a text status with `role="status"`. |
 
@@ -779,7 +780,7 @@ Unchanged from `lib/haptics.ts`: named events, at most one per action, fired on 
 | Goals | Paper chips with Haze icon discs (no per-feature hues); "+ Set" as quiet Deep Sky links; the Today card's sun in Apricot (no extra glow); "TODAY" eyebrow in Ember; one Sky primary ("Set today's goal"); "Review it" a secondary; Fraunces italic prompt. | `mockups/goals.png` |
 | Learned | Fraunces italic prompt; the input in Inter 17 with a Dusk placeholder (never Fraunces); Sky Save (Haze and Dusk when empty); stat tiles in Paper. | `mockups/learned.png` |
 | Plan | Week / Month segmented in Sky; "Your plan" hero card with the sunrise glow; the morning timeline in the easy tone (Lagoon) with Night Ink nodes and a Sunrise live node; session cards with Haze icon tiles and the tone on the glyph only; the Today tag in Ember on Paper. | `mockups/plan.png` |
-| Progress | Sky segmented; the hero stat in Inter 650 tnum (it changes); the ruler, the week horizon of half-suns and the line chart per 6.8 with the Sunrise now dot and Ember NOW label; empty state per 6.11. | `mockups/progress.png` |
+| Progress | Sky segmented; the hero stat in Inter 650 tnum (it changes); the bars per 6.8 (what was done, the dashed plan ahead, the Sunrise now dot and the Ember NOW label); empty state per 6.11. | `mockups/progress.png` |
 | Journal | No Entries / Library switch (owner request); the Remember when card with its quote inside the Haze wash header; Sky segmented (Week / Month) in the calendar card; calendar with the shown day ringed in Sky; entry marks as flat discs carrying their count as a numeral (Haze ringed with "1", `--entry-2` `#7FCBF3` with "2", Sky with "3+", Deep Sky for a Favorite), so the count is never lightness alone; no glossy Orbs. | `mockups/journal.png` |
 | The assistant | Per 6.12. | `mockups/assistant.png` |
 | Settings | Dawn wash on the pushed page header; Fraunces group titles at the card-title size (22/28); inset groups with Haze icon tiles; Deep Sky values where they are links. | `mockups/settings.png` |
@@ -819,7 +820,7 @@ Full list with old values in `tokens.css` comments. The headline moves:
 5. **Chrome.** Dock and capsule (6.1), nav bar and week strip (6.7, 6.14), the dawn wash, the title-line sunrise and the sticky bars (5.3).
 6. **Primitives.** Buttons, segmented controls, chips, cards, inset groups, sheets, toasts, fields, focus, switches, checkboxes, menus, skeletons (6.2 to 6.4, 6.9, 6.10, 6.14).
 7. **Today's hero.** The gauge per 6.5 (retire the gradient in `HeroGauge.tsx`), habit tiles per 6.6, the rest of Today per 6.13.
-8. **Screens.** Goals, Learned, Plan, Progress (charts and the week horizon per 6.8), Journal, the assistant, Settings, onboarding, in that order. Compare each to its mockup.
+8. **Screens.** Goals, Learned, Plan, Progress (charts per 6.8), Journal, the assistant, Settings, onboarding, in that order. Compare each to its mockup.
 9. **Drift.** Remove raw hex, literal navy and orange rgba, ad hoc radii, off-step spacing and extra caps trackings (see 13) until `node apps/web/scripts/check-brand.mjs` reports 0, then add it to `pnpm test`. `mockups/override.css` lists the class-level changes that tokens alone do not reach; implement them in the component sheets, never by copying its `!important` rules.
 
 ---

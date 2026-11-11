@@ -148,15 +148,20 @@ Build (includes the pending owner request):
 
 | | |
 |---|---|
-| Job | See how training is going against the plan. |
+| Job | See how training is going: what was done, and what the plan still asks for. |
 | Focal point | The hero card's headline stat. |
 | Sky button | None. |
 | Read in passing | The title block. |
-| Order of emphasis | 1. The hero card: Running / Strength (first row), the headline stat with its context ("0 of 23 mi · 0 of 4 runs" for 1W), one takeaway line, the chart, the range row. 2. Trends: one template, two-column tiles. 3. Health: the same tile template; "Connect Apple Health" as one row. |
+| Order of emphasis | 1. The hero card: Running / Strength (first row), the headline stat with its context ("227 mi in 3 months"; "9.3 of 23 mi · 2 of 4 runs" for 1W), one takeaway line, the chart, the range row. The card has these parts in every range and in both modes. 2. Trends: one template, two-column tiles. 3. Health: the same tile template; "Connect Apple Health" as one row. |
 
 Build (includes the pending owner request):
 
-- **The running chart gets range views 1W, 1M, 3M, 6M, YTD, 12M, All** as one row of seven segments under the plot, inside the hero card (6.4, C4, C7). Default 3M, closest to today's week-by-week view. Each viewer's last choice is remembered (local storage, per viewer). The headline and takeaway follow the range ("112 mi in 3 months", "8 mi behind plan"). Why: Apple's own apps offer period choices on detail charts [HIG Charts]. The row sits under the plot so the focal number stays at the top of the card, and changing the range keeps one chart style [HIG continuity].
+- **The running chart gets range views 1W, 1M, 3M, 6M, YTD, 12M, All** as one row of seven segments under the plot, inside the hero card (6.4, C4, C7). Default 3M, closest to today's week-by-week view. Each viewer's last choice is remembered (local storage, per viewer). The headline and takeaway follow the range ("227 mi in 3 months", "18.1 mi a week on average"). Why: Apple's own apps offer period choices on detail charts [HIG Charts]. The row sits under the plot so the focal number stays at the top of the card, and changing the range keeps one chart style [HIG continuity].
+- **The hero chart is bars, one per bucket, in every range, and never more than 26 of them** (brand 6.8): days in 1W, weeks in 1M, 3M and 6M, months in 12M, and in YTD and All once they hold more than 26 weeks. Owner request ("much easier to track and view"). Why: a bucket is a total, and totals compare best as lengths from a common baseline [PR Cleveland and McGill 1984; HIG Charts]. A week with nothing is a gap, not a plunge to zero. Past about 26 marks a phone-width chart cannot be told apart or landed on with a finger, which is where Apple Health also changes unit (week, month, six months by week, year by month) [Peers: Apple Health].
+- **History shows what was done; the plan shows only for what is ahead.** Owner request. The days to come in 1W and the rest of the bucket holding today draw the plan as a dashed outline on top of what is done, labeled "Plan". The takeaway says the usual week or month and never grades the past against a plan; plan adherence is the "Plan kept" tile in Trends (say it once).
+- **Drag across the chart to read a bucket** (brand 6.8, "Reading a bucket"). Owner request. The readout is the headline, above the plot and never under the finger [HIG Charts]. The chart claims a touch only once it is clearly sideways, so the page still scrolls from anywhere [HIG Gestures]. One line under the plot says how until it has been done once.
+- **No ruler in 1W.** The headline ("9.3 of 23 mi") and the takeaway ("On plan, 14 mi to go") already say the week against its plan, and the dashed bars show what is left (say it once). Without it the card has the same parts in every range, so the range row does not move under a finger that is switching ranges [HIG continuity].
+- **Strength has the same chart**: lift sessions per bucket, with sets and pounds in the readout, the same ranges and the same drag. Its workouts stay as date rows under a hairline.
 - **Running / Strength stays as the hero card's first row** (a 2-segment control, 44 tall). It switches only the hero, so it belongs to the hero.
 - **Trends and Health share one tile template** (6.3). This fixes the broken "7 %, 7 days" readout to a value and unit on one baseline ("7%") with a context line ("7 days"). Why: one template per screen lets people read values, not structure [Peers: Apple Health, Fitness].
 - **The Trends empty state uses the section form** (6.5), not a 22 px italic sentence. Why: an empty placeholder must not out-shout the hero.
@@ -406,10 +411,10 @@ A card you can only name with "and" is two units or a list. A card without (a), 
 |---|---|
 | Card order | Caption (optional), headline value with its context, one takeaway line, the plot, then controls. |
 | Headline | Inter 650 tnum: `--fs-stat-live` in a hero, `--fs-value` elsewhere. Unit and context in `--fs-sub` Dusk (brand 6.8). |
-| Takeaway | One sentence, Inter `--fs-sub` Dusk, 4 under the headline ("8 mi behind plan", "On plan this month"). |
-| Plot | The card's full inner width; 160 tall at 320 pt, 180 at 390 and up. Y labels short, on the trailing side; units in the headline. 3 to 5 horizontal gridlines at round steps (0, 5, 10 mi), `--grid`. No chart border or plot background. Bars from zero; lines may use a dynamic range. |
-| Labels | Direct labels at the line ends ("Plan", "You") in caption style; no legend for 4 series or fewer. X labels: endpoints or month initials, caption style. |
-| Interaction | Scrub the whole plot area. Nothing critical needs a tap to show. |
+| Takeaway | One sentence, Inter `--fs-sub` Dusk, 4 under the headline ("18.1 mi a week on average"; in 1W "On plan, 14 mi to go"). |
+| Plot | The card's full inner width; 160 tall at 320 pt, 180 at 390 and up. Y labels short, on the trailing side; units in the headline. 2 to 5 horizontal gridlines at round steps (0, 5, 10 mi), `--grid`: the Progress hero draws 2 or 3, fitted so its tallest bar stands in the top fifth of the plot. No chart border or plot background. Bars from zero; lines may use a dynamic range. The plot sits 8 under the takeaway (it keeps a caption's height of its own over the tallest bar). |
+| Labels | Direct labels in caption style ("Plan" over the first dashed bar); no legend for 4 series or fewer. X labels: endpoints or month initials, caption style. |
+| Interaction | Drag across the whole plot area to read a point; the readout is the headline above the plot. A swipe up or down that starts on the plot still scrolls the page: the chart takes a touch only after 6 px of mostly sideways travel or a 180 ms press. Nothing critical needs a tap to show. Until the chart has been read once, one line 8 under the plot (Inter `--fs-sub` Dusk) says how; it leaves when the page is next shown, never under the finger. |
 | Range control (Progress) | Seven segments, 1W, 1M, 3M, 6M, YTD, 12M, All, in one row 12 below the plot, 12 in from the card's edges (wider than the 20 px hero padding allows). Track Cloud, pill; thumb Sky; labels Inter 15, Dusk 550 off, Night Ink 650 on; 44 tall. Segment widths: 47.7 at 390, 45.6 at 375, 52.6 at 440; 37.7 at 320, where the named exception (C4) applies. Default 3M. |
 | Sparkline | 6.3. |
 

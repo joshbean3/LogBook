@@ -118,14 +118,17 @@ export const RangeBars = ({ span, marks, label, words, format = String, hint, on
     const [l, r] = labelExtent(cx, cw(text), plotW);
     return (l + r) / 2;
   };
-  // "Plan" over the first dashed outline (a direct label, no legend), clear of every bar that stands under its width
+  // "Plan" names the first dashed outline (a direct label, no legend). It sits right over that outline when nothing else
+  // stands under its width; where a taller neighbor does (a thin last bar beside a big week), it sits in the band over the
+  // bars with a hairline down to the outline it names, so it is never read as the neighbor's label
   const pi = marks.findIndex((m, i) => i >= first && !m.missing && m.ahead > 0);
   const planLabel = (() => {
     if (pi < 0 || !width) return null;
     const [l, r] = labelExtent(x(pi), cw('Plan'), plotW);
-    const under = marks.filter((m, i) => i >= first && !m.missing && x(i) + lay.barW / 2 > l - 2 && x(i) - lay.barW / 2 < r + 2);
-    const highest = Math.min(...under.map((m) => (m.value + m.ahead > 0 ? topOf(m.value + m.ahead) : Y0)));
-    return { x: (l + r) / 2, y: Math.max(capH, highest - 6) };
+    const own = topOf(marks[pi]!.value + marks[pi]!.ahead);
+    const others = marks.filter((m, i) => i !== pi && i >= first && !m.missing && m.value + m.ahead > 0 && x(i) + lay.barW / 2 > l - 2 && x(i) - lay.barW / 2 < r + 2);
+    const clear = others.every((m) => topOf(m.value + m.ahead) >= own - 2);
+    return clear ? { x: (l + r) / 2, y: own - 6, lead: null } : { x: (l + r) / 2, y: capH, lead: { x: x(pi), y1: capH + 4, y2: own - 4 } };
   })();
   // the bars rise a few milliseconds apart, 240 ms from the first to the last at most (guide 9.1); what is drawn over
   // them (the plan outline, its label, the now dot) fades in as the last one arrives
@@ -199,9 +202,12 @@ export const RangeBars = ({ span, marks, label, words, format = String, hint, on
             })}
             <line x1={0} x2={GRID_END} y1={Y0} y2={Y0} className="rb-base" />
             {planLabel ? (
-              <text x={planLabel.x} y={planLabel.y} textAnchor="middle" className="rb-ax rb-plan-label rb-fade" style={after}>
-                Plan
-              </text>
+              <g className="rb-fade" style={after}>
+                {planLabel.lead && planLabel.lead.y2 - planLabel.lead.y1 > 2 ? <line x1={planLabel.lead.x} x2={planLabel.lead.x} y1={planLabel.lead.y1} y2={planLabel.lead.y2} className="rb-lead" /> : null}
+                <text x={planLabel.x} y={planLabel.y} textAnchor="middle" className="rb-ax rb-plan-label">
+                  Plan
+                </text>
+              </g>
             ) : null}
             {at ? (
               <g className="rb-read">
@@ -218,7 +224,12 @@ export const RangeBars = ({ span, marks, label, words, format = String, hint, on
           </svg>
         )}
       </div>
-      {hint ? <p className="rb-hint">{hint}</p> : null}
+      {/* for the eye and the finger: VoiceOver is told how a slider is moved by the slider */}
+      {hint ? (
+        <p className="rb-hint" aria-hidden="true">
+          {hint}
+        </p>
+      ) : null}
     </div>
   );
 };
