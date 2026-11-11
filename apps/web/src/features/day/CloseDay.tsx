@@ -1,5 +1,5 @@
 import { clock, floorFor, label, mi, num, shiftDays, type DayPhase, type ISODate, type PhaseSession } from '@logbook/shared';
-import { ChevronRight, PenLine, Share, Sunrise, Type } from 'lucide-react';
+import { ChevronRight, PenLine, Sunrise, Type } from 'lucide-react';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import type * as React from 'react';
 import { lazy, Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
@@ -80,7 +80,7 @@ const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one :
 export const dayStamps = ({ miles, planned, lit, habits, doneTodos, openTodos, restDay, runShown }: { miles: number; planned: number; lit: number; habits: number; doneTodos: number; openTodos: number; restDay: boolean; runShown: boolean }) => {
   const stamps: StampRow[] = [];
   // the miles tick from the plan's (never a 0 mi frame, M32); counts from zero
-  if (miles > 0) stamps.push({ k: 'Mi', v: miles, from: planned > 0 ? planned : miles, fmt: (v) => mi(v), said: `${mi(miles)} miles` });
+  if (miles > 0) stamps.push({ k: 'Miles', v: miles, from: planned > 0 ? planned : miles, fmt: (v) => mi(v), said: `${mi(miles)} miles` });
   if (lit > 0) stamps.push({ k: 'Habits', v: lit, from: 0, fmt: (v) => String(Math.round(v)), u: `of ${habits}`, said: `${lit} of ${habits} habits` });
   if (doneTodos > 0) stamps.push({ k: 'To-dos', v: doneTodos, from: 0, fmt: (v) => String(Math.round(v)), u: 'done', said: `${doneTodos} to-dos done` });
   if (stamps.length) return { stamps, line: null };
@@ -258,6 +258,9 @@ const ComposeBox = ({ date, log, onSaved, onRefused }: { date: ISODate; log: Log
   const reduce = useReducedMotion() ?? false;
   const qc = useQueryClient();
   const toast = useToast();
+  // the title's quote is on the same screen: the nightly quote over the field shows only when there is none (say it once,
+  // layout plan 2.1 T13)
+  const titleQuote = !!useFocus().quote.trim();
   const logged = log.snap.journalOn(date);
   const [writing, setWriting] = useState(logged.length === 0);
   // the words as they were saved, shown at once in the entry's place until the month carries the entry (the journal's write
@@ -391,15 +394,17 @@ const ComposeBox = ({ date, log, onSaved, onRefused }: { date: ISODate; log: Log
       {!writing && leaving === 'write' ? <div ref={stillEl} key="write-still" className="cd-write" data-leaving aria-hidden="true" inert /> : null}
       {writing ? (
         <div ref={writeEl} key="write" className="cd-write">
-            <Suspense fallback={<div className="cd-quote-slot" aria-hidden="true" />}>
-              <QuoteLine
-                date={date}
-                onInsert={(t) => {
-                  addToDraft(date, t);
-                  requestAnimationFrame(() => field.current?.focus());
-                }}
-              />
-            </Suspense>
+            {titleQuote ? null : (
+              <Suspense fallback={<div className="cd-quote-slot" aria-hidden="true" />}>
+                <QuoteLine
+                  date={date}
+                  onInsert={(t) => {
+                    addToDraft(date, t);
+                    requestAnimationFrame(() => field.current?.focus());
+                  }}
+                />
+              </Suspense>
+            )}
             <div className="cd-composer">
               <Composer
                 date={date}
@@ -594,8 +599,9 @@ const WakeRow = ({ log }: { log: Log }) => {
       <span className="icon-tile" aria-hidden="true">
         <Sunrise size={16} />
       </span>
-      <span className="cd-trow-title tnum">Wake time {shortClock(T.day.wake)}</span>
-      <span className="cd-trow-right">change</span>
+      {/* the value in the trailing slot, as every row (layout standard 6.2): "Wake time", "6:30", the chevron */}
+      <span className="cd-trow-title">Wake time</span>
+      <span className="cd-trow-right tnum">{shortClock(T.day.wake)}</span>
       <ChevronRight size={16} className="cd-trow-chev" aria-hidden="true" />
     </Pressable>
   );
@@ -610,7 +616,7 @@ const WakeRow = ({ log }: { log: Log }) => {
  * 3–4. the composer (the quote line as its prompt) → after Save, the entry in the same box, one `success` (on the entry's first frame),
  *    `.halo-boost`, and `Add to it`;
  * 5. Tomorrow, always: the word (inline) and tomorrow's wake time (WakeEditor);
- * 6. `Share the day`; 7. Today's read when there is a pick.
+ * 6. Today's read when there is a pick. Sharing the day is the Tomorrow header's quiet Share action.
  * A neighbour's copy (`still`) shows the day only: no composer, no rows to act on.
  */
 export const CloseDay = ({ date, log, ph, onOpenSession, still, markNow }: { date: ISODate; log: Log; ph: DayPhase | null; onOpenSession: (p: PhaseSession) => void; still?: boolean; asHero?: boolean; markNow?: MarkNow }): React.JSX.Element => {
@@ -700,7 +706,8 @@ export const CloseDay = ({ date, log, ph, onOpenSession, still, markNow }: { dat
       {still ? null : (
         <div className="cd-after">
           <section className="cd-tomorrow" aria-label="Tomorrow">
-            <SectionHeader title="Tomorrow" />
+            {/* sharing the day is a quiet action on this header, not a card of its own (layout plan 2.1 T13) */}
+            <SectionHeader title="Tomorrow" action="Share" onAction={share} actionLabel="Share the day" />
             <div className="group cd-tgroup">
               <WordRow />
               <WakeRow log={log} />
@@ -713,11 +720,6 @@ export const CloseDay = ({ date, log, ph, onOpenSession, still, markNow }: { dat
               </Suspense>
             </div>
           ) : null}
-          <Pressable className="pill-row cd-share" press="surface" onPress={share} label="Share the day">
-            <span className="cd-share-in">
-              <Share size={16} strokeWidth={2.25} aria-hidden="true" /> Share the day
-            </span>
-          </Pressable>
         </div>
       )}
     </>

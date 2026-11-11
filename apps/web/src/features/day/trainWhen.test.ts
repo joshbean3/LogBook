@@ -18,7 +18,7 @@ describe('when you train', () => {
     expect(sessionMinutes({ minutes: null, miles: 4 }, 540)).toBe(36);
     expect(sessionMinutes(null, 540)).toBe(45);
   });
-  const face = { key: 'm', kind: 'morning', eyebrow: 'THIS MORNING', stamp: 'EASY 4', line: 'Out the door in 20 min', stops: [{ key: 'wake', label: 'Wake', at: 390 }], stopsLabel: 'x', lead: { session: { kind: 'run', miles: 4, minutes: null } } } as unknown as Face;
+  const face = { key: 'm', kind: 'morning', stamp: 'EASY 4', line: 'Out the door in 20 min', stops: [{ key: 'wake', label: 'Wake', at: 390 }], stopsLabel: 'x', lead: { session: { kind: 'run', miles: 4, minutes: null } } } as unknown as Face;
   it('swaps in the afternoon’s line on a training day', () => {
     const f = faceForWhen(face, 'afternoon', DEFAULT_AFTERNOON, 540);
     expect(f.stopsKind).toBe('afternoon');
@@ -60,11 +60,11 @@ describe('the phase follows when you train', () => {
     expect(phaseForWhen(ph, 'morning', DEFAULT_AFTERNOON, 540)).toBe(ph);
   });
 
-  it('Afternoon: never the morning OUT face; the afternoon line until the run', () => {
+  it('Afternoon: never the morning out face; the afternoon line until the run', () => {
     for (const m of [at(7), at(7, 10), at(7, 40), at(12), at(18, 5)]) {
       const { face, ph } = whenFace(open, FRI, m, 'afternoon', DEFAULT_AFTERNOON);
       expect(face.kind).toBe('later');
-      expect(face.eyebrow).not.toBe('OUT');
+      expect(face.line).not.toMatch(/^Out/);
       expect(face.line).toBe('Run at 6:10');
       expect(face.stops?.map((s) => s.label)).toEqual(['Off work', 'Run', 'Back', 'Dinner']);
       expect(face.ring).toBeNull();
@@ -79,7 +79,7 @@ describe('the phase follows when you train', () => {
     // out from Run to Back, on the afternoon's own times, with no "Leave" under it
     const out = whenFace(open, FRI, at(18, 20), 'afternoon', DEFAULT_AFTERNOON).face;
     expect(out.kind).toBe('out');
-    expect(out.line).toBe('Back by 6:46');
+    expect(out.line).toBe('Out · back by 6:46');
     expect(out.out?.sub).toBeNull();
     // back, not yet dinner: the open face and its ring, nothing over it
     const back = whenFace(open, FRI, at(19), 'afternoon', DEFAULT_AFTERNOON).face;
@@ -151,7 +151,7 @@ describe('the phase follows when you train', () => {
 });
 
 describe('words for the session’s kind (today-top-06)', () => {
-  const lift = { key: 'm', kind: 'morning', eyebrow: 'THIS MORNING', stamp: 'STRENGTH A', line: 'Out the door in 20 min', stops: [{ key: 'wake', label: 'Wake', at: 390 }], stopsLabel: 'x', lead: { session: { kind: 'lift', miles: null, minutes: 40 } } } as unknown as Face;
+  const lift = { key: 'm', kind: 'morning', stamp: 'STRENGTH A', line: 'Out the door in 20 min', stops: [{ key: 'wake', label: 'Wake', at: 390 }], stopsLabel: 'x', lead: { session: { kind: 'lift', miles: null, minutes: 40 } } } as unknown as Face;
   const cross = { ...lift, stamp: 'BIKE 40', lead: { session: { kind: 'cross', miles: null, minutes: 40 } } } as unknown as Face;
   it('a strength day lifts at its time and its stop says Lift', () => {
     const f = faceForWhen(lift, 'afternoon', DEFAULT_AFTERNOON, 540);

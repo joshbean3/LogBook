@@ -4,7 +4,7 @@ import { buildSnapshot } from '@/api/snapshot';
 import type { MonthBundle } from '@/api/types';
 import type { Log } from '../log/useLog';
 import { dayStamps } from './CloseDay';
-import { faceOf, floorShort, heroLead, milesText, otherEyebrow, phaseOf, planWords, preLandingFace, secondOf } from './faces';
+import { faceOf, floorShort, heroLead, milesText, phaseOf, planWords, preLandingFace, secondOf } from './faces';
 import { isoWeek, weekNote } from './WeekCard';
 
 const FRI = '2026-10-23';
@@ -24,7 +24,8 @@ describe('the hero faces (docs/feel.md §3.2, §3.3)', () => {
     const ph = phaseOf(log, FRI, 6 * 60 + 30);
     const f = faceOf(log, FRI, ph);
     expect(f.kind).toBe('morning');
-    expect(f.eyebrow).toBe('THIS MORNING');
+    // no eyebrow over the dial: the line says when (layout plan 2.1 T2)
+    expect('eyebrow' in f).toBe(false);
     expect(f.stamp).toBe('Easy 4');
     expect(f.line).toMatch(/^Out the door in /);
     expect(f.stops?.map((s) => s.label)).toEqual(['Wake', 'Door', 'Back', 'Leave']);
@@ -52,10 +53,9 @@ describe('the hero faces (docs/feel.md §3.2, §3.3)', () => {
     expect(f.line).toBe('4 mi. Done.');
     expect(f.ring).toBe('done');
   });
-  it('another day: quiet, with the eyebrow of its distance', () => {
+  it('another day: quiet (the page title says which day)', () => {
     const f = faceOf(log, '2026-10-24', phaseOf(log, '2026-10-24', 12 * 60));
     expect(f.kind).toBe('planned');
-    expect(f.eyebrow).toBe('TOMORROW');
     expect(f.quiet).toBe(true);
     const m = faceOf(log, '2026-10-11', phaseOf(log, '2026-10-11', 12 * 60));
     expect(m.kind).toBe('missed');
@@ -67,11 +67,10 @@ describe('the hero faces (docs/feel.md §3.2, §3.3)', () => {
     const f = faceOf(l3, FRI, phaseOf(l3, FRI, 12 * 60));
     expect(f.kind).toBe('landed');
     expect(f.tall).toBe(true);
-    // the miles and the pace are the deck's stats; the eyebrow and the line do not say them again (today-top-18)
+    // the miles and the pace are the deck's stats; the line does not say them again (today-top-18)
     expect(f.line).toBe('Done.');
-    expect(f.eyebrow).toBe('TODAY’S RUN');
   });
-  it('a run skipped before the door keeps THIS MORNING through Leave, never OUT; after Leave a new face key (day review 2 #2)', () => {
+  it('a run skipped before the door keeps the morning line through Leave, never the out face; after Leave a new face key (day review 2 #2)', () => {
     const l = logOf(bundle([run(FRI, { mark: 'skip' }), run('2026-10-24', { type: 'Threshold', miles: 6 })]));
     const at = (m: number) => faceOf(l, FRI, phaseOf(l, FRI, m));
     const a = at(6 * 60 + 30);
@@ -79,13 +78,12 @@ describe('the hero faces (docs/feel.md §3.2, §3.3)', () => {
     const c = at(8 * 60 + 45);
     for (const f of [a, b, c]) {
       expect(f.kind).toBe('skipped');
-      expect(f.eyebrow).toBe('THIS MORNING');
+      expect(f.stops?.length).toBeGreaterThan(0);
       expect(f.line).toBe('Skipped.');
     }
     // the door passing changes nothing on the card
     expect(b.key).toBe(a.key);
     const d = at(12 * 60);
-    expect(d.eyebrow).toBe('TODAY’S RUN');
     expect(d.stops).toBeUndefined();
     // the deck's change at Leave goes through the deferred crossfade: its own key
     expect(d.key).not.toBe(a.key);
@@ -95,8 +93,7 @@ describe('the hero faces (docs/feel.md §3.2, §3.3)', () => {
     const f = faceOf(l4, FRI, phaseOf(l4, FRI, 12 * 60));
     expect(f.kind).toBe('rest');
     expect(f.stamp).toBe('Rest day');
-    // rest is said once: the stamp, not the eyebrow or a line too (today-top-18)
-    expect(f.eyebrow).toBe('TODAY');
+    // rest is said once: the stamp, not a line too (today-top-18)
     expect(f.line).toBe('');
     expect(f.next?.text).toMatch(/^Tomorrow: Long 4/);
   });
@@ -107,7 +104,7 @@ describe('the hero faces (docs/feel.md §3.2, §3.3)', () => {
     expect(f.line).toBe('Nothing planned');
     const other = faceOf(none, '2026-10-27', phaseOf(none, '2026-10-27', 12 * 60));
     expect(other.line).toBe('Nothing planned');
-    expect([f, other].map((x) => `${x.eyebrow} ${x.stamp} ${x.line}`).join(' ')).not.toMatch(/rest/i);
+    expect([f, other].map((x) => `${x.stamp} ${x.line}`).join(' ')).not.toMatch(/rest/i);
     // inside a plan, a day with no session is a rest day
     const planned = logOf(bundle([]));
     expect(faceOf(planned, '2026-10-27', phaseOf(planned, '2026-10-27', 12 * 60)).stamp).toBe('Rest day');
@@ -115,12 +112,6 @@ describe('the hero faces (docs/feel.md §3.2, §3.3)', () => {
 });
 
 describe('the words around the hero', () => {
-  it('eyebrows of other days', () => {
-    expect(otherEyebrow('2026-10-22', FRI)).toBe('YESTERDAY');
-    expect(otherEyebrow('2026-10-24', FRI)).toBe('TOMORROW');
-    expect(otherEyebrow('2026-10-28', FRI)).toBe('IN 5 DAYS');
-    expect(otherEyebrow('2026-10-11', FRI)).toBe('SUN, OCT 11');
-  });
   it('the ISO week', () => {
     expect(isoWeek('2026-10-23').week).toBe(43);
     expect(isoWeek('2026-10-19').key).toBe('2026-W43');
@@ -148,7 +139,7 @@ describe('the run landing and the Close card (docs/feel.md §5, §6)', () => {
   });
   it('the Close card stamps: only what happened, at most three; the miles tick from the plan, never from 0', () => {
     const r = dayStamps({ miles: 4.2, planned: 4, lit: 3, habits: 5, doneTodos: 2, openTodos: 1, restDay: false, runShown: true });
-    expect(r.stamps.map((s) => s.k)).toEqual(['Mi', 'Habits', 'To-dos']);
+    expect(r.stamps.map((s) => s.k)).toEqual(['Miles', 'Habits', 'To-dos']);
     expect(r.stamps[0]!.from).toBe(4);
     expect(r.line).toBeNull();
     const q = dayStamps({ miles: 0, planned: 0, lit: 0, habits: 5, doneTodos: 0, openTodos: 2, restDay: true, runShown: false });
@@ -160,7 +151,7 @@ describe('the run landing and the Close card (docs/feel.md §5, §6)', () => {
 describe('fix round 1: Skip on two sessions, the floor words, the week card count', () => {
   const SAT = '2026-10-24';
   const lift = (date: string, over: Partial<Session> = {}): Session => ({ ...run(date), id: `l-${date}`, position: 1, kind: 'lift', type: 'Strength', miles: null, minutes: 45, ...over });
-  it('a run skipped beside a lift keeps the hero (Skipped., the morning eyebrow); the lift is the second card', () => {
+  it('a run skipped beside a lift keeps the hero (Skipped., the morning line); the lift is the second card', () => {
     const l = logOf(bundle([run(SAT, { type: 'Threshold', miles: 6, mark: 'skip' }), lift(SAT)]), SAT);
     const ph = phaseOf(l, SAT, 6 * 60 + 30);
     expect(heroLead(ph)?.session.id).toBe(`s-${SAT}`);
@@ -169,7 +160,7 @@ describe('fix round 1: Skip on two sessions, the floor words, the week card coun
     expect(f.kind).toBe('skipped');
     expect(f.stamp).toBe('Threshold 6');
     expect(f.line).toBe('Skipped.');
-    expect(f.eyebrow).toBe('THIS MORNING');
+    expect(f.stops?.length).toBeGreaterThan(0);
   });
   it('the floor on the hero is its minutes only', () => {
     expect(planWords(run(SAT, { type: 'Threshold', miles: 6 }))).toBe('6 mi · floor 20 min');

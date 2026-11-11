@@ -163,6 +163,8 @@ const Deck = ({ c }: { c: DeckCtx }) => {
     return (
       <div className="hero-deck">
         <MiniTimeline stops={face.stops} now={c.isToday ? c.now : -1} tone={tone} yieldNow={yieldNow} onPress={face.stopsKind === 'afternoon' ? c.onAfternoon : c.onMorning} label={face.stopsLabel ?? 'This morning'} shared={face.stopsKind === 'afternoon' ? undefined : morningLineId(c.date)} />
+        {/* a rest morning's next session, under its line (it was a caps note over the dial; layout plan 2.1 T2) */}
+        {face.aside ? <span className="hero-sub hero-aside">{face.aside}</span> : null}
       </div>
     );
   if (face.out)
@@ -277,13 +279,22 @@ const LineText = ({ line }: { line: string }) =>
     <>
       <span className="hl-wide">Out the door</span>
       <span className="hl-narrow">Out</span>
-      {` in ${line.slice(DOOR.length)}`}
+      {/* a number keeps its unit on its line ("1 h 15 min" breaks only between them) */}
+      {` in ${line.slice(DOOR.length).replace(/ (h|min)\b/g, '\u00a0$1')}`}
     </>
   ) : (
-    <>{line}</>
+    // "Out · back by 7:54" breaks after the state word, never inside "back by 7:54"
+    <>{line.replace(/back by (\S+)$/, 'back\u00a0by\u00a0$1')}</>
   );
 
-/** The words of a face: eyebrow (and its aside), stamp, line, the route on the landed face, the deck. */
+/** Whether a face has anything in its deck (the control zone under the hairline). */
+const hasDeck = (f: Face) => !!(f.stops || f.out || f.kind === 'open' || f.landed || f.doneHand || f.next);
+
+/**
+ * The words of a face, in two zones split by one hairline (layout plan 2.1 T2): the gauge zone (the session name, the line,
+ * the week's readout) and the control zone (when you train, the morning line or the deck). No eyebrow: the line and the
+ * time of day already say when, and a state word ("Out", "Missed", "Done") is said in the line.
+ */
 const FaceView = ({ c }: { c: DeckCtx }) => {
   const { face } = c;
   /*
@@ -292,6 +303,8 @@ const FaceView = ({ c }: { c: DeckCtx }) => {
    * with nothing to open (a rest day) has a plain title.
    */
   const fitRef = useStampFit(face.tall ? '' : face.stamp);
+  // a cross day has no morning line for the switch to move (Morning and No time would look the same): no switch (today-top-06)
+  const when = !face.tall && !!face.lead && face.lead.session.kind !== 'rest' && face.lead.session.kind !== 'cross' && c.date >= c.log.today && whenFaceKinds.has(face.kind);
   const title = (fit: boolean) => {
     const stamp = (
       <span className="hero-stamp" ref={fit ? fitRef : undefined}>
@@ -308,10 +321,6 @@ const FaceView = ({ c }: { c: DeckCtx }) => {
   };
   return (
     <>
-      <div className="hero-eyebrow-row">
-        <span className="caps hero-eyebrow">{face.eyebrow}</span>
-        {face.aside ? <span className="caps hero-aside">{face.aside}</span> : null}
-      </div>
       {face.tall ? (
         <>
           {title(false)}
@@ -332,8 +341,8 @@ const FaceView = ({ c }: { c: DeckCtx }) => {
       )}
       {/* when the training happens: only while the session is still to come (today or later). Done, skipped, missed or
           matched to a run, the choice is over and the switch goes (today-top-01) */}
-      {/* a cross day has no morning line for the switch to move (Morning and No time would look the same): no switch (today-top-06) */}
-      {!face.tall && face.lead && face.lead.session.kind !== 'rest' && face.lead.session.kind !== 'cross' && c.date >= c.log.today && whenFaceKinds.has(face.kind) ? <WhenPill date={c.date} /> : null}
+      {!face.tall && (when || hasDeck(face)) ? <hr className="hero-rule" /> : null}
+      {when ? <WhenPill date={c.date} /> : null}
       {face.tall && face.landed?.polyline ? <LandingRoute polyline={face.landed.polyline} drawKey={c.isToday ? face.landed.drawKey : null} date={c.date} numbers={c.numbers} /> : null}
       <Deck c={c} />
     </>
@@ -681,7 +690,11 @@ const SecondSession = memo(function SecondSession({ date, log: real, id }: { dat
   const s = p.session;
   const isToday = date === log.today;
   const open = p.key === 'today' && isToday;
-  const sub = [s.kind === 'run' && s.miles ? `${num(s.miles)} mi` : s.minutes ? `${s.minutes} min` : null, p.key === 'today' ? 'Planned' : p.word].filter(Boolean).join(' · ');
+  // what it is and how long ("Strength · 20 min"; every session on Today is planned, so "Planned" said nothing: layout plan 2.1
+  // T8); a state word only once it has one ("Done", "Skipped")
+  const kindWord = s.kind === 'lift' ? 'Strength' : s.kind === 'cross' ? 'Cross-training' : 'Run';
+  const size = s.kind === 'run' && s.miles ? `${num(s.miles)} mi` : s.minutes ? `${s.minutes} min` : null;
+  const sub = [kindWord !== label(s) ? kindWord : null, size, p.key === 'today' || p.key === 'planned' ? null : p.word].filter(Boolean).join(' · ');
   const quiet = (w: Promise<void>) => void w.catch(() => undefined);
   const items: ContextMenuItem[] = [];
   const byHand = s.mark === 'done' || s.mark === 'floor';

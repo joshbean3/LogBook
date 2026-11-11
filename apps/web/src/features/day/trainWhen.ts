@@ -206,7 +206,7 @@ export const faceForWhen = (face: Face, when: TrainWhen, pm: AfternoonSettings, 
   const doorLine = wasMorning || /^Out the door/.test(face.line ?? '');
   if (when === 'none') {
     if (face.kind === 'open') return { ...face, status: 'Any time today' };
-    return { ...face, stops: undefined, stopsLabel: undefined, eyebrow: wasMorning ? 'TODAY' : face.eyebrow, line: doorLine ? (wasMorning ? 'Any time today' : 'Any time that day') : face.line };
+    return { ...face, stops: undefined, stopsLabel: undefined, line: doorLine ? (wasMorning ? 'Any time today' : 'Any time that day') : face.line };
   }
   // after the afternoon's session time the open face stands as it is: the ring, "Not logged yet"
   if (face.kind === 'open') return face;
@@ -218,7 +218,6 @@ export const faceForWhen = (face: Face, when: TrainWhen, pm: AfternoonSettings, 
     stops,
     stopsKind: 'afternoon',
     stopsLabel: `This afternoon: ${stops.map((s) => `${s.label.toLowerCase()} ${shortClock(s.at)}`).join(', ')}. Change the afternoon`,
-    eyebrow: wasMorning ? 'TODAY' : face.eyebrow,
     line: doorLine ? `${startWord(kind)} at ${shortClock(stops[1]!.at)}` : face.line,
   };
 };

@@ -19,7 +19,8 @@ describe('text sizes in the day plan, habits and to-dos follow the text size set
         const css = readFileSync(join(dir, file), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
         const bad = [...css.matchAll(/(?:^|[;{\s])(font-size|line-height|font)\s*:\s*([^;}]+)/g)]
           .map((m) => `${m[1]}: ${m[2]!.trim()}`)
-          .filter((d) => /\dpx/.test(d.replace(/clamp\([^)]*\)/g, '')));
+          // a clamp() may hold a token, var(--fs-row): one level of parentheses inside it
+          .filter((d) => /\dpx/.test(d.replace(/clamp\((?:[^()]|\([^()]*\))*\)/g, '')));
         expect(bad).toEqual([]);
       });
     }

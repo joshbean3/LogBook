@@ -1,5 +1,5 @@
-import { awaitingReview, fmtDate, GOAL_STEPS_MAX, periodName, periodOf, shiftDays, type Aim, type ISODate } from '@logbook/shared';
-import { ArrowRight, ChevronDown, ChevronRight, ListTodo, Moon, Plus, RotateCcw, Target, Trash2 } from 'lucide-react';
+import { fmtDate, GOAL_STEPS_MAX, periodOf, shiftDays, type Aim, type ISODate } from '@logbook/shared';
+import { ArrowRight, ChevronDown, CloudOff, ChevronRight, ListTodo, Moon, Plus, RotateCcw, Target, Trash2 } from 'lucide-react';
 import { animate, AnimatePresence, motion, useMotionValue, useSpring, type MotionValue } from 'motion/react';
 import { memo, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
@@ -10,15 +10,17 @@ import { springs, useReduced } from '@/lib/motion';
 import { useHoldDrag, type DragPoint } from '@/lib/useDrag';
 import { useContextMenu, type ContextMenuItem } from '@/ui/ContextMenu';
 import { SectionHeader } from '@/ui/layout';
+import { SectionEmpty } from '@/ui/primitives';
 import { Pressable } from '@/ui/Pressable';
 import { useSheet } from '@/ui/Sheet';
 import { useToast } from '@/ui/Toast';
 import { useOpenGoal } from '../goals/GoalSheets';
-import { goalOf, periodCaps } from '../goals/model';
+import { goalOf } from '../goals/model';
 import { GoalRing, newStepId, useSaveSteps } from '../goals/Steps';
 import { Burst, celebrateOnce } from '../goals/game';
 import { useCelebrate } from '../goals/Celebrate';
 import { CarryOver } from '../goals/CarryOver';
+import { ReviewRow } from '../goals/ReviewRow';
 import { colorOf, colorStyle, groupOf } from '../todos/colors';
 import { PriorityFlag } from '../todos/PriorityDots';
 import { parseQuickAdd } from '../todos/quickAdd';
@@ -60,14 +62,13 @@ const inside = (r: DOMRect, x: number, y: number, pad = 0) => x >= r.left - pad 
  * stays as it was set). Drop a to-do on the goal (or on its dock) and it becomes a step; drop it on Tomorrow or the bin
  * and it goes. A hold let go without moving opens the row's menu.
  */
-export const PlanDay = memo(function PlanDay({ date, today }: { date: ISODate; today: ISODate }) {
+export const PlanDay = memo(function PlanDay({ date, today, yesterday }: { date: ISODate; today: ISODate; yesterday?: React.ReactNode }) {
   const todos = useTodos();
   const goals = useGoals();
   const reduce = useReduced();
   const editable = date >= today;
   const goal = goalOf(goals.data, 'day', date);
   const week = goalOf(goals.data, 'week', periodOf('week', date));
-  const owed = date === today ? awaitingReview(goals.data ?? [], today)[0] : undefined;
 
   // the to-dos only (the goal's steps live in the goal's card): open ones in priority order, then what got done
   const cards = useMemo(() => focusOf(cardsFor(todos.data, null, date, today)), [todos.data, date, today]);
@@ -318,29 +319,55 @@ export const PlanDay = memo(function PlanDay({ date, today }: { date: ISODate; t
   const total = cards.length;
   const done = cards.filter((c) => c.done).length;
   const loaded = !!todos.data && !!goals.data;
+  const title = date === today ? 'Plan your day' : date > today ? 'Plan the day' : 'The plan';
+  // the goals or the to-dos could not be read: say so in one row with a way to try again, never a skeleton that never fills
+  if (!loaded && (todos.isError || goals.isError))
+    return (
+      <section className="pd" aria-label={title}>
+        <SectionHeader className="pd-head" title={title} />
+        <SectionEmpty
+          icon={<CloudOff size={18} aria-hidden="true" />}
+          title="Not loaded"
+          line="Check your connection."
+          action={{
+            label: 'Try again',
+            onPress: () => {
+              void todos.refetch();
+              void goals.refetch();
+            },
+          }}
+        />
+      </section>
+    );
   if (!loaded) return <section className="pd is-skel" aria-hidden="true" />;
 
   return (
     <section className={`pd ${drag ? 'is-dragging' : ''}`} aria-label="Plan your day">
       <SectionHeader
         className="pd-head"
-        title={date === today ? 'Plan your day' : date > today ? 'Plan the day' : 'The plan'}
+        title={title}
         meta={
           total ? (
             <span className={`pd-count ${done === total ? 'is-all' : ''}`} aria-label={`${done} of ${total} done`}>
-              {done === total ? `All ${total} done` : `${done} of ${total} done`}
+              {/* "All 1 done" reads oddly: one to-do says "1 of 1 done" (layout plan 2.1 T14) */}
+              {done === total && total > 1 ? `All ${total} done` : `${done} of ${total} done`}
             </span>
           ) : null
         }
       />
       <div ref={boardRef} className="pd-board">
-        {owed ? <OwedRow goal={owed} today={today} /> : null}
-        {/* the goal and the top three as one card, joined by a rail: the goal on top, then 1, 2, 3 in order */}
-        <Flow>
+        {/* one card, one leading edge (layout plan 2.1 T3): the day's goal; yesterday's business (a review owed, Close
+            yesterday), drawn only while there is some; the to-dos. A hairline between the groups, rows inside them */}
+        <div className="pd-flow">
           <GoalCard date={date} today={today} goal={goal} week={week} editable={editable} target={drag?.over?.kind === 'goal'} dragging={drag?.card.kind === 'todo'} />
+          {date === today ? (
+            <div className="pd-yday">
+              <ReviewRow today={today} />
+              {yesterday}
+            </div>
+          ) : null}
           <Focus cards={shown.tray} drag={drag} api={api} date={date} today={today} editable={editable} />
-        </Flow>
-        {date === today ? <AllTodos date={date} /> : null}
+        </div>
       </div>
       {drag
         ? createPortal(
@@ -366,88 +393,16 @@ interface ApiFns {
 }
 type Api = React.RefObject<ApiFns>;
 
-/** A review owed (a past goal still open): one quiet row above the goal. It says whose goal, the goal itself, then asks. */
-const OwedRow = ({ goal, today }: { goal: Aim; today: ISODate }) => {
-  const open = useOpenGoal();
-  // "Yesterday's goal", "Last week's goal"; an older one by its dates: "Goal for Mon, Nov 2"
-  const name = periodName(goal.level, goal.period, today);
-  const caps = /^(Yesterday|Last (week|month|year))$/.test(name) ? `${name}’s goal` : `Goal for ${name}`;
-  return (
-    <Pressable className="pd-owed" press="surface" onPress={() => open(goal.level, goal.period)} label={`${caps}: ${goal.text}. Did you hit it?`}>
-      <span className="pd-owed-dot" aria-hidden="true" />
-      <span className="pd-owed-text">
-        <span className="caps">{caps}</span>
-        <span className="pd-owed-goal">{goal.text}</span>
-        <span className="pd-owed-ask">Did you hit it?</span>
-      </span>
-      <ChevronRight size={16} aria-hidden="true" />
-    </Pressable>
-  );
-};
-
 /**
- * The day's goal, as the headline of the plan: its words in the serif over a sun in the corner. The sun grows as the steps
- * are checked (the bar under the words counts them), and when the goal is done it swells to fill the card, the words turn
- * dark on gold, and the moment plays. While a to-do is dragged, the card opens to take it as a step.
+ * The day's goal, the card's first group (layout plan 2.1 T3), as rows. Unset: a 32 px Haze tile, the prompt in the serif at
+ * 17, Dusk, and "Set the goal" (the screen's one Sky button) 16 under it. Set: the goal as the row's title (one line; the
+ * whole of it in the label and one tap away), the steps as its subtitle, the ring trailing; the steps under it, starting
+ * where the title starts. Done: the ring fills, the tile becomes a lit Sky coin and the moment plays once, inside the row
+ * (a gold card would recolor the to-dos sharing the card). While a to-do is dragged, the row takes it as a step.
  */
-/**
- * The day's plan as one card: the goal, then the priorities, joined by a rail from the goal's node down to the last of the
- * top three's numbers. The rail is measured after every render, whenever the card resizes (a row checked, the rest
- * unfolded) and when a row's move has settled (`SETTLED`, sent by the row), so it always ends on the third number, or the
- * last one there is. Nothing is measured while nothing changes.
- */
-const SETTLED = 'pd:settled';
-const Flow = ({ children }: { children: React.ReactNode }) => {
-  const ref = useRef<HTMLDivElement>(null);
-  const rail = useRef<HTMLSpanElement>(null);
-  const place = () => {
-    const box = ref.current;
-    const r = rail.current;
-    if (!box || !r) return;
-    const node = box.querySelector('.pd-node');
-    const ranks = box.querySelectorAll('.pd-card.is-top .pd-rank');
-    const last = ranks[ranks.length - 1];
-    if (!node || !last) {
-      r.style.opacity = '0';
-      return;
-    }
-    const b = box.getBoundingClientRect();
-    const a = node.getBoundingClientRect();
-    const z = last.getBoundingClientRect();
-    r.style.opacity = '1';
-    r.style.left = `${a.left - b.left + a.width / 2 - 1}px`;
-    r.style.top = `${a.top - b.top + a.height / 2}px`;
-    r.style.height = `${Math.max(0, z.top - a.top + (z.height - a.height) / 2)}px`;
-  };
-  useLayoutEffect(place);
-  useEffect(() => {
-    const box = ref.current;
-    if (!box) return;
-    const ro = new ResizeObserver(() => place());
-    ro.observe(box);
-    // rows settle on a spring after a check or a drop: measure again once they have (one measure for a burst of them)
-    let raf = 0;
-    const settled = () => {
-      cancelAnimationFrame(raf);
-      raf = requestAnimationFrame(place);
-    };
-    box.addEventListener(SETTLED, settled);
-    return () => {
-      ro.disconnect();
-      cancelAnimationFrame(raf);
-      box.removeEventListener(SETTLED, settled);
-    };
-  }, []);
-  return (
-    <div ref={ref} className="pd-flow">
-      <span ref={rail} className="pd-rail" aria-hidden="true" />
-      {children}
-    </div>
-  );
-};
-
 const GoalCard = ({ date, today, goal, week, editable, target, dragging }: { date: ISODate; today: ISODate; goal: Aim | null; week: Aim | null; editable: boolean; target: boolean; dragging: boolean }) => {
   const open = useOpenGoal();
+  const goals = useGoals();
   const saveSteps = useSaveSteps();
   const reduce = useReduced();
   const celebrate = useCelebrate();
@@ -465,43 +420,46 @@ const GoalCard = ({ date, today, goal, week, editable, target, dragging }: { dat
     celebrate(goal);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [goal?.status, goal]);
+  const tile = (
+    <span className="pd-node is-goal" aria-hidden="true">
+      <Target size={18} strokeWidth={1.75} />
+    </span>
+  );
   // a day that is over with no goal: said once, nothing to set
   if (!goal && date < today)
     return (
       <div className="pd-goal is-empty is-past" data-pd-goal="">
-        <span className="pd-node is-goal" aria-hidden="true">
-          <Target size={16} strokeWidth={2.4} />
-        </span>
-        <span className="pd-goal-main">
-          <span className="caps pd-goal-caps">{periodCaps('day', date, today)}</span>
-          <span className="pd-goal-none">No goal was set.</span>
-        </span>
+        {tile}
+        <span className="pd-goal-none">No goal was set</span>
       </div>
     );
-  if (!goal)
+  if (!goal) {
+    // yesterday's goal, already reviewed Partly or Missed, can be carried over in one tap. While it is still owed a review,
+    // the review row names it and the carry is offered in the review sheet: never two rows for one goal (plan 2.1 T4)
+    const y = date === today ? goalOf(goals.data, 'day', shiftDays(today, -1)) : null;
+    const carry = !!y && (y.status === 'partly' || y.status === 'missed');
     return (
-      <>
+      <div className="pd-goalgrp">
         <Pressable className="pd-goal is-empty" data-pd-goal="" press="surface" onPress={() => open('day', date)} label={date === today ? 'Set today’s goal' : `Set the goal for ${fmtDate('short', date)}`}>
-          <span className="pd-node is-goal" aria-hidden="true">
-            <Target size={16} strokeWidth={2.4} />
-          </span>
+          {tile}
           <span className="pd-goal-main">
-            <span className="caps pd-goal-caps">{date === today ? 'Today' : periodCaps('day', date, today)}</span>
             <span className="pd-goal-set">{date === today ? 'What would make today count?' : 'What would make this day count?'}</span>
             <span className="pd-goal-cta">
               <Plus size={16} strokeWidth={2.6} aria-hidden="true" /> Set the goal
             </span>
           </span>
         </Pressable>
-        {date === today ? <CarryOver today={today} className="pd-carry" /> : null}
-      </>
+        {carry ? <CarryOver today={today} className="pd-carry" /> : null}
+      </div>
     );
+  }
   const n = goal.steps.length;
   const k = goal.steps.filter((s) => s.done).length;
   const isDone = goal.status === 'done';
   const ended = goal.status === 'partly' || goal.status === 'missed';
   const full = n < GOAL_STEPS_MAX;
   const whose = date === today ? 'Today’s goal' : `Goal for ${fmtDate('short', date)}`;
+  const sub = n ? `${k} of ${n} steps` : isDone ? 'Done' : goal.status === 'partly' ? 'Partly' : goal.status === 'missed' ? 'Missed' : date === today ? 'Today’s goal' : 'The day’s goal';
   /**
    * The ring's tap, taken here before the ring's own handler: the goal is marked done (or opened again) and its steps are
    * left exactly as they are; nobody ticks them for the owner. Done comes with an Undo that puts the status and the steps
@@ -520,12 +478,10 @@ const GoalCard = ({ date, today, goal, week, editable, target, dragging }: { dat
   return (
     <div className={`pd-goal is-${goal.status} ${target ? 'is-target' : ''} ${dragging && full ? 'is-droppable' : ''}`} data-pd-goal="">
       <div className="pd-goal-in">
-        <span className="pd-node is-goal" aria-hidden="true">
-          <Target size={16} strokeWidth={2.4} />
-        </span>
-        <Pressable className="pd-goal-main" press="dim" onPress={() => open('day', date)} label={`${goal.text}. Open`}>
-          <span className="caps pd-goal-caps">{date === today ? (isDone ? 'Done today' : 'Today’s goal') : `${isDone ? 'Done · ' : ''}${periodCaps('day', date, today)}`}</span>
+        {tile}
+        <Pressable className="pd-goal-main" press="dim" onPress={() => open('day', date)} label={`${whose}: ${goal.text}. ${sub}. Open`}>
           <span className="pd-goal-text">{goal.text}</span>
+          <span className="pd-goal-sub">{sub}</span>
         </Pressable>
         {ended ? null : (
           <motion.span className="pd-goal-ring" style={{ scale: ringPop }} onClickCapture={onRing}>
@@ -544,22 +500,10 @@ const GoalCard = ({ date, today, goal, week, editable, target, dragging }: { dat
           ))}
         </ul>
       ) : null}
-      {n ? (
-        <div className="pd-goal-steps" aria-label={`${k} of ${n} steps`}>
-          <span className="pd-goal-bar" aria-hidden="true">
-            <motion.i initial={false} animate={{ scaleX: k / n }} transition={reduce ? { duration: 0 } : { type: 'spring', duration: 0.6, bounce: 0.15 }} />
-          </span>
-          <span className="pd-goal-count tnum">
-            {k}/{n}
-          </span>
-        </div>
-      ) : null}
       {week ? (
         <Pressable className="pd-week" press="dim" onPress={() => open('week', week.period)} label={`This week: ${week.text}`}>
           <span className={`pd-week-dot is-${week.status}`} aria-hidden="true" />
-          <span className="pd-week-text">
-            <span className="caps">This week</span> {week.text}
-          </span>
+          <span className="pd-week-text">This week: {week.text}</span>
         </Pressable>
       ) : null}
     </div>
@@ -597,57 +541,49 @@ const Focus = ({ cards, drag, api, date, today, editable }: { cards: Card[]; dra
     }
   };
   const over = drag?.over?.kind === 'place';
-  // the grid: row 1 the box's head, then a row per card (rank 1.. in order); the box spans its head and the top rows
+  // the grid: a row per card (rank 1.. in order); row 1 is left empty (the head the list no longer draws: the section's
+  // meta says the count, layout plan 2.1 T3)
   const grid = focusGrid(cards, restOpen, !!drag);
-  const { top, rest, done } = grid.counts;
+  const { rest, done } = grid.counts;
+  // "Add a to-do" sits right under the top three, before the fold (plan 2.1 T3): one grid row, every row after it one down
+  const addRow = editable ? grid.boxEnd : 0;
+  const shift = (r: number) => (addRow && r >= addRow ? r + 1 : r);
   // everything after the three folds behind one row: the rest of the list and what got done today
   const folded = rest + done;
-  const restWords = cards.filter((c) => !c.done).slice(TOP).map((c) => (c.kind === 'todo' ? c.todo.text : c.step.text));
-  const rowOf = (s: FocusSlot) => <CardRow key={s.card.ref} card={s.card} drag={drag} api={api} date={date} today={today} editable={editable && !s.card.done} hue={BAND.tray.hue} fallback={BAND.tray.icon} row={s.row} rank={s.rank} kind={s.kind} first={s.first} />;
+  const rowOf = (s: FocusSlot) => <CardRow key={s.card.ref} card={s.card} drag={drag} api={api} date={date} today={today} editable={editable && !s.card.done} hue={BAND.tray.hue} fallback={BAND.tray.icon} row={shift(s.row)} rank={s.rank} kind={s.kind} first={s.first} />;
   const fold = !folded ? null : !restOpen ? (
-    <button key="pd:fold" type="button" className={`pd-rest-toggle ${rest ? '' : 'is-done-only'}`} style={{ gridRow: grid.foldRow }} onClick={toggleRest} aria-expanded={false} aria-label={`Show ${[rest ? `${rest} more` : '', done ? `${done} done` : ''].filter(Boolean).join(' and ')}`}>
-      {rest ? <span className="pd-rest-n tnum">+{folded}</span> : null}
-      {/* the names shorten (one ellipsis, the row's own); the done count is never the part that is cut */}
-      {rest ? <span className="pd-rest-words">Then {restWords.slice(0, 2).join(', ')}</span> : null}
-      {done ? (
-        <span className="pd-rest-done">
-          {rest ? '· ' : ''}
-          {done} done
-        </span>
-      ) : null}
-      <ChevronDown size={16} strokeWidth={2.2} aria-hidden="true" />
+    <button key="pd:fold" type="button" className={`pd-rest-toggle ${rest ? '' : 'is-done-only'}`} style={{ gridRow: shift(grid.foldRow) }} onClick={toggleRest} aria-expanded={false} aria-label={`Show ${[rest ? `${rest} more` : '', done ? `${done} done` : ''].filter(Boolean).join(' and ')}`}>
+      <span className="pd-rest-words">{[rest ? `${rest} more` : '', done ? `${done} done` : ''].filter(Boolean).join(' · ')}</span>
+      <ChevronDown size={18} strokeWidth={1.75} aria-hidden="true" />
     </button>
   ) : rest ? (
-    <span key="pd:fold" className="pd-rest-label" style={{ gridRow: grid.foldRow }}>
+    <span key="pd:fold" className="pd-rest-label" style={{ gridRow: shift(grid.foldRow) }}>
       After these
     </span>
   ) : null;
   return (
     <div data-pd-box="" className={`pd-focus ${over ? 'is-over' : ''}`}>
       <div className="pd-zone pd-focus-zone" data-pd-zone="tray">
-        <motion.span className="pd-top-box" layout style={{ gridRow: `1 / ${grid.boxEnd}` }} transition={springs.settle} aria-hidden="true" />
-        <div className="pd-top-head" style={{ gridRow: 1 }}>
-          <span className="pd-top-title">{top ? (top === 1 ? 'Your priority' : `Your top ${top === 2 ? 'two' : 'three'}`) : 'Priorities'}</span>
-          {top ? <span className="pd-top-meta">{rest ? `${rest} after these` : 'All that’s left'}</span> : null}
-        </div>
-        {grid.emptyRow ? (
+        {/* with everything done, the section's meta ("All 3 done") and the fold ("3 done") say it: no line of its own */}
+        {grid.emptyRow && !done ? (
           <p className="pd-top-empty" style={{ gridRow: grid.emptyRow }}>
-            {date < today ? (done ? 'Everything got done.' : 'Nothing was planned.') : done ? 'All done. Nothing left in front of you.' : `Add what matters ${date === today ? 'today' : 'that day'}. The first three become your priorities.`}
+            {date < today ? 'Nothing was planned.' : `Add what matters ${date === today ? 'today' : 'that day'}. The first three become your priorities.`}
             {/* the field's marks, said once, where the list is still empty */}
-            {date === today && !done ? <span className="pd-top-tip">Tip: end with “tomorrow” or “fri” to pick the day, or “!” to flag it.</span> : null}
+            {date === today ? <span className="pd-top-tip">Tip: end with “tomorrow” or “fri” to pick the day, or “!” to flag it.</span> : null}
           </p>
         ) : null}
         {/* every row comes from this one keyed list, in the order it reads: a row that crosses from one part to another
             (a drag over "After these", a check) keeps its node, so the finger that holds it is never let go */}
         {[...grid.top.map(rowOf), fold, ...grid.rest.map(rowOf), ...grid.done.map(rowOf)]}
+        {addRow ? <AddInline key="pd:add" date={date} today={today} label="Add a to-do" placeholder="Add a to-do" hidden={!!drag} open={adding} setOpen={setAdding} row={addRow} /> : null}
         {grid.hideRow ? (
-          <button type="button" className="pd-rest-toggle is-open" style={{ gridRow: grid.hideRow }} onClick={toggleRest} aria-expanded={true}>
+          <button type="button" className="pd-rest-toggle is-open" style={{ gridRow: shift(grid.hideRow) }} onClick={toggleRest} aria-expanded={true}>
             <span className="pd-rest-words">{done && !rest ? 'Fold away what’s done' : 'Fold the rest away'}</span>
-            <ChevronDown size={16} strokeWidth={2.2} aria-hidden="true" />
+            <ChevronDown size={18} strokeWidth={1.75} aria-hidden="true" />
           </button>
         ) : null}
       </div>
-      {editable ? <AddInline date={date} today={today} label="Add a to-do" placeholder="Add a to-do" hidden={!!drag} open={adding} setOpen={setAdding} /> : null}
+      {date === today ? <AllTodos date={date} /> : null}
     </div>
   );
 };
@@ -821,7 +757,6 @@ const CardRow = ({ card, drag, api, date, today, editable, hue, fallback, row, r
       ref={d.ref}
       layout={reduce ? false : 'position'}
       transition={springs.settle}
-      onLayoutAnimationComplete={() => d.ref.current?.dispatchEvent(new CustomEvent(SETTLED, { bubbles: true }))}
       className={`pd-card ${card.done || checking ? 'is-done' : ''} ${checking ? 'is-checking' : ''} ${kind ? `is-${kind}` : ''} ${first ? 'is-first' : ''} ${card.kind === 'step' ? 'is-step' : ''} ${tint ? 'has-tc' : ''} ${isHole ? 'is-hole' : ''} ${armed ? 'is-armed' : ''}`}
       style={{ ...colorStyle(tint), '--mk': card.kind === 'step' ? 'var(--sun)' : hue, ...(row ? { gridRow: row } : {}) } as React.CSSProperties}
       data-pd-card={card.ref}
@@ -890,7 +825,7 @@ const Docks = ({ over, todo, step, next }: { over: Over; todo: boolean; step: bo
  * marks shows as it is typed (beside the words, or under them in a narrow field), and a to-do that lands on another day
  * says where it went, with a way to see it.
  */
-const AddInline = ({ date, today, label, placeholder, hidden, open, setOpen, onAdd }: { date: ISODate; today: ISODate; label: string; placeholder: string; hidden?: boolean; open: boolean; setOpen: (o: boolean) => void; onAdd?: (id: string) => void }) => {
+const AddInline = ({ date, today, label, placeholder, hidden, open, setOpen, onAdd, row }: { date: ISODate; today: ISODate; label: string; placeholder: string; hidden?: boolean; open: boolean; setOpen: (o: boolean) => void; onAdd?: (id: string) => void; row?: number }) => {
   const { add } = useTodoMutations();
   const groups = useTodoGroups();
   const sheet = useSheet();
@@ -932,7 +867,7 @@ const AddInline = ({ date, today, label, placeholder, hidden, open, setOpen, onA
   };
   if (!open)
     return (
-      <Pressable className={`pd-add ${hidden ? 'pd-hide' : ''}`} press="surface" onPress={() => setOpen(true)} label={placeholder}>
+      <Pressable className={`pd-add ${hidden ? 'pd-hide' : ''}`} style={row ? { gridRow: row } : undefined} press="surface" onPress={() => setOpen(true)} label={placeholder}>
         <span className="pd-add-ic" aria-hidden="true">
           <Plus size={16} strokeWidth={2.4} />
         </span>
@@ -940,7 +875,7 @@ const AddInline = ({ date, today, label, placeholder, hidden, open, setOpen, onA
       </Pressable>
     );
   return (
-    <div ref={field} className="pd-add is-field">
+    <div ref={field} className="pd-add is-field" style={row ? { gridRow: row } : undefined}>
       <span className="pd-add-ic" aria-hidden="true">
         <Plus size={16} strokeWidth={2.4} />
       </span>
@@ -974,21 +909,19 @@ const AddInline = ({ date, today, label, placeholder, hidden, open, setOpen, onA
   );
 };
 
-/** The rest of the to-dos (Later, Someday, every list) in the sheet. */
+/** The rest of the to-dos (Later, Someday, every list) in the sheet: the card's last row, a quiet Deep Sky action. */
 const AllTodos = ({ date }: { date: ISODate }) => {
   const sheet = useSheet();
   const todos = useTodos();
   const g = groupsOn(todos.data, date);
   const later = g[1]!.items.length;
   const someday = g[2]!.items.length;
-  const words = ['All to-dos', later ? `Later ${later}` : null, someday ? `Someday ${someday}` : null].filter(Boolean).join(' · ');
+  const more = [later ? `Later ${later}` : null, someday ? `Someday ${someday}` : null].filter(Boolean).join(' · ');
   return (
-    <Pressable className="pill-row pd-all" press="surface" onPress={() => sheet.open({ title: 'To-dos', detent: 'medium', detents: ['medium', 'large'], body: <TodoListSheet date={date} /> })} label={`Open ${words}`}>
-      <span className="pd-all-in">
-        {words}
-        <ChevronRight size={16} aria-hidden="true" />
-      </span>
+    <Pressable className="pd-all" press="surface" onPress={() => sheet.open({ title: 'To-dos', detent: 'medium', detents: ['medium', 'large'], body: <TodoListSheet date={date} /> })} label={`Open all to-dos${more ? `: ${more}` : ''}`}>
+      <span className="pd-all-text">All to-dos</span>
+      {more ? <span className="pd-all-more">{more}</span> : null}
+      <ChevronRight size={18} aria-hidden="true" />
     </Pressable>
   );
 };
-
