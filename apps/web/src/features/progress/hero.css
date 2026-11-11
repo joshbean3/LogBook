@@ -168,12 +168,13 @@
   stroke-width: 1.5;
   stroke-dasharray: 3 3;
 }
-/* nothing run: a 2 px Pencil dot holds the bucket's place; a day still ahead with nothing planned is fainter (decorative) */
+/* nothing run: a 2 px Pencil dot holds the bucket's place; a day still ahead with nothing planned is the "ahead" tint
+   (decorative: the headline says "Nothing planned" when it is read) */
 .rb-rest {
   fill: var(--pencil);
 }
 .rb-rest.is-ahead {
-  fill: var(--coin-ring);
+  fill: var(--tick);
 }
 /* a bucket whose month has not loaded: a short dash on the horizon */
 .rb-gap {
