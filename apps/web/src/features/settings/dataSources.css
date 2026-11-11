@@ -2,21 +2,21 @@
 .ds-ok {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--sp-1);
   font-size: var(--fs-sub);
   line-height: var(--lh-sub);
   font-weight: 600;
-  color: var(--t-easy);
+  color: var(--ok);
 }
 .ds-soon .lrow-title {
   color: var(--ink-2);
 }
 
-/* the connection sheet: numbered steps, a quiet way to the checklist, one navy pill */
+/* the connection sheet: numbered steps, a quiet way to the checklist, one Sky primary */
 .cx {
   display: grid;
-  gap: 16px;
-  padding-bottom: 8px;
+  gap: var(--sp-4);
+  padding-bottom: var(--sp-2);
 }
 .cx-lede {
   font-size: var(--fs-row);
@@ -28,11 +28,11 @@
   list-style: none;
   margin: 0;
   display: grid;
-  gap: 14px;
+  gap: var(--sp-4);
 }
-/* the steps in one white card (shape system: content in cards on the sheet's page color) */
+/* the steps in one Paper card (shape system: content in cards on the sheet's page color) */
 .cx-steps {
-  padding: 18px 16px;
+  padding: var(--sp-5) var(--sp-4);
   border-radius: var(--r-card);
   background: var(--surface);
   border: var(--card-border);
@@ -40,12 +40,12 @@
 }
 .cx-check {
   padding: 0;
-  gap: 8px;
+  gap: var(--sp-2);
 }
 .cx-steps li {
   display: grid;
   grid-template-columns: 28px minmax(0, 1fr);
-  gap: 12px;
+  gap: var(--sp-3);
   align-items: start;
   font-size: var(--fs-row);
   line-height: var(--lh-row);
@@ -57,19 +57,18 @@
   border-radius: 50%;
   display: grid;
   place-items: center;
-  background: var(--columbia-wash);
+  background: var(--haze);
   color: var(--ink);
-  font-family: var(--stamp);
-  font-weight: 800;
-  font-size: 0.875rem;
-  margin-top: -3px;
+  font: 650 var(--fs-sub) / 1 var(--sans);
+  font-variant-numeric: tabular-nums;
+  margin-top: -3px; /* brand-ok: geometry, the number's disc on the step's first line */
 }
 .cx-check li {
   display: grid;
   grid-template-columns: 20px minmax(0, 1fr);
-  gap: 10px;
+  gap: var(--sp-3);
   align-items: start;
-  padding: 14px 16px;
+  padding: var(--sp-4);
   border-radius: var(--r-tile);
   background: var(--surface);
   box-shadow: var(--shadow-1);
@@ -78,8 +77,8 @@
   color: var(--ink);
 }
 .cx-check li svg {
-  margin-top: 2px;
-  color: var(--ink-2);
+  margin-top: 2px; /* brand-ok: geometry, the glyph on the first line's center */
+  color: var(--deep-sky);
 }
 .cx-help {
   appearance: none;
@@ -88,15 +87,15 @@
   justify-self: start;
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--sp-2);
   min-height: 44px;
   padding: 0;
   font: inherit;
   font-size: var(--fs-sub);
   font-weight: 600;
-  color: var(--ink-2);
+  color: var(--accent-text);
 }
 .cx-cta.btn {
   height: 54px;
-  margin-top: 4px;
+  margin-top: var(--sp-1);
 }

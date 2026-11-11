@@ -1,57 +1,47 @@
-/* ---------- Logbook's cards, small and still (welcome pager, feature intros) ---------- */
+/* ---------- Orby's cards, small and still (welcome pager, feature intros): Paper cards on the welcome ground ---------- */
 .lc {
   position: relative;
   isolation: isolate;
   overflow: hidden;
   display: grid;
-  gap: 6px;
+  gap: var(--sp-1);
   width: 100%;
   max-width: 340px;
   margin-inline: auto;
-  padding: 18px 18px 20px;
+  padding: var(--pad-hero);
   background: var(--surface);
   border: var(--card-border);
   border-radius: var(--r-card);
-  box-shadow: var(--shadow-1), 0 18px 40px rgba(15, 42, 68, 0.08);
+  box-shadow: var(--shadow-1);
   color: var(--ink);
   text-align: left;
   pointer-events: none;
   user-select: none;
 }
 .lc .caps {
-  font-size: var(--fs-caps);
-  line-height: var(--lh-caps);
-  font-weight: 600;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--ink-3);
+  color: var(--ink-2);
+  font-variant-numeric: tabular-nums;
 }
-.lc .stamp {
-  font-family: var(--stamp);
-  font-weight: 800;
-  letter-spacing: -0.03em;
+/* numbers in a card are Inter with even figures (guide 4.4) */
+.lc .lc-num,
+.lc-stop-v,
+.lc-row-n {
+  font-family: var(--sans);
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
 }
 .lc .display {
-  font-family: var(--display);
+  font-family: var(--serif);
   font-style: italic;
   font-weight: 420;
 }
-.lc-halo {
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-  background: var(--halo);
-  opacity: 0.8;
-}
-.lc-halo.amber {
-  background: var(--halo-amber);
-}
 
-/* the morning */
+/* the morning: the session name in Fraunces 650 at the stamp size, the line in the sentence voice (guide 12.1) */
 .lc-big {
-  font-size: 2.25rem;
-  line-height: 2.375rem;
-  margin-top: 2px;
+  margin-top: var(--sp-1);
+  font: 650 clamp(30px, var(--fs-stamp), 40px) / clamp(34px, var(--lh-stamp), 44px) var(--serif);
+  letter-spacing: var(--tr-title);
+  color: var(--ink);
 }
 .lc-line {
   font-size: var(--fs-sentence);
@@ -62,22 +52,21 @@
   position: relative;
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  margin-top: 14px;
+  margin-top: var(--sp-4);
 }
 .lc-track::before {
   content: '';
   position: absolute;
   left: 6px;
   right: 6px;
-  top: 5px;
+  top: 5px; /* brand-ok: geometry, the line through the 12 px stops' centers */
   height: 2px;
-  border-radius: 1px;
-  background: var(--surface-3);
+  background: var(--haze);
 }
 .lc-stop {
   position: relative;
   display: grid;
-  gap: 2px;
+  gap: 0;
   justify-items: start;
 }
 .lc-stop:nth-child(2),
@@ -88,21 +77,28 @@
   justify-items: end;
 }
 .lc-stop i {
+  box-sizing: border-box;
   width: 12px;
   height: 12px;
   border-radius: 50%;
   background: var(--surface);
-  border: 2px solid var(--ink-3);
-  margin-bottom: 6px;
+  border: 2px solid var(--ink-2);
+  margin-bottom: var(--sp-2);
 }
+/* the live node: Sunrise with its Paper keyline, and a hairline of Sunrise outside it so the keyline reads on Paper */
 .lc-stop.now i {
-  background: var(--accent);
-  border-color: var(--accent-bright);
-  box-shadow: 0 0 0 4px var(--accent-tint);
+  background: var(--now);
+  border-color: var(--now-keyline);
+  box-shadow: 0 0 0 1.5px var(--now);
+}
+.lc-stop.now i[data-now='ink'] {
+  background: var(--ink);
+  box-shadow: 0 0 0 1.5px var(--ink);
 }
 .lc-stop-v {
-  font-size: 1rem;
-  line-height: 1.25rem;
+  font-size: var(--fs-row);
+  line-height: var(--lh-row);
+  color: var(--ink);
 }
 
 /* habits as lights */
@@ -110,16 +106,16 @@
 .lc-tiles {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
-  margin-top: 10px;
+  gap: var(--sp-2);
+  margin-top: var(--sp-3);
 }
 .lc-tile {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: var(--sp-3);
   min-width: 0;
   min-height: 48px;
-  padding: 8px 12px;
+  padding: var(--sp-2) var(--sp-3);
   border-radius: var(--r-tile);
   background: var(--surface-2);
 }
@@ -133,7 +129,7 @@
   border-radius: 50%;
   display: grid;
   place-items: center;
-  border: 1.5px solid var(--line-strong);
+  border: 1.5px solid var(--coin-ring);
 }
 .lc-tile.on .lc-tile-mark {
   background: var(--accent);
@@ -159,46 +155,47 @@
 .lc-strip {
   display: grid;
   grid-template-columns: repeat(7, minmax(0, 1fr));
-  margin-top: 14px;
-  padding-top: 12px;
+  margin-top: var(--sp-4);
+  padding-top: var(--sp-3);
   border-top: 1px solid var(--line);
 }
 .lc-day {
   display: grid;
   justify-items: center;
-  gap: 6px;
+  gap: var(--sp-2);
 }
 .lc-day i {
+  box-sizing: border-box;
   width: 14px;
   height: 14px;
   border-radius: 50%;
-  border: 1.5px solid var(--ink-4);
+  border: 1.5px solid var(--pencil);
 }
+/* done days are Deep Sky dots; today is a Night Ink ring (plan 1.3, D14), never a tint */
 .lc-day.kept i {
-  background: var(--ink-2);
-  border-color: var(--ink-2);
+  background: var(--deep-sky);
+  border-color: var(--deep-sky);
 }
 .lc-day.today i {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 3px var(--accent-tint);
+  border-color: var(--ink);
 }
 
 /* the plan week */
 .lc-week {
-  gap: 4px;
+  gap: var(--sp-1);
 }
 .lc-week-head {
   display: flex;
   justify-content: space-between;
   align-items: baseline;
-  margin-bottom: 4px;
+  margin-bottom: var(--sp-1);
 }
 .lc-week-total {
-  font-size: 0.8125rem;
-  color: var(--ink-3);
+  font: 500 var(--fs-foot) / var(--lh-foot) var(--sans);
+  color: var(--ink-2);
 }
-.lc-week-total .stamp {
-  font-size: 1.25rem;
+.lc-week-total .lc-num {
+  font-size: var(--fs-row);
   color: var(--ink);
 }
 .lc-rows {
@@ -208,7 +205,7 @@
   display: grid;
   grid-template-columns: 2.25rem 1.5rem 3px minmax(0, 1fr) 4.5rem;
   align-items: center;
-  gap: 8px;
+  gap: var(--sp-2);
   height: 2.125rem;
   border-top: 1px solid var(--line);
 }
@@ -219,16 +216,14 @@
   border-top: 0;
 }
 .lc-row-n {
-  font-family: var(--stamp);
-  font-weight: 700;
-  font-size: 0.9375rem;
+  font-size: var(--fs-sub);
   color: var(--ink-2);
   text-align: right;
 }
 .lc-row-tone {
   width: 3px;
   height: 1.125rem;
-  border-radius: 2px;
+  border-radius: var(--r-pill);
 }
 .lc-row.t-easy .lc-row-tone,
 .lc-row.t-easy .lc-row-bar i {
@@ -245,23 +240,24 @@
 .lc-row.t-lift .lc-row-tone {
   background: var(--t-lift);
 }
-.lc-row-name .stamp {
-  font-size: 1rem;
+.lc-sess {
+  font: 600 var(--fs-row) / var(--lh-row) var(--sans);
+  color: var(--ink);
 }
 .lc-rest {
-  font-size: 0.9375rem;
-  color: var(--ink-3);
+  font-size: var(--fs-sub);
+  color: var(--ink-2);
 }
 .lc-row-bar {
   height: 6px;
-  border-radius: 3px;
-  background: var(--surface-2);
+  border-radius: var(--r-pill);
+  background: var(--haze);
   overflow: hidden;
 }
 .lc-row-bar i {
   display: block;
   height: 100%;
-  border-radius: 3px;
+  border-radius: var(--r-pill);
   transform-origin: left center;
 }
 
@@ -269,53 +265,44 @@
 .lc-quote {
   font-size: var(--fs-sentence);
   line-height: var(--lh-sentence);
-  margin-top: 4px;
+  margin-top: var(--sp-1);
   text-wrap: balance;
 }
 .lc-month {
   display: flex;
   justify-content: space-between;
   align-items: baseline;
-  gap: 8px;
-  margin-top: 14px;
-  padding-top: 12px;
+  gap: var(--sp-2);
+  margin-top: var(--sp-4);
+  padding-top: var(--sp-3);
   border-top: 1px solid var(--line);
 }
 .lc-month-name {
-  font-weight: 600;
-  font-size: 1rem;
+  font: 600 var(--fs-row) / var(--lh-row) var(--sans);
 }
 .lc-month-meta {
-  font-size: 0.8125rem;
-  color: var(--ink-3);
+  font: 500 var(--fs-foot) / var(--lh-foot) var(--sans);
+  color: var(--ink-2);
 }
-.lc-month-meta .stamp {
+.lc-month-meta .lc-num {
   color: var(--ink);
-  font-size: 0.9375rem;
+  font-size: var(--fs-sub);
 }
 
 @media (max-width: 359px) {
   .lc {
-    padding: 14px 14px 16px;
+    padding: var(--sp-4);
   }
   .lc-big {
     font-size: 1.875rem;
-    line-height: 2rem;
-  }
-  .lc-line {
-    font-size: 1.25rem;
-    line-height: 1.5rem;
-  }
-  .lc-quote {
-    font-size: 1.375rem;
-    line-height: 1.625rem;
+    line-height: 2.125rem;
   }
   .lc-row {
     grid-template-columns: 2rem 1.25rem 3px minmax(0, 1fr) 3.5rem;
     height: 1.75rem;
   }
   .lc-stop-v {
-    font-size: 0.875rem;
+    font-size: var(--fs-sub);
   }
 }
 
@@ -323,38 +310,41 @@
 .lc-ask-q {
   justify-self: end;
   max-width: 85%;
-  margin-top: 6px;
-  padding: 10px 14px;
-  border-radius: 18px 18px 6px 18px;
+  margin-top: var(--sp-2);
+  padding: var(--sp-2) var(--sp-3);
+  border-radius: var(--r-tile);
   background: var(--surface-2);
   font-size: var(--fs-sub);
   line-height: var(--lh-sub);
   color: var(--ink);
 }
 .lc-ask-a {
-  margin-top: 6px;
+  margin-top: var(--sp-2);
   font: italic 420 var(--fs-sentence-sm) / var(--lh-row) var(--serif);
-  letter-spacing: 0;
   color: var(--ink);
 }
 .lc-ask-act {
   display: flex;
-  gap: 8px;
-  margin-top: 6px;
+  gap: var(--sp-2);
+  margin-top: var(--sp-2);
 }
+/* a picture of the assistant's own pair: the Sky Apply with Night Ink words and the Paper Not now; no glow, so it reads
+   as part of the card and never competes with the screen's one primary under it */
 .lc-ask-btn {
   display: inline-flex;
   align-items: center;
   min-height: 32px;
-  padding: 0 14px;
+  padding: 0 var(--sp-4);
   border-radius: var(--r-pill);
-  background: var(--ink);
-  color: var(--surface);
+  background: var(--accent);
+  color: var(--accent-ink);
   font-size: var(--fs-sub);
   line-height: var(--lh-sub);
-  font-weight: 600;
+  font-weight: 650;
 }
 .lc-ask-btn.quiet {
-  background: var(--surface-2);
-  color: var(--ink-2);
+  background: var(--surface);
+  box-shadow: inset 0 0 0 1px var(--edge);
+  color: var(--ink);
+  font-weight: 600;
 }

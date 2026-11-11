@@ -1,40 +1,147 @@
-/* the launch (BrandSplash.tsx): the canvas colour of the native splash, the orb at its centre, the wordmark under it */
+/*
+ * The launch (BrandSplash.tsx; guide 8.3, 9.2, 12.1; mockups/splash.png). Brand art, not chrome: the poster's sky and hills.
+ * --hill-h is the hills' box at the bottom; the near hill's crest at the center is 0.71 of the way down from its top
+ * (58 of 200 units), so the Orb's bottom sits at 0.71 x --hill-h plus 0.1 D above the screen's bottom edge.
+ */
 .brand-splash {
+  --hill-h: clamp(200px, 30svh, 290px);
+  --crest: calc(var(--hill-h) * 0.71);
   position: fixed;
   inset: 0;
   z-index: 1000;
-  display: grid;
-  place-items: center;
-  align-content: center;
-  gap: 26px;
+  overflow: hidden;
+  /* the native launch screen's Cloud: the art fades in over it */
   background: var(--bg);
   /* opaque, it takes the taps (nothing under it is pressed by accident); its exit sets pointer-events: none */
   pointer-events: auto;
 }
-.brand-splash-orb {
+.bs-art {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, var(--haze) 0, var(--cloud) 300px, var(--cloud) 52%, var(--horizon-1) 70%, var(--horizon-2) 90%);
+}
+/* the horizon glow, an Apricot ellipse centered on the crest under the Orb: it carries the warmth (guide 8.3) */
+.bs-glow {
+  position: absolute;
+  left: 50%;
+  bottom: var(--crest);
+  width: 640px;
+  height: 300px;
+  translate: -50% 50%;
+  background: radial-gradient(closest-side, var(--apricot), transparent);
+  opacity: 0.6;
+}
+/* the outlined wordmark, 150 pt wide (an image, never live text), and the line under it, in the sky */
+.bs-head {
+  position: absolute;
+  left: var(--gutter);
+  right: var(--gutter);
+  top: 29.6%;
   display: grid;
-  place-items: center;
-  /* the native splash's still orb sits dead centre: so does this one, the wordmark hangs below without moving it */
-  margin-top: 58px;
+  justify-items: center;
+  gap: var(--sp-4);
+  text-align: center;
 }
-/* the outlined wordmark, 150 pt wide (guide 12.1): an image, never live text */
-.brand-splash-word {
+.bs-word {
   display: block;
-  line-height: 0;
 }
-/* still waiting on the server with nothing saved to draw: one line and Try again, under the wordmark (shell-14) */
+.bs-line {
+  margin: 0;
+  font: italic 420 var(--fs-sentence-sm) / var(--lh-row) var(--serif);
+  color: var(--dusk);
+}
+/* the 96 px Orb (full tier): its art box is 150/96 of the sphere and centered on it; nothing covers its lower half */
+.bs-orb {
+  position: absolute;
+  left: 50%;
+  bottom: calc(var(--crest) + var(--orb-splash) * 0.1);
+  width: var(--orb-splash);
+  height: var(--orb-splash);
+  translate: -50% 0;
+}
+.bs-orb-art {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: calc(var(--orb-splash) * 150 / 96);
+  height: calc(var(--orb-splash) * 150 / 96);
+  max-width: none;
+  translate: -50% -50%;
+  pointer-events: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.bs-hills {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: 100%;
+  height: var(--hill-h);
+  display: block;
+}
+/* the caption on the far hill: White on Deep Sky (5.66), caption style */
+.bs-cap {
+  position: absolute;
+  left: var(--gutter);
+  right: var(--gutter);
+  bottom: max(var(--sp-8), calc(var(--safe-b) + var(--sp-3)));
+  margin: 0;
+  text-align: center;
+  font: 600 var(--fs-caps) / var(--lh-caps) var(--stamp);
+  letter-spacing: var(--tr-caps);
+  text-transform: uppercase;
+  color: var(--white);
+}
+
+/* the moments (guide 9.2, 9.4): only opacity and transform move */
+.brand-splash[data-moment='rise'] .bs-art,
+.brand-splash[data-moment='fade'] .bs-art {
+  animation: bs-fade var(--dur-launch) var(--ease-out) both;
+}
+.brand-splash[data-moment='rise'] .bs-orb {
+  animation: bs-rise var(--dur-sunrise) var(--ease-out) both;
+}
+/* the sunrise underlight comes up as an overlay (a gradient never transitions) */
+.brand-splash[data-moment='rise'] .bs-orb-lit {
+  animation: bs-fade var(--dur-sunrise) var(--ease-out) both;
+}
+.brand-splash[data-moment='rise'] .bs-head {
+  animation: bs-fade var(--dur-title-in) var(--ease-out) var(--dur-sunrise) both;
+}
+.brand-splash[data-moment='still'] .bs-art {
+  animation: bs-fade var(--dur-reduce) linear both;
+}
+@keyframes bs-fade {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes bs-rise {
+  from {
+    transform: translateY(24px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .brand-splash .bs-orb,
+  .brand-splash .bs-orb-lit,
+  .brand-splash .bs-head {
+    animation: none;
+  }
+}
+
+/* still waiting on the server with nothing saved to draw: one line and Try again, in the sky under the line (shell-14) */
 .brand-splash-wait {
   position: absolute;
   left: var(--gutter);
   right: var(--gutter);
-  bottom: calc(var(--safe-b) + 48px);
+  top: calc(29.6% + 120px);
   display: grid;
   justify-items: center;
-  gap: 12px;
+  gap: var(--sp-3);
   text-align: center;
 }
 .brand-splash-wait p {
   margin: 0;
-  font: 400 var(--fs-sub) / var(--lh-sub) var(--sans);
+  font: 500 var(--fs-sub) / var(--lh-sub) var(--sans);
   color: var(--ink-2);
 }

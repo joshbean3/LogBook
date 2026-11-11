@@ -1,6 +1,6 @@
 /* ---------- Apple Health in Settings (AppleHealth.tsx): the device card, connecting, the reading check ---------- */
 
-/* the source as a device card (Bevel 461): the app tile, its name and state, a small pearl button */
+/* the source as a device card (Bevel 461): the heart glyph, its name and state, a small secondary button */
 .ah-sec .card.s-card {
   display: grid;
   gap: 0;
@@ -10,48 +10,47 @@
 .ah-device {
   display: flex;
   align-items: center;
-  gap: 14px;
-  padding: 16px;
+  gap: var(--sp-4);
+  padding: var(--sp-4);
 }
-/* a plain heart glyph beside the name: no tile, nothing shaped like an app icon (copy-legal-27) */
+/* a plain heart glyph beside the name, in Deep Sky: no tile, nothing shaped like an app icon (copy-legal-27) */
 .ah-app {
   flex: none;
   display: grid;
   place-items: center;
   width: 28px;
   height: 44px;
-  color: var(--accent);
+  color: var(--deep-sky);
 }
 .ah-device-text {
   display: grid;
-  gap: 2px;
+  gap: 2px; /* brand-ok: geometry, the status hangs under the name */
   min-width: 0;
   flex: 1;
 }
 .ah-device-name {
   font: 600 var(--fs-row) / var(--lh-row) var(--sans);
-  letter-spacing: -0.01em;
   color: var(--ink);
 }
 .ah-device-status {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  font: 400 var(--fs-sub) / var(--lh-sub) var(--sans);
-  color: var(--ink-3);
+  gap: var(--sp-2);
+  font: 500 var(--fs-sub) / var(--lh-sub) var(--sans);
+  color: var(--ink-2);
 }
+/* readings arriving: the ok dot, 6 px, no tint ring (plan 1.3) */
 .ah-device-status i {
   flex: none;
-  width: 7px;
-  height: 7px;
+  width: 6px;
+  height: 6px;
   border-radius: 50%;
-  background: var(--accent);
-  box-shadow: 0 0 0 3px var(--accent-tint);
+  background: var(--ok);
 }
 :root .ah-device-btn.btn {
   flex: none;
   height: 44px;
-  padding: 0 16px;
+  padding: 0 var(--sp-4);
 }
 /* a narrow card (a 320 pt phone, or a large text size): the name and status keep the first line and the button takes
    the full width under them, 44 tall, instead of squeezing the words into a column */
@@ -71,20 +70,22 @@
   position: relative;
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: var(--sp-3);
   min-height: 60px;
-  padding: 10px 14px 10px 16px;
+  padding: var(--sp-2) var(--sp-3) var(--sp-2) var(--sp-4);
   text-align: left;
 }
 .ah-row::before {
   content: '';
   position: absolute;
   top: 0;
-  left: 16px;
+  left: var(--sp-4);
   right: 0;
   height: 1px;
   background: var(--line);
 }
+/* a row's tile: a warning one (the rows that need you) on warn soft with a warn-text glyph beside its words; the plain one
+   (.is-navy, the old name kept) the Haze tile with its Deep Sky glyph */
 .ah-row-ic {
   flex: none;
   display: grid;
@@ -92,8 +93,8 @@
   width: 32px;
   height: 32px;
   border-radius: var(--r-icon);
-  background: var(--accent-soft);
-  color: var(--accent-text);
+  background: var(--warn-soft);
+  color: var(--warn-text);
 }
 .ah-row-text {
   display: grid;
@@ -105,62 +106,61 @@
   color: var(--ink);
 }
 .ah-row-sub {
-  font: 400 var(--fs-foot) / var(--lh-foot) var(--sans);
-  color: var(--ink-3);
+  font: 500 var(--fs-foot) / var(--lh-foot) var(--sans);
+  color: var(--ink-2);
 }
 .ah-row-value {
   flex: none;
   font: 600 var(--fs-sub) / var(--lh-sub) var(--sans);
-  color: var(--ink-3);
+  color: var(--ink-2);
 }
 .ah-row-value.is-on {
   color: var(--accent-text);
 }
 .ah-chev {
   flex: none;
-  color: var(--ink-4);
+  color: var(--ink-2);
 }
 
-/* ---------- connecting: a hero, a serif headline, the list, the pill ---------- */
+/* ---------- connecting: a hero, a Fraunces section headline, the list, the one primary ---------- */
 .ahc {
   display: grid;
-  gap: 14px;
-  padding-bottom: 8px;
+  gap: var(--sp-4);
+  padding-bottom: var(--sp-2);
 }
 .ahc-title {
-  margin: 4px 8px 0;
+  margin: var(--sp-1) var(--sp-2) 0;
   font: 600 var(--fs-section) / var(--lh-section) var(--serif);
-  letter-spacing: 0;
   text-align: center;
   text-wrap: balance;
   color: var(--ink);
 }
 .ahc-sub {
-  margin: -4px 12px 4px;
-  font: 400 var(--fs-sub) / 1.375rem var(--sans);
+  margin: calc(-1 * var(--sp-1)) var(--sp-3) var(--sp-1);
+  font: 400 var(--fs-sub) / var(--lh-row) var(--sans);
   text-align: center;
   text-wrap: pretty;
-  color: var(--ink-3);
+  color: var(--ink-2);
 }
 .card.ahc-unlocks {
   display: grid;
   gap: 0;
   margin: 0;
-  padding: 4px 16px;
+  padding: var(--sp-1) var(--sp-4);
   list-style: none;
 }
 .ahc-unlocks li {
   position: relative;
   display: flex;
   align-items: center;
-  gap: 14px;
-  padding: 12px 0;
+  gap: var(--sp-4);
+  padding: var(--sp-3) 0;
 }
 .ahc-unlocks li + li::before {
   content: '';
   position: absolute;
   top: 0;
-  left: 52px;
+  left: 54px; /* brand-ok: geometry, the hairline starts at the words after the 38 px tile and its 16 px gap */
   right: 0;
   height: 1px;
   background: var(--line);
@@ -175,13 +175,13 @@
   color: var(--ink);
 }
 .ahc-unlocks li > span:last-child > span {
-  font: 400 var(--fs-foot) / var(--lh-foot) var(--sans);
-  color: var(--ink-3);
+  font: 500 var(--fs-foot) / var(--lh-foot) var(--sans);
+  color: var(--ink-2);
 }
 .ahc-actions {
   display: grid;
-  gap: 6px;
-  margin-top: 4px;
+  gap: var(--sp-2);
+  margin-top: var(--sp-1);
 }
 /* pinned as the sheet's foot (.sheet-foot): two full-width buttons in a column, not the foot's usual row */
 .sheet .ahc-actions.sheet-foot {
@@ -193,22 +193,22 @@
 }
 :root .ahc-actions .btn.primary {
   height: 54px;
-  font-size: 1.0625rem;
+  font-size: var(--fs-row);
 }
 .ahc-trust {
   display: flex;
   align-items: flex-start;
   justify-content: center;
-  gap: 8px;
-  margin: 0 12px;
-  font: 400 var(--fs-foot) / var(--lh-foot) var(--sans);
+  gap: var(--sp-2);
+  margin: 0 var(--sp-3);
+  font: 500 var(--fs-foot) / var(--lh-foot) var(--sans);
   text-align: left;
-  color: var(--ink-3);
+  color: var(--ink-2);
 }
 .ahc-trust svg {
   flex: none;
-  margin-top: 1px;
-  color: var(--ink-2);
+  margin-top: 1px; /* brand-ok: geometry, the glyph on the first line's center */
+  color: var(--deep-sky);
 }
 .ahc-trust b {
   font-weight: 600;
@@ -216,52 +216,53 @@
 }
 /* where the readings are kept: one plain paragraph between the list and the button */
 .ahc-note {
-  margin: 0 12px;
+  margin: 0 var(--sp-3);
   font: 400 var(--fs-sub) / var(--lh-sub) var(--sans);
   text-align: center;
   text-wrap: pretty;
   color: var(--ink-2);
 }
-/* the two policies, as quiet links with a full-height target */
+/* the two policies, as Deep Sky quiet links with a full-height target */
 .ahc-links {
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
-  gap: 0 16px;
-  margin: -4px 12px 0;
+  gap: 0 var(--sp-4);
+  margin: calc(-1 * var(--sp-1)) var(--sp-3) 0;
 }
 .ahc-link {
   appearance: none;
   min-height: 44px;
-  padding: 0 4px;
+  padding: 0 var(--sp-1);
   border: 0;
   background: none;
   font: 600 var(--fs-foot) / var(--lh-foot) var(--sans);
-  color: var(--ink-2);
+  color: var(--accent-text);
   text-decoration: underline;
   text-underline-offset: 3px;
 }
 .ahc-fine {
-  margin: 0 12px;
-  font: 400 var(--fs-foot) / var(--lh-foot) var(--sans);
+  margin: 0 var(--sp-3);
+  font: 500 var(--fs-foot) / var(--lh-foot) var(--sans);
   text-align: center;
   text-wrap: pretty;
-  color: var(--ink-3);
+  color: var(--ink-2);
 }
 
 /* ---------- the reading check ---------- */
 .ahr {
   display: grid;
-  gap: 14px;
-  padding-bottom: 8px;
+  gap: var(--sp-4);
+  padding-bottom: var(--sp-2);
 }
+/* the check in flight: the dial breathes (opacity only, plan 4.3) while it reads, and stops when it is done */
 .ahr-wait {
   display: grid;
   justify-items: center;
-  gap: 12px;
-  padding: 36px 0 20px;
+  gap: var(--sp-3);
+  padding: var(--sp-8) 0 var(--sp-5);
   font: 500 var(--fs-sub) / var(--lh-sub) var(--sans);
-  color: var(--ink-3);
+  color: var(--ink-2);
 }
 .ahr-wait .hd-dial {
   animation: ahr-breathe 1.8s ease-in-out infinite;
@@ -269,33 +270,33 @@
 @keyframes ahr-breathe {
   0%,
   100% {
-    transform: scale(1);
+    opacity: 1;
   }
   50% {
-    transform: scale(1.05);
+    opacity: 0.6;
   }
 }
+/* on the night card, which stream 3 makes Paper (health.css): Dusk words */
 .ahr-night-empty {
   margin: 0;
   font: 400 var(--fs-sub) / var(--lh-sub) var(--sans);
-  color: rgba(255, 255, 255, 0.7);
+  color: var(--ink-2);
 }
 .ahr-head {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
-  gap: 8px;
-  margin: 10px 2px -2px;
+  gap: var(--sp-2);
+  margin: var(--sp-3) 2px -2px; /* brand-ok: geometry, the head sits on its tiles */
 }
 .ahr-head h3 {
   margin: 0;
   font: 600 var(--fs-section) / var(--lh-section) var(--serif);
-  letter-spacing: 0;
   color: var(--ink);
 }
 .ahr-head span {
   font: 500 var(--fs-foot) / var(--lh-foot) var(--sans);
-  color: var(--ink-3);
+  color: var(--ink-2);
 }
 .ahr-tiles {
   display: grid;
@@ -303,9 +304,9 @@
   gap: var(--gap);
 }
 .ahr-note {
-  margin: 0 4px;
-  font: 400 var(--fs-foot) / var(--lh-foot) var(--sans);
-  color: var(--ink-3);
+  margin: 0 var(--sp-1);
+  font: 500 var(--fs-foot) / var(--lh-foot) var(--sans);
+  color: var(--ink-2);
 }
 @media (prefers-reduced-motion: reduce) {
   .ahr-wait .hd-dial {
@@ -313,22 +314,21 @@
   }
 }
 
-/* ---------- connected: navy icon tiles, the running dot, Disconnect at the foot of the card ---------- */
+/* ---------- connected: Haze icon tiles, the running dot, Disconnect at the foot of the card ---------- */
 .ah-row-ic.is-navy {
-  background: var(--columbia-wash);
-  color: var(--ink-2);
+  background: var(--haze);
+  color: var(--deep-sky);
 }
+/* a sync in flight: the dot pulses its opacity (plan 4.3), only while it runs */
 .ah-device-status.is-running i {
   animation: ah-pulse 1.1s ease-in-out infinite;
 }
 @keyframes ah-pulse {
   0%,
   100% {
-    transform: scale(0.8);
-    opacity: 0.6;
+    opacity: 0.4;
   }
   50% {
-    transform: scale(1.2);
     opacity: 1;
   }
 }
@@ -344,8 +344,8 @@
   content: '';
   position: absolute;
   top: 0;
-  left: 16px;
-  right: 16px;
+  left: var(--sp-4);
+  right: var(--sp-4);
   height: 1px;
   background: var(--line);
 }
@@ -354,10 +354,10 @@
 .ahi-dial {
   display: grid;
   place-items: center;
-  padding: 18px 0 6px;
+  padding: var(--sp-5) 0 var(--sp-2);
 }
 .ahd-lede {
-  margin-top: 4px;
+  margin-top: var(--sp-1);
   text-align: left;
 }
 @media (prefers-reduced-motion: reduce) {

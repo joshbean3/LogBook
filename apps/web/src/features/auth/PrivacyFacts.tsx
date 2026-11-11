@@ -71,7 +71,7 @@ export const PrivacyFacts = ({ consent, on }: { /** The Contract 1 record, or nu
         <ul>
           {f.sent.map((r) => (
             <li key={r.key}>
-              <Check size={16} strokeWidth={2.6} aria-hidden="true" />
+              <Check className="pv-ic" size={16} strokeWidth={2.25} aria-hidden="true" />
               <span>{r.text}</span>
             </li>
           ))}
@@ -84,7 +84,7 @@ export const PrivacyFacts = ({ consent, on }: { /** The Contract 1 record, or nu
         <ul>
           {f.notSent.map((r) => (
             <li key={r.key}>
-              <X size={16} strokeWidth={2.6} aria-hidden="true" />
+              <X className="pv-ic" size={16} strokeWidth={2.25} aria-hidden="true" />
               <span>{r.text}</span>
             </li>
           ))}

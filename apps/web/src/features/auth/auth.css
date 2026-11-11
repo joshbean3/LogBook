@@ -1,5 +1,6 @@
-/* ---------- Sign in and sign up (shape system v2, reference 710-711): the round back button, the serif question, the
-   fields in one white card, and the navy pill pinned at the bottom with the other door under it. The halo rises once. ---------- */
+/* ---------- Sign in and sign up (shape system v2, reference 710-711): the round back button, the Fraunces title, the
+   fields in one Paper card, and the one Sky primary pinned at the bottom with the other door under it. The welcome
+   ground's sunrise comes up once. ---------- */
 .auth {
   position: relative;
   isolation: isolate;
@@ -10,32 +11,38 @@
   display: flex;
   flex-direction: column;
   /* the keyboard overlays the web view (it never resizes it): the pinned button rides above it on --kb */
-  padding: calc(8px + var(--safe-t)) var(--gutter) calc(12px + max(var(--safe-b), var(--kb, 0px)));
+  padding: calc(var(--sp-2) + var(--safe-t)) var(--gutter) calc(var(--sp-3) + max(var(--safe-b), var(--kb, 0px)));
   background: var(--bg);
   color: var(--ink);
   overflow-x: hidden;
   container: page / inline-size;
 }
-/* the halo rises from the bottom of the viewport, under the form, never under the words; once, as the screen arrives */
+/* the welcome ground (plan 6.9, mockups/welcome.png): Haze at the top to Cloud, warming to --welcome-warm at the bottom,
+   with the Apricot sunrise glow under the pinned button. The screen's one warm light. It never moves; on arrival the glow
+   comes up as an opacity fade (guide 9.1: a gradient never transitions) */
 .auth-halo {
   position: fixed;
   inset: 0;
   z-index: -1;
-  background: var(--halo);
-  opacity: 0.9;
+  overflow: hidden;
+  background: linear-gradient(180deg, var(--haze) 0, var(--cloud) 340px, var(--cloud) 62%, var(--welcome-warm) 100%);
   pointer-events: none;
 }
-.auth-halo.rise {
-  animation: auth-rise 1.1s var(--ease-out) both;
+.auth-halo::after {
+  content: '';
+  position: absolute;
+  left: -12%;
+  right: -12%;
+  bottom: -26%;
+  height: 52%;
+  background: var(--glow-hero);
 }
-@keyframes auth-rise {
+.auth-halo.rise::after {
+  animation: auth-dawn var(--dur-dawn) var(--ease-out) both;
+}
+@keyframes auth-dawn {
   from {
     opacity: 0;
-    transform: translateY(30%);
-  }
-  to {
-    opacity: 0.9;
-    transform: none;
   }
 }
 .auth-body {
@@ -51,9 +58,9 @@
 .auth-brand {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: var(--sp-3);
   height: 44px;
-  margin-bottom: 28px;
+  margin-bottom: var(--sp-6);
   color: var(--ink);
 }
 .auth-brand .caps {
@@ -64,7 +71,7 @@
   align-self: flex-start;
   width: 40px;
   height: 40px;
-  margin: 2px 0 30px;
+  margin: 2px 0 var(--sp-8); /* brand-ok: geometry, centers the 40 px button in its 44 px press */
   background: var(--surface);
   box-shadow: var(--shadow-float);
   color: var(--ink);
@@ -82,18 +89,18 @@
 .auth-title {
   margin: 0;
   font-style: normal;
-  font-weight: 650;
+  font-weight: 700;
   font-size: clamp(30px, var(--fs-hero), 56px);
   line-height: clamp(30px, var(--fs-hero), 56px);
-  letter-spacing: var(--tr-title);
+  letter-spacing: var(--tr-hero);
   color: var(--ink);
   overflow-wrap: break-word;
 }
 .auth-sub {
-  margin: 6px 0 24px;
+  margin: var(--sp-2) 0 var(--sp-6);
   font-size: var(--fs-sub);
   line-height: var(--lh-sub);
-  color: var(--ink-3);
+  color: var(--ink-2);
   max-width: 34ch;
   /* a long email address wraps instead of running off the screen */
   overflow-wrap: anywhere;
@@ -104,22 +111,23 @@
   flex-direction: column;
   gap: var(--gap);
 }
-/* the fields: one white card, each field a label over a filled input, a hairline between two */
+/* the fields: one Paper card, each field a label over a Paper input with its edge, a hairline between two */
 .card.auth-fields {
   gap: 0;
-  padding: 4px 16px;
+  padding: var(--sp-1) var(--sp-4);
 }
 .auth-field {
   display: grid;
-  gap: 6px;
-  padding: 12px 0 14px;
+  gap: var(--sp-2);
+  padding: var(--sp-3) 0 var(--sp-4);
 }
 .auth-field + .auth-field {
   border-top: 1px solid var(--line);
 }
+/* the label above the field: Inter 15 600 Night Ink (guide 6.14) */
 .auth-label {
-  font: 500 var(--fs-foot) / var(--lh-foot) var(--sans);
-  color: var(--ink-3);
+  font: 600 var(--fs-sub) / var(--lh-sub) var(--sans);
+  color: var(--ink);
 }
 .auth-field.bad .auth-label {
   color: var(--bad);
@@ -127,36 +135,30 @@
 .auth-in-wrap {
   position: relative;
 }
-/* at rest a 1px edge that reads against the card (3:1); focus and error draw 2px, the padding giving back the extra pixel */
+/* the field (guide 6.14): Paper, a 1 px edge that reads against the card (3.20), r 14. Focus draws the Deep Sky edge and
+   the Sky ring; an error the Signal edge. Both are a box-shadow, so the text never shifts */
 .auth .in.auth-in {
   height: 52px;
-  padding: 0 15px;
+  padding: 0 var(--sp-4);
   border: 1px solid var(--field-edge);
   border-radius: var(--r-control);
-  background: var(--surface-2);
+  background: var(--surface);
   box-shadow: none;
   color: var(--ink);
-  font-size: 1.0625rem;
+  font-size: var(--fs-row);
 }
 .auth-in-wrap:has(.auth-eye) .in.auth-in {
-  padding-right: 53px;
-}
-.auth .in.auth-in:focus,
-.auth-field.bad .in.auth-in {
-  border-width: 2px;
-  padding-left: 14px;
-  padding-right: 14px;
-}
-.auth-in-wrap:has(.auth-eye) .in.auth-in:focus,
-.auth-field.bad .auth-in-wrap:has(.auth-eye) .in.auth-in {
-  padding-right: 52px;
+  padding-right: var(--sp-12);
 }
 .auth .in.auth-in:focus {
-  border-color: var(--ink-2);
-  box-shadow: none;
+  border-color: var(--focus-edge);
+  box-shadow:
+    inset 0 0 0 0.5px var(--focus-edge),
+    var(--focus-ring);
 }
 .auth-field.bad .in.auth-in {
   border-color: var(--bad);
+  box-shadow: inset 0 0 0 0.5px var(--bad);
 }
 .auth-eye {
   appearance: none;
@@ -168,21 +170,30 @@
   border: 0;
   background: none;
   border-radius: 50%;
-  color: var(--ink-3);
+  color: var(--ink-2);
   display: grid;
   place-items: center;
 }
 .auth-eye[aria-pressed='true'] {
   color: var(--ink);
 }
+/* an error line under its field: Signal words with a glyph (guide 6.14) */
 .auth-err {
   margin: 0;
-  font-size: var(--fs-foot);
-  line-height: var(--lh-foot);
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-2);
+  font-size: var(--fs-sub);
+  line-height: var(--lh-sub);
+  font-weight: 500;
   color: var(--bad);
 }
+.auth-err > svg {
+  flex: none;
+  margin-top: 2px; /* brand-ok: geometry, the 16 px glyph on the first line's center */
+}
 .auth-err.form {
-  padding: 0 16px;
+  padding: 0 var(--sp-4);
   font-size: var(--fs-sub);
   line-height: var(--lh-sub);
 }
@@ -190,7 +201,7 @@
   margin: 0;
   font-size: var(--fs-foot);
   line-height: var(--lh-foot);
-  color: var(--ink-3);
+  color: var(--ink-2);
 }
 /* under the fields on sign in: the way to a new password, a 44px target at the right edge */
 .auth-forgot {
@@ -200,46 +211,43 @@
   font: inherit;
   align-self: flex-end;
   min-height: 44px;
-  margin: -6px 0;
-  padding: 0 16px;
+  margin: calc(-1 * var(--sp-2)) 0;
+  padding: 0 var(--sp-4);
   font-size: var(--fs-sub);
   line-height: var(--lh-sub);
   font-weight: 600;
-  color: var(--ink-2);
+  color: var(--accent-text);
   border-radius: var(--r-control);
-}
-.auth-forgot:focus-visible {
-  outline: 2px solid var(--ink-2);
-  outline-offset: -2px;
 }
 /* the terms and age line above Create account, and the plain note on the reset screens */
 .auth-terms,
 .auth-note {
   margin: 0;
-  padding: 0 16px;
+  padding: 0 var(--sp-4);
   font-size: var(--fs-foot);
   line-height: var(--lh-foot);
-  color: var(--ink-3);
+  color: var(--ink-2);
   overflow-wrap: anywhere;
 }
 .auth-note {
   font-size: var(--fs-sub);
   line-height: var(--lh-sub);
 }
-/* the one navy pill, pinned to the bottom of the screen (it stays grey until the answer is valid) */
+/* the one Sky primary, pinned to the bottom of the screen (Haze with Dusk words until the answer is valid) */
 .auth-submit.btn {
   position: sticky;
   bottom: 0;
   margin-top: auto;
   height: 54px;
-  font-size: 1.0625rem;
+  font-size: var(--fs-row);
 }
 /* quiet until the answer will do, but still pressable: a press says what is missing, at the field (auth-07) */
 .auth-submit.btn:disabled,
 .auth-submit.btn[aria-disabled='true'] {
-  background: var(--surface-3);
-  border-color: var(--surface-3);
-  color: var(--ink-3);
+  background: var(--haze);
+  border-color: var(--haze);
+  box-shadow: none;
+  color: var(--ink-2);
   opacity: 1;
 }
 /* a taken address: Next waits (greyed) and "Sign in with that email" takes the pinned place */
@@ -256,8 +264,8 @@
 }
 /* why the person is on this screen (the session ended): one quiet line above the title */
 .auth-notice {
-  margin: 0 0 12px;
-  padding: 10px 14px;
+  margin: 0 0 var(--sp-3);
+  padding: var(--sp-3) var(--sp-4);
   border-radius: var(--r-control);
   background: var(--surface);
   font-size: var(--fs-sub);
@@ -265,7 +273,7 @@
   color: var(--ink-2);
 }
 .auth-foot {
-  margin-top: 4px;
+  margin-top: var(--sp-1);
 }
 /* with the keyboard up the other door steps aside, so the field, its message and the button all fit above it */
 html.kb-open .auth-foot {
@@ -275,7 +283,7 @@ html.kb-open .auth-foot {
   margin: 0;
   font-size: var(--fs-sub);
   line-height: var(--lh-sub);
-  color: var(--ink-3);
+  color: var(--ink-2);
   text-align: center;
 }
 /* the other door: a 44px target around a short phrase */
@@ -283,7 +291,7 @@ html.kb-open .auth-foot {
   display: inline-flex;
   align-items: center;
   min-height: 44px;
-  padding: 0 4px;
+  padding: 0 var(--sp-1);
   color: var(--accent-text);
   font-weight: 600;
   text-decoration: none;
@@ -304,12 +312,7 @@ html.kb-open .auth-foot {
 .auth-terms .site-link::after {
   content: '';
   position: absolute;
-  inset: -14px -4px;
-}
-.site-link:focus-visible {
-  outline: 2px solid var(--ink-2);
-  outline-offset: 2px;
-  border-radius: 4px;
+  inset: -14px -4px; /* brand-ok: geometry, a 44 px press around a link inside a sentence */
 }
 .auth-help.site-link {
   position: absolute;
@@ -323,34 +326,36 @@ html.kb-open .auth-foot {
   justify-content: center;
   min-width: 44px;
   min-height: 44px;
-  padding: 0 8px;
+  padding: 0 var(--sp-2);
   font-size: var(--fs-sub);
   line-height: var(--lh-sub);
-  color: var(--ink-3);
+  font-weight: 600;
+  color: var(--accent-text);
   text-decoration: none;
 }
 @media (max-width: 359px) {
   .auth-title {
-    font-size: 1.75rem;
-    line-height: 2.125rem;
+    font-size: var(--fs-title);
+    line-height: var(--lh-title);
   }
   .auth-brand,
   .auth .auth-back.icon-btn {
-    margin-bottom: 18px;
+    margin-bottom: var(--sp-4);
   }
   .auth-sub {
-    margin-bottom: 16px;
+    margin-bottom: var(--sp-4);
   }
 }
 /* the same step-down at a larger text size: the screen is a size container in rem */
 @container page (max-width: 19rem) {
   .auth-title {
-    font-size: 1.75rem;
-    line-height: 2.125rem;
+    font-size: var(--fs-title);
+    line-height: var(--lh-title);
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  .auth-halo.rise {
-    animation: none;
+  .auth-halo.rise::after {
+    animation-duration: var(--dur-reduce);
+    animation-timing-function: linear;
   }
 }

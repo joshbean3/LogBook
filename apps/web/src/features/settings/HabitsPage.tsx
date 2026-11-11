@@ -443,7 +443,7 @@ export const HabitsPage = () => {
       {live.length ? (
         <>
           <section className="lb-sec s-sec" aria-labelledby="s-hlist-h">
-            <SectionHeader size="sm" id="s-hlist-h" title="On Today" meta={live.length} />
+            <SectionHeader id="s-hlist-h" title="On Today" meta={live.length} />
           <div className="s-hlist" ref={listRef} style={{ height: ids.length * ROW_H }}>
             {ids.map((id, i) => {
               const h = byId.get(id);

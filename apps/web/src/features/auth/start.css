@@ -13,8 +13,8 @@
   flex: none;
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: calc(20px + var(--safe-t)) var(--gutter) 0;
+  gap: var(--sp-3);
+  padding: calc(var(--sp-5) + var(--safe-t)) var(--gutter) 0;
 }
 .start-brand .caps {
   color: var(--ink-2);
@@ -22,7 +22,7 @@
 /* Help: the way to the support page for someone with no account yet */
 .start-help {
   margin-left: auto;
-  margin-right: -8px;
+  margin-right: calc(-1 * var(--sp-2));
 }
 .start-track {
   flex: 1;
@@ -47,7 +47,7 @@
   flex-direction: column;
   /* centered while it fits; never pushed above the top when it does not (auth-12) */
   justify-content: safe center;
-  padding: 16px var(--gutter) 8px;
+  padding: var(--sp-4) var(--gutter) var(--sp-2);
   /* the last resort on a short screen at a large text size: the page scrolls rather than clips */
   overflow-x: hidden;
   overflow-y: auto;
@@ -68,7 +68,7 @@
   margin-inline: auto;
 }
 .start-words {
-  margin-top: 32px;
+  margin-top: var(--sp-8);
 }
 /* at a larger text size the card keeps its proportions: laid out at its own width in rem, then scaled to fit (fit()) */
 .start-card.as-picture {
@@ -93,35 +93,29 @@
   outline: none;
 }
 .start-sub {
-  margin-top: 8px;
+  margin-top: var(--sp-2);
   font-size: var(--fs-row);
   line-height: var(--lh-row);
   color: var(--ink-2);
   max-width: 34ch;
   overflow-wrap: break-word;
 }
-/* a narrow page in rem (a small phone, or a large text size): the title drops a step */
-@container startpage (max-width: 22rem) {
-  .start-title {
-    font-size: 2.125rem;
-    line-height: 2.375rem;
-  }
-}
 .start-foot {
   flex: none;
   width: 100%;
   max-width: 432px;
   margin-inline: auto;
-  padding: 8px var(--gutter) calc(12px + var(--safe-b));
+  padding: var(--sp-2) var(--gutter) calc(var(--sp-3) + var(--safe-b));
 }
 .start-dots {
   display: flex;
   justify-content: center;
   align-items: center;
   height: 24px;
-  margin-bottom: 12px;
+  margin-bottom: var(--sp-3);
 }
-/* where you are, not a control (swipe and Next do the paging): a 7px dot, the current one a navy bar */
+/* where you are, not a control (swipe and Next do the paging): a 7 px dot in the coin ring's grey, the current one a
+   Night Ink bar (mockups/welcome.png) */
 .start-dot {
   width: 20px;
   height: 24px;
@@ -132,11 +126,9 @@
   content: '';
   width: 7px;
   height: 7px;
-  border-radius: 4px;
-  background: var(--ink-4);
-  transition:
-    width var(--dur) var(--ease-out),
-    background var(--dur) var(--ease-out);
+  border-radius: var(--r-pill);
+  background: var(--coin-ring);
+  transition: background-color var(--dur-color) var(--ease-out);
 }
 .start-dot.on::before {
   width: 20px;
@@ -146,7 +138,7 @@
   height: 54px;
   font-size: var(--fs-row);
 }
-/* the quiet way in for someone who already has an account: a full 48px target */
+/* the quiet way in for someone who already has an account: a Deep Sky quiet link in a full 48 px target */
 .start-signin {
   appearance: none;
   border: 0;
@@ -157,15 +149,11 @@
   align-items: center;
   justify-content: center;
   min-height: 48px;
-  margin-top: 4px;
-  font-size: 1rem;
+  margin-top: var(--sp-1);
+  font-size: var(--fs-row);
   font-weight: 600;
-  color: var(--ink-2);
-  border-radius: var(--r-pill, 999px);
-}
-.start-signin:focus-visible {
-  outline: 2px solid var(--ink-2);
-  outline-offset: 2px;
+  color: var(--accent-text);
+  border-radius: var(--r-pill);
 }
 
 /* ---------- the privacy page, before any account ---------- */
@@ -173,9 +161,17 @@
   overflow-y: auto;
   overscroll-behavior-y: contain;
 }
+/* a long, scrolling page with a pinned pair: the dawn wash at the top and plain Cloud under the answers, so the fade into
+   the pinned pair meets the ground with no seam (the welcome's warm sunrise stays on the pager and sign in) */
+.start-privacy .auth-halo {
+  background: var(--dawn);
+}
+.start-privacy .auth-halo::after {
+  content: none;
+}
 .pv-top {
   flex: none;
-  padding: calc(8px + var(--safe-t)) var(--gutter) 0;
+  padding: calc(var(--sp-2) + var(--safe-t)) var(--gutter) 0;
 }
 .start .pv-back.icon-btn {
   position: relative;
@@ -197,11 +193,11 @@
   width: 100%;
   max-width: 432px;
   margin-inline: auto;
-  padding: 24px var(--gutter) 16px;
+  padding: var(--sp-6) var(--gutter) var(--sp-4);
 }
 .pv-title {
-  font-size: var(--fs-title);
-  line-height: var(--lh-title);
+  font-size: clamp(30px, var(--fs-title), 44px);
+  line-height: clamp(34px, var(--lh-title), 48px);
 }
 .pv-promise {
   color: var(--ink);
@@ -209,9 +205,9 @@
 }
 .pv-choice {
   display: grid;
-  gap: 4px;
-  margin-top: 24px;
-  padding: 16px;
+  gap: var(--sp-1);
+  margin-top: var(--sp-6);
+  padding: var(--sp-4);
   background: var(--surface);
   border: var(--card-border);
   border-radius: var(--r-card);
@@ -223,32 +219,32 @@
   font-size: var(--fs-row);
   line-height: var(--lh-row);
   font-weight: 600;
-  letter-spacing: -0.01em;
   color: var(--ink);
 }
 .pv-choice-sub {
   margin: 0;
   font-size: var(--fs-sub);
   line-height: var(--lh-sub);
-  color: var(--ink-3);
+  color: var(--ink-2);
 }
 .start-privacy .pv-facts {
-  margin-top: 12px;
+  margin-top: var(--sp-3);
 }
 .pv-later {
-  margin-top: 8px;
-  padding: 0 16px;
+  margin-top: var(--sp-2);
+  padding: 0 var(--sp-4);
   font-size: var(--fs-foot);
   line-height: var(--lh-foot);
-  color: var(--ink-3);
+  color: var(--ink-2);
 }
-/* the policy, one tap away before any account: its own line, a 44px target */
+/* the policy, one tap away before any account: its own line, a 44 px target, a Deep Sky link */
 .pv-policy.site-link {
   justify-self: start;
   display: inline-flex;
   align-items: center;
   min-height: 44px;
-  margin-bottom: -10px;
+  margin-bottom: calc(-1 * var(--sp-3));
+  color: var(--accent-text);
   font-size: var(--fs-sub);
   line-height: var(--lh-sub);
 }
@@ -256,17 +252,18 @@
   position: sticky;
   bottom: 0;
   /* a fade tall enough to read as "more below" (auth-20); it never takes a press */
-  background: linear-gradient(to bottom, rgba(243, 248, 251, 0), var(--bg) 40px);
-  padding-top: 40px;
+  background: linear-gradient(to bottom, transparent, var(--bg) var(--sp-8));
+  padding-top: var(--sp-8);
   pointer-events: none;
 }
 .pv-foot .pv-answers {
   pointer-events: auto;
 }
-/* the two answers, side by side and the same size: neither is chosen for the person */
+/* the two answers, side by side and the same size: neither is chosen for the person. When the pair cannot hold its words
+   on one line each (a small phone at a larger text size), they stack, still the same size */
 .pv-answers {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 8rem), 1fr));
   gap: var(--gap);
 }
 .pv-answers .btn {
@@ -294,7 +291,7 @@
   }
 }
 .start-in {
-  animation: start-in 240ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation: start-in var(--dur-settle) var(--ease-out) both;
 }
 .start-in.s1 {
   animation-delay: 80ms;
@@ -304,13 +301,14 @@
 }
 
 @media (max-width: 359px), (max-height: 700px) {
+  /* a small phone: the title holds at 34 px so the longest ones keep two lines (the pager's fit() does the rest) */
   .start-title,
   .pv-title {
-    font-size: 2.125rem;
-    line-height: 2.375rem;
+    font-size: clamp(30px, var(--fs-title), 34px);
+    line-height: clamp(34px, var(--lh-title), 38px);
   }
   .start-words {
-    margin-top: 20px;
+    margin-top: var(--sp-5);
   }
   .start-sub {
     font-size: var(--fs-sub);
@@ -327,6 +325,6 @@
 @media (prefers-reduced-motion: reduce) {
   .start-in {
     animation-name: start-fade;
-    animation-duration: 150ms !important;
+    animation-duration: var(--dur-reduce) !important;
   }
 }
