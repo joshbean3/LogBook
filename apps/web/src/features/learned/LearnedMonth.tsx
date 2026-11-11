@@ -54,10 +54,10 @@ export default function LearnedMonth(): React.JSX.Element {
   const chevrons = (
     <span className="ln-mnav">
       <button type="button" className="icon-btn ln-mnav-btn" aria-label={older ? `Previous month, ${monthName(older)} ${older.slice(0, 4)}` : 'No earlier month'} disabled={!older} onClick={() => step(older)}>
-        <ChevronLeft size={20} aria-hidden="true" />
+        <ChevronLeft size={18} aria-hidden="true" />
       </button>
       <button type="button" className="icon-btn ln-mnav-btn" aria-label={newer ? `Next month, ${monthName(newer)} ${newer.slice(0, 4)}` : 'No later month'} disabled={!newer} onClick={() => step(newer)}>
-        <ChevronRight size={20} aria-hidden="true" />
+        <ChevronRight size={18} aria-hidden="true" />
       </button>
     </span>
   );
@@ -107,7 +107,7 @@ export default function LearnedMonth(): React.JSX.Element {
                 const date = (
                   <span className="ln-gday-date">
                     <span className="sr-only">{fmtDate('long', d.date)}</span>
-                    <span className="stamp ln-gday-num" aria-hidden="true">
+                    <span className="ln-gday-num" aria-hidden="true">
                       {Number(d.date.slice(8, 10))}
                     </span>
                     <span className="caps ln-gday-dow" aria-hidden="true">
@@ -121,7 +121,7 @@ export default function LearnedMonth(): React.JSX.Element {
                       <Pressable as="button" className="ln-gday-fill" press="surface" onPress={() => addFor(d.date)} label={`${fmtDate('long', d.date)}, nothing kept. Add one`}>
                         {date}
                         <span className="ln-gday-add" aria-hidden="true">
-                          <Plus size={16} strokeWidth={2.4} /> Add one
+                          <Plus size={18} /> Add one
                         </span>
                       </Pressable>
                     ) : (

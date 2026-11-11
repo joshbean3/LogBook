@@ -1,10 +1,11 @@
 /*
- * The shape kit Goals, Learned, Journal, Library and Reads share (docs/shape-system.md): a section with its plain sans header,
- * the segmented control on a pale track, rows inside a card, the footnote, the red trash circle on a sheet, the sheet's
- * section label. Built from the tokens; shape.css holds the app-wide primitives (card, tiles, group, icon tile, buttons).
+ * The shape kit Goals, Learned, Journal, Library and Reads share: a section with its header, the segmented control (the
+ * brand's Cloud track and Sky thumb), rows inside a card, the footnote, the sheet's trash, the sheet's section label. Built
+ * from the tokens (docs/brand/brand-guide.md); shape.css holds the app-wide primitives (card, tiles, group, icon tile,
+ * buttons).
  */
 
-/* ---------- a section: 28 above, the header 12 above its first card ---------- */
+/* ---------- a section: 32 above, the header 12 above its first card ---------- */
 /* a section is ui/layout.tsx's PageSection (styles/layout.css): .k-sec is its feature hook */
 .k-sec {
   min-width: 0;
@@ -28,55 +29,18 @@
   box-shadow: var(--shadow-1);
   color: var(--ink);
 }
-.k-card.is-flush {
-  padding: 0;
-  overflow: hidden;
-}
-/* a card's label row: 15/20 grey with a 16 px icon before it, an action at the right */
+/* a card's label row: Dusk 15/20 with its glyph before it, in Dusk too */
 .k-label {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--sp-2);
   min-width: 0;
   font: 500 var(--fs-sub) / var(--lh-sub) var(--sans);
   color: var(--ink-3);
 }
 .k-label > svg {
   flex: none;
-  color: var(--ink-4);
-}
-.k-label-end {
-  margin-left: auto;
-  flex: none;
-}
-/* a big stamped number and its small grey unit */
-.k-num {
-  font: 700 2.125rem / 2.375rem var(--stamp);
-  letter-spacing: -0.02em;
-  font-variant-numeric: tabular-nums;
-  color: var(--ink);
-  white-space: nowrap;
-}
-.k-num small {
-  margin-left: 4px;
-  font: 500 var(--fs-sub) / 1 var(--sans);
-  letter-spacing: 0;
-  color: var(--ink-3);
-}
-/* a status word with its small icon: navy on track, orange behind, grey with nothing */
-.k-status {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  font: 600 var(--fs-sub) / var(--lh-sub) var(--sans);
   color: var(--ink-2);
-}
-.k-status.is-hi {
-  color: var(--accent-text);
-}
-.k-status.is-none {
-  color: var(--ink-3);
-  font-weight: 500;
 }
 /* a full-width hairline between a card's parts */
 .k-rule {
@@ -95,7 +59,7 @@
 .k-stack + .k-foot,
 .group + .k-foot,
 .k-card + .k-foot {
-  margin: 8px var(--pad-card) 0;
+  margin: var(--sp-2) var(--pad-card) 0;
 }
 
 /* ---------- rows inside a card (an inset group): 56 tall, 64 with a sub; separators start at the words ---------- */
@@ -114,10 +78,10 @@
   position: relative;
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: var(--sp-3);
   width: 100%;
   min-height: 56px;
-  padding: 8px 16px;
+  padding: var(--sp-2) var(--sp-4);
   border: 0;
   background: transparent;
   color: var(--ink);
@@ -157,7 +121,6 @@ button.k-row:active {
 }
 .k-row-title {
   font: 500 var(--fs-row) / var(--lh-row) var(--sans);
-  letter-spacing: -0.01em;
   color: var(--ink);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -174,15 +137,16 @@ button.k-row:active {
   flex: none;
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--sp-1);
   font: 400 var(--fs-sub) / var(--lh-sub) var(--sans);
   color: var(--ink-3);
   font-variant-numeric: tabular-nums;
 }
+/* the row's chevron, 18 px Dusk (guide 6.4) */
 .k-chev {
   flex: none;
-  color: var(--ink-4);
-  margin-right: -4px;
+  color: var(--ink-2);
+  margin-right: calc(-1 * var(--sp-1));
 }
 
 /* an inset group's rows split by a hairline that starts at the words (a pseudo line: an inset shadow offset to the right
@@ -204,24 +168,27 @@ button.k-row:active {
   z-index: 1;
 }
 
-/* ---------- the segmented control: a pale track, the chosen segment white and lifted ---------- */
+/* ---------- the segmented control (guide 6.3): a Cloud pill track, the chosen segment a Sky pill with no shadow; the
+   labels Dusk 550 off and Night Ink 650 on carry the state (Sky on Cloud is a weak shape, so the words lead). 36 tall,
+   the header bar's size, each segment a 44 px target ---------- */
 .seg.k-seg {
   height: 36px;
   gap: 0;
   padding: 2px;
-  border-radius: var(--r-control);
-  background: rgba(15, 42, 68, 0.06);
+  border-radius: var(--r-pill);
+  background: var(--surface-2);
 }
 .seg.k-seg .seg-btn {
   flex: 1 1 0;
   min-width: 0;
-  padding: 0 6px;
-  border-radius: 10px;
-  font: 600 var(--fs-foot) / 1.0625rem var(--sans);
-  color: var(--ink-3);
+  padding: 0 var(--sp-1);
+  border-radius: var(--r-pill);
+  font: 550 var(--fs-foot) / 1.0625rem var(--sans);
+  color: var(--ink-2);
 }
 .seg.k-seg .seg-btn[aria-checked='true'] {
-  color: var(--ink);
+  font-weight: 650;
+  color: var(--accent-ink);
 }
 /* each segment reaches 44 to the thumb */
 .seg.k-seg .seg-btn::after {
@@ -235,74 +202,35 @@ button.k-row:active {
   left: 0;
   inset-inline-start: 0;
   height: auto;
-  border-radius: 10px;
-  background: var(--surface);
-  box-shadow: 0 1px 2px rgba(15, 42, 68, 0.08), 0 2px 8px rgba(15, 42, 68, 0.08);
+  border-radius: var(--r-pill);
+  background: var(--accent);
+  box-shadow: none;
 }
 .seg.k-seg .seg-label {
   position: relative;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
+  gap: var(--sp-2);
   max-width: 100%;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-/* ---------- a two-way choice inside a row (Yes · No): a small segmented pair ---------- */
-.k-pair {
-  flex: none;
-  display: inline-flex;
-  padding: 2px;
-  border-radius: var(--r-control);
-  background: rgba(15, 42, 68, 0.06);
-}
-.k-pair > button {
-  position: relative;
-  min-width: 52px;
-  height: 32px;
-  padding: 0 12px;
-  border: 0;
-  border-radius: 10px;
-  background: transparent;
-  color: var(--ink-3);
-  font: 600 var(--fs-foot) / 1 var(--sans);
-  transition:
-    background-color var(--dur-color) var(--ease-out),
-    color var(--dur-color) var(--ease-out),
-    box-shadow var(--dur-color) var(--ease-out);
-  -webkit-tap-highlight-color: transparent;
-}
-.k-pair > button::after {
-  content: '';
-  position: absolute;
-  inset: -6px 0;
-}
-.k-pair > button[aria-pressed='true'] {
-  background: var(--surface);
-  color: var(--ink);
-  box-shadow: 0 1px 2px rgba(15, 42, 68, 0.08), 0 2px 8px rgba(15, 42, 68, 0.08);
-}
-.k-pair > button.is-yes[aria-pressed='true'] {
-  background: var(--primary);
-  color: var(--primary-ink);
-}
-
-/* ---------- sheets: a sans label over a card, the red trash circle, the pinned pill ---------- */
+/* ---------- sheets: a sans label over a card, the trash, the pinned pill ---------- */
 .k-sheet {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   gap: var(--gap);
 }
 .k-sheet-label {
-  margin: 8px 4px -4px;
+  margin: var(--sp-2) var(--sp-1) calc(-1 * var(--sp-1));
   font: 600 var(--fs-sub) / var(--lh-sub) var(--sans);
   color: var(--ink-2);
 }
 .k-confirm {
   display: grid;
-  gap: 6px;
+  gap: var(--sp-2);
 }
 .k-confirm-what {
   font: italic 420 var(--fs-sentence) / var(--lh-sentence) var(--serif);
@@ -310,46 +238,36 @@ button.k-row:active {
   color: var(--ink);
   overflow-wrap: anywhere;
 }
-.icon-btn.k-trash {
-  background: var(--bad-soft);
+/* the sheet's trash: a round Paper button like the sheet's others (guide 6.2), its glyph in Signal (destructive); :root
+   weight to sit level with shape.css's round button, which sets Night Ink */
+:root .icon-btn.k-trash {
   color: var(--bad);
-  box-shadow: none;
 }
 .sheet-foot.k-pin {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   justify-content: stretch;
-  gap: 8px;
+  gap: var(--sp-2);
 }
 .k-pin .btn.block {
   width: 100%;
 }
+/* the primary at rest, before there is anything to save: Haze with Dusk words (5.65), no glow (guide 6.2) */
 .k-pin .btn.primary:disabled {
   background: var(--surface-3);
   border-color: transparent;
-  color: var(--ink-4);
+  box-shadow: none;
+  color: var(--ink-2);
   opacity: 1;
 }
-.k-pin .btn {
-  border-color: transparent;
-}
+/* the confirm's one action: White on Signal (6.45, guide 3.2: a confirm fill). :root weight, above shape.css's :root .btn,
+   which would draw it as a Paper secondary */
 :root .btn.k-danger,
 :root .k-pin .btn.k-danger {
-  /* above craft.css's :root .btn, which loads later and would draw it as a white pill */
   background: var(--bad);
   background-image: none;
   border-color: transparent;
-  color: #fff;
+  color: var(--white);
   text-shadow: none;
   box-shadow: none;
-}
-:root .btn.k-danger[data-pressed],
-:root .btn.k-danger:active {
-  background: color-mix(in srgb, var(--bad) 82%, #000);
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .k-pair > button {
-    transition: none;
-  }
 }

@@ -161,7 +161,7 @@ export const GoalSteps = ({ goal, editable, compact }: { goal: Aim; editable?: b
             />
           ) : (
             <button type="button" className="g-step-addbtn" onClick={() => setAdding(true)}>
-              <Plus size={16} strokeWidth={2.4} aria-hidden="true" />
+              <Plus size={18} aria-hidden="true" />
               {goal.steps.length ? 'Add a step' : 'Break it into steps'}
             </button>
           )}

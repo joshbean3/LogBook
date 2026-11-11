@@ -1,7 +1,7 @@
 import { GOAL_STEPS_MAX, goalProgress, type Aim } from '@logbook/shared';
 import { Check, ChevronRight, Plus } from 'lucide-react';
 import { motion } from 'motion/react';
-import { useId, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { revealField } from '@/lib/keyboard';
 import { useReduced } from '@/lib/motion';
 import { Pressable } from '@/ui/Pressable';
@@ -35,7 +35,6 @@ const Gauge = ({ goal, now, hit }: { goal: Aim; now: number; hit: number }) => {
   const reduce = useReduced();
   const first = useRef(!filled && !reduce);
   filled = true;
-  const grad = useId();
   const p = goalProgress(goal);
   const n = goal.steps.length;
   const k = goal.steps.filter((s) => s.done).length;
@@ -46,17 +45,10 @@ const Gauge = ({ goal, now, hit }: { goal: Aim; now: number; hit: number }) => {
   return (
     <div className={`gh-gauge is-${goal.status}`} aria-hidden="true">
       <svg viewBox="0 0 150 132" className="gh-gauge-svg">
-        <defs>
-          <linearGradient id={grad} x1="0" y1="1" x2="1" y2="0">
-            <stop offset="0%" stopColor="#ffc83d" />
-            <stop offset="100%" stopColor="#f2600c" />
-          </linearGradient>
-        </defs>
         <path d={ARC} className="gh-track" />
         <motion.path
           d={ARC}
           className="gh-arc"
-          stroke={`url(#${grad})`}
           initial={first.current ? { pathLength: 0, opacity: 0 } : false}
           animate={{ pathLength: Math.max(0.001, p), opacity: p > 0 ? 1 : 0 }}
           transition={reduce ? { duration: 0 } : { pathLength: { type: 'spring', duration: first.current ? 1.1 : 0.7, bounce: 0.15, delay: first.current ? 0.15 : 0 }, opacity: { duration: 0.15 } }}
@@ -68,7 +60,7 @@ const Gauge = ({ goal, now, hit }: { goal: Aim; now: number; hit: number }) => {
         {done ? (
           <>
             <span className="gh-stamp is-check">
-              <Check size={40} strokeWidth={2.8} />
+              <Check size={28} />
             </span>
             <span className="gh-sub">Done today</span>
           </>
@@ -98,7 +90,7 @@ const Gauge = ({ goal, now, hit }: { goal: Aim; now: number; hit: number }) => {
 };
 
 /**
- * Today's goal, the head of the tab: a warm card with the gauge, the goal in the serif, its steps to check right there
+ * Today's goal, the head of the tab: the hero card with the gauge, the goal in the serif, its steps to check right there
  * (the same save as Today: the last one checked finishes it), and one clear next move: Mark done once nothing is left, or
  * Add a step. Unset, the whole card is the way to set it.
  */
@@ -125,7 +117,7 @@ export const TodayGoal = ({ goal, today, now, hit }: { goal: Aim | null; today: 
             What would make today count?
           </span>
           <span className="gh-cta" aria-hidden="true">
-            <Plus size={18} strokeWidth={2.6} />
+            <Plus size={18} />
             Set today’s goal
           </span>
         </Pressable>
@@ -169,7 +161,7 @@ export const TodayGoal = ({ goal, today, now, hit }: { goal: Aim | null; today: 
           {adding ? (
             <li className="gh-step is-adding">
               <span className="gh-step-plus" aria-hidden="true">
-                <Plus size={16} strokeWidth={2.4} />
+                <Plus size={18} />
               </span>
               <input
                 className="gh-step-input"
@@ -199,20 +191,20 @@ export const TodayGoal = ({ goal, today, now, hit }: { goal: Aim | null; today: 
       <div className="gh-actions">
         {nothingLeft ? (
           <Button variant="primary" size="sm" className="gh-btn" onClick={() => markDone(goal)}>
-            <Check size={17} strokeWidth={2.8} aria-hidden="true" />
+            <Check size={18} aria-hidden="true" />
             Mark done
           </Button>
         ) : null}
         {isOpen && n < GOAL_STEPS_MAX && !adding ? (
           <Button size="sm" className="gh-btn" onClick={() => setAdding(true)}>
-            <Plus size={17} strokeWidth={2.6} aria-hidden="true" />
+            <Plus size={18} aria-hidden="true" />
             {n ? 'Add a step' : 'Break it into steps'}
           </Button>
         ) : null}
         {!nothingLeft || !n ? (
           <Button variant="quiet" size="sm" className="gh-btn gh-more" onClick={() => open('day', today)}>
             Details
-            <ChevronRight size={16} aria-hidden="true" />
+            <ChevronRight size={18} aria-hidden="true" />
           </Button>
         ) : null}
       </div>

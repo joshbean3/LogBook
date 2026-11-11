@@ -18,7 +18,7 @@ export { statsWords };
 
 /**
  * The hero: before today has anything, the serif question and the field; after, today's learnings as serif lines and a
- * quiet "Add another" under them. Lit from below like every tab's hero.
+ * quiet "Add another" under them. A Haze wash at its foot.
  */
 const TodayCard = ({ today, items, onOpen }: { today: string; items: Learning[]; onOpen: (l: Learning) => void }) => (
   <section className={`ln-hero ${items.length ? 'has-items' : ''}`} aria-label="Today">
@@ -310,11 +310,11 @@ export default function LearnedView(): React.JSX.Element {
       {hasPast || searching ? (
         <form role="search" className="ln-search-form" onSubmit={search.onSubmit}>
           <label className="ln-search" ref={search.box}>
-            <Search size={17} aria-hidden="true" className="ln-search-icon" />
+            <Search size={18} aria-hidden="true" className="ln-search-icon" />
             <input ref={search.input} className="ln-search-in" type="search" enterKeyHint="search" maxLength={100} placeholder="Search" aria-label="Search everything you learned" value={q} onChange={(e) => setQ(e.target.value)} onFocus={search.onFocus} onBlur={search.onBlur} />
             {q ? (
               <button type="button" className="ln-search-clear" aria-label="Clear search" onClick={() => setQ('')}>
-                <X size={16} aria-hidden="true" />
+                <X size={18} aria-hidden="true" />
               </button>
             ) : null}
           </label>
@@ -339,7 +339,7 @@ export default function LearnedView(): React.JSX.Element {
           <ul className="k-rows has-icons ln-months">
             <li className="k-row two">
               <span className="icon-tile" aria-hidden="true">
-                <BookOpen size={17} />
+                <BookOpen size={18} />
               </span>
               <span className="k-row-main">
                 <span className="k-row-title">No months yet</span>

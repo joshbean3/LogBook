@@ -14,7 +14,7 @@ import { Stack } from '@/ui/layout';
 import { Switch } from '../settings/parts';
 import '../settings/settings.css';
 import { useNowMinutes } from '../day/useNow';
-import { cardCaps, clockOf, goalOf, LEVEL, LEVEL_HUE, setWords, STATUS_WORD } from './model';
+import { cardCaps, clockOf, goalOf, LEVEL, setWords, STATUS_WORD } from './model';
 import { disableReminders, enableReminders, openAppSettings, reminderPermission, remindersOn, remindersSupported, reminderTime } from './reminders';
 import { useOpenGoal } from './GoalSheets';
 import { useReviewAccess } from './refine';
@@ -33,15 +33,13 @@ const BIGGER: readonly GoalLevel[] = ['week', 'month', 'year'];
 /** A goal's words inside a longer name, without its own full stop. */
 const bare = (t: string) => t.replace(/[.\s]+$/, '');
 
-const hue = (level: GoalLevel) => ({ '--hue': LEVEL_HUE[level] }) as React.CSSProperties;
-
 const MR = 19;
 const MC = 2 * Math.PI * MR;
 // the rings fill from empty once a session, the first time the tab shows them
 let ringsDrawn = false;
 
 /**
- * A level's ring: its colour filling as far as the goal has come (its steps; all of it once done), k/n in the middle, a
+ * A level's ring: Deep Sky filling as far as the goal has come (its steps; all of it once done), k/n in the middle, a
  * check once it is kept, a plus while it is unset. `hit` throws the burst.
  */
 const MiniRing = ({ goal, hit, first }: { goal: Aim | null; hit: number; first: boolean }) => {
@@ -69,13 +67,13 @@ const MiniRing = ({ goal, hit, first }: { goal: Aim | null; hit: number; first: 
       </svg>
       <span className="gl-ring-mid">
         {!goal ? (
-          <Plus size={18} strokeWidth={2.6} />
+          <Plus size={18} />
         ) : goal.status === 'done' ? (
-          <Check size={20} strokeWidth={3} />
+          <Check size={18} />
         ) : goal.status === 'partly' ? (
-          <Minus size={18} strokeWidth={3} />
+          <Minus size={18} />
         ) : goal.status === 'missed' ? (
-          <X size={18} strokeWidth={2.8} />
+          <X size={18} />
         ) : n ? (
           <span className="gl-ring-num tnum">
             {k}/{n}
@@ -106,7 +104,7 @@ const LevelCard = ({ level, period, goal, today, now, hit, first }: { level: Goa
     ? `${caps}, ${chip}, ${bare(goal.text)}. ${LEVEL[level].label} goal${!answered && n ? `, ${k} of ${n} steps` : ''}. Open`
     : `${caps}, ${chip}, ${setWords(level, period, today)}. ${LEVEL[level].label} goal, not set`;
   return (
-    <Pressable className={`gl-card ${goal ? `is-${goal.status}` : 'is-empty'}`} press="scale" style={hue(level)} onPress={() => open(level, period)} label={label}>
+    <Pressable className={`gl-card ${goal ? `is-${goal.status}` : 'is-empty'}`} press="scale" onPress={() => open(level, period)} label={label}>
       <MiniRing goal={goal} hit={hit} first={first} />
       <span className="gl-main" aria-hidden="true">
         <span className="gl-head">
@@ -115,7 +113,7 @@ const LevelCard = ({ level, period, goal, today, now, hit, first }: { level: Goa
         </span>
         {goal ? <span className="gl-text">{goal.text}</span> : <span className="gl-set">{setWords(level, period, today)}</span>}
       </span>
-      <ChevronRight size={20} className="gl-chev" aria-hidden="true" />
+      <ChevronRight size={18} className="gl-chev" aria-hidden="true" />
     </Pressable>
   );
 };
@@ -130,7 +128,6 @@ const AheadChip = ({ level, period, goal, today, icon, title, when, describedBy 
     <Pressable
       className={`ga-chip ${goal ? 'is-set' : 'is-empty'}`}
       press="scale"
-      style={hue(level)}
       onPress={() => open(level, period)}
       label={goal ? `${title}, ${bare(goal.text)}. ${when}. Open` : `${title}, Not set, Set. ${when}. ${setWords(level, period, today)}`}
       aria-describedby={describedBy}
@@ -147,7 +144,7 @@ const AheadChip = ({ level, period, goal, today, icon, title, when, describedBy 
           <>
             <span className="ga-none">Not set</span>
             <span className="ga-pill">
-              <Plus size={13} strokeWidth={2.8} />
+              <Plus size={15} />
               Set
             </span>
           </>
@@ -193,7 +190,7 @@ const Reminders = ({ goals, today }: { goals: Aim[]; today: string }) => {
       <ul className="k-rows has-icons">
         <li className="k-row two">
           <span className="icon-tile" aria-hidden="true">
-            <Bell size={17} />
+            <Bell size={18} />
           </span>
           <span className="k-row-main">
             <span className="k-row-title">Goal reminders</span>

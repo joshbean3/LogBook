@@ -1,4 +1,5 @@
 import type { Aim, GoalLevel } from '@logbook/shared';
+import { Check } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
@@ -24,8 +25,8 @@ export const useCelebrate = () => (goal: Aim) => {
 
 /**
  * The moment a goal is hit: an opaque page over the app (nothing shows through), focus on "Keep going" while it is up
- * (the app behind is inert) and back where it was after. The page goes dark, the level's shape (the day's sun, the week's mint, the month's coral, the
- * year's sky) springs up out of nothing and settles, then the words in the serif and the one white pill to carry on. A tap
+ * (the app behind is inert) and back where it was after. The lit coin (a flat Sky disc with a Night Ink check, in its rings)
+ * springs up out of nothing and settles, with sparks in the sky colors, then the words and the one Sky primary to carry on. A tap
  * anywhere closes it; it closes by itself after four seconds (one short moment, never a show). Reduced motion: it simply appears.
  */
 export const CelebrateLayer = () => {
@@ -67,7 +68,9 @@ export const CelebrateLayer = () => {
       {goal ? (
         <motion.div key={goal.id} className="cel" role="dialog" aria-modal="true" aria-label="Goal done" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: reduce ? 0 : 0.25 }} onClick={() => setGoal(null)}>
           <div className="cel-stage">
-            <motion.span className={`cel-shape is-${SHAPE[goal.level]}`} initial={reduce ? false : { scale: 0.05, rotate: -40 }} animate={{ scale: 1, rotate: 0 }} transition={{ type: 'spring', duration: 0.9, bounce: 0.45, delay: 0.05 }} />
+            <motion.span className={`cel-shape is-${SHAPE[goal.level]}`} initial={reduce ? false : { scale: 0.05, rotate: -40 }} animate={{ scale: 1, rotate: 0 }} transition={{ type: 'spring', duration: 0.9, bounce: 0.45, delay: 0.05 }}>
+              <Check className="cel-check" aria-hidden="true" />
+            </motion.span>
             {reduce
               ? null
               : [0, 1, 2, 3, 4, 5, 6, 7].map((i) => {

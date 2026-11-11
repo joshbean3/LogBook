@@ -96,7 +96,7 @@ export interface Score extends Tally {
   vs: string;
   /** Past goals in the span still waiting on an answer. */
   owed: number;
-  /** `behind` (orange): a lower share kept than the span before, or under half with nothing to compare. Null with nothing answered. */
+  /** `behind` (warning words with a Marigold marker): a lower share kept than the span before, or under half with nothing to compare. Null with nothing answered. */
   tone: 'on' | 'behind' | null;
 }
 
@@ -154,8 +154,6 @@ export const timeUsed = (level: GoalLevel, period: string, now: number) => {
   return { elapsed, words: `${Math.min(days, Math.floor(elapsed * days))} of ${days} days used` };
 };
 
-/** Each level's colour, from the feel palette: the day the sun, the week mint, the month coral, the year sky. */
-export const LEVEL_HUE: Record<GoalLevel, string> = { day: 'var(--sun)', week: 'var(--mint)', month: 'var(--coral)', year: 'var(--sky)' };
 
 /** `today (Sun, Nov 8)`, `this week (Nov 2–8)`, `November 2026`, `2026`: the period as the request names it. */
 const periodPhrase = (level: GoalLevel, period: string, today: string) => {
