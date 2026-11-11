@@ -132,7 +132,13 @@
   pointer-events: none;
 }
 .jcal-grid {
-  row-gap: 0;
+  gap: 0;
+}
+/* the days run 12 past the card's text edge on each side, so each day's target is as wide as the card allows: 50 at 390,
+   40 at 320 (the tallest cell, 88, makes up the area); the numerals are centered, so no edge reads out of line */
+.jcal-grid,
+.jcal-dow {
+  margin-inline: calc(-1 * var(--sp-3));
 }
 /* a month row is 48 tall and the whole row is the cell's target */
 .jcal-grid.is-month .jcal-cell {
@@ -379,29 +385,28 @@
   /* brought into view clear of the floating tab bar and the fade above it */
   scroll-margin-bottom: calc(var(--chrome-h, 64px) + var(--safe-b, 0px) + 16px);
 }
+/* the edge is a border, not a shadow: a field focused by touch drops every focus shadow (foundation.css, quiet focus), and
+   the field must still read as a field while it is being typed in (layout standard 5.3) */
 .jday-field {
   width: 100%;
   min-height: 120px;
-  padding: 12px 16px;
-  border: 0;
+  padding: var(--sp-3) var(--sp-4);
+  border: 1px solid var(--field-edge);
   border-radius: var(--r-control);
   outline: none;
   resize: none;
   background: var(--surface);
-  box-shadow: inset 0 0 0 1px var(--field-edge);
+  box-shadow: none;
   color: var(--j-ink);
   caret-color: var(--deep-sky);
   font: 400 var(--fs-body) / var(--lh-body) var(--sans);
   letter-spacing: 0;
 }
-.jday-field:focus-visible {
-  box-shadow:
-    inset 0 0 0 1.5px var(--focus-edge),
-    var(--focus-ring);
+.jday-field:focus {
+  border-color: var(--focus-edge);
 }
-/* focused for the person (the writer opening) rather than by them: the edge steps to Deep Sky, no ring, never no edge */
-.jday-field[data-quiet-focus]:focus-visible {
-  box-shadow: inset 0 0 0 1.5px var(--focus-edge);
+.jday-field:focus-visible {
+  box-shadow: var(--focus-ring);
 }
 .jday-field::placeholder {
   color: var(--ink-2);

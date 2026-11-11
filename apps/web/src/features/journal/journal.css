@@ -361,8 +361,10 @@ textarea.jsheet-text {
 .lrow.jtl-row[data-pressed] {
   background: var(--surface-2);
 }
-/* the numeral's circle centers on the first line of words */
+/* the numeral's circle centers on the first line of words; the column is 40 at the default size and grows with Larger
+   Text (2.5rem), so "Mon" at 200 percent never runs into the words */
 .jtl-row > .date-gutter {
+  width: 2.5rem;
   margin-top: calc((var(--lh-body) - var(--tile-ic)) / 2); /* brand-ok: geometry, the 32 px circle on a 24 px line */
 }
 .jtl-body {
@@ -424,13 +426,6 @@ textarea.jsheet-text {
   display: grid;
   flex: 1;
   gap: var(--sp-2);
-}
-.jtl-failed {
-  padding: var(--pad-card);
-}
-.jtl-failed .empty-state {
-  margin: 0;
-  padding: 0;
 }
 .jtl-more.pill-row {
   margin-top: var(--gap);

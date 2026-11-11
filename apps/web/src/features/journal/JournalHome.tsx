@@ -1,12 +1,12 @@
 import type * as React from 'react';
 import { fmtDate, type JournalEntry, type Quote } from '@logbook/shared';
-import { EyeOff, PenLine, Search, Share, Trash2, X } from 'lucide-react';
+import { CircleAlert, EyeOff, PenLine, Search, Share, Trash2, X } from 'lucide-react';
 import { FavoriteIcon, JournalIcon } from '@/ui/icons';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useDaily, useJournalList, useJournalMutations } from '@/api/queries';
 import { haptics } from '@/lib/haptics';
 import { revealField } from '@/lib/keyboard';
-import { DateGutter, EmptyState, IconButton, Pressable, SectionEmpty, Skeleton, SkeletonGroup, SwipeRow, useSheet, useToast } from '@/ui';
+import { DateGutter, IconButton, Pressable, SectionEmpty, Skeleton, SkeletonGroup, SwipeRow, useSheet, useToast } from '@/ui';
 import { useLog } from '../log/useLog';
 import { PressButton } from './PressButton';
 import { FavStar } from './FavStar';
@@ -203,8 +203,9 @@ export const Timeline = ({
         </div>
       ) : null}
       {failed ? (
-        <div className="group jtl-empty jtl-failed" role="alert">
-          <EmptyState verb={onRetry ? { label: 'Try again', onPress: onRetry } : undefined}>Couldn’t load your journal.</EmptyState>
+        // a section that failed says so in the section's own form (one row), with Try again as its quiet link
+        <div role="alert">
+          <SectionEmpty icon={<CircleAlert size={18} />} title="Couldn’t load your journal" line="Check your connection." action={onRetry ? { label: 'Try again', onPress: onRetry } : undefined} className="jtl-empty" />
         </div>
       ) : pending || asking ? (
         <SkeletonGroup label={asking ? 'Searching your entries' : 'Loading your entries'} className="group jtl-skel">
@@ -223,7 +224,7 @@ export const Timeline = ({
         </SkeletonGroup>
       ) : !all.length ? (
         // one row, no button: "Write today's entry" is already the calendar's last row (say it once)
-        <SectionEmpty icon={<JournalIcon size={18} />} title="No entries yet" line="Every entry lands here, newest first." className="jtl-empty" />
+        <SectionEmpty icon={<JournalIcon size={18} />} title="No entries yet" line="They land here, newest first." className="jtl-empty" />
       ) : needle && !list.length && found.data ? (
         // the header's X is the one way out of a search
         <SectionEmpty icon={<Search size={18} />} title="No matches" line={`Nothing you wrote says “${needle}”.`} className="jtl-empty" />
