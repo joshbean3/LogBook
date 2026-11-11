@@ -334,19 +334,12 @@ html body, .shell, .tab-scroll { background-color: #EAF5FC !important; }
   content: ''; position: absolute; left: 58%; right: 0; bottom: 9px; height: 1px; background: rgba(14, 34, 54, 0.22); pointer-events: none;
 }
 
-/* ---------- 24. Charts: the now dot is Sunrise with a Paper keyline; axes in caption style ---------- */
-.pl-now { fill: #F2600C !important; stroke: #FFFDF8 !important; stroke-width: 2px !important; r: 4px; }
-.pl-now-halo { display: none !important; }
-.pl-done { stroke: #0A6CA6 !important; stroke-width: 2.5px !important; }
-.pl-plan { stroke: #46596D !important; stroke-width: 1.5px !important; stroke-dasharray: 4 4 !important; }
-.pl-ax { font-family: 'Inter Tight', var(--sans) !important; font-weight: 600 !important; letter-spacing: 0.14em !important; text-transform: uppercase; fill: #46596D !important; font-variant-numeric: tabular-nums; }
-.pl-ax.is-now { fill: #B4430C !important; }
-.pl-grid { stroke: rgba(14, 34, 54, 0.08) !important; }
-.ph-key.is-now::before { background: #F2600C !important; box-shadow: 0 0 0 2px #FFFDF8 !important; }
+/* ---------- 24. Charts: built in the app now (guide 6.8). The Progress hero is bars (features/progress/hero.css, .rb-*):
+   Sky domes with a Deep Sky arc, the plan ahead as a dashed outline, the Sunrise now dot with its Paper keyline, axes in
+   caption style. The old line chart's .pl-* classes and the ruler are gone, so there is nothing left to override. ---------- */
 
-/* ---------- 25. Progress: the week horizon (8.5, proposed component; injected by the shoot script, not in the app yet) ---------- */
-.wh { margin: 14px 0 6px; }
-.wh-cap { font: 600 max(11px, 0.6875rem) / 0.875rem 'Inter Tight', var(--sans); letter-spacing: 0.14em; text-transform: uppercase; color: #46596D; }
+/* ---------- 25. (retired) The week horizon was a proposed component, injected by the shoot script. The chart's domes on
+   their horizon are that picture now (guide 8.5, 6.8). ---------- */
 
 /* ---------- 26. The assistant's greeting: Fraunces italic 420 at --fs-sentence (6.12) ---------- */
 .as-hello-title { font: italic 420 1.375rem / 1.75rem var(--display) !important; color: #0E2236 !important; }
