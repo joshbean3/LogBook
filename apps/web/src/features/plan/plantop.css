@@ -102,36 +102,67 @@
   }
 }
 
-/* ---------- the week's header: its name and dates, the pager (two bare Deep Sky chevrons, F8's section-header form) ---------- */
-/* one row on every week and every width: the arrows stay at the row's end, so a second tap on › lands on › again (at 390
-   "Next week" used to wrap them onto a row of their own). The dates beside the name give way first: under 360 always
-   (styles/layout.css), and up to 419 while the header also shows Today; the line under the header carries them then. The
-   name itself wraps only as the last resort (a week across two months at 320), and the arrows hold to its first line */
-.pl-wk-head.lb-head {
+/* ---------- the week's header (and the month's: the same form): its name and dates, the pager (two bare Deep Sky chevrons,
+   F8's section-header form) ---------- */
+/* the name never clips; the dates beside it give way first, and only while the header also shows Today */
+.pl-wk-head .lb-title {
+  flex: none;
+  max-width: 62%;
+}
+@media (max-width: 359px) {
+  .pl-wk-head.is-away .lb-meta {
+    display: none;
+  }
+}
+/* The week's header is one row on every week and at every width: the arrows stay at the row's end, so a second tap on ›
+   lands on › again (at 390 "Next week" used to wrap them onto a row of their own). The dates beside the name give way
+   first: under 360 always (styles/layout.css), and up to 419 while the header also shows Today; the line under the header
+   carries them then. The name itself wraps only as the last resort (a week across two months at 320, a larger text size),
+   and the arrows hold to its first line. */
+.pl-week-head.lb-head {
   flex-wrap: nowrap;
 }
-.pl-wk-head .lb-title {
+.pl-week-head .lb-title {
   flex: 0 1 auto;
+  max-width: none;
   text-wrap: balance;
 }
-.pl-wk-head .lb-slot {
-  align-self: flex-start;
-}
 @media (max-width: 419px) {
-  .pl-wk-head.is-away .lb-meta {
+  .pl-week-head.is-away .lb-meta {
     display: none;
   }
 }
 /* at 320 a week named by its dates ("Nov 23 to 29") and `‹ Today ›` share 288 px: the week's name takes the card-title
    size there, as the plan's name above it does, on the same 32 px line */
 @media (max-width: 359px) {
-  .pl-wk-head .lb-title {
+  .pl-week-head .lb-title {
     font-size: clamp(22px, var(--fs-head), 34px);
   }
 }
 /* at a larger text size the name needs the row: the dates go to the line under it at every width */
-html[data-text-xl] .pl-wk-head .lb-meta {
+html[data-text-xl] .pl-week-head .lb-meta {
   display: none;
+}
+/* The week's arrows keep their 44 pt boxes above the header's foot (12 over the row, none under it; the chevrons stay level
+   with the week's name), so the line's row can start where the header ends and Add's box never meets theirs. */
+.pl-week-head .lb-slot {
+  align-self: flex-start;
+  margin: calc(-1 * var(--sp-3)) 0 0 auto;
+}
+.pl-week-head .pl-step.pressable,
+.pl-week-head .pl-step-now.pressable {
+  padding-top: var(--sp-3);
+}
+/* The month's header, while it also shows Today on a screen under 420: its miles go under its name and the arrows keep
+   the first row (they used to drop to a row of their own, as the week's did). */
+@media (max-width: 419px) {
+  .pl-mo-head.is-away .lb-slot {
+    order: 2;
+  }
+  .pl-mo-head.is-away .lb-meta {
+    order: 3;
+    flex-basis: 100%;
+  }
 }
 /* two 44 icon buttons with Deep Sky 18 chevrons, no fill, no capsule, no shadow; hit boxes touch (88 wide) */
 .pl-wk-nav {
@@ -166,15 +197,15 @@ html[data-text-xl] .pl-wk-head .lb-meta {
   outline-offset: -2px;
   box-shadow: var(--focus-ring);
 }
-/* the week's bar: its one line ("23 mi · 4 runs.", read in passing) and, at its end, Add. The bar starts 8 under the
-   header, just past the arrows' 44 pt boxes (they reach 6 under it), so the two targets never overlap; the line's first
-   row sits level with Add's words, and its last row 12 above the week's rows */
+/* the week's bar: its one line ("23 mi · 4 runs.", read in passing) and, at its end, Add. The bar starts where the header
+   ends (the arrows' boxes end there too, so the two targets never overlap); the line's first row sits 12 under the header,
+   level with Add's words, and its last row 12 above the week's rows */
 .pl-wk-bar {
   display: flex;
   align-items: flex-start;
   gap: var(--sp-3);
   min-width: 0;
-  margin-top: calc(-1 * var(--sp-1));
+  margin-top: calc(-1 * var(--sp-3));
 }
 .pl-wk-line {
   flex: 1 1 auto;

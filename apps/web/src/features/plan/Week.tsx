@@ -724,7 +724,7 @@ export const WeekPage = memo(function WeekPage({ mon, onThisWeek, onStep, still 
     <div className="pl-wpage">
       <section className="pl-sec pl-week-sec" aria-label={`${named}, ${weekRange(mon)}`}>
         <SectionHeader
-          className={`pl-wk-head ${away ? 'is-away' : ''}`.trim()}
+          className={`pl-wk-head pl-week-head ${away ? 'is-away' : ''}`.trim()}
           title={far ? weekRange(mon) : named}
           meta={far ? undefined : weekRange(mon)}
           action={<StepNav unit="week" away={away} onStep={onStep} onHome={onThisWeek} />}
