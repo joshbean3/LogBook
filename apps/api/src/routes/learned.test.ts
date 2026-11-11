@@ -81,7 +81,7 @@ describe('what I learned', () => {
     expect(p.body.editedAt).toBeTruthy();
     expect((await call('DELETE', `/api/learnings/${a.body.id}`)).status).toBe(200);
     expect((await call('GET', '/api/learnings')).body.learnings).toEqual([]);
-    expect((await call('GET', '/api/learnings/stats')).body).toEqual({ days: 0, streak: 0, total: 0 });
+    expect((await call('GET', '/api/learnings/stats')).body).toEqual({ days: 0, streak: 0, total: 0, recent: [] });
     // a deleted learning cannot be edited or deleted again
     expect((await call('PATCH', `/api/learnings/${a.body.id}`, { text: 'x' })).status).toBe(404);
     expect((await call('DELETE', `/api/learnings/${a.body.id}`)).status).toBe(404);
@@ -108,17 +108,19 @@ describe('what I learned', () => {
   });
 
   it('counts days, the streak ending today or yesterday, and the total', async () => {
-    expect((await call('GET', '/api/learnings/stats')).body).toEqual({ days: 0, streak: 0, total: 0 });
+    expect((await call('GET', '/api/learnings/stats')).body).toEqual({ days: 0, streak: 0, total: 0, recent: [] });
     for (const d of [-1, -2, -3, -5]) await call('POST', '/api/learnings', { date: shiftDays(T, d), text: `day ${d}` });
     await call('POST', '/api/learnings', { date: shiftDays(T, -1), text: 'another yesterday' });
     // today not written yet: the run that ends yesterday still counts
-    expect((await call('GET', '/api/learnings/stats')).body).toEqual({ days: 4, streak: 3, total: 5 });
+    expect((await call('GET', '/api/learnings/stats')).body).toEqual({ days: 4, streak: 3, total: 5, recent: [-5, -3, -2, -1].map((d) => shiftDays(T, d)) });
     await call('POST', '/api/learnings', { text: 'today' });
-    expect((await call('GET', '/api/learnings/stats')).body).toEqual({ days: 5, streak: 4, total: 6 });
+    expect((await call('GET', '/api/learnings/stats')).body).toEqual({ days: 5, streak: 4, total: 6, recent: [-5, -3, -2, -1, 0].map((d) => shiftDays(T, d)) });
     // seen from tomorrow (the athlete's day, X-Local-Date): today is yesterday, the streak holds
     expect((await call('GET', '/api/learnings/stats', undefined, shiftDays(T, 1))).body.streak).toBe(4);
     // two days on, with nothing written in between: it is broken
     expect((await call('GET', '/api/learnings/stats', undefined, shiftDays(T, 2))).body.streak).toBe(0);
+    // the bulbs are the last seven days only: seen a week on, the oldest day (-5) has left the window
+    expect((await call('GET', '/api/learnings/stats', undefined, shiftDays(T, 2))).body.recent).toEqual([-3, -2, -1, 0].map((d) => shiftDays(T, d)));
   });
 
   it('refuses empty, too long, a bad day and a day still to come', async () => {

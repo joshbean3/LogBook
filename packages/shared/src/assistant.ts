@@ -228,6 +228,8 @@ export const zAssistantScreen = z.object({
   /** Plan: the week shown (its Monday), or the month. */
   week: zDay.optional(),
   month: z.string().regex(/^\d{4}-\d{2}$/).optional(),
+  /** Plan: the plan block whose summary is open (the assistant inside the plan summary). */
+  plan: zId.optional(),
 });
 export type AssistantScreen = z.infer<typeof zAssistantScreen>;
 
@@ -235,6 +237,7 @@ const TAB_NAME: Record<AssistantScreen['tab'], string> = { today: 'Today', plan:
 /** The screen in words, as the chip shows it and the assistant reads it: "Plan, week of Nov 9", "Today, Sun Nov 8". */
 export const screenLabel = (s: AssistantScreen): string => {
   const name = TAB_NAME[s.tab];
+  if (s.tab === 'plan' && s.plan) return 'Plan summary';
   if (s.tab === 'today' && s.date) return `${name}, ${fmtDate('dow', s.date)} ${fmtDate('md', s.date)}`;
   if (s.tab === 'plan' && s.week) return `${name}, week of ${fmtDate('md', s.week)}`;
   if (s.tab === 'plan' && s.month) return `${name}, ${fmtDate('month', `${s.month}-01`)}`;

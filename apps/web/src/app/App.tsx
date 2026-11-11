@@ -139,7 +139,7 @@ const pushedFor = (e: PushedEntry) => {
   if (pattern === '/settings/:section' && e.params.section === 'plans') return <PlansPage />;
   if (pattern === '/settings/:section') return <SettingsSection />;
   if (pattern === '/settings') return <SettingsView />;
-  if (pattern === '/journal/reads/:tab?') return <ReadsView />;
+  if (pattern === '/settings/reads/:tab?') return <ReadsView />;
   if (DEV_TOOLS && pattern === '/dev/ui') return STUBS && StubPushed ? <StubPushed /> : UiGallery ? <UiGallery /> : null;
   if (pattern === '/progress/metric/:id') return <MetricPage />;
   return null;

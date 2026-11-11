@@ -60,10 +60,11 @@ describe('the route table', () => {
     }
     expect(matchRoute('/settings/plans').kind).toBe('pushed');
 
-    const reads = matchRoute('/journal/reads');
-    expect(reads).toMatchObject({ kind: 'pushed', tab: 'journal', root: '/journal' });
-    expect(reads.stack.map((e) => [e.path, e.depth, e.title, e.idx])).toEqual([['/journal/reads', 1, 'Reads', -1]]);
-    expect(matchRoute('/journal/reads/read').stack[0]!.params).toEqual({ tab: 'read' });
+    // the saved links: pushed under Settings, so Settings stays lit and Back returns to it (layout plan C-4)
+    const reads = matchRoute('/settings/reads');
+    expect(reads).toMatchObject({ kind: 'pushed', tab: 'today', root: '/today' });
+    expect(reads.stack.map((e) => [e.path, e.depth, e.title, e.idx])).toEqual([['/settings', 1, 'Settings', -1], ['/settings/reads', 2, 'Saved links', -1]]);
+    expect(matchRoute('/settings/reads/read').stack[1]!.params).toEqual({ tab: 'read' });
 
     const planMorning = matchRoute('/plan/morning');
     expect(planMorning).toMatchObject({ kind: 'pushed', tab: 'plan', root: '/plan' });
@@ -87,8 +88,10 @@ describe('the route table', () => {
     ['/morning/2026-10-23', '/today/2026-10-23/morning'],
     ['/morning', '/today'],
     ['/morning/banana', '/today'],
-    ['/reads', '/journal/reads'],
-    ['/reads/read', '/journal/reads/read'],
+    ['/reads', '/settings/reads'],
+    ['/reads/read', '/settings/reads/read'],
+    ['/journal/reads', '/settings/reads'],
+    ['/journal/reads/read', '/settings/reads/read'],
     ['/journal/quotes', '/journal/library'],
     ['/journal/favorites', '/journal/library'],
     ['/plan/plans', '/settings/plans'],
@@ -130,8 +133,9 @@ describe('bad route parameters fall back to the tab (shell-23)', () => {
     expect(matchRoute('/progress/metric/hrv').kind).toBe('pushed');
   });
   it('Reads opens only its two lists', () => {
-    expect(matchRoute('/journal/reads/read').kind).toBe('pushed');
-    expect(matchRoute('/journal/reads').kind).toBe('pushed');
+    expect(matchRoute('/settings/reads/read').kind).toBe('pushed');
+    expect(matchRoute('/settings/reads').kind).toBe('pushed');
+    expect(matchRoute('/settings/reads/nope')).toMatchObject({ kind: 'redirect', redirect: '/settings' });
     expect(matchRoute('/journal/reads/nope')).toMatchObject({ kind: 'redirect', redirect: '/journal' });
   });
 });

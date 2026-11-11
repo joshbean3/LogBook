@@ -63,10 +63,12 @@ export const cleanTurn = (v: unknown): AssistantTurn | null => {
 export const cleanTurns = (v: unknown): AssistantTurn[] => (Array.isArray(v) ? v.map(cleanTurn).filter((t): t is AssistantTurn => t !== null) : []);
 
 /** A saved chat as the store keeps it, or null when it has no id or no turn left worth keeping. */
-export const cleanChat = (v: unknown): { id: string; title: string; named?: boolean; updatedAt: number; turns: AssistantTurn[] } | null => {
+export const cleanChat = (v: unknown): { id: string; title: string; named?: boolean; updatedAt: number; turns: AssistantTurn[]; plan?: string } | null => {
   if (!isRec(v) || typeof v.id !== 'string' || !v.id) return null;
   const turns = cleanTurns(v.turns);
   if (!turns.length) return null;
   const title = typeof v.title === 'string' && v.title.trim() ? v.title : '';
-  return { id: v.id, title, ...(v.named === true ? { named: true } : {}), updatedAt: typeof v.updatedAt === 'number' && Number.isFinite(v.updatedAt) ? v.updatedAt : 0, turns };
+  // the plan block a chat was started for (the plan summary's assistant): an id, nothing else
+  const plan = typeof v.plan === 'string' && v.plan && v.plan.length <= 64 ? v.plan : undefined;
+  return { id: v.id, title, ...(v.named === true ? { named: true } : {}), updatedAt: typeof v.updatedAt === 'number' && Number.isFinite(v.updatedAt) ? v.updatedAt : 0, turns, ...(plan ? { plan } : {}) };
 };

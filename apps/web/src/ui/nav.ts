@@ -52,6 +52,8 @@ export const ROUTES: readonly RouteDef[] = [
   { pattern: '/today/:date?', owner: 'today', kind: 'root' },
   { pattern: '/today/:date/morning', owner: 'today', kind: 'pushed', depth: 1, title: 'This morning' },
   { pattern: '/settings', owner: 'today', kind: 'pushed', depth: 1, title: 'Settings' },
+  // the saved links (Reads), pushed under Settings so it stays lit and Back returns to Settings (layout plan U8, C-4)
+  { pattern: '/settings/reads/:tab?', owner: 'today', kind: 'pushed', depth: 2, title: 'Saved links' },
   { pattern: '/settings/:section', owner: 'today', kind: 'pushed', depth: 2, title: (p) => SECTION_TITLE[p.section as SettingsSection] ?? 'Settings' },
   // the component gallery: the dev server and test builds only, so a release build has no such route (it falls to '*')
   ...(DEV_TOOLS ? [{ pattern: '/dev/ui', owner: 'today', kind: 'pushed', depth: 1, title: 'UI' } as const] : []),
@@ -70,7 +72,6 @@ export const ROUTES: readonly RouteDef[] = [
   { pattern: '/progress/metric/:id', owner: 'progress', kind: 'pushed', depth: 1, title: (p) => METRIC_TITLE[p.id ?? ''] ?? 'Progress' },
   { pattern: '/journal', owner: 'journal', kind: 'root' },
   { pattern: '/journal/library', owner: 'journal', kind: 'root' },
-  { pattern: '/journal/reads/:tab?', owner: 'journal', kind: 'pushed', depth: 1, title: 'Reads' },
   { pattern: '/welcome/*', owner: null, kind: 'full' },
   { pattern: '/start', owner: null, kind: 'full' },
   { pattern: '/login', owner: null, kind: 'full' },
@@ -79,7 +80,8 @@ export const ROUTES: readonly RouteDef[] = [
   { pattern: '/morning', owner: null, kind: 'redirect', to: '/today' },
   { pattern: '/habits', owner: null, kind: 'redirect', to: '/today' },
   { pattern: '/habits/morning', owner: null, kind: 'redirect', to: '/plan/morning' },
-  { pattern: '/reads/:tab?', owner: null, kind: 'redirect', to: '/journal/reads/:tab?' },
+  { pattern: '/reads/:tab?', owner: null, kind: 'redirect', to: '/settings/reads/:tab?' },
+  { pattern: '/journal/reads/:tab?', owner: null, kind: 'redirect', to: '/settings/reads/:tab?' },
   { pattern: '/plan/plans', owner: null, kind: 'redirect', to: '/settings/plans' },
   { pattern: '/journal/quotes', owner: null, kind: 'redirect', to: '/journal/library' },
   { pattern: '/journal/favorites', owner: null, kind: 'redirect', to: '/journal/library' },
@@ -144,7 +146,7 @@ const VALID: Record<string, (v: string) => boolean> = {
   id: (v) => Object.hasOwn(METRIC_TITLE, v),
   tab: (v) => v === 'read' || v === 'unread',
 };
-const INVALID_TO: Record<string, string> = { '/learned': '/learned', '/today': '/today', '/settings': '/settings', '/plan': '/plan', '/morning': '/today', '/progress': '/progress', '/journal': '/journal', '/reads': '/journal' };
+const INVALID_TO: Record<string, string> = { '/learned': '/learned', '/today': '/today', '/settings': '/settings', '/plan': '/plan', '/morning': '/today', '/progress': '/progress', '/journal': '/journal', '/reads': '/settings' };
 
 // ---------- the matcher ----------
 const clean = (path: string) => {
@@ -227,7 +229,7 @@ export const matchRoute = (pathname: string): RouteMatch => {
       const root = `/today/${params.date}`;
       return { kind: 'pushed', tab, root, stack: [entryFor(route, path, params)], params, route };
     }
-    if (route.pattern === '/settings/:section') {
+    if (route.pattern === '/settings/:section' || route.pattern === '/settings/reads/:tab?') {
       const settings = ROUTES.find((r) => r.pattern === '/settings')!;
       return { kind: 'pushed', tab, root: '/today', stack: [entryFor(settings, '/settings', {}), entryFor(route, path, params)], params, route };
     }

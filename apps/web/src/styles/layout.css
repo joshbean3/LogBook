@@ -3,7 +3,9 @@
  * tab. Loaded after craft.css. Feature sheets load later (lazy), so rules that must beat a feature's own spacing carry
  * `:root`.
  *
- *   28 above a section · 12 from its header to its first card · 12 between cards · 16 gutter · 8 under a card to its footnote
+ *   32 above a section · 12 from its header to its first card · 12 between cards · 16 gutter · 8 under a card to its footnote
+ *   a list page (Settings, PageSection size="sm"): 24 above a group title, 8 below it, 16 under a pushed bar
+ *   (docs/brand/layout-and-hierarchy.md 3.2, 6.1)
  */
 
 /* ---------- a section and its header ---------- */
@@ -13,6 +15,21 @@
 }
 .lb-sec.is-first {
   margin-top: 0;
+}
+/* a group on a list page: far above, close below (24 over 8, layout standard 3.3), the title at the card-title size */
+.lb-sec.is-list {
+  margin-top: var(--sp-6);
+}
+.lb-sec.is-list.is-first {
+  margin-top: 0;
+}
+.lb-sec.is-list > .lb-head {
+  min-height: 28px;
+  margin-bottom: var(--sp-2);
+}
+.lb-sec.is-list > .lb-head .lb-title {
+  font-size: var(--fs-head);
+  line-height: var(--lh-head);
 }
 /* at a large text size the meta wraps under the title, whole, and a long title wraps, instead of both ending in an ellipsis;
    at 100% the row fits and nothing moves */
@@ -47,7 +64,8 @@
   flex: 0 1 auto;
   min-width: 0;
   max-width: 100%;
-  font: 400 var(--fs-sub) / var(--lh-sub) var(--sans);
+  /* secondary text is 500 (guide 4.2, layout standard 6.1) */
+  font: 500 var(--fs-sub) / var(--lh-sub) var(--sans);
   color: var(--ink-3);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
@@ -61,22 +79,26 @@
     display: none;
   }
 }
-/* the action: a quiet link and a chevron at the right, 44 tall to the thumb without growing the row */
+/* the action: the quiet level (layout standard 6.6), Deep Sky 17/600 and an 18 px chevron at the trailing edge, 44 tall to
+   the thumb without growing the row */
 .lb-act {
   flex: none;
   align-self: center;
   display: inline-flex;
   align-items: center;
-  gap: 2px;
+  gap: var(--sp-1);
   min-height: 44px;
   margin: -6px 0 -6px auto;
   padding: 0 0 0 12px;
   border: 0;
   background: none;
   color: var(--accent-text);
-  font: 600 var(--fs-sub) / var(--lh-sub) var(--sans);
+  font: 600 var(--fs-row) / var(--lh-row) var(--sans);
   white-space: nowrap;
   -webkit-tap-highlight-color: transparent;
+}
+.lb-act > svg {
+  flex: none;
 }
 .lb-act[data-pressed],
 .lb-act:active {
@@ -107,17 +129,30 @@
   text-align: left;
 }
 
-/* ---------- the page's rhythm under its bars ---------- */
-/* the first thing under a pushed bar starts 12 below it */
+/* ---------- the page's rhythm under its bars (layout standard 3.2, F3) ---------- */
+/* the first thing under a pushed bar starts 16 below it (the title block to first content) */
 :root .page > .pushed-bar + * {
-  margin-top: 12px;
+  margin-top: var(--sp-4);
 }
-/* context chips: flush under the title's gap, 16 above what follows */
-:root .ctx-row {
-  margin: 0 0 16px;
+/* a row of context chips or status pills under the title block: on the ground, 12 above what follows (the gap between
+   cards, since the chips are a row of cards); the next section starts there, with no space of its own */
+:root .ctx-row,
+:root .status-row {
+  margin: 0 0 var(--sp-3);
 }
-:root .ctx-row + .lb-sec {
-  margin-top: 8px;
+:root :is(.ctx-row, .status-row) + .lb-sec {
+  margin-top: 0;
+}
+/* Today's status pills (StatusPill, layout standard 6.7): one row, 12 apart, never wrapping; stacked at very large text */
+.status-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  min-width: 0;
+}
+html[data-text-xl] .status-row {
+  flex-direction: column;
+  align-items: flex-start;
 }
 
 /* ---------- tiles: a status wraps beside its icon, never under it ---------- */
