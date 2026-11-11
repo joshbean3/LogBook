@@ -23,15 +23,15 @@ describe('the hero chart, to a screen reader and the keyboard', () => {
     // the buckets before the log began cannot be reached
     expect(html).toContain('aria-valuemin="4"');
     expect(html).toContain('aria-valuemax="12"');
-    expect(html).toContain('aria-label="Weekly miles, 3 months. Use the arrow keys, or swipe up and down, to move."');
+    expect(html).toContain('aria-label="Weekly miles, 3 months."');
     // no list of buttons beside it: the slider is the one element
     expect(html).not.toContain('<button');
     expect(html).not.toContain('<li');
   });
 
   it('says how to open a bucket only when a bucket opens', () => {
-    expect(draw()).not.toContain('to open it');
-    expect(draw({ onOpen: () => undefined })).toContain('Press Enter or double tap to open it.');
+    expect(draw()).not.toContain('to open');
+    expect(draw({ onOpen: () => undefined })).toContain('aria-label="Weekly miles, 3 months. Double tap or press Enter to open."');
   });
 
   it('shows the first-use hint only while it is asked to', () => {

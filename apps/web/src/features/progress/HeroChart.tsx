@@ -241,9 +241,10 @@ export const HeroChart = ({ log, t, range, onRange, first, liftFirst = null, fir
   const unit = span.unit;
   const byWeek = span.range === '1W';
   const gaps = view.buckets.some((p) => p.missing);
-  // the bucket being read (under the finger, or the one whose sheet is up), if the chart on screen still has it
+  // the bucket being read (under the finger, or the one whose sheet is up), if the chart on screen still has it; a bucket
+  // that has not loaded has no number to read, so the headline stays as it is over a gap
   const ati = scrub ?? opened;
-  const reading = ati != null && ati < view.buckets.length;
+  const reading = ati != null && ati < view.buckets.length && !view.buckets[ati]!.missing;
   const readout: Readout =
     view.mode === 'run'
       ? reading

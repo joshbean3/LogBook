@@ -58,7 +58,8 @@ describe('the running headline at rest', () => {
   it('reads this week against its plan in 1W', () => {
     const { span, buckets } = run('1W', PLAN, RAN);
     const week = run('3M', PLAN, RAN).buckets.at(-1)!;
-    expect(runRest(span, buckets, week, null, T, true)).toEqual({ big: '9.3', context: 'of 23 mi · 2 of 4 runs', take: 'On plan, 13.7 mi to go' });
+    // "to go" is what the plan still asks for (Friday's 5 and Saturday's 9), the miles the dashed bars draw
+    expect(runRest(span, buckets, week, null, T, true)).toEqual({ big: '9.3', context: 'of 23 mi · 2 of 4 runs', take: 'On plan, 14 mi to go' });
     expect(runRest(span, buckets, week, null, T, true, true).take).toBe('Your weeks draw here as you go.');
   });
 
@@ -71,10 +72,16 @@ describe('the running headline at rest', () => {
   });
 
   it('says behind, on plan and done for a week with a plan', () => {
-    const wk = (ran: Record<string, number>) => run('3M', PLAN, ran).buckets.at(-1)!;
+    const wk = (ran: Record<string, number>, plan: Record<string, number> = PLAN) => run('3M', plan, ran).buckets.at(-1)!;
     expect(weekTakeaway(wk({}), null)).toBe('4 mi behind plan this week');
+    // Monday done, today's 5 not yet run: it is still to go, with Friday and Saturday
     expect(weekTakeaway(wk({ '2026-11-09': 4 }), null)).toBe('On plan, 19 mi to go');
-    expect(weekTakeaway(wk({ '2026-11-09': 12, '2026-11-11': 11 }), null)).toBe('This week’s plan is done');
+    // a long run early in the week does not shorten what the plan still asks for
+    expect(weekTakeaway(wk({ '2026-11-09': 12, '2026-11-11': 11 }), null)).toBe('On plan, 14 mi to go');
+    // runs before a plan that starts later in the week: all of the plan is still to go
+    expect(weekTakeaway(wk({ '2026-11-09': 4.1, '2026-11-11': 5.2 }, { '2026-11-13': 5, '2026-11-14': 7.5 }), null)).toBe('On plan, 12.5 mi to go');
+    // every planned day behind us and run
+    expect(weekTakeaway(wk({ '2026-11-09': 4, '2026-11-10': 6 }, { '2026-11-09': 4, '2026-11-10': 6 }), null)).toBe('This week’s plan is done');
   });
 });
 

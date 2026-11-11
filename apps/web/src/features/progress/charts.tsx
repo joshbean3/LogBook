@@ -1,7 +1,7 @@
 import { motion } from 'motion/react';
-import { useCallback, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { springs, useReduced } from '@/lib/motion';
-import { useScrub } from './useScrub';
+import { useScrub } from '@/ui/charts';
 
 /** Width of an element, kept current. */
 export const useWidth = <T extends HTMLElement>() => {
@@ -16,6 +16,28 @@ export const useWidth = <T extends HTMLElement>() => {
     return () => ro.disconnect();
   }, []);
   return [ref, w] as const;
+};
+
+const readTextScale = () => (typeof document === 'undefined' ? 1 : Math.max(1, (parseFloat(getComputedStyle(document.documentElement).fontSize) || 16) / 16));
+/**
+ * The text size the phone is set to, as a multiple of the brand's own (1 at the default, 2 at the largest the app follows):
+ * the root font size over 16 px. A chart's labels are set in rem and grow with it while its plot does not, so a chart
+ * reads this to give them room. It is read again when the root's size changes (app/dynamicType.ts sets it on the root's
+ * style when the app comes back from Settings), so a chart on screen redraws for the new size.
+ */
+export const useTextScale = () => {
+  const [scale, setScale] = useState(readTextScale);
+  useEffect(() => {
+    const read = () => setScale(readTextScale());
+    const mo = new MutationObserver(read);
+    mo.observe(document.documentElement, { attributes: true, attributeFilter: ['style', 'data-text-xl'] });
+    window.addEventListener('resize', read);
+    return () => {
+      mo.disconnect();
+      window.removeEventListener('resize', read);
+    };
+  }, []);
+  return scale;
 };
 
 /**

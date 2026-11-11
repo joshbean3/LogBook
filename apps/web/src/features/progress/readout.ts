@@ -25,12 +25,16 @@ const mean1 = (v: number) => String(Math.round(v * 10) / 10);
 export const readoutWords = (r: Readout) => `${r.big} ${r.context}. ${r.take}.`;
 
 // ---------- running ----------
-/** This week in words, under the 1W headline: against its plan while it has one, else beside last week. */
+/**
+ * This week in words, under the 1W headline: against its plan while it has one, else beside last week. "To go" is what
+ * the plan still asks for (`ahead`), the same miles the dashed bars draw, so a run that was not on the plan never makes
+ * the rest of the week look shorter than it is.
+ */
 export const weekTakeaway = (w: RunBucket, last: RunBucket | null) => {
   if (w.planned <= 0) return last && !last.missing && last.done > 0 ? `${miShort(last.done)} mi last week` : 'No runs planned this week';
-  if (w.done + 0.05 >= w.planned) return 'This week’s plan is done';
   const behind = w.plannedPast - w.done;
-  return behind > 0.05 ? `${miShort(behind)} mi behind plan this week` : `On plan, ${miShort(w.planned - w.done)} mi to go`;
+  if (behind > 0.05) return `${miShort(behind)} mi behind plan this week`;
+  return w.ahead > 0.05 ? `On plan, ${miShort(w.ahead)} mi to go` : 'This week’s plan is done';
 };
 
 /** The running headline at rest. `week` is this week whatever the range; `byWeek` reads this week against its plan (1W). */

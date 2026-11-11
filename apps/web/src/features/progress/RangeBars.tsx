@@ -1,9 +1,8 @@
 import { useCallback } from 'react';
+import { barCenter, barLayout, bucketAt, useScrub } from '@/ui/charts';
 import { useNowMark, usePageShown } from '@/ui/nowBudget';
-import { useWidth } from './charts';
+import { useTextScale, useWidth } from './charts';
 import { axisLabels, gridFor, labelExtent, type RangeSpan } from './ranges';
-import { barCenter, barLayout, bucketAt } from './scrub';
-import { useScrub } from './useScrub';
 
 /** One bar: what its bucket holds so far, and what its plan still asks for. The chart knows no unit. */
 export interface BarMark {
@@ -20,9 +19,9 @@ export interface BarMark {
   missing: boolean;
 }
 
-/** The rim and the plan outline: 1.5 px (guide 6.8). A bar under 5 px wide cannot hold a rim and a fill: it is the rim's color. */
+/** The rim and the plan outline: 1.5 px (guide 6.8). A bar under 7 px wide has no room for a rim around a fill that still reads as Sky: it is the rim's color, whole. */
 const EDGE = 1.5;
-const THIN = 5;
+const THIN = 7;
 
 /** The rise: each bar starts this long after the one before it, the last no later than the cap; the overlay follows. */
 const STAGGER_MS = 12;
@@ -55,7 +54,7 @@ const dome = (cx: number, w: number, top: number, base: number) => {
  * rewrites (`onScrub`), one `select` tick per bucket; letting go returns to the headline. A quick tap opens the bucket
  * (`onOpen`, when it opens anything), else shows it for a moment. A swipe up or down that starts on the plot still scrolls
  * the page. To VoiceOver and the keyboard the plot is one slider: its value is the focused bucket in words, and arrows (or
- * a swipe up or down) move it.
+ * a swipe up or down, which VoiceOver itself announces for a slider) move it.
  *
  * The hero remounts the chart on a new range or mode: the bars rise from the baseline over 480 ms (`--dur-number`), a few
  * milliseconds apart, and the plan outline, its label and the now dot fade in once they have; the grid and the axes stand
@@ -70,7 +69,7 @@ export const RangeBars = ({ span, marks, label, words, format = String, hint, on
   const n = marks.length;
   // the caption labels grow with the text size (rem), the plot does not: their room grows with them (the band over the
   // tallest bar, the band under the baseline, the y labels' column on the trailing side)
-  const textScale = typeof document === 'undefined' ? 1 : Math.max(1, (parseFloat(getComputedStyle(document.documentElement).fontSize) || 16) / 16);
+  const textScale = useTextScale();
   const capH = 11 * textScale;
   const TOP = Math.round(capH) + 10;
   const Y0 = H - Math.max(24, Math.round(capH) + 13);
@@ -149,7 +148,7 @@ export const RangeBars = ({ span, marks, label, words, format = String, hint, on
         tabIndex={0}
         role="slider"
         aria-orientation="horizontal"
-        aria-label={`${label} Use the arrow keys, or swipe up and down, to move.${onOpen ? ' Press Enter or double tap to open it.' : ''}`}
+        aria-label={onOpen ? `${label} Double tap or press Enter to open.` : label}
         aria-valuemin={first}
         aria-valuemax={Math.max(first, n - 1)}
         aria-valuenow={a ?? home}

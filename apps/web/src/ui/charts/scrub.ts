@@ -1,7 +1,7 @@
 /**
- * The maths under the hero chart's bars and its drag: where each bar sits, which one a point falls on, whether a touch has
- * become a read of the chart or a scroll of the page, and where a key moves the reading. Pure functions, so the chart, the
- * hook that listens (`useScrub`) and their tests agree. Nothing here renders or listens.
+ * The maths under a chart of bars and under reading any chart with a finger: where each bar sits, which one a point falls
+ * on, whether a touch has become a read of the chart or a scroll of the page, and where a key moves the reading. Pure
+ * functions, so the charts, the hook that listens (`useScrub`) and their tests agree. Nothing here renders or listens.
  */
 import { SCRUB_CLAIM_PX, SCRUB_SCROLL_PX } from '@/lib/gesture';
 

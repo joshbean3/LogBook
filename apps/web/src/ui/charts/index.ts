@@ -9,3 +9,5 @@ export { Gauge } from './Gauge';
 export { useChartWidth } from './useWidth';
 export * from './scale';
 export * from './range';
+export { useScrub, type ScrubOptions } from './useScrub';
+export { BAR_SHARE, barCenter, barLayout, bucketAt, MAX_BAR, MIN_BAR, scrubIntent, stepIndex, type BarLayout, type ScrubIntent } from './scrub';

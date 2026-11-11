@@ -99,8 +99,14 @@
   outline: none;
   border-radius: var(--r-icon);
 }
-.rb-plot:focus-visible {
+/* the focus ring stands 4 clear of the plot, so it never runs through the first axis label */
+.rb-plot:focus-visible::after {
+  content: '';
+  position: absolute;
+  inset: calc(-1 * var(--sp-1));
+  border-radius: var(--r-icon);
   box-shadow: 0 0 0 1.5px var(--focus-edge), var(--focus-ring);
+  pointer-events: none;
 }
 .rb-chart svg {
   display: block;
@@ -187,6 +193,10 @@
 }
 .rb-plot[data-reading] .rb-bar:not(.is-lit) {
   opacity: 0.5;
+}
+/* the bar under the finger lights on the frame the finger reaches it (and the tick fires): only the others ease */
+.rb-bar.is-lit {
+  transition: none;
 }
 .rb-bar.is-lit .rb-done {
   fill: var(--deep-sky);
