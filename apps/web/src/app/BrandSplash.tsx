@@ -52,8 +52,12 @@ const RING_CLEAR = 16;
 /** While it says "Still loading", the words keep this far above the Orb, and never rise past this far from the top (px). */
 const WAIT_CLEAR = 12;
 const HEAD_TOP_MIN = 64;
-/** Set once the opening has played in this session (sessionStorage: a new launch of the app starts a new session). */
-const PLAYED_KEY = 'logbook.splash.played';
+/**
+ * Set once the opening has played in this session (sessionStorage: a new launch of the app starts a new session). It says
+ * nothing about an account, and it must outlive the sign-out wipe, which removes every `logbook.` key and reloads the
+ * page (lib/account.ts): so, like that wipe's own mark, it is spelled with a hyphen and the sweep leaves it alone.
+ */
+const PLAYED_KEY = 'logbook-splash-played';
 let shown = false;
 
 type Moment = 'sunrise' | 'fade' | 'still';

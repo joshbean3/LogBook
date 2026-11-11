@@ -215,6 +215,25 @@ test.describe('the opening', () => {
     await expect(page.getByRole('button', { name: 'Next', exact: true })).toBeVisible();
   });
 
+  test('signing out reloads the page, and that reload is quiet: the sunrise is once per session', async ({ page }) => {
+    // every splash this tab shows, kept where the sign-out wipe does not reach (it removes the logbook. keys)
+    await page.addInitScript(() => {
+      new MutationObserver(() => {
+        const moment = document.querySelector('.brand-splash')?.getAttribute('data-moment');
+        if (!moment || (window as unknown as { seen?: boolean }).seen) return;
+        (window as unknown as { seen?: boolean }).seen = true;
+        sessionStorage.setItem('e2e-moments', `${sessionStorage.getItem('e2e-moments') ?? ''}${moment} `);
+      }).observe(document, { childList: true, subtree: true });
+    });
+    await signUpByApi(page);
+    await signOut(page);
+    await expect(page.locator('.brand-splash')).toHaveCount(0, { timeout: 8000 });
+    const moments = (await page.evaluate(() => sessionStorage.getItem('e2e-moments') ?? '')).trim().split(' ');
+    expect(moments[0], 'the first open of the session is the sunrise').toBe('sunrise');
+    expect(moments.length).toBeGreaterThan(1);
+    expect(moments.slice(1).every((m) => m === 'fade'), `every later open is the quiet fade: ${moments.join(', ')}`).toBe(true);
+  });
+
   test('Reduce Motion: no sunrise, the picture fades in and out', async ({ page }) => {
     await page.emulateMedia({ reducedMotion: 'reduce' });
     await page.goto('/start');

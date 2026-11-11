@@ -15,7 +15,7 @@ export const test = base.extend<{ opening: 'quiet' | 'sunrise' }>({
     if (opening === 'quiet') {
       await context.addInitScript(() => {
         try {
-          sessionStorage.setItem('logbook.splash.played', '1');
+          sessionStorage.setItem('logbook-splash-played', '1');
         } catch {
           /* a page with no storage */
         }
@@ -122,12 +122,19 @@ export const finishSetup = async (page: Page, opts: { habit?: string } = {}) => 
   await expect(page).toHaveURL(/\/today/, { timeout: 30_000 });
 };
 
-/** Sign out from Settings, through the confirmation when there is one. Ends on the signed-out screens. */
+/**
+ * Sign out from Settings, through the confirmation sheet. Sign out lives on the Account page (Settings, Account), so the
+ * helper opens that page; where a build still has it on the Settings root, the root's button is used. Ends on the
+ * signed-out screens.
+ */
 export const signOut = async (page: Page) => {
   await page.getByRole('link', { name: 'Profile and settings' }).click();
   await expect(page).toHaveURL(/\/settings/);
-  await page.getByRole('button', { name: 'Sign out', exact: true }).first().click();
+  const button = page.getByRole('button', { name: 'Sign out', exact: true }).first();
+  if (!(await button.isVisible().catch(() => false))) await go(page, '/settings/account');
+  await button.click();
   const confirm = page.getByRole('dialog').getByRole('button', { name: 'Sign out', exact: true });
+  await confirm.waitFor({ state: 'visible', timeout: 5000 }).catch(() => undefined);
   if (await confirm.isVisible().catch(() => false)) await confirm.click();
   await expect(page).toHaveURL(/\/(start|login)/, { timeout: 30_000 });
 };

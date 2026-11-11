@@ -67,7 +67,7 @@ const ctx = await b.newContext({ viewport: { width: 390, height: 844 }, deviceSc
 // The audit reads the screens under it, so its session starts with the opening already seen: the mark the app leaves.
 await ctx.addInitScript(() => {
   try {
-    sessionStorage.setItem('logbook.splash.played', '1');
+    sessionStorage.setItem('logbook-splash-played', '1');
   } catch {
     /* no storage: the wait below still outlasts the opening */
   }
