@@ -1,5 +1,5 @@
 import { shiftDays, type ISODate } from '@logbook/shared';
-import { afterEach, describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { axisLabels, bucketRuns, bucketTitle, keptOver, PROGRESS_RANGES, rangeContext, rangeSpan, spanMonths, type DayRun, type RangeSpan } from './ranges';
 
 // Wednesday Nov 11 2026: this week began Monday Nov 9

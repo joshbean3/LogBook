@@ -2,9 +2,8 @@
  * Progress: every number on the page, from the log. Pure functions over the snapshot so the page, its sheets and its tests
  * agree. Nothing here renders.
  */
-import { e1rm, fmtDate, isSkipMark, mondayOf, monthOf, parseISO, shiftDays, zoneOf, type Activity, type HrZone, type ISODate, type LiftSet } from '@logbook/shared';
+import { e1rm, fmtDate, mondayOf, parseISO, shiftDays, zoneOf, type Activity, type HrZone, type ISODate, type LiftSet } from '@logbook/shared';
 import type { AppSnapshot } from '@/api/snapshot';
-import { dayMiles } from '../sessions/miles';
 
 // ---------- range ----------
 export type Range = '3M' | '6M' | '1Y';
@@ -24,7 +23,6 @@ export const paceText = (sec: number) => {
 };
 export const paceOfRun = (a: Activity) => (a.miles > 0.2 && a.movingSec > 0 ? a.movingSec / a.miles : null);
 
-const sum = (xs: number[]) => xs.reduce((s, x) => s + x, 0);
 const median = (xs: number[]) => {
   if (!xs.length) return null;
   const s = [...xs].sort((a, b) => a - b);
@@ -32,7 +30,6 @@ const median = (xs: number[]) => {
   return s.length % 2 ? s[m]! : (s[m - 1]! + s[m]!) / 2;
 };
 const monthName = (d: ISODate) => new Intl.DateTimeFormat('en-US', { month: 'long' }).format(parseISO(d));
-const days7 = (mon: ISODate) => Array.from({ length: 7 }, (_, i) => shiftDays(mon, i));
 
 // ---------- easy pace ----------
 export interface EasyRun {

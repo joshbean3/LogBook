@@ -59,9 +59,10 @@
   font: 600 var(--fs-sub) / var(--lh-sub) var(--sans);
   color: var(--ink-2);
 }
+/* off your usual: Night Ink 600 with its arrow glyph (layout standard 4.3: Deep Sky means tappable or data, never emphasis) */
 .mp-status.is-up,
 .mp-status.is-down {
-  color: var(--deep-sky);
+  color: var(--ink);
 }
 .mp-status.is-none {
   color: var(--ink-3);
@@ -78,21 +79,21 @@
 .mp-tiles {
   margin-top: 16px;
 }
-.mp-connect + .mp-tiles {
-  margin-top: var(--gap);
+/* the series switch (Habits / Plan, Miles / Runs): a segmented control in the quiet tone, the range control keeps the Sky */
+.seg.mp-series {
+  gap: 0;
 }
-.mp-tile .tile-value.is-empty {
-  color: var(--ink-4);
+/* the range control: under the plot, 12 in from the card's edges like Progress's (the card pads 16) */
+.mp-range {
+  margin-inline: calc(var(--sp-3) - var(--pad-card));
 }
-/* the note wraps to a second line before it is cut ("Updated yesterday" in a 108 px tile) */
-.mp-tile-note {
-  display: -webkit-box;
-  overflow: hidden;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-  font-size: var(--fs-foot);
-  line-height: var(--lh-foot);
-  color: var(--ink-3);
+/* nothing to read yet: the screen's empty state in one card under the bar */
+.mp-empty {
+  margin-top: var(--sp-4);
+}
+/* the not-medical-advice line: a footnote on the ground, 8 under the About card */
+.lb-foot.mp-note {
+  margin-top: var(--sp-2);
 }
 
 /* the chart card */
@@ -125,44 +126,6 @@
   overflow: hidden;
   text-overflow: ellipsis;
   min-width: 0;
-}
-.mp-chips {
-  display: flex;
-  gap: 8px;
-  overflow-x: auto;
-  scrollbar-width: none;
-  margin: -2px -16px 0;
-  padding: 2px 16px 4px;
-}
-.mp-chips::-webkit-scrollbar {
-  display: none;
-}
-.mp-chip {
-  appearance: none;
-  flex: none;
-  position: relative;
-  height: 32px;
-  padding: 0 14px;
-  border: 0;
-  border-radius: var(--r-pill);
-  background: var(--surface-2);
-  color: var(--ink-2);
-  font: 600 var(--fs-foot) / 1 var(--sans);
-}
-.mp-chip::after {
-  content: '';
-  position: absolute;
-  inset: -6px 0;
-}
-.mp-chip.on {
-  background: var(--accent);
-  color: var(--accent-ink);
-  font-weight: 650;
-}
-.mp-chip:focus-visible {
-  outline: 1.5px solid var(--focus-edge);
-  outline-offset: 2px;
-  box-shadow: var(--focus-ring);
 }
 .mp-readout {
   display: block;
@@ -209,28 +172,4 @@
   line-height: 1.375rem;
   color: var(--ink-2);
   text-wrap: pretty;
-}
-.mp-note {
-  margin: 12px 0 0;
-  padding: 10px 12px;
-  border-radius: var(--r-control);
-  background: var(--cloud);
-  color: var(--ink-2);
-}
-
-/* an Apple Health page with nothing connected: one card with the way to connect */
-.mp-connect.card {
-  display: grid;
-  gap: 12px;
-  margin-top: 16px;
-  padding: 16px;
-}
-.mp-connect-p {
-  margin: 0;
-  font: 500 var(--fs-sub) / 1.375rem var(--sans);
-  color: var(--ink-2);
-}
-.mp-connect .btn {
-  justify-self: start;
-  min-height: 44px;
 }
