@@ -124,27 +124,59 @@ export const shareableSettings = (a: BuilderAnswers, today: ISODate, fromRuns: A
 export const PLAN_ASSIST_CANNOT = ['lifts', 'cross', 'paces', 'workouts', 'other'] as const;
 export type PlanCannot = (typeof PLAN_ASSIST_CANNOT)[number];
 
-/** The shape Claude is asked to produce. Kept loose (no limits, strings for dates); `cleanPlanPatch` checks every value. */
+/**
+ * The shape Claude is asked to produce. Every field is required and none is a union: no `nullable`, no `optional`. The
+ * API refuses a schema with more than 16 union-typed parameters or 24 optional ones (structured outputs, "schema
+ * complexity limits"), and one nullable field per setting is seventeen. So a field that was not asked for holds its
+ * empty value instead of null: 0 for a number, `none` for a choice, an empty string for a date or the note, an empty
+ * list, false (`PLAN_SHAPE_BLANK`). Kept loose otherwise (no limits, strings for dates): `cleanPlanPatch` checks every
+ * value, and it still reads null as "not asked for".
+ */
 export const zClaudeShapeOutput = z.object({
-  goal: zGoal.nullable(),
-  weeks: z.number().nullable(),
-  weeksChange: z.number().nullable(),
-  raceDate: z.string().nullable(),
-  race: z.boolean().nullable(),
-  runDays: z.array(zWeekday).nullable(),
-  addRunDays: z.array(zWeekday).nullable(),
-  removeRunDays: z.array(zWeekday).nullable(),
-  runsPerWeek: z.number().nullable(),
-  runsPerWeekChange: z.number().nullable(),
-  longRunDay: zWeekday.nullable(),
-  weeklyMiles: z.number().nullable(),
-  weeklyMilesChange: z.number().nullable(),
-  peakMiles: z.number().nullable(),
-  start: z.enum(['tomorrow', 'monday']).nullable(),
-  startDate: z.string().nullable(),
+  goal: z.enum(['none', ...zGoal.options]),
+  weeks: z.number(),
+  weeksChange: z.number(),
+  raceDate: z.string(),
+  race: z.enum(['none', 'yes', 'no']),
+  runDays: z.array(zWeekday),
+  addRunDays: z.array(zWeekday),
+  removeRunDays: z.array(zWeekday),
+  runsPerWeek: z.number(),
+  runsPerWeekChange: z.number(),
+  longRunDay: z.enum(['none', ...zWeekday.options]),
+  weeklyMiles: z.number(),
+  weeklyMilesChange: z.number(),
+  peakMiles: z.number(),
+  /** True hands the peak back to the plan. */
+  peakAuto: z.boolean(),
+  start: z.enum(['none', 'tomorrow', 'monday']),
+  startDate: z.string(),
   cannot: z.array(z.enum(PLAN_ASSIST_CANNOT)),
-  note: z.string().nullable(),
+  note: z.string(),
 });
+export type ClaudeShapeOutput = z.infer<typeof zClaudeShapeOutput>;
+/** Nothing asked for: every field of the shape at its empty value. */
+export const PLAN_SHAPE_BLANK: ClaudeShapeOutput = {
+  goal: 'none',
+  weeks: 0,
+  weeksChange: 0,
+  raceDate: '',
+  race: 'none',
+  runDays: [],
+  addRunDays: [],
+  removeRunDays: [],
+  runsPerWeek: 0,
+  runsPerWeekChange: 0,
+  longRunDay: 'none',
+  weeklyMiles: 0,
+  weeklyMilesChange: 0,
+  peakMiles: 0,
+  peakAuto: false,
+  start: 'none',
+  startDate: '',
+  cannot: [],
+  note: '',
+};
 
 /** A change to the builder's settings. A field that is absent was not asked for and stays as it is. */
 export const zPlanPatch = z.object({
@@ -208,6 +240,8 @@ export const zPlanAssistResult = z.object({
 export type PlanAssistResult = z.infer<typeof zPlanAssistResult>;
 
 const NOTE_MAX = 240;
+/** Words that stand for "nothing here" in a field of the shape. */
+const EMPTY_WORDS = ['', 'none', 'null'];
 /** How far out a named start or race day may be before it is refused outright (the app checks the weeks itself). */
 const FAR_DAYS = 366;
 
@@ -226,8 +260,9 @@ export const sortDays = (days: readonly Weekday[]): Weekday[] => WEEKDAYS.filter
 /**
  * Claude's answer, checked. Every value is read on its own: a number outside the builder's limits is clamped to them, a
  * value that is not what its field holds (a weekday that is no weekday, a date that is no date, a date that has passed)
- * is left out, and each of those is listed in `dropped` with its reason. A field Claude left null is absent from the
- * patch. Returns null when the answer is not an object at all.
+ * is left out, and each of those is listed in `dropped` with its reason. A field Claude left at its empty value (0,
+ * `none`, an empty string, an empty list), or null, or out, is absent from the patch. Returns null when the answer is not
+ * an object at all.
  */
 export const cleanPlanPatch = (raw: unknown, today: ISODate): Omit<PlanAssistResult, 'kind'> | null => {
   if (!isObject(raw)) return null;
@@ -236,7 +271,9 @@ export const cleanPlanPatch = (raw: unknown, today: ISODate): Omit<PlanAssistRes
   const drop = (reason: PlanPatchReason, value?: number) => {
     if (!dropped.some((d) => d.reason === reason)) dropped.push(value === undefined ? { reason } : { reason, value });
   };
-  const given = (k: string) => raw[k] !== null && raw[k] !== undefined;
+  /** Not asked for: the field's empty value, or null, or no field at all. */
+  const empty = (v: unknown) => v === null || v === undefined || v === 0 || (typeof v === 'string' && EMPTY_WORDS.includes(v.trim().toLowerCase())) || (Array.isArray(v) && v.length === 0);
+  const given = (k: string) => !empty(raw[k]);
 
   if (given('goal')) {
     const g = zGoal.safeParse(typeof raw.goal === 'string' ? raw.goal.trim().toLowerCase() : raw.goal);
@@ -244,12 +281,13 @@ export const cleanPlanPatch = (raw: unknown, today: ISODate): Omit<PlanAssistRes
     else drop('bad_value');
   }
 
-  /** A whole number held to [lo, hi]; outside it, the nearest end and a reason. */
+  /** A whole number held to [lo, hi]; outside it, the nearest end and a reason. Zero is the field's empty value. */
   const bounded = (k: string, lo: number, hi: number, low: PlanPatchReason, high: PlanPatchReason): number | undefined => {
     if (!given(k)) return undefined;
     const n = numberOf(raw[k]);
     if (n === null) return void drop('bad_value');
     const v = Math.round(n);
+    if (v === 0) return undefined;
     if (v < lo) return drop(low, lo), lo;
     if (v > hi) return drop(high, hi), hi;
     return v;
@@ -281,14 +319,12 @@ export const cleanPlanPatch = (raw: unknown, today: ISODate): Omit<PlanAssistRes
     const d = change('weeklyMilesChange', L.milesMax - L.milesMin);
     if (d !== undefined) patch.weeklyMilesChange = d;
   }
-  if (given('peakMiles')) {
-    const n = numberOf(raw.peakMiles);
-    if (n === null) drop('bad_value');
-    // zero hands the peak back to the plan
-    else if (Math.round(n) <= 0) patch.peakMiles = null;
-    else if (Math.round(n) > L.milesMax) (drop('peak_max', L.milesMax), (patch.peakMiles = L.milesMax));
-    else patch.peakMiles = Math.max(L.milesMin, Math.round(n));
-  }
+  // a peak given as a number wins over handing it back
+  const peak = given('peakMiles') ? numberOf(raw.peakMiles) : 0;
+  if (peak === null || (peak !== 0 && Math.round(peak) < 0)) drop('bad_value');
+  else if (Math.round(peak) > L.milesMax) (drop('peak_max', L.milesMax), (patch.peakMiles = L.milesMax));
+  else if (Math.round(peak) > 0) patch.peakMiles = Math.max(L.milesMin, Math.round(peak));
+  else if (raw.peakAuto === true) patch.peakMiles = null;
 
   const days = (k: string): Weekday[] | undefined => {
     if (!given(k)) return undefined;
@@ -322,13 +358,16 @@ export const cleanPlanPatch = (raw: unknown, today: ISODate): Omit<PlanAssistRes
   const raceDate = date('raceDate', 'race_past', 'race_too_far');
   if (raceDate) patch.raceDate = raceDate;
   if (given('race')) {
-    if (typeof raw.race === 'boolean') patch.race = raw.race;
+    const r = typeof raw.race === 'string' ? raw.race.trim().toLowerCase() : raw.race;
+    if (r === true || r === 'yes') patch.race = true;
+    else if (r === false || r === 'no') patch.race = false;
     else drop('bad_value');
   }
   const startDate = date('startDate', 'start_past', 'start_too_far');
   if (startDate) patch.startDate = startDate;
   else if (given('start')) {
-    if (raw.start === 'tomorrow' || raw.start === 'monday') patch.start = raw.start;
+    const st = typeof raw.start === 'string' ? raw.start.trim().toLowerCase() : raw.start;
+    if (st === 'tomorrow' || st === 'monday') patch.start = st;
     else drop('bad_value');
   }
 
@@ -339,7 +378,7 @@ export const cleanPlanPatch = (raw: unknown, today: ISODate): Omit<PlanAssistRes
       if (!cannot.includes(topic)) cannot.push(topic);
     }
   // one plain line: no line breaks, no dashes standing in for commas
-  const said = typeof raw.note === 'string' ? raw.note.replace(/\s*[—–]\s*/g, ', ').replace(/\s+/g, ' ').trim() : '';
+  const said = typeof raw.note === 'string' && given('note') ? raw.note.replace(/\s*[—–]\s*/g, ', ').replace(/\s+/g, ' ').trim() : '';
   return { patch, dropped, cannot, note: said ? said.slice(0, NOTE_MAX) : null };
 };
 

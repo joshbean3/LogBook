@@ -10,7 +10,7 @@ import { SAFETY_BLOCK } from '../services/aiSafety.js';
 import { setClaudeClient } from '../services/claude.js';
 import { writeConsent } from '../services/consent.js';
 import { SHAPE_SYSTEM, SHAPE_TIMEOUT_MS, shapePrompt } from '../services/planAssist.js';
-import { fakeClaude, grantAll, makeApp, SHAPE_NULLS, signUp, type Account, type App, type FakeClaudeOptions } from '../test/helpers.js';
+import { fakeClaude, grantAll, makeApp, SHAPE_BLANK, signUp, type Account, type App, type FakeClaudeOptions } from '../test/helpers.js';
 
 /**
  * The plan builder's assistant (`POST /plans/template/assist`): the person's words in, a checked patch to the builder's
@@ -31,7 +31,7 @@ const answerWith = (o: FakeClaudeOptions) => {
   claude = fakeClaude(o);
   return claude;
 };
-const shape = (o: Record<string, unknown>) => ({ ...SHAPE_NULLS, ...o });
+const shape = (o: Record<string, unknown>) => ({ ...SHAPE_BLANK, ...o });
 const ask = (body: Record<string, unknown> = {}, who: Account = me) => who.call('POST', '/api/plans/template/assist', { kind: 'shape', words: WORDS, settings, ...body });
 /** The one user message of the request Claude received. */
 const sentText = (c: ReturnType<typeof fakeClaude>) => String(c.calls.at(-1)!.params.messages[0].content);
@@ -68,7 +68,21 @@ describe('a good update', () => {
     expect(c.systemOf(call)).toBe(SHAPE_SYSTEM);
     expect(SHAPE_SYSTEM).toContain(SAFETY_BLOCK);
     expect(call.params.output_config).toMatchObject({ effort: 'low', format: { type: 'json_schema' } });
-    expect(Object.keys(call.params.output_config.format.schema.properties)).toEqual(Object.keys(SHAPE_NULLS));
+    expect(Object.keys(call.params.output_config.format.schema.properties)).toEqual(Object.keys(SHAPE_BLANK));
+    // the API refuses a schema with more than 16 union-typed parameters or 24 optional ones: this one has neither kind
+    const schema = call.params.output_config.format.schema;
+    const unions: string[] = [];
+    const walk = (node: unknown, at: string) => {
+      if (Array.isArray(node)) return node.forEach((n, i) => walk(n, `${at}[${i}]`));
+      if (!node || typeof node !== 'object') return;
+      const o = node as Record<string, unknown>;
+      if ('anyOf' in o || 'oneOf' in o || Array.isArray(o.type)) unions.push(at);
+      for (const [k, v] of Object.entries(o)) walk(v, `${at}.${k}`);
+    };
+    walk(schema, 'schema');
+    expect(unions).toEqual([]);
+    expect([...schema.required].sort()).toEqual(Object.keys(schema.properties).sort());
+    expect(schema.additionalProperties).toBe(false);
     expect(call.params.messages).toHaveLength(1);
     const text = sentText(c);
     expect(text).toBe(shapePrompt({ words: WORDS, settings, today: T }));

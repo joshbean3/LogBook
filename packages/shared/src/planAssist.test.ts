@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { applyPlanPatch, builderDates, builderInput, cleanPlanPatch, isEmptyPatch, resizeRunDays, shareableSettings, zClaudeShapeOutput, zPlanAssistRequest, zPlanAssistResult, type BuilderAnswers, type PlanPatch } from './planAssist.js';
+import { applyPlanPatch, builderDates, builderInput, cleanPlanPatch, isEmptyPatch, PLAN_SHAPE_BLANK, resizeRunDays, shareableSettings, zClaudeShapeOutput, zPlanAssistRequest, zPlanAssistResult, type BuilderAnswers, type PlanPatch } from './planAssist.js';
 import { zTemplateInput, zTemplateRequest } from './schemas.js';
 import { buildTemplate, isTemplateSource, TEMPLATE_ASSISTED_SOURCE } from './templates.js';
 
@@ -9,8 +9,8 @@ const answers: BuilderAnswers = { goal: 'base', weeks: 8, runDays: ['tue', 'thu'
 const half: BuilderAnswers = { ...answers, goal: 'half', weeks: 12 };
 const apply = (a: BuilderAnswers, p: PlanPatch) => applyPlanPatch(a, p, T);
 const fields = (r: { changes: Array<{ field: string }> }) => r.changes.map((c) => c.field);
-/** Every field of Claude's shape, null: one test sets the few it is about. */
-const blank = { goal: null, weeks: null, weeksChange: null, raceDate: null, race: null, runDays: null, addRunDays: null, removeRunDays: null, runsPerWeek: null, runsPerWeekChange: null, longRunDay: null, weeklyMiles: null, weeklyMilesChange: null, peakMiles: null, start: null, startDate: null, cannot: [], note: null };
+/** Every field of Claude's shape at its empty value: one test sets the few it is about. */
+const blank = PLAN_SHAPE_BLANK;
 
 describe('builderDates and builderInput', () => {
   it('starts next Monday, or tomorrow with a warm-up week, or on a set day', () => {
@@ -96,19 +96,42 @@ describe('the contract', () => {
     expect(apply(answers, { weeklyMiles: 30 }).own).toEqual({ runDays: false, weeklyMiles: true });
     expect(apply(answers, { runDays: ['mon', 'wed', 'fri'], runsPerWeek: 4, weeklyMiles: 500 }).own).toEqual({ runDays: true, weeklyMiles: true });
   });
-  it('the shape Claude is asked for takes every field as null', () => {
+  it('the shape Claude is asked for takes every field at its empty value, and has no nullable or optional field', () => {
     expect(zClaudeShapeOutput.safeParse(blank).success).toBe(true);
+    // the API caps union-typed and optional parameters (16 and 24): none of either here, so null is not a value
+    for (const k of Object.keys(blank)) {
+      expect(zClaudeShapeOutput.safeParse({ ...blank, [k]: null }).success, k).toBe(false);
+      const { [k as keyof typeof blank]: _left, ...rest } = blank;
+      expect(zClaudeShapeOutput.safeParse(rest).success, k).toBe(false);
+    }
   });
 });
 
 describe('cleanPlanPatch', () => {
   const clean = (o: Record<string, unknown>) => cleanPlanPatch({ ...blank, ...o }, T)!;
-  it('keeps only what was set: a null field is absent from the patch', () => {
+  it('keeps only what was set: a field at its empty value is absent from the patch, and nothing is dropped for it', () => {
     const r = clean({ runsPerWeek: 4, longRunDay: 'sun' });
     expect(r.patch).toEqual({ runsPerWeek: 4, longRunDay: 'sun' });
     expect(r).toMatchObject({ dropped: [], cannot: [], note: null });
+    expect(clean({})).toEqual({ patch: {}, dropped: [], cannot: [], note: null });
     expect(isEmptyPatch(clean({}).patch)).toBe(true);
     expect(zPlanAssistResult.safeParse({ kind: 'shape', ...r }).success).toBe(true);
+  });
+  it('reads null (an older shape) and the word none the same way: not asked for', () => {
+    const nulls = Object.fromEntries(Object.keys(blank).map((k) => [k, k === 'cannot' ? [] : null]));
+    expect(cleanPlanPatch(nulls, T)).toEqual({ patch: {}, dropped: [], cannot: [], note: null });
+    expect(cleanPlanPatch({ ...nulls, weeks: 12, race: false }, T)!.patch).toEqual({ weeks: 12, race: false });
+    expect(clean({ goal: 'None', longRunDay: ' none ', start: 'NONE', race: 'none', raceDate: 'none', note: 'None' })).toEqual({ patch: {}, dropped: [], cannot: [], note: null });
+  });
+  it('a race day comes back with yes and goes with no', () => {
+    expect(clean({ race: 'yes' }).patch).toEqual({ race: true });
+    expect(clean({ race: 'No' }).patch).toEqual({ race: false });
+    expect(clean({ race: true }).patch).toEqual({ race: true });
+    expect(clean({ race: 'maybe' })).toMatchObject({ patch: {}, dropped: [{ reason: 'bad_value' }] });
+  });
+  it('a goal and a start are read whatever their case', () => {
+    expect(clean({ goal: 'Half', start: 'Monday' }).patch).toEqual({ goal: 'half', start: 'monday' });
+    expect(clean({ goal: 'ultra' })).toMatchObject({ patch: {}, dropped: [{ reason: 'bad_value' }] });
   });
   it('clamps numbers to the builder’s limits and says why', () => {
     expect(clean({ weeks: 52 })).toMatchObject({ patch: { weeks: 30 }, dropped: [{ reason: 'weeks_max', value: 30 }] });
@@ -127,9 +150,16 @@ describe('cleanPlanPatch', () => {
     expect(clean({ weeksChange: 2, weeklyMilesChange: -5, runsPerWeekChange: 1 }).patch).toEqual({ weeksChange: 2, weeklyMilesChange: -5, runsPerWeekChange: 1 });
     expect(clean({ weeksChange: 0, weeklyMilesChange: 0 }).patch).toEqual({});
   });
-  it('a peak of zero hands the peak back to the plan', () => {
-    expect(clean({ peakMiles: 0 }).patch).toEqual({ peakMiles: null });
+  it('peakAuto hands the peak back to the plan; a peak given as a number wins over it; zero is no change', () => {
+    expect(clean({ peakAuto: true }).patch).toEqual({ peakMiles: null });
     expect(clean({ peakMiles: 35 }).patch).toEqual({ peakMiles: 35 });
+    expect(clean({ peakMiles: 35, peakAuto: true }).patch).toEqual({ peakMiles: 35 });
+    expect(clean({ peakMiles: 0 }).patch).toEqual({});
+    expect(clean({ peakMiles: -4 })).toMatchObject({ patch: {}, dropped: [{ reason: 'bad_value' }] });
+  });
+  it('zero in a number field is its empty value, never a value to clamp', () => {
+    expect(clean({ weeks: 0, runsPerWeek: 0, weeklyMiles: 0 })).toEqual({ patch: {}, dropped: [], cannot: [], note: null });
+    expect(clean({ weeks: 0, weeksChange: 3 }).patch).toEqual({ weeksChange: 3 });
   });
   it('reads weekdays whatever their case or length, in week order, and drops a word that is no weekday', () => {
     expect(clean({ runDays: ['Sunday', 'tue', 'THU'], longRunDay: 'Sunday' }).patch).toEqual({ runDays: ['tue', 'thu', 'sun'], longRunDay: 'sun' });
