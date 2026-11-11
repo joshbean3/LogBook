@@ -377,9 +377,11 @@
 }
 .tp-peak-top {
   display: flex;
+  /* at large text the way back drops under the label, so the label never breaks word by word */
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: var(--sp-3);
+  gap: var(--sp-1) var(--sp-3);
   min-width: 0;
 }
 .tp-peak-clear {
@@ -387,7 +389,9 @@
   display: inline-flex;
   align-items: center;
   min-height: var(--hit);
-  margin: calc(-1 * var(--sp-3)) calc(-1 * var(--sp-2)) calc(-1 * var(--sp-3)) 0;
+  /* 44 pt to the touch without growing its line (the pull shrinks as the text grows), and the words sit on the tile's
+     edge on either side: at its right beside the label, at its left once wrapped under it */
+  margin: min(0px, calc((var(--lh-sub) - var(--hit)) / 2)) calc(-1 * var(--sp-2));
   padding: 0 var(--sp-2);
   border: 0;
   border-radius: var(--r-pill);
