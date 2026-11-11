@@ -1712,6 +1712,10 @@
   isolation: isolate;
   display: block;
 }
+.hz.is-dusk {
+  /* under the sky's gradient, never seen: the ground a reading of the title's contrast finds */
+  background-color: var(--twilight);
+}
 .hz-sky {
   position: absolute;
   inset: 0;
@@ -1967,6 +1971,15 @@
   justify-items: start;
   min-width: 0;
 }
+/* the words' own ground is the band's color (it starts on the hill's ground, so it never shows), so a reading of the
+   text's ground finds Deep Sky, not the card's Paper; at dusk the same with Night Ink */
+.hz-band .hz-words-in,
+.hz-band .hz-read-dusk > span {
+  background-color: var(--deep-sky);
+}
+.hz.is-dusk .hz-band .hz-read-dusk > span {
+  background-color: var(--night-ink);
+}
 /* the label: the caption style, with the chevron that says the band opens the week */
 .hz-label {
   display: flex;
@@ -2029,7 +2042,8 @@
   height: clamp(28px, 1.75rem, 36px);
   padding: 2px; /* brand-ok: geometry, the thumb's inset */
   border-radius: var(--r-pill);
-  background: none;
+  /* the band's ground under the track (the pill sits wholly on it) */
+  background: var(--deep-sky);
 }
 :root .seg.hz-views::before {
   content: '';
