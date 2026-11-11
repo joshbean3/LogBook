@@ -1,42 +1,50 @@
-/* "Remember when": the reminder at the top of the Journal tab, as an insight card. A Haze wash header with the date and
-   Share (guide 5.3: Haze washes, no glow), the reminder as a Fraunces italic sentence, three quiet verbs under it. */
+/* "Remember when" (layout standard 6.9): the reminder at the top of the Journal tab. One tinted header holds the caption,
+   Share and the reminder itself in Fraunces italic; under it, on Paper, three quiet verbs. Journal's one Haze wash, no
+   glow (guide 5.3). The wash runs Haze to Cloud, as the dawn wash does, so the whole header reads as one tinted part and
+   meets the Paper verbs at a visible edge. */
 
 .recall-wrap {
-  margin-bottom: 20px;
+  margin-bottom: var(--gap);
 }
 .recall.card {
   position: relative;
+  display: grid;
+  gap: 0;
+  padding: 0;
   overflow: hidden;
   isolation: isolate;
-  gap: 12px;
-  padding: 0 16px 12px;
+  border-radius: var(--r-card);
 }
-/* the insight card's header: a Haze wash that settles into the card's Paper, holding the date and Share */
+
+/* ---------- the header: caption and Share on one row, the reminder 4 under it ---------- */
 .recall-head {
-  position: relative;
-  isolation: isolate;
+  display: grid;
+  gap: var(--sp-1);
+  min-width: 0;
+  padding: var(--sp-3) var(--pad-card) var(--pad-card);
+  background: linear-gradient(180deg, var(--haze), var(--cloud));
+}
+.recall-top {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
-  min-height: 56px;
-  margin: 0 -16px;
-  padding: 10px 8px 10px 16px;
-  background: linear-gradient(180deg, var(--haze) 0%, var(--surface) 100%);
+  gap: var(--sp-2);
+  min-height: 40px;
 }
-/* the old white light under the header is gone: the wash alone carries it */
-.recall-head-light {
-  display: none;
-}
-.recall-head .recall-eyebrow {
+.recall-eyebrow {
+  margin: 0;
+  /* Dusk on the wash: 5.65 on Haze, more on Cloud */
   color: var(--ink-2);
 }
+/* Share: a 40 px round Paper button (guide 6.9) with a 44 px target; no float shadow inside a card (layout standard 5.2) */
 .recall-share-btn {
+  position: relative;
   flex: none;
   display: grid;
   place-items: center;
-  width: 44px;
-  height: 44px;
+  width: 40px;
+  height: 40px;
+  margin-right: calc(-1 * var(--sp-1));
   padding: 0;
   border: 0;
   border-radius: 50%;
@@ -44,11 +52,159 @@
   color: var(--ink);
   -webkit-tap-highlight-color: transparent;
 }
+.recall-share-btn::after {
+  content: '';
+  position: absolute;
+  inset: -2px;
+}
+.recall-share-btn.is-ghost {
+  display: block;
+}
 
-/* Share: the card as it will look, then the two verbs */
+/* the item: an outgoing and an incoming one share the cell while they cross-fade, so the card never collapses between */
+.recall-stack {
+  display: grid;
+  min-width: 0;
+}
+.recall-body {
+  grid-area: 1 / 1;
+  display: grid;
+  gap: var(--sp-2);
+  align-content: start;
+  min-width: 0;
+}
+/* the reminder: Fraunces italic 22/28 Night Ink (12.6 on Haze), at most four lines, then an ellipsis */
+.recall-text {
+  display: block;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  text-align: left;
+  color: var(--ink);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: opacity var(--dur-in) var(--ease-out);
+}
+.recall-quote {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 4;
+  line-clamp: 4;
+  overflow: hidden;
+  font: italic 420 var(--fs-sentence) / var(--lh-sentence) var(--serif);
+  letter-spacing: 0;
+  overflow-wrap: break-word;
+}
+
+/* the assistant's line says so, with the entry one tap away. On the wash the link is Night Ink 600 with a chevron:
+   Deep Sky on Haze is large text only (layout standard 6.9) */
+.recall-ai {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0 var(--sp-3);
+  margin: calc(-1 * var(--sp-2)) 0 calc(-1 * var(--sp-3));
+  color: var(--ink-2);
+  font: 500 var(--fs-foot) / var(--lh-foot) var(--sans);
+}
+.recall-ai-open {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  min-height: var(--hit);
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--ink);
+  font: 600 var(--fs-foot) / var(--lh-foot) var(--sans);
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* ---------- the verbs: quiet Deep Sky words on Paper, spread across the card's text width, 44 tall ---------- */
+.recall-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0 var(--sp-3);
+  padding: var(--sp-1) var(--pad-card);
+}
+.recall-tool {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  min-height: var(--hit);
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--accent-text);
+  font: 600 var(--fs-sub) / var(--lh-sub) var(--sans);
+  white-space: nowrap;
+  -webkit-tap-highlight-color: transparent;
+}
+.recall-tool svg {
+  flex: none;
+}
+/* a short word ("Hide") still gets a 44 wide target, reaching past its own edges */
+.recall-tool::after {
+  content: '';
+  position: absolute;
+  inset: 0 min(0px, calc((100% - var(--hit)) / 2));
+}
+/* Remind me more, on: the bell fills (shape, not only color) and the words step to Night Ink */
+.recall-tool.is-on {
+  color: var(--ink);
+}
+.recall-tool.is-on svg {
+  color: var(--accent-text);
+}
+.recall-tool:disabled {
+  opacity: 0.5;
+}
+.recall[aria-busy='true'] .recall-text {
+  opacity: 0.6;
+}
+/* a small phone keeps the three on one line: only the bell keeps its glyph (it carries the on state) */
+@media (max-width: 359px) {
+  .recall-tool:not(.is-boost) svg {
+    display: none;
+  }
+}
+.recall-spin {
+  animation: recall-spin 900ms linear infinite;
+}
+@keyframes recall-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .recall-spin {
+    animation-duration: 2.4s;
+  }
+}
+
+/* ---------- the first answer's place, held by a card of the same build ---------- */
+.recall-skel {
+  display: grid;
+}
+.recall-skel-lines {
+  display: grid;
+  gap: var(--sp-2);
+  padding: var(--sp-1) 0 var(--sp-2);
+}
+.recall-skel .recall-tools {
+  min-height: 52px;
+}
+
+/* ---------- Share: the card as it will look, then the two verbs ---------- */
 .recall-share {
   display: grid;
-  gap: 16px;
+  gap: var(--sp-4);
 }
 .recall-share-preview {
   display: grid;
@@ -67,242 +223,14 @@
   object-fit: contain;
 }
 .recall-share-wait {
-  padding: 16px;
+  padding: var(--sp-4);
   font-size: var(--fs-foot);
   color: var(--ink-2);
   text-align: center;
-}
-.recall-share-actions {
-  display: grid;
-  gap: 8px;
 }
 .recall-share-actions .btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  height: 48px;
-}
-
-/* the item: an outgoing and an incoming one share the cell while they cross-fade, so the card never collapses between */
-.recall-stack {
-  display: grid;
-  min-width: 0;
-}
-.recall-body {
-  grid-area: 1 / 1;
-  display: grid;
-  gap: 8px;
-  align-content: start;
-  min-width: 0;
-}
-.recall-eyebrow {
-  margin: 0;
-}
-.recall-text {
-  display: block;
-  width: 100%;
-  margin: 0;
-  padding: 0;
-  border: 0;
-  background: none;
-  text-align: left;
-  color: var(--ink);
-  font: italic 420 var(--fs-sentence) / var(--lh-sentence) var(--serif);
-  letter-spacing: 0;
-  overflow-wrap: break-word;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-  transition: opacity var(--dur-in) var(--ease-out);
-}
-
-/* the assistant's line says so, with the entry itself one tap away (44 px tall, under the words) */
-.recall-ai {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 0 12px;
-  margin: -4px 0 -6px;
-  color: var(--ink-2);
-  font: 500 var(--fs-foot) / var(--lh-foot) var(--sans);
-}
-.recall-ai-open {
-  display: inline-flex;
-  align-items: center;
-  gap: 2px;
-  min-height: 44px;
-  margin-right: -4px;
-  padding: 0 4px;
-  border: 0;
-  background: none;
-  color: var(--deep-sky);
-  font: 600 var(--fs-foot) / var(--lh-foot) var(--sans);
-  -webkit-tap-highlight-color: transparent;
-}
-
-/* the three verbs: quiet text pills; Remind me more lights when it is on */
-.recall-tools {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px 2px;
-  margin: 0 -10px;
-}
-.recall-tool {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  min-height: 36px;
-  padding: 0 10px;
-  border: 1px solid transparent;
-  border-radius: var(--r-pill);
-  background: none;
-  color: var(--ink-2);
-  font: 500 var(--fs-foot) / var(--lh-foot) var(--sans);
-  white-space: nowrap;
-  -webkit-tap-highlight-color: transparent;
-  transition:
-    background-color var(--dur-color) var(--ease-out),
-    color var(--dur-color) var(--ease-out);
-}
-/* the hit area reaches 44 px without making the pill bigger */
-.recall-tool {
-  position: relative;
-}
-.recall-tool::after {
-  content: '';
-  position: absolute;
-  inset: -4px 0;
-}
-.recall-tool svg {
-  flex: none;
-  color: var(--ink-2);
-}
-/* Remind me more, on: a Sky tint with Night Ink words and a Deep Sky bell (Deep Sky words on the tint fail body, 1.6 B) */
-.recall-tool.is-on {
-  background: var(--accent-tint);
-  color: var(--ink);
-}
-.recall-tool.is-on svg {
-  color: var(--deep-sky);
-}
-.recall-tool:disabled {
-  opacity: 0.5;
-}
-.recall[aria-busy='true'] .recall-text {
-  opacity: 0.6;
-}
-
-/* a small phone keeps the three on one line: only the bell keeps its icon (it carries the on state) */
-@media (max-width: 359px) {
-  .recall-tool {
-    padding: 0 8px;
-    gap: 5px;
-  }
-  .recall-tools {
-    margin: 0 -8px;
-    gap: 4px 0;
-  }
-  .recall-tool:not(.is-boost) svg {
-    display: none;
-  }
-}
-
-/* ---------- shape v2: the insight card's padding on the system; the three verbs as one row under a hairline ---------- */
-.recall-wrap {
-  margin-bottom: var(--gap);
-}
-.recall.card {
-  gap: 12px;
-  padding: 0 var(--pad-card) 0;
-  border-radius: var(--r-card);
-}
-.recall-head {
-  min-height: 60px;
-  margin: 0 calc(-1 * var(--pad-card));
-  padding: 10px 10px 10px var(--pad-card);
-}
-.recall-share-btn {
-  width: 40px;
-  height: 40px;
-  background: var(--surface);
-  box-shadow: var(--shadow-float);
-}
-.recall-share-btn::after {
-  content: '';
-  position: absolute;
-  inset: -2px;
-}
-/* three verbs sized to their words, 12 px inside each, the extra room shared out */
-.recall-tools {
-  display: flex;
-  gap: 0;
-  margin: 2px calc(-1 * var(--pad-card)) 0;
-  border-top: 1px solid var(--line);
-}
-.recall-tool {
-  flex: 1 1 auto;
-  justify-content: center;
-  min-height: 48px;
-  padding: 0 12px;
-  border-radius: 0;
-  border: 0;
-  white-space: normal;
-  text-align: center;
-}
-.recall-spin {
-  animation: recall-spin 900ms linear infinite;
-}
-@keyframes recall-spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-@media (prefers-reduced-motion: reduce) {
-  .recall-spin {
-    animation-duration: 2.4s;
-  }
-}
-/* the first answer's place, held by a card of the same build */
-.recall-skel {
-  display: grid;
-  gap: 12px;
-}
-.recall-skel .recall-head {
-  align-items: center;
-}
-.recall-skel-lines {
-  display: grid;
-  gap: 6px;
-  padding: 3px 0 8px;
-}
-.recall-skel-ai {
-  display: flex;
-  align-items: center;
-  height: 34px;
-  margin-top: -4px;
-}
-.recall-skel .recall-tool {
-  display: block;
-}
-.recall-tool + .recall-tool {
-  box-shadow: inset 1px 0 0 var(--line);
-}
-.recall-tool.is-on {
-  border-color: transparent;
-}
-@media (max-width: 359px) {
-  .recall-tools {
-    margin: 2px calc(-1 * var(--pad-card)) 0;
-  }
-  .recall-tool {
-    flex-basis: 0;
-    padding: 0 8px;
-    white-space: normal;
-    text-align: center;
-    line-height: 1rem;
-  }
-  .recall-tool svg {
-    display: none;
-  }
+  gap: var(--sp-2);
 }

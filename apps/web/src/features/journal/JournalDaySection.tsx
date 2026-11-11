@@ -33,6 +33,8 @@ export const entryWhen = (e: Pick<JournalEntry, 'date' | 'createdAt'>): string =
   if (!day) return '';
   return day === e.date ? timeOf(e.createdAt) : `added ${fmtDate('md', day)}`;
 };
+/** The first letter up: a meta line that opens with "added Nov 9" reads "Added Nov 9". */
+export const upperFirst = (w: string) => (w ? w[0]!.toUpperCase() + w.slice(1) : w);
 /** An entry's day as a sheet names it: `Fri, Nov 6`, with the year when it is not this one. */
 export const entryDay = (date: string, today: string) => `${fmtDate('short', date)}${date.slice(0, 4) === today.slice(0, 4) ? '' : `, ${date.slice(0, 4)}`}`;
 
@@ -129,7 +131,7 @@ export const EntryEditor = ({ e }: { e: JournalEntry }) => {
 
 /**
  * Behind a tap on an entry: the words to read (not a keyboard), with what the day held. Edit pushes the editor in the same
- * sheet; Favorite and Share act in place; Delete, a quiet row under them, closes it with an Undo.
+ * sheet; Favorite and Share act in place, 12 apart; Delete, alone at the end in Signal, closes it with an Undo.
  */
 export const EntrySheet = ({ e: opened, stamp }: { e: JournalEntry; stamp?: string | null }) => {
   const e = useLiveEntry(opened.id, opened);
@@ -138,13 +140,7 @@ export const EntrySheet = ({ e: opened, stamp }: { e: JournalEntry; stamp?: stri
   return (
     <div className="esheet">
       <p className="esheet-text">{e.text}</p>
-      <p className="esheet-meta">
-        <span className="caps">
-          {entryWhen(e)}
-          {e.editedAt ? ' · edited' : ''}
-        </span>
-        {stamp ? <span className="jstamp">{stamp}</span> : null}
-      </p>
+      <p className="esheet-meta">{[upperFirst(entryWhen(e)), stamp, e.editedAt ? 'edited' : null].filter(Boolean).join(' · ')}</p>
       <div className="esheet-actions">
         <Button onClick={() => sheet.push({ title: 'Edit', body: <EntryEditor e={e} />, detent: 'large' })}>
           <Pencil size={16} aria-hidden="true" /> Edit

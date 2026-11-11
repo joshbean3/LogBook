@@ -1,10 +1,10 @@
 import { fmtDate, parseISO, type JournalEntry } from '@logbook/shared';
-import { ChevronLeft, ChevronRight, PenLine, Plus } from 'lucide-react';
+import { ChevronRight, PenLine, Plus } from 'lucide-react';
 import { haptics } from '@/lib/haptics';
-import { Pressable, Segmented, Skeleton } from '@/ui';
+import { PagerButtons, Row, Segmented, SEG_TONE_WAYFINDING, Skeleton } from '@/ui';
 import { Disc, type DiscTone } from '@/ui/Disc';
 import { FavoriteIcon } from '@/ui/icons';
-import { dayLabel, monthGrid, ORB_KEY, orbVariant, pageBy, pageHolds, pageTitle, weekDays, type CalView, type OrbVariant } from './calDays';
+import { dayLabel, monthGrid, orbVariant, pageBy, pageHolds, pageTitle, weekDays, type CalView, type OrbVariant } from './calDays';
 
 /** The guide's entry marks (12.1): one entry a Haze disc ringed in Deep Sky, two `--entry-2`, three or more Sky, a Favorite Deep Sky. */
 const TONE: Record<Exclude<OrbVariant, 'brand'>, DiscTone> = { sky: 'haze', dusk: 'two', tide: 'sky', sun: 'deep' };
@@ -50,10 +50,11 @@ export interface CalendarProps {
 }
 
 /**
- * The Journal's calendar card: the page's name with how many days have entries, Week · Month and the paging arrows, then
- * the days. A day with entries wears a flat disc in its tone with the count inside it (a heart on a day with a
- * favorite), so nothing rests on color alone; a day without is a plain number. Today is ringed and, until it has an
- * entry, holds a plus and the card ends in "Write today's entry". Tap a day to open it; days to come are quiet.
+ * The Journal's calendar card: the page's name with how many days have entries, Week · Month and the paging chevrons,
+ * then the days. A day with entries wears a flat disc in its tone with the count inside it (a heart on a day with a
+ * favorite), so nothing rests on color alone and no legend is needed; a day without is a plain number. Today's numeral
+ * is ringed in Night Ink, the open day's in Sky. Until today has an entry it holds a plus, and the card ends in the
+ * "Write today's entry" row under a hairline. Tap a day to open it; days to come are quiet.
  */
 export const Calendar = ({ today, byDate, loading = false, failed = false, onRetry, view, onView, anchor, onAnchor, open, onPick, writingToday }: CalendarProps) => {
   const days = view === 'week' ? weekDays(anchor) : monthGrid(anchor);
@@ -96,6 +97,7 @@ export const Calendar = ({ today, byDate, loading = false, failed = false, onRet
       <div className="jcal-bar">
         <Segmented
           className="k-seg jcal-seg"
+          tone={SEG_TONE_WAYFINDING}
           label="Week or month"
           options={[
             ['week', 'Week'],
@@ -113,12 +115,7 @@ export const Calendar = ({ today, byDate, loading = false, failed = false, onRet
               Today
             </button>
           )}
-          <button type="button" className="jcal-arrow" aria-label={view === 'week' ? 'Previous week' : 'Previous month'} onClick={() => page(-1)}>
-            <ChevronLeft size={20} aria-hidden="true" />
-          </button>
-          <button type="button" className="jcal-arrow" aria-label={view === 'week' ? 'Next week' : 'Next month'} disabled={atEnd} onClick={() => page(1)}>
-            <ChevronRight size={20} aria-hidden="true" />
-          </button>
+          <PagerButtons onPrev={() => page(-1)} onNext={() => page(1)} prevLabel={view === 'week' ? 'Previous week' : 'Previous month'} nextLabel={view === 'week' ? 'Next week' : 'Next month'} nextDisabled={atEnd} />
         </div>
       </div>
       {view === 'month' ? (
@@ -164,28 +161,22 @@ export const Calendar = ({ today, byDate, loading = false, failed = false, onRet
         })}
       </div>
       {todayEmpty && !writingToday && !unknown ? (
-        <Pressable className="jcal-write" press="scale" onPress={() => onPick(today)} label="Write today’s entry">
-          <DayDisc variant={null} size={26} />
-          <span className="jcal-write-t">
-            <b>Write today’s entry</b>
-            <span>A line or two is plenty</span>
-          </span>
-          <PenLine size={18} aria-hidden="true" className="jcal-write-i" />
-        </Pressable>
+        <>
+          <hr className="rule jcal-rule" />
+          <Row
+            className="jcal-write"
+            left={
+              <span className="icon-tile" aria-hidden="true">
+                <PenLine size={18} />
+              </span>
+            }
+            title="Write today’s entry"
+            sub="A line or two is plenty"
+            right={<ChevronRight size={18} className="lrow-chev" aria-hidden="true" />}
+            onClick={() => onPick(today)}
+          />
+        </>
       ) : null}
-      <div className="jcal-key">
-        <span className="jcal-key-k" id="jcal-key-k">
-          Entries
-        </span>
-        <ul aria-labelledby="jcal-key-k">
-          {ORB_KEY.map(({ v, label }, i) => (
-            <li key={v}>
-              <DayDisc variant={v} size={18} n={i + 1} />
-              <span>{label}</span>
-            </li>
-          ))}
-        </ul>
-      </div>
     </section>
   );
 };

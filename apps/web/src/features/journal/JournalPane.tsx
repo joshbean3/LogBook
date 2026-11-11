@@ -264,9 +264,12 @@ const DayCard = ({ date, today, byDate, writeReq, onDay, onClose, onWriting }: {
       }}
     >
       <div className="jday-head">
-        <motion.span key={variant ?? 'none'} className="jday-orb" initial={reduce ? false : { scale: 0.6, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={springs.complete}>
-          {variant ? <DayDisc variant={variant} size={34} n={entries.length} /> : <span className="jday-ring" aria-hidden="true" />}
-        </motion.span>
+        {/* a written day wears its disc; a day with nothing written starts at the card's text edge (no empty ring) */}
+        {variant ? (
+          <motion.span key={variant} className="jday-orb" initial={reduce ? false : { scale: 0.6, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={springs.complete}>
+            <DayDisc variant={variant} size={34} n={entries.length} />
+          </motion.span>
+        ) : null}
         <div className="jday-titles">
           <h2 className="jday-title">
             <span className="jday-title-l">{dayTitle(date, today)}</span>

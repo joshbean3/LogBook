@@ -19,7 +19,7 @@
   gap: 12px;
   min-width: 0;
   container: jcal / inline-size;
-  padding: 16px 12px 14px;
+  padding: var(--pad-card);
   border-radius: var(--r-card);
   background: var(--surface);
   border: var(--card-border);
@@ -30,9 +30,8 @@
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
-  gap: 2px 10px;
+  gap: 0 var(--sp-2);
   min-width: 0;
-  padding: 0 4px;
 }
 .jcal-title {
   margin: 0;
@@ -42,84 +41,48 @@
   letter-spacing: 0;
   color: var(--ink);
 }
+/* "6 days written": the section meta's style (layout standard 6.1), 8 after the title on its baseline */
 .jcal-meta {
   flex: none;
-  margin-left: auto;
-  font: 400 0.8125rem / 1.125rem var(--sans);
+  font: 500 var(--fs-sub) / var(--lh-sub) var(--sans);
   color: var(--ink-3);
 }
 .jcal-bar {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
-  padding: 0 2px;
+  gap: var(--sp-2);
 }
-/* Week · Month gives way before the arrows do, and takes a second line before it is cut */
+/* Week · Month: 44 tall in a card, Inter 15 (guide 6.3); it gives way before the chevrons do, and takes a second line
+   before it is cut */
 .seg.k-seg.jcal-seg {
-  flex: 0 1 136px;
-  min-width: 112px;
+  flex: 0 1 152px;
+  min-width: 120px;
   height: auto;
-  min-height: 32px;
+  min-height: 44px;
 }
-.seg.k-seg.jcal-seg .seg-btn {
-  min-height: 28px;
-}
-/* each segment is a 44 px target inside the 32 px control */
-.seg.k-seg.jcal-seg .seg-btn::after {
-  inset: -8px 0;
-}
+/* the chevrons (layout standard 6.6): two bare 44 buttons, Deep Sky, their hit boxes touching; they end on the card's
+   text edge */
 .jcal-nav {
   display: flex;
   align-items: center;
   gap: 0;
   margin-left: auto;
+  margin-right: calc((18px - var(--hit)) / 2); /* brand-ok: geometry, the 18 px glyph's edge on the text edge */
 }
-.jcal-arrow,
+/* back to today's page: a quiet word, Deep Sky Inter 600, a 44 target */
 .jcal-today-btn {
-  position: relative;
-  display: grid;
-  place-items: center;
-  min-height: 36px;
-  padding: 0;
+  min-width: var(--hit);
+  min-height: var(--hit);
+  padding: 0 var(--sp-2);
   border: 0;
-  border-radius: var(--r-icon);
   background: none;
-  color: var(--ink-2);
+  color: var(--accent-text);
+  font: 600 var(--fs-sub) / var(--lh-sub) var(--sans);
   -webkit-tap-highlight-color: transparent;
 }
-.jcal-arrow {
-  width: 44px;
-}
-/* 44 tall to the thumb: the arrows are 44 wide, the Today pill 36 tall with 4 px of reach above and below */
-.jcal-arrow::after,
-.jcal-today-btn::after {
-  content: '';
-  position: absolute;
-  inset: -4px 0;
-}
-.jcal-arrow:active,
 .jcal-today-btn:active {
-  background: var(--well);
-}
-.jcal-arrow:disabled {
-  color: var(--ink-4);
-  opacity: 0.4;
-}
-.jcal-today-btn {
-  min-width: 44px;
-  margin-right: 4px;
-  padding: 4px 12px;
-  border-radius: var(--r-pill);
-  background: var(--cloud);
-  font: 600 var(--fs-tag) / 1rem var(--sans);
-  color: var(--ink);
-}
-@media (max-width: 359px) {
-  .jcal-today-btn {
-    padding-inline: 8px;
-    margin-right: 0;
-  }
+  opacity: 0.6;
 }
 /* a card too narrow for the bar in one row (Larger Text): Week · Month takes its own row, and its labels may wrap */
 @container jcal (max-width: 15rem) {
@@ -245,94 +208,44 @@
 .jcal-cell:not(:disabled):active {
   background: var(--well);
 }
-/* today: a 1.5 px Night Ink ring, as today is in every calendar (guide 6.13, plan D14) */
-.jcal-cell.is-today::before,
-.jcal-cell.is-open::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
+/* the numeral sits in a circle, so a ring marks the day without touching its weekday at 320 (layout standard 6.2):
+   32 in a week, 28 in a month's 48 row */
+.jcal-num {
+  display: grid;
+  place-items: center;
+  min-width: var(--tile-ic);
+  height: var(--tile-ic);
+  border-radius: 50%;
+}
+.jcal-grid.is-month .jcal-num {
+  min-width: 28px;
+  height: 28px;
+}
+/* today: a 1.5 px Night Ink ring on the numeral, as today is in every calendar (guide 6.13, plan D14) */
+.jcal-cell.is-today .jcal-num {
   box-shadow: inset 0 0 0 1.5px var(--ink);
-  pointer-events: none;
 }
 .jcal-cell.is-today .jcal-num,
 .jcal-cell.is-today .jcal-wd {
   color: var(--ink);
 }
-.jcal-cell.is-today .jcal-num {
-  font-weight: 700;
-}
-/* the open day (the one in the day card): a 2 px Sky ring and Deep Sky words; on today it wins over today's ring */
-.jcal-cell.is-open::before {
+/* the open day (the one in the day card): a 2 px Sky ring and a Deep Sky numeral; on today it wins over today's ring */
+.jcal-cell.is-open .jcal-num {
   box-shadow: inset 0 0 0 2px var(--accent);
-}
-.jcal-cell.is-open .jcal-num,
-.jcal-cell.is-open .jcal-wd {
   color: var(--deep-sky);
 }
 
-/* "Write today's": the card's one verb while today is empty */
-.jcal-write {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  min-height: 56px;
-  margin: 2px 0 0;
-  padding: 8px 14px 8px 12px;
-  border-radius: var(--r-tile);
-  /* a row inside the card: an edge, never a second card's shadow (guide 5.3) */
-  background: var(--surface);
-  box-shadow: inset 0 0 0 1px var(--edge);
-  color: var(--ink);
-  text-align: left;
-  cursor: pointer;
+/* "Write today's entry": the card's last row under a full-bleed hairline (layout standard 2.8), a row of the one
+   template that bleeds to the card's edges and bottom */
+.jcal > .rule.jcal-rule {
+  margin: var(--sp-1) calc(-1 * var(--pad-card)) calc(-1 * var(--gap));
 }
-.jcal-write-t {
-  display: grid;
-  flex: 1;
-  min-width: 0;
+.jcal > .jcal-write {
+  margin: 0 calc(-1 * var(--pad-card)) calc(-1 * var(--pad-card));
+  border-radius: 0 0 var(--r-card) var(--r-card);
 }
-.jcal-write-t b {
-  font: 600 var(--fs-sub) / var(--lh-sub) var(--sans);
-}
-.jcal-write-t span {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font: 400 var(--fs-foot) / var(--lh-foot) var(--sans);
-  color: var(--ink-2);
-}
-.jcal-write-i {
-  flex: none;
-  color: var(--deep-sky);
-}
-
-/* the key: what each orb means */
-.jcal-key {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 4px 12px;
-  padding: 2px 4px 0;
-  font: 400 var(--fs-foot) / var(--lh-foot) var(--sans);
-  color: var(--ink-2);
-}
-.jcal-key-k {
-  font-weight: 600;
-  color: var(--ink-2);
-}
-.jcal-key ul {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px 10px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-.jcal-key li {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
+.jcal-write .icon-tile {
+  color: var(--accent-text);
 }
 
 /* ---------- the day card ---------- */
@@ -348,7 +261,7 @@
   gap: 12px;
   min-width: 0;
   container: jday / inline-size;
-  padding: 14px 16px 16px;
+  padding: var(--pad-card);
   border-radius: var(--r-card);
   background: var(--surface);
   border: var(--card-border);
@@ -403,14 +316,6 @@
   flex: none;
   width: 44px;
   height: 44px;
-}
-/* a day with nothing written: an outline where the disc would be (a disc means written) */
-.jday-ring {
-  display: block;
-  width: 30px;
-  height: 30px;
-  border-radius: 50%;
-  box-shadow: inset 0 0 0 1.5px var(--coin-ring);
 }
 .jday-orb .jcal-disc .lb-disc-n {
   font-size: min(var(--fs-sub), calc(var(--s) * 0.55));
@@ -508,7 +413,7 @@
   display: flex;
   justify-content: flex-end;
   align-items: center;
-  gap: 8px;
+  gap: var(--sp-3);
 }
 /* how much of an entry's 5,000 characters is used, from 4,500 on */
 .jday-count {
@@ -557,27 +462,25 @@
   justify-self: start;
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  min-height: 44px;
-  margin: -12px 0 -8px -4px;
-  padding: 0 8px 0 4px;
+  gap: var(--sp-2);
+  min-height: var(--hit);
+  margin: calc(-1 * var(--sp-3)) 0 calc(-1 * var(--sp-2));
+  padding: 0;
   border: 0;
   background: none;
-  color: var(--deep-sky);
-  font: 600 var(--fs-sub) / 1 var(--sans);
+  color: var(--accent-text);
+  font: 600 var(--fs-row) / var(--lh-row) var(--sans);
 }
-/* the first entry of the day is the card's one action: the primary */
+/* the first entry of a day is the card's one action: the primary, 44 inline at the text's leading edge (layout standard
+   6.6) */
 .jday-add.is-first {
-  justify-self: stretch;
-  justify-content: center;
-  min-height: 48px;
   margin: 0;
-  padding: 0 16px;
+  padding: 0 var(--sp-5);
   border-radius: var(--r-pill);
   background: var(--primary);
   box-shadow: var(--primary-glow);
   color: var(--primary-ink);
-  font: 650 var(--fs-row) / 1 var(--sans);
+  font-weight: 650;
 }
 
 /* a year ago: a row at the card's foot, under a hairline */

@@ -190,148 +190,10 @@ textarea.jtext:focus {
   color: var(--ink-2);
 }
 
-/* ---------- small marks: the run stamp (a Dusk-on-Cloud tag in caption style), the favorite heart ---------- */
-.jstamp {
-  display: inline-flex;
-  align-items: center;
-  height: 20px;
-  padding: 0 8px;
-  border-radius: var(--r-pill);
-  background: var(--cloud);
-  font-family: var(--stamp);
-  font-weight: 600;
-  font-size: var(--fs-caps);
-  line-height: 1;
-  letter-spacing: var(--tr-caps);
-  text-transform: uppercase;
-  color: var(--ink-2);
-  white-space: nowrap;
-  max-width: 100%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
+/* ---------- small marks: the favorite heart ---------- */
 .jfav {
   color: var(--star);
   flex: none;
-}
-
-/* ---------- the entry timeline: edge to edge, a day's date at the left of its first entry ---------- */
-.jtl-sec .section-head .icon-btn {
-  margin-right: -10px;
-}
-.jtl-search {
-  display: block;
-}
-.jtl-search .in {
-  margin: 4px 0 12px;
-}
-.jtl {
-  display: grid;
-  margin-inline: calc(-1 * var(--gutter));
-}
-.jtl-item {
-  position: relative;
-  overflow: hidden;
-}
-/* a hairline between days, not between the entries of one day */
-.jtl-item.first:not(:first-child)::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: var(--gutter);
-  right: 0;
-  height: 1px;
-  background: var(--line);
-  z-index: 2;
-}
-.jtl-row {
-  appearance: none;
-  border: 0;
-  background: none;
-  margin: 0;
-  width: 100%;
-  display: grid;
-  /* 40 px at the default size, wider with Larger Text, so the day's number never runs into its words */
-  grid-template-columns: 2.5rem minmax(0, 1fr);
-  gap: 12px;
-  padding: 14px var(--gutter);
-  min-height: 60px;
-  text-align: left;
-  color: inherit;
-  cursor: pointer;
-  transition: background-color var(--dur-color) var(--ease-out);
-}
-.jtl-item:not(.first) .jtl-row {
-  padding-top: 2px;
-}
-.jtl-row[data-pressed] {
-  background: var(--surface-2);
-}
-.jtl-date {
-  display: grid;
-  align-content: start;
-}
-.jtl-date-shared {
-  display: grid;
-  justify-items: start;
-}
-/* the day's number: a date that never changes after it is drawn, so Fraunces 600 at the card-title size (guide 4.4) */
-.jtl-day {
-  font: 600 var(--fs-head) / 1.5rem var(--serif);
-  letter-spacing: 0;
-  color: var(--ink);
-}
-.jtl-body {
-  display: grid;
-  gap: 6px;
-  min-width: 0;
-}
-.jtl-text {
-  font: italic 420 var(--fs-sentence-sm) / var(--lh-row) var(--serif);
-  letter-spacing: 0;
-  color: var(--j-ink);
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 4;
-  overflow: hidden;
-}
-.jtl-meta .caps {
-  font-variant-numeric: tabular-nums;
-}
-.jtl-meta {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 4px 10px;
-  min-width: 0;
-}
-.jtl-skel {
-  display: grid;
-  gap: 20px;
-  padding: 16px;
-}
-.jtl-skel-row {
-  display: flex;
-  gap: 12px;
-}
-.jtl-skel-lines {
-  display: grid;
-  flex: 1;
-  gap: 8px;
-}
-/* one clear control while searching: the header's X (the field's own cancel button is hidden) */
-.jtl-search input[type='search']::-webkit-search-cancel-button {
-  -webkit-appearance: none;
-  appearance: none;
-}
-.jtl-more {
-  margin-top: 8px;
-}
-/* the empty state's ghost rows: the timeline at 30% */
-.jtl-row.ghost {
-  cursor: default;
 }
 
 /* ---------- the entry sheet: words to read, then the verbs ---------- */
@@ -348,30 +210,31 @@ textarea.jtext:focus {
   color: var(--j-ink);
 }
 .esheet-meta {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
+  margin: 0;
+  font: 500 var(--fs-foot) / var(--lh-foot) var(--sans);
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-3);
 }
-/* three equal verbs in one row (the star's state is its fill, so the row never moves), Delete a quiet row under them */
+/* three equal verbs in one row, 12 apart (the heart's state is its fill, so the row never moves); Delete alone at the end,
+   a quiet word in Signal (layout standard 6.6) */
 .esheet-actions {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 8px;
-  margin-top: 8px;
+  gap: var(--sp-3);
+  margin-top: var(--sp-2);
 }
 .esheet-actions .btn.is-fav svg {
   color: var(--star);
 }
-.btn.danger-quiet {
+:root .btn.quiet.danger-quiet {
   color: var(--bad);
 }
 .esheet-actions .btn {
   min-width: 0;
-  min-height: 44px;
+  min-height: var(--hit);
   height: auto;
-  padding: 4px 8px;
-  gap: 6px;
+  padding: var(--sp-1) var(--sp-2);
+  gap: var(--sp-2);
   white-space: normal;
 }
 .esheet-actions .btn svg {
@@ -380,13 +243,13 @@ textarea.jtext:focus {
 /* a narrow phone: the three verbs a size down, so each label keeps air inside its rounded end */
 @media (max-width: 359px) {
   .esheet-actions .btn {
-    gap: 4px;
+    gap: var(--sp-1);
     font-size: var(--fs-sub);
   }
 }
 .btn.esheet-del {
-  min-height: 44px;
-  margin-bottom: 8px;
+  min-height: var(--hit);
+  margin-bottom: var(--sp-2);
 }
 /* the editor: the sheet is the surface, so the text sits on a hairline with 8px of air */
 .jsheet-text {
@@ -440,26 +303,18 @@ textarea.jsheet-text {
    their own cards (calendar.css), the entries as rows of one card.
    ====================================================================================================================== */
 
-/* ---------- the entries: rows of one card, a hairline between days ---------- */
+/* ---------- the entries (layout standard 2.8, 6.2): one inset group per month, date-gutter rows ---------- */
 .jtl-sec.k-sec {
   scroll-margin-top: 96px;
 }
-.jtl.k-rows {
-  display: grid;
-  margin-inline: 0;
+.jtl-sec .lb-slot .icon-btn {
+  width: var(--hit);
+  height: var(--hit);
+  margin-right: calc((20px - var(--hit)) / 2); /* brand-ok: geometry, the 20 px glyph's edge on the gutter */
+  color: var(--ink);
 }
-.jtl.k-rows > .jtl-item::before {
-  content: none;
-}
-.jtl.k-rows > .jtl-item.first:not(:first-child)::before {
-  content: '';
-  left: 68px;
-}
-.jtl.k-rows .jtl-row {
-  padding: 14px 16px;
-}
-.jtl.k-rows .jtl-item:not(.first) .jtl-row {
-  padding-top: 0;
+.jtl-search {
+  display: block;
 }
 .jtl-search .in {
   margin: 0 0 var(--gap);
@@ -467,16 +322,116 @@ textarea.jsheet-text {
   background: var(--surface);
   box-shadow: var(--shadow-1);
 }
-.jtl-more.pill-row {
-  margin-top: var(--gap);
+/* one clear control while searching: the header's X (the field's own cancel button is hidden) */
+.jtl-search input[type='search']::-webkit-search-cancel-button {
+  -webkit-appearance: none;
+  appearance: none;
 }
-.jtl-empty .empty-state {
+.jtl-months {
+  display: grid;
+}
+/* an older month: the list-page group title, 24 above and 8 below (no 26 sits directly over a 22) */
+.jtl-mhead {
+  margin: var(--sp-6) 0 var(--sp-2);
+  font: 600 var(--fs-head) / var(--lh-head) var(--serif);
+  letter-spacing: 0;
+  color: var(--ink);
+}
+.jtl-item {
+  overflow: hidden;
+}
+/* the hairline starts where the words do, past the date gutter; a day's later entries keep the gutter empty, so the day
+   still reads as one */
+.group.jtl > * + *::before {
+  left: calc(var(--sp-4) + var(--gutter-date) + var(--sp-3));
+  z-index: 2;
+}
+.lrow.jtl-row {
+  appearance: none;
+  width: 100%;
+  margin: 0;
+  align-items: flex-start;
+  padding-block: var(--sp-3);
+  border: 0;
+  text-align: left;
+  color: inherit;
+  cursor: pointer;
+  transition: background-color var(--dur-color) var(--ease-out);
+}
+.lrow.jtl-row[data-pressed] {
+  background: var(--surface-2);
+}
+/* the numeral's circle centers on the first line of words */
+.jtl-row > .date-gutter {
+  margin-top: calc((var(--lh-body) - var(--tile-ic)) / 2); /* brand-ok: geometry, the 32 px circle on a 24 px line */
+}
+.jtl-body {
+  display: grid;
+  flex: 1;
+  gap: var(--sp-1);
+  min-width: 0;
+}
+/* the journal's voice (plan U3): Fraunces italic 17 on 24, Twilight, three lines at most */
+.jtl-text {
+  font: italic 420 var(--fs-sentence-sm) / var(--lh-body) var(--serif);
+  letter-spacing: 0;
+  color: var(--j-ink);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  overflow: hidden;
+}
+/* one Dusk line under the words: the time (or "Added Nov 9"), the run that day, a heart for a favorite; no caps */
+.jtl-meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0 var(--sp-2);
+  min-width: 0;
+  font: 500 var(--fs-foot) / var(--lh-foot) var(--sans);
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-3);
+}
+.jtl-stamp {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.jtl-stamp::before {
+  content: '·';
+  margin-right: var(--sp-2);
+}
+.jtl-fav {
+  flex: none;
+  color: var(--star);
+}
+.jtl-skel-row.lrow {
+  align-items: flex-start;
+  padding-block: var(--sp-3);
+}
+.jtl-skel-gutter {
+  display: grid;
+  justify-items: center;
+  gap: var(--sp-1);
+  width: var(--gutter-date);
+  flex: none;
+}
+.jtl-skel-lines {
+  display: grid;
+  flex: 1;
+  gap: var(--sp-2);
+}
+.jtl-failed {
+  padding: var(--pad-card);
+}
+.jtl-failed .empty-state {
   margin: 0;
   padding: 0;
 }
-.jtl-sec .lb-slot .icon-btn {
-  width: 44px;
-  height: 44px;
-  margin-right: -10px;
-  color: var(--ink);
+.jtl-more.pill-row {
+  margin-top: var(--gap);
 }
