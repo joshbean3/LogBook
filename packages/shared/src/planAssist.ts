@@ -111,7 +111,8 @@ export const shareableSettings = (a: BuilderAnswers, today: ISODate, fromRuns: A
     // the long-run day is picked from the run days, so it goes or stays with them
     longRunDay: fromRuns.runDays ? null : a.longRunDay,
     weeklyMiles: fromRuns.weeklyMiles ? null : a.weeklyMiles,
-    peakMiles: a.peakMiles,
+    // a peak held up at the weekly miles is that number again: it stays back with it
+    peakMiles: fromRuns.weeklyMiles && a.peakMiles != null && a.peakMiles <= a.weeklyMiles ? null : a.peakMiles,
     startDate,
     raceDate,
   };
@@ -431,6 +432,12 @@ export interface AppliedPatch {
   changes: PlanChange[];
   /** What could not be done as asked, each with why. */
   notes: PlanPatchNote[];
+  /**
+   * The settings the request gave in full: every run day by name, or the weekly miles as a number. Only those are the
+   * person's own answer afterwards. A count ("5 runs a week"), a day added or dropped, or a difference ("four more
+   * miles") is worked out from the answer that was there, so an answer read from tracked runs is still one after it.
+   */
+  own: AnswersFromRuns;
 }
 
 /**
@@ -572,5 +579,5 @@ export const applyPlanPatch = (a: BuilderAnswers, patch: PlanPatch, today: ISODa
   if (next.weeklyMiles !== a.weeklyMiles) changes.push({ field: 'weeklyMiles', miles: next.weeklyMiles });
   if (next.peakMiles !== a.peakMiles) changes.push({ field: 'peakMiles', miles: next.peakMiles });
   if (after.startDate !== before.startDate) changes.push({ field: 'start', date: after.startDate, soon: next.soon && !next.startDate });
-  return { next, changes, notes };
+  return { next, changes, notes, own: { runDays: !!patch.runDays?.length, weeklyMiles: patch.weeklyMiles !== undefined } };
 };

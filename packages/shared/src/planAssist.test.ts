@@ -80,6 +80,22 @@ describe('the contract', () => {
     expect(shareableSettings(half, T, { runDays: false, weeklyMiles: false })).toEqual({ goal: 'half', weeks: 12, runDays: ['tue', 'thu', 'sat', 'sun'], longRunDay: 'sun', weeklyMiles: 20, peakMiles: null, startDate: '2026-11-16', raceDate: '2027-02-07' });
     expect(shareableSettings(half, T, { runDays: true, weeklyMiles: true })).toMatchObject({ runDays: null, longRunDay: null, weeklyMiles: null, goal: 'half', weeks: 12 });
   });
+  it('a peak held up at weekly miles that are not sent stays back with them; a higher one is the person’s own', () => {
+    expect(shareableSettings({ ...half, peakMiles: 20 }, T, { runDays: false, weeklyMiles: true })).toMatchObject({ weeklyMiles: null, peakMiles: null });
+    expect(shareableSettings({ ...half, peakMiles: 35 }, T, { runDays: false, weeklyMiles: true })).toMatchObject({ weeklyMiles: null, peakMiles: 35 });
+    expect(shareableSettings({ ...half, peakMiles: 20 }, T, { runDays: false, weeklyMiles: false })).toMatchObject({ weeklyMiles: 20, peakMiles: 20 });
+  });
+  it('only a setting the request gave in full becomes the person’s own: a count, an added day or a difference does not', () => {
+    // worked out from the answer that was there (which may have come from tracked runs)
+    expect(apply(answers, { runsPerWeek: 5 }).own).toEqual({ runDays: false, weeklyMiles: false });
+    expect(apply(answers, { addRunDays: ['fri'], removeRunDays: ['tue'], longRunDay: 'sat' }).own).toEqual({ runDays: false, weeklyMiles: false });
+    expect(apply(answers, { weeklyMilesChange: 4, runsPerWeekChange: 1 }).own).toEqual({ runDays: false, weeklyMiles: false });
+    expect(apply(answers, { peakMiles: 12 }).own).toEqual({ runDays: false, weeklyMiles: false });
+    // said in full
+    expect(apply(answers, { runDays: ['mon', 'wed', 'fri'] }).own).toEqual({ runDays: true, weeklyMiles: false });
+    expect(apply(answers, { weeklyMiles: 30 }).own).toEqual({ runDays: false, weeklyMiles: true });
+    expect(apply(answers, { runDays: ['mon', 'wed', 'fri'], runsPerWeek: 4, weeklyMiles: 500 }).own).toEqual({ runDays: true, weeklyMiles: true });
+  });
   it('the shape Claude is asked for takes every field as null', () => {
     expect(zClaudeShapeOutput.safeParse(blank).success).toBe(true);
   });

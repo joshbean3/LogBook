@@ -261,7 +261,9 @@ const BuilderBody = ({ log, store, seed, ghost, life }: { log: Log; store: Ghost
       edit({ ...a, runDays: next, longRunDay: d === longDay ? next[next.length - 1]! : longDay }, 'runDays');
     } else edit({ ...a, runDays: WEEKDAYS.filter((x) => runDays.includes(x) || x === d) }, 'runDays');
   };
-  const pickLong = (d: Weekday) => edit({ ...a, longRunDay: d, runDays: runDays.includes(d) ? runDays : WEEKDAYS.filter((x) => runDays.includes(x) || x === d) }, 'runDays');
+  // picking the long run among the run days leaves the days as they were (so days read from tracked runs still are);
+  // picking a day that was not a run day adds it by hand
+  const pickLong = (d: Weekday) => (runDays.includes(d) ? edit({ ...a, longRunDay: d }) : edit({ ...a, longRunDay: d, runDays: WEEKDAYS.filter((x) => runDays.includes(x) || x === d) }, 'runDays'));
   const input = builderInput(a, t);
   const { startDate, raceDate, firstMon } = builderDates(a, t);
   // the first render reuses the seed the header was made with (the same input, built once)

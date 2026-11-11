@@ -168,10 +168,9 @@ export const useBuilderAssist = (host: AssistHost) => {
       const applied = applyPlanPatch(before, outcome.result.patch, now.today);
       const keys = flashKeys(applied.changes);
       if (applied.changes.length) {
-        // a setting the request changed is the person's own answer now
-        const runs = applied.changes.some((c) => c.field === 'runDays' || c.field === 'longRunDay');
-        const miles = applied.changes.some((c) => c.field === 'weeklyMiles');
-        now.onChange(applied.next, keys, { runDays: beforeRuns.runDays && !runs, weeklyMiles: beforeRuns.weeklyMiles && !miles }, 1);
+        // a setting the request gave in full is the person's own answer now. One it only moved (a count, a day added,
+        // "four more miles") was worked out from what was there, so what was read from tracked runs still is
+        now.onChange(applied.next, keys, { runDays: beforeRuns.runDays && !applied.own.runDays, weeklyMiles: beforeRuns.weeklyMiles && !applied.own.weeklyMiles }, 1);
         haptics.success();
       }
       setSaid({ ...assistSaid(applied, outcome.result), undo: applied.changes.length ? { answers: before, fromRuns: beforeRuns, keys } : null });
