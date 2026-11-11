@@ -2012,9 +2012,10 @@
   /* chrome: the labels follow the text size to 130 percent and hold, so the three one-word labels stay whole */
   font-size: clamp(15px, var(--fs-sub), 19.5px);
 }
+/* the narrowest card holds "Afternoon" at 15 only */
 @container card (max-width: 300px) {
   .hero-when .seg-btn {
-    font-size: 15px; /* brand-ok: the narrowest card holds "Afternoon" at 15 only */
+    font-size: clamp(15px, var(--fs-sub), 15px);
   }
 }
 /* a narrow card: the words alone (the glyphs repeat them) */
