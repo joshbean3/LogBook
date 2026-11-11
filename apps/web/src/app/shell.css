@@ -70,6 +70,24 @@ body {
 .tab-scroll:has(.nb-strip) {
   scroll-padding-top: calc(var(--safe-t) + 44px + 82px + 8px);
 }
+/*
+ * The end of a scroll (layout standard 3.2, F3): the last content ends 24 (--scroll-end) above the top of the dock as it
+ * shows at the end of a scroll. Scrolling down folds the ask bar into a round button beside the capsule (Dock.tsx), so that
+ * is the capsule's top; under 375 pt the ask bar never folds, so it is the ask bar's. The status pill above the dock and the
+ * keyboard add their room. One rule for every scroller: `.page` (base.css) and the paged roots below use it, and feature
+ * pages add no bottom padding of their own.
+ */
+:root {
+  --scroll-pad-b: calc(var(--scroll-end) + var(--pill-room, 0px) + max(var(--chrome-folded-h) + var(--safe-b), var(--kb)));
+}
+@media (max-width: 374px) {
+  :root {
+    --scroll-pad-b: calc(var(--scroll-end) + var(--pill-room, 0px) + max(var(--chrome-h) + var(--safe-b), var(--kb)));
+  }
+}
+.tab-scroll :is(.day-page, .pl-wpage, .pl-mpage) {
+  padding-bottom: var(--scroll-pad-b);
+}
 .tab-scrim {
   position: absolute;
   inset: 0;

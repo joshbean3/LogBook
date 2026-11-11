@@ -6,8 +6,9 @@ import { useId, type ReactNode } from 'react';
  * The layout kit (docs/layout-review.md §3, styles/layout.css): the pieces every tab builds a page from, so a section on
  * Today, Plan, Progress, Goals, Learned, Journal and Settings is spaced and named the same way.
  *
- *   PageSection   28 above; a header; its cards 12 below the header
- *   SectionHeader serif 28/32 title (22/28 with size="sm"), a grey 15/20 meta at its baseline, an orange action at the right
+ *   PageSection   32 above, a header, its cards 12 below the header; size="sm" is a list-page group (Settings): 24 above, 8 below
+ *   SectionHeader Fraunces 26/32 title (22/28 with size="sm"), a Dusk 15/20 500 meta 8 after it on its baseline, one quiet
+ *                 Deep Sky 17/600 action with an 18 px chevron at the trailing edge (layout standard 6.1)
  *   Stack         cards 12 apart
  *   TileGrid      two columns of tiles at every phone width
  *   Footnote      13/18 grey, 8 under its card, 16 in (where the card's words start)
@@ -22,7 +23,7 @@ export interface SectionHeaderProps {
   onAction?: () => void;
   /** VoiceOver's name for the action when its words alone are not enough. */
   actionLabel?: string;
-  /** 'sm' for list pages (Settings): serif 22/28. */
+  /** 'sm' for list pages (Settings): Fraunces 22/28; on a PageSection it also takes the list-page spacing (24 above, 8 below). */
   size?: 'lg' | 'sm';
   /** The heading's id (for aria-labelledby). */
   id?: string;
@@ -42,7 +43,7 @@ export const SectionHeader = ({ title, meta, action, onAction, actionLabel, size
       {onAction && typeof action === 'string' ? (
         <button type="button" className="lb-act" onClick={onAction} aria-label={actionLabel}>
           {action}
-          <ChevronRight size={15} aria-hidden="true" />
+          <ChevronRight size={18} aria-hidden="true" />
         </button>
       ) : action ? (
         <span className="lb-slot">{action}</span>
@@ -68,7 +69,7 @@ export const PageSection = ({ title, meta, action, onAction, actionLabel, size, 
   const hid = useId();
   const named = title != null && title !== '';
   return (
-    <section className={`lb-sec ${first ? 'is-first' : ''} ${className}`.trim()} aria-labelledby={named && !rest['aria-label'] ? hid : undefined} {...rest}>
+    <section className={`lb-sec ${size === 'sm' ? 'is-list' : ''} ${first ? 'is-first' : ''} ${className}`.replace(/\s+/g, ' ').trim()} aria-labelledby={named && !rest['aria-label'] ? hid : undefined} {...rest}>
       {named ? <SectionHeader title={title} meta={meta} action={action} onAction={onAction} actionLabel={actionLabel} size={size} level={level} id={hid} className={headClassName} /> : null}
       {children}
     </section>

@@ -108,9 +108,9 @@
 /* a two-line context chip under a page title (status, phase, weather in the references) */
 .ctx-row {
   display: flex;
-  /* 8 between the two chips: at 390 the plan's name keeps its whole width at the larger title size */
+  /* 8 between the two chips: at 390 the plan's name keeps its whole width at the larger title size. Its margin is the
+     layout kit's one rule (layout.css) */
   gap: var(--sp-2);
-  margin: 4px 0 18px;
   min-width: 0;
 }
 /* the context chip (guide 6.3): Paper, r 18, the card shadow, no blur; a 40 px Haze disc with an 18 px Deep Sky glyph;
