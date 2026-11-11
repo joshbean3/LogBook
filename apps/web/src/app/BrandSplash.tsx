@@ -5,7 +5,7 @@ import { playHaptics } from '@/lib/haptics';
 import { isSplashDone, SPLASH_DONE } from '@/lib/native';
 import { Wordmark } from '@/ui/Brand';
 import dawnArt from '@/ui/orb/logo-mark-dawn.svg?url';
-import litArt from '@/ui/orb/logo-mark-glow.svg?url';
+import paleArt from '@/ui/orb/logo-mark-sunrise-pale.svg?url';
 import sunriseArt from '@/ui/orb/logo-mark-sunrise.svg?url';
 import { applyDynamicType } from './dynamicType';
 import { useSplashHeld } from './splashHold';
@@ -15,7 +15,7 @@ import './brandSplash.css';
 /**
  * The opening (guide 9.2, 12.1): the Orb is the sun. The launch image's plain Cloud lifts like mist off the poster's three
  * hills, the Orb rises from behind the near hill to its place 0.1 D above the crest (guide 8.3), and as it climbs its light
- * warms from sky blue to a sunrise tint: its pale underlight and then its sunrise art fade in over the blue sphere, the sky
+ * warms from sky blue to a sunrise tint: the sunrise's pale light and then its warm light fade in over the blue sphere, the sky
  * turns blue above and warm at the horizon, the Apricot glow comes up, and the poster's five sun rings leave the Orb one
  * by one, quickening. On the frame it clears the crest there is one fuller beat, a soft bloom, and the wordmark and "One
  * good day at a time." arrive. Then the app appears underneath.
@@ -276,9 +276,10 @@ export const BrandSplash = () => {
             )}
           </div>
           <div className="bs-orb" ref={orb}>
-            {/* three drawings of one sphere, each over the last: blue, its pale underlight, the sunrise in it */}
+            {/* three drawings of one sphere, each over the last: blue, the sunrise's pale light, the sunrise in it (blue to pale to warm:
+                no frame mixes blue with orange, which reads grey) */}
             <img className="bs-orb-art" src={dawnArt} alt="" draggable={false} />
-            <img className="bs-orb-art bs-orb-first" src={litArt} alt="" draggable={false} />
+            <img className="bs-orb-art bs-orb-first" src={paleArt} alt="" draggable={false} />
             <img className="bs-orb-art bs-orb-lit" src={sunriseArt} alt="" draggable={false} />
           </div>
         </div>

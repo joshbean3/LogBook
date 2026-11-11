@@ -211,7 +211,7 @@
     bs-glow-in var(--bs-glow-for) var(--ease-in-out) var(--bs-glow-at) both,
     bs-swell var(--bs-glow-for) var(--ease-in-out) var(--bs-glow-at) both;
 }
-/* the Orb's light: its pale underlight over the blue sphere first, then the sunrise art over both, and its light on the sky.
+/* the Orb's light: the sunrise's pale light over the blue sphere first, then the sunrise art over both, and its light on the sky.
    Blue to pale to warm never passes through grey, as blue straight to orange would */
 .brand-splash[data-moment='sunrise'] .bs-orb-first {
   animation: bs-in var(--bs-first-for) var(--ease-in-out) var(--bs-first-at) both;

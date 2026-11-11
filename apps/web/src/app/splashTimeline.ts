@@ -110,7 +110,7 @@ export interface SunrisePlan {
   /** the day's colors (sky blue above, the warm band at the horizon) and the horizon glow come up with the climb */
   warm: Span;
   glow: Span;
-  /** the Orb's own light: first its pale underlight (the mark as published), then the sunrise in it and around it */
+  /** the Orb's own light: first the sunrise state's pale light alone, then the sunrise in it and around it */
   first: Span;
   light: Span;
   /** the rings, in the order they are born (outermost first) */

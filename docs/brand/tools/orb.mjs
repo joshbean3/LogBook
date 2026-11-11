@@ -2,13 +2,14 @@
 // v1.1: soft specular (blur 2.5, 70% peak), the warm light is a wide underglow (blur 2.5) rather than a crescent,
 // an edge that runs all the way round (35% top, 25% on the bottom quarter) so the silhouette holds on Paper and Cloud,
 // and a dark-ground glow (22% Apricot, screen blend).
-// opts: state 'idle'|'think'|'sunrise', glow (bool), dark (bool: glow for Twilight or Night Ink grounds), warm (0..1.4), flat (bool), id,
+// opts: state 'idle'|'think'|'sunrise', pale (bool: the sunrise state's pale light alone), glow (bool), dark (bool: glow for Twilight or Night Ink grounds), warm (0..1.4), flat (bool), id,
 // arc (bool, default true: the thinking state draws its ring and arc; false draws the warm sphere alone, for the app, where
 // the arc is a separate overlay that rotates while the sphere holds still).
 // The app's arc-free art (apps/web/src/ui/orb/) was written with:
 //   orbSVG(96, { state: 'think', glow: true, arc: false })  -> logo-mark-thinking-body.svg (48 px and up)
 //   orbSVG(96, { state: 'think', arc: false })              -> logo-mark-thinking-gloss.svg (28 to 47 px, 0..100 box)
 //   orbSVG(96, { warm: 0, pad: true })                      -> logo-mark-dawn.svg (the splash before the sun is up: no underlight, no glow)
+//   orbSVG(96, { state: 'sunrise', pale: true })            -> logo-mark-sunrise-pale.svg (the splash as the sun comes: its pale light alone)
 //   orbSVG(96, { state: 'sunrise' })                        -> logo-mark-sunrise.svg (the splash once the sun is up; also in assets/)
 // state 'sunrise' (the splash only, guide 2.1): the same sphere, specular and upper edge, with the sunrise inside it: a
 // dome of warm light in the lower third over a pale one (so the blue never greys where they meet), a limb glow that wraps
@@ -25,11 +26,11 @@ export const ORB = {
   // the sunrise state: [offset, color, opacity] stops; radial layers are centered under the sphere and stretched sx wide
   sunrise: {
     // a pale light under the warm one, so the blue never turns grey where they meet
-    pale: { cy: 104, r: 63, sx: 1.5, stops: [[0, '#FFF1E4', 0.85], [0.5, '#FFF1E4', 0.5], [0.8, '#EAF6FE', 0.25], [1, '#D6F1FE', 0]] },
-    warm: { cy: 106, r: 53, sx: 1.6, stops: [[0, '#FFA868', 0.95], [0.4, '#FFB680', 0.8], [0.7, '#FFC9A2', 0.45], [1, '#FFE3CB', 0]] },
+    pale: { cy: 104, r: 66, sx: 1.5, stops: [[0, '#FFF1E4', 0.9], [0.6, '#FFF1E4', 0.85], [0.8, '#F4F9FD', 0.45], [1, '#D6F1FE', 0]] },
+    warm: { cy: 106, r: 50, sx: 1.6, stops: [[0, '#FFA868', 0.95], [0.4, '#FFB680', 0.8], [0.7, '#FFC9A2', 0.45], [1, '#FFE3CB', 0]] },
     // the limb: the sphere less a smaller circle set higher, so the light is thick at the bottom, thin at the equator and
     // gone near the top; a vertical fade from fadeTop to the bottom; blurred to a glow
-    limb: { cy: 41.5, r: 42.7, blur: 3.6, fadeTop: 18, stops: [[0, '#FFB680', 0], [0.3, '#FFB680', 0.5], [0.62, '#FFA868', 0.85], [1, '#FF9F5A', 1]] },
+    limb: { cy: 41.5, r: 42.7, blur: 3.6, fadeTop: 56, stops: [[0, '#FFE3CB', 0], [0.3, '#FFC9A2', 0.5], [0.62, '#FFA868', 0.85], [1, '#FF9F5A', 1]] },
     // the bright core at the very bottom
     core: { cy: 100, r: 24, sx: 1.9, stops: [[0, '#FFF1E4', 0.75], [0.5, '#FFE3CB', 0.4], [1, '#FFE3CB', 0]] },
     edge: [[0, '#0A5E92', 0.35], [0.45, '#0A5E92', 0.24], [0.75, '#B4430C', 0.2], [1, '#B4430C', 0.3]],
@@ -38,9 +39,30 @@ export const ORB = {
 };
 const stops = (list) => list.map(([off, c, a]) => `<stop offset="${off}" stop-color="${c}"${a === undefined ? '' : ` stop-opacity="${a}"`}/>`).join('');
 // The sunrise state's defs and body, in the 150-unit glow box. Its glow is part of the state, so it is always drawn.
-function sunriseDefsAndBody(id) {
+// pale: its pale light alone on the sphere, with the idle edge and no glow (the splash's middle drawing, between the blue
+// Orb and the sunrise state: blue fades to pale, then pale to warm, so no frame mixes blue with orange, which reads grey).
+function sunriseDefsAndBody(id, pale = false) {
   const R = ORB.sunrise, S = ORB.spec, E = ORB.edge;
   const radial = (key, L) => `<radialGradient id="${id}${key}" gradientUnits="userSpaceOnUse" cx="50" cy="${L.cy}" r="${L.r}" gradientTransform="translate(50 ${L.cy}) scale(${L.sx} 1) translate(-50 -${L.cy})">${stops(L.stops)}</radialGradient>`;
+  if (pale) return `
+  <defs>
+    <radialGradient id="${id}b" cx="50%" cy="36%" r="64%" fx="50%" fy="26%">${ORB.body.map(([o2, c]) => `<stop offset="${o2}" stop-color="${c}"/>`).join('')}</radialGradient>
+    <radialGradient id="${id}w" cx="50%" cy="104%" r="58%">
+      <stop offset="0" stop-color="#D6F1FE" stop-opacity=".95"/><stop offset=".5" stop-color="#9ADBFA" stop-opacity=".45"/><stop offset="1" stop-color="#7FD0F7" stop-opacity="0"/>
+    </radialGradient>
+    ${radial('p', R.pale)}
+    <linearGradient id="${id}r" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${E.color}" stop-opacity="${E.top}"/><stop offset=".75" stop-color="${E.color}" stop-opacity="${E.mid}"/><stop offset="1" stop-color="${E.color}" stop-opacity="${E.bottom}"/></linearGradient>
+    <radialGradient id="${id}s" cx="50%" cy="40%" r="60%"><stop offset="0" stop-color="#fff" stop-opacity="${S.peak}"/><stop offset=".45" stop-color="#fff" stop-opacity="${(S.peak * 0.6).toFixed(2)}"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient>
+    <filter id="${id}sf" x="-30%" y="-60%" width="160%" height="220%"><feGaussianBlur stdDeviation="${S.blur}"/></filter>
+    <clipPath id="${id}c"><circle cx="50" cy="50" r="48"/></clipPath>
+  </defs>
+  <circle cx="50" cy="50" r="48" fill="url(#${id}b)"/>
+  <g clip-path="url(#${id}c)">
+    <circle cx="50" cy="50" r="48" fill="url(#${id}w)"/>
+    <rect x="0" y="0" width="100" height="100" fill="url(#${id}p)"/>
+    <ellipse cx="${S.cx}" cy="${S.cy}" rx="${S.rx}" ry="${S.ry}" fill="url(#${id}s)" filter="url(#${id}sf)"/>
+  </g>
+  <circle cx="50" cy="50" r="${E.r}" fill="none" stroke="url(#${id}r)" stroke-width="${E.w}"/>`;
   return `
   <defs>
     <radialGradient id="${id}b" cx="50%" cy="36%" r="64%" fx="50%" fy="26%">${ORB.body.map(([o2, c]) => `<stop offset="${o2}" stop-color="${c}"/>`).join('')}</radialGradient>
@@ -75,7 +97,7 @@ export function orbDefsAndBody(o = {}) {
   const id = o.id || 'orb' + (n++);
   const think = o.state === 'think';
   if (o.flat) return `<circle cx="50" cy="50" r="48" fill="${o.fill || '#38B6F2'}"/>`;
-  if (o.state === 'sunrise') return sunriseDefsAndBody(id);
+  if (o.state === 'sunrise') return sunriseDefsAndBody(id, !!o.pale);
   const warm = (o.warm ?? 0.85) / 0.85; // 1 = the published recipe
   const U = think ? ORB.under.think : ORB.under.idle;
   const rimShift = think ? ORB.rim.shift.think : ORB.rim.shift.idle;

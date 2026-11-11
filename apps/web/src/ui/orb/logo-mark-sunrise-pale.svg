@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="150" height="150" viewBox="-25 -25 150 150">
+<defs>
+<radialGradient id="spb" cx="50%" cy="36%" r="64%" fx="50%" fy="26%"><stop offset="0" stop-color="#FFFFFF"/><stop offset=".12" stop-color="#E4F6FE"/><stop offset=".34" stop-color="#97D8F9"/><stop offset=".6" stop-color="#38B6F2"/><stop offset=".84" stop-color="#1590D2"/><stop offset="1" stop-color="#0A68A0"/></radialGradient>
+<radialGradient id="spw" cx="50%" cy="104%" r="58%">
+<stop offset="0" stop-color="#D6F1FE" stop-opacity=".95"/><stop offset=".5" stop-color="#9ADBFA" stop-opacity=".45"/><stop offset="1" stop-color="#7FD0F7" stop-opacity="0"/>
+</radialGradient>
+<radialGradient id="spp" gradientUnits="userSpaceOnUse" cx="50" cy="104" r="66" gradientTransform="translate(50 104) scale(1.5 1) translate(-50 -104)"><stop offset="0" stop-color="#FFF1E4" stop-opacity="0.9"/><stop offset="0.6" stop-color="#FFF1E4" stop-opacity="0.85"/><stop offset="0.8" stop-color="#F4F9FD" stop-opacity="0.45"/><stop offset="1" stop-color="#D6F1FE" stop-opacity="0"/></radialGradient>
+<linearGradient id="spr" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#0A5E92" stop-opacity="0.35"/><stop offset=".75" stop-color="#0A5E92" stop-opacity="0.3"/><stop offset="1" stop-color="#0A5E92" stop-opacity="0.25"/></linearGradient>
+<radialGradient id="sps" cx="50%" cy="40%" r="60%"><stop offset="0" stop-color="#fff" stop-opacity="0.7"/><stop offset=".45" stop-color="#fff" stop-opacity="0.42"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient>
+<filter id="spsf" x="-30%" y="-60%" width="160%" height="220%"><feGaussianBlur stdDeviation="2.5"/></filter>
+<clipPath id="spc"><circle cx="50" cy="50" r="48"/></clipPath>
+</defs>
+<circle cx="50" cy="50" r="48" fill="url(#spb)"/>
+<g clip-path="url(#spc)">
+<circle cx="50" cy="50" r="48" fill="url(#spw)"/>
+<rect x="0" y="0" width="100" height="100" fill="url(#spp)"/>
+<ellipse cx="50" cy="22" rx="27" ry="15" fill="url(#sps)" filter="url(#spsf)"/>
+</g>
+<circle cx="50" cy="50" r="47.6" fill="none" stroke="url(#spr)" stroke-width="0.8"/></svg>
