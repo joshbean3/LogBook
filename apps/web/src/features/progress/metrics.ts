@@ -256,7 +256,7 @@ export const METRICS: Record<MetricId, MetricDef> = {
   consistency: {
     id: 'consistency',
     name: 'Consistency',
-    tileName: { habits: 'Habits', plan: 'Plan kept' },
+    tileName: { habits: 'Habits', plan: 'On plan' },
     emptyWord: 'Nothing to count yet',
     emptyLine: 'Nothing to count yet. Habits you tap and sessions you keep land here.',
     what: 'How much of what you set out to do got done: your habits, or the sessions in your plan.',
