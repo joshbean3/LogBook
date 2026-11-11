@@ -23,6 +23,7 @@ Each test makes its own account (an address at example.com), so they run side by
 6. Sign out; every `logbook.` key but `logbook.hasAccount` is gone; the next person to sign up sees nothing of the last one, and the assistant's History is empty.
 7. The assistant's permission step: Not now sends nothing, the step shows again, Allow stores the choice.
 8. Forgot password, the reset link from the mail, the new password works and the old one does not. With no mail provider set the API logs the mail; the test reads the link from the API's output (`E2E_API_LOG`, set for you when Playwright starts the servers).
+9. The opening: the sunrise plays on a cold open and a tap runs it out; the same tab opening again gets the quiet fade, and so does the reload after signing out; left alone it gives way when its 2.8 seconds are up; Reduce Motion gets a fade.
 
 A test that only waits for the page to look right would miss a change the server never got, so every write waits for the server's answer (`savedBy`) before the test reloads.
 
@@ -31,5 +32,7 @@ A test that only waits for the page to look right would miss a change the server
 axe-core checks every signed-out page (the welcome pager, sign in, sign up, the five static pages), every tab and Settings page, and the main sheets (the assistant, add a habit, set the goal, write in the journal) for: low contrast, images with no alternative, empty links, empty buttons, inputs with no label, no document language, a control inside a control, and a spoken name that does not contain the visible words. Any one fails the run.
 
 ## Writing a test
+
+Import `test` and `expect` from `./helpers`, not from `@playwright/test`: that `test` starts every session with the app's opening already seen, so a flow meets the app and not its 2.8 second sunrise (`test.use({ opening: 'sunrise' })` asks for the sunrise).
 
 Find things the way a person does: by role and visible name (`getByRole('button', { name: 'Add a to-do' })`), not by class. Open routes with `go(page, path)`, which waits for the app to settle. Never use the seeded developer account; make a new one with `signUpByApi` (fast) or `startSignUp` + `createAccount` + `finishSetup` (the real screens).

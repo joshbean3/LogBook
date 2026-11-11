@@ -1,5 +1,4 @@
-import { expect, test } from '@playwright/test';
-import { PASSWORD, createAccount, finishSetup, go, newEmail, resetLinkFromLog, savedBy, signOut, signUpByApi, startSignUp } from './helpers';
+import { PASSWORD, createAccount, expect, finishSetup, go, newEmail, resetLinkFromLog, savedBy, signOut, signUpByApi, startSignUp, test } from './helpers';
 
 /**
  * The smoke flows every push must pass, at 390 and 320 wide (the two projects in playwright.config.ts). Each test makes
@@ -177,4 +176,69 @@ test('forgot password, then reset it from the mail link and sign in with the new
   expect(old.status()).toBeGreaterThanOrEqual(400);
   const ok = await page.request.post('/api/auth/login', { data: { email, password: next } });
   expect(ok.ok()).toBeTruthy();
+});
+
+/**
+ * The opening (apps/web/src/app/BrandSplash.tsx): a 2.8 second sunrise on a cold open, once per session. It is brand art,
+ * hidden from assistive technology, so it is found by its class here, the one place a test does that.
+ */
+test.describe('the opening', () => {
+  test.use({ opening: 'sunrise' });
+
+  test('the sunrise plays on a cold open, a tap runs it out, and the same tab opening again is quiet', async ({ page }) => {
+    await page.goto('/start');
+    const splash = page.locator('.brand-splash');
+    await expect(splash).toHaveAttribute('data-moment', 'sunrise');
+    // it covers the welcome page: the button under it cannot be pressed yet
+    await page.waitForTimeout(500);
+    await expect(splash).toBeVisible();
+    await splash.tap({ position: { x: 40, y: 40 } });
+    // gone well inside its 2.8 seconds, and the tap went to the splash, not to the page under it
+    await expect(splash).toHaveCount(0, { timeout: 1500 });
+    await expect(page).toHaveURL(/\/start/);
+    await expect(page.getByRole('button', { name: 'Next', exact: true })).toBeVisible();
+    await page.reload();
+    await expect(page.locator('.brand-splash')).toHaveAttribute('data-moment', 'fade');
+    await expect(page.locator('.brand-splash')).toHaveCount(0, { timeout: 3000 });
+  });
+
+  test('left alone, it gives way to the app when its 2.8 seconds are up', async ({ page }) => {
+    await page.goto('/start');
+    const splash = page.locator('.brand-splash');
+    await expect(splash).toHaveAttribute('data-moment', 'sunrise');
+    const began = Date.now();
+    await expect(splash).toHaveCount(0, { timeout: 8000 });
+    const took = Date.now() - began;
+    // never shorter than the sunrise less what it took to find it, and not held past its cap
+    expect(took).toBeGreaterThan(1800);
+    expect(took).toBeLessThan(5000);
+    await expect(page.getByRole('button', { name: 'Next', exact: true })).toBeVisible();
+  });
+
+  test('signing out reloads the page, and that reload is quiet: the sunrise is once per session', async ({ page }) => {
+    // every splash this tab shows, kept where the sign-out wipe does not reach (it removes the logbook. keys)
+    await page.addInitScript(() => {
+      new MutationObserver(() => {
+        const moment = document.querySelector('.brand-splash')?.getAttribute('data-moment');
+        if (!moment || (window as unknown as { seen?: boolean }).seen) return;
+        (window as unknown as { seen?: boolean }).seen = true;
+        sessionStorage.setItem('e2e-moments', `${sessionStorage.getItem('e2e-moments') ?? ''}${moment} `);
+      }).observe(document, { childList: true, subtree: true });
+    });
+    await signUpByApi(page);
+    await signOut(page);
+    await expect(page.locator('.brand-splash')).toHaveCount(0, { timeout: 8000 });
+    const moments = (await page.evaluate(() => sessionStorage.getItem('e2e-moments') ?? '')).trim().split(' ');
+    expect(moments[0], 'the first open of the session is the sunrise').toBe('sunrise');
+    expect(moments.length).toBeGreaterThan(1);
+    expect(moments.slice(1).every((m) => m === 'fade'), `every later open is the quiet fade: ${moments.join(', ')}`).toBe(true);
+  });
+
+  test('Reduce Motion: no sunrise, the picture fades in and out', async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await page.goto('/start');
+    const splash = page.locator('.brand-splash');
+    await expect(splash).toHaveAttribute('data-moment', 'still');
+    await expect(splash).toHaveCount(0, { timeout: 4000 });
+  });
 });

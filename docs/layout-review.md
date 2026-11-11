@@ -113,6 +113,8 @@ status bar on any page.
   logic, not layout.
 - Metric range keys are 39 pt wide at 320; they touch each other across the whole track, so every point of the track is
   a target. Run days in Settings are 40 pt wide at 320 for the same reason: seven columns cannot reach 44 in 288 pt.
+  (Since fixed: narrower than 374 pt the run days sit in two rows, four and three, 12 pt apart, and each is 64 pt wide
+  at 320.)
 - Out-of-month dates on Plan's month grid stay `--ink-4`: they are inactive.
 - Today's top three is a tinted group inside a card. It is the one deliberate nested surface (it lifts the three to-dos
   that matter), so it stays.

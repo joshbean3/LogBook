@@ -39,6 +39,11 @@
   --hill-2: #4FA9DB;                                        /* Middle hill. */
   --hill-3: #0A6CA6;                                        /* Far hill (Deep Sky). */
   --grain-opacity: 0.4;                                     /* Paper grain over brand surfaces (35 to 50 percent, multiply). Never on app cards or chrome. */
+  --splash-day: linear-gradient(180deg, #8DD0F5 0, #AEDDF8 12%, rgba(174, 221, 248, 0) 28%), linear-gradient(180deg, rgba(244, 230, 210, 0) 48%, #F4E6D2 68%, #FFD2AE 88%); /* Sunrise splash: the day's colors, one layer that comes up with the sun. Poster sky blue from the top, the warm horizon band below, nothing between them (Cloud stays behind the words). */
+  --splash-glow: radial-gradient(closest-side, #FFB680 0, rgba(255, 182, 128, 0.82) 22%, rgba(255, 182, 128, 0.5) 42%, rgba(255, 182, 128, 0.2) 64%, rgba(255, 182, 128, 0.05) 84%, rgba(255, 182, 128, 0)); /* Sunrise splash: the horizon glow, 680 x 340, centered on the crest under the Orb, at 85 percent. */
+  --splash-halo: radial-gradient(closest-side, rgba(255, 182, 128, 0.5) 30%, rgba(255, 182, 128, 0.3) 52%, rgba(255, 182, 128, 0.1) 76%, rgba(255, 182, 128, 0)); /* Sunrise splash: the Orb's own light on the sky around it, 3.2 D across. */
+  --splash-bloom: radial-gradient(closest-side, #FFF1E4 0, rgba(255, 214, 180, 0.8) 24%, rgba(255, 182, 128, 0.42) 46%, rgba(255, 182, 128, 0.14) 72%, rgba(255, 182, 128, 0)); /* Sunrise splash: one breath of light on the frame the Orb clears the crest, 4 D across, to 90 percent and away. */
+  --splash-ring: radial-gradient(closest-side, rgba(255, 182, 128, 0) calc(100% - 14px), rgba(255, 182, 128, 0.42) calc(100% - 2px), rgba(255, 182, 128, 0)); /* Sunrise splash: the soft Apricot band just inside each sun ring's white line, 12 px wide (8.3). */
 
   /* ---------- surfaces-and-ink ---------- */
   --bg: #EAF5FC;                                            /* App ground (Cloud). was #f3f8fb */
@@ -246,6 +251,7 @@
   /* ---------- motion ---------- */
   --ease-out: cubic-bezier(0.22, 1, 0.36, 1);               /* Everything that moves in. was same */
   --ease-sheet: cubic-bezier(0.32, 0.72, 0, 1);             /* Sheets. */
+  --ease-in-out: cubic-bezier(0.45, 0, 0.55, 1);            /* Light that comes up and settles: the sunrise splash's sky, glow and Orb light, its resting breath and its dissolve. */
   --dur-fast: 160ms;                                        /* Press to scale 0.97. was same */
   --dur: 220ms;                                             /* Small state changes. was same */
   --dur-in: 120ms;                                          /* Fade in. was same */
@@ -259,13 +265,11 @@
   --dur-needle: 480ms;                                      /* Gauge pointer sweep, then --dur-settle with at most 2% overshoot. */
   --dur-settle: 300ms;                                      /* Gauge pointer settle. */
   --tick-stagger: 6ms;                                      /* Gauge ticks draw in, capped at 240ms total. First view only. */
-  --dur-sunrise: 900ms;                                     /* Splash on the first open of the day: the Orb rises 24px while its underlight warms. */
-  --dur-title-in: 200ms;                                    /* Splash wordmark fade after the rise. */
-  --dur-launch: 300ms;                                      /* Later launches: fade only. */
+  --dur-launch: 300ms;                                      /* The quiet opening (the same session opening again) and Reduce Motion's splash crossfade. The sunrise splash itself is 2.8 s: SPLASH_MS in apps/web/src/app/splashTimeline.ts sets it and derives its whole schedule. */
   --dur-dawn: 600ms;                                        /* The dawn wash fades in on the first open after 4 a.m. local. Once a day. */
   --orb-breath: 4000ms;                                     /* Idle Orb: scale 1 to 1.015 and back. */
   --orb-orbit: 1200ms;                                      /* Thinking Orb: one turn of the Apricot arc. */
-  --dur-reduce: 150ms;                                      /* Under Reduce Motion every move becomes this linear fade. */
+  --dur-reduce: 150ms;                                      /* Under Reduce Motion every move becomes this linear fade. The one longer fade is the splash's crossfade in (--dur-launch, 9.4). */
   --dur-ring: 600ms;                                        /* The hold-to-complete ring fill. was 600ms */
 
   /* ---------- orb ---------- */
@@ -275,7 +279,7 @@
   --orb-fold: 28px;                                         /* The Orb inside the 48 px fold button: gloss tier, still. */
   --orb-dock: 28px;                                         /* The Orb in the ask bar: 28 px, the smallest gloss size. was 22px */
   --orb-assistant: 56px;                                    /* Assistant empty state. */
-  --orb-splash: 96px;                                       /* Splash. */
+  --orb-splash: clamp(96px, 13svh, 120px);                  /* Splash: the sun. 96 on a short phone, 110 at 844 tall, 120 on the tallest. was 96px */
   --chrome-h: calc(var(--ask-h) + var(--dock-gap) + var(--tabbar-h) + 8px);
 }
 

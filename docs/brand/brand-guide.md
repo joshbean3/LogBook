@@ -61,9 +61,9 @@ The logo has two parts: the **Orb** (the mark) and the **wordmark** "Orby". The 
 
 ### 2.1 The Orb, the mark
 
-A glossy sky-blue sphere lit by a sunrise from below. It reads blue first. The top highlight stays cool white. A soft Apricot underlight sits on the lower hemisphere, as if the sun is just under the horizon. Subtle: it is light on a blue sphere, never a two-tone ball.
+A glossy sky-blue sphere lit by a sunrise from below. It reads blue first. The top highlight stays cool white. A soft Apricot underlight sits on the lower hemisphere, as if the sun is just under the horizon. Subtle: it is light on a blue sphere, never a two-tone ball. The one warmer drawing is the splash's sunrise state (below), where the Orb is the sun: still blue first, its warm light in the lower third.
 
-Sheet: `assets/orb-states.png`. Files: `assets/logo-mark.svg` (and `-1024.png`), `logo-mark-glow.svg`, `logo-mark-thinking.svg`, `logo-mark-flat.svg`, `logo-mark-mono-ink.svg`. Generator: `tools/orb.mjs`.
+Sheet: `assets/orb-states.png` (idle, thinking and still; the sunrise state is `assets/logo-mark-sunrise-1024.png`). Files: `assets/logo-mark.svg` (and `-1024.png`), `logo-mark-glow.svg`, `logo-mark-thinking.svg`, `logo-mark-sunrise.svg`, `logo-mark-flat.svg`, `logo-mark-mono-ink.svg`. Generator: `tools/orb.mjs`.
 
 **Recipe** (100-unit box, sphere radius 48 at 50, 50). Every value below is final: apply it as written. `tools/orb.mjs` exports the same numbers as `ORB`.
 
@@ -83,9 +83,23 @@ Sheet: `assets/orb-states.png`. Files: `assets/logo-mark.svg` (and `-1024.png`),
 
 | State | What changes | Where |
 |---|---|---|
-| Idle | Breath: scale 1 to 1.015 and back, 4 s loop. 48 px and up only. | Assistant empty state, splash after the rise. |
+| Idle | Breath: scale 1 to 1.015 and back, 4 s loop. 48 px and up only. | Assistant empty state. On the splash the sunrise state breathes the same way at rest. |
 | Thinking | The underlight warms (the values above), the glow widens, a 1.8-unit `--orb-arc` `#FF9F5A` arc (about 14% of the circle) orbits a faint Sky ring at 116% diameter, one turn per 1.2 s, on a 4-unit Paper keyline. The arc and ring are decorative (2.0:1 and 1.3:1 on Paper): the status line ("Reading your week") is the accessible signal, and it is required. The arc is Orb light, not a Sunrise mark: it does not count toward the orange budget. | While the assistant works. |
 | Still | One frame. | Every Orb under 48 px (the ask bar, the fold button), Reduce Motion, static art. |
+| Sunrise | The sun is up behind it: warm light fills its lower third and wraps its lower edge. The body, the cool white specular and the upper edge are the idle Orb's. Recipe below. | The splash only (9.2, 12.1), where the Orb is the sun. Never in the app, the icon or a lockup. |
+
+**The sunrise state** (the splash only; `tools/orb.mjs` exports the numbers as `ORB.sunrise`). It replaces the underlight and the inner glow with four layers, all clipped to the sphere, drawn in this order over the body and the sky bounce:
+
+| Layer | Spec |
+|---|---|
+| Pale light | Radial at (50, 104), radius 66, stretched 1.5 x wide: `#FFF1E4` 0.9 (offset 0), `#FFF1E4` 0.85 (0.6), `#F4F9FD` 0.45 (0.8), `#D6F1FE` 0 (1). It sits under the warm light and stays nearly opaque where the warm light fades, so the blue passes through pale to warm and never through grey. |
+| Warm light | Radial at (50, 106), radius 50, stretched 1.6 x wide: `#FFA868` 0.95 (0), `#FFB680` 0.8 (0.4), `#FFC9A2` 0.45 (0.7), `#FFE3CB` 0 (1). A dome of light in the lower third, no edge. |
+| Limb glow | The sphere less a circle of radius 42.7 at (50, 41.5), filled with a vertical fade from y 56 to y 98 (`#FFE3CB` 0, `#FFC9A2` 0.5 at 0.3, `#FFA868` 0.85 at 0.62, `#FF9F5A` 1), blurred 3.6 units: thick at the bottom, gone above the middle of the sphere. The sun is behind and below the sphere, so its light wraps the lower edge. |
+| Core | Radial at (50, 100), radius 24, stretched 1.9 x wide: `#FFF1E4` 0.75, `#FFE3CB` 0.4 (0.5), 0 (1). The brightest point, at the very bottom. |
+| Edge | As idle on top (`#0A5E92` 35%, 24% at 45% down), turning to Ember `#B4430C` at 20% (75% down) and 30% (bottom), so the silhouette holds on the warm sky. |
+| Glow | Apricot ellipse under the sphere at (50, 76), 68 x 42 radii, `#FFB680` 72% to 0. |
+
+It is still light on a blue sphere: the upper two thirds stay Sky, the highlight stays cool white, and nothing in it is a flat band or a grey seam (a mid-tone grey, CIELAB chroma under 10, covers about 1.5 percent of the disc on the splash sky, less than the idle Orb's 4). On the splash it is never switched on: its pale light alone (`apps/web/src/ui/orb/logo-mark-sunrise-pale.svg`, `orbSVG(96, { state: 'sunrise', pale: true })`: the pale layer, the sky bounce, the specular and the idle edge) fades in over the blue Orb first, then the whole state over that, as the Orb climbs (9.2). Blue goes to pale, then pale to warm: no frame mixes blue with orange, which reads grey.
 
 **Size tiers** (checkable by measuring the rendered diameter; tokens `--orb-full-min`, `--orb-gloss-min`, `--orb-flat-max`):
 
@@ -100,7 +114,7 @@ Sheet: `assets/orb-states.png`. Files: `assets/logo-mark.svg` (and `-1024.png`),
 | Do | Don't |
 |---|---|
 | One Orb per screen, the assistant's. | Two Orbs on one screen, or an Orb as a habit coin, a bullet or a decoration. |
-| Blue first, warm light at the bottom only, soft. | Orange in the body, a half-orange ball, a hard peach band. |
+| Blue first, warm light at the bottom only, soft (the splash's sunrise state reaches the lower third and no higher). | Orange in the body, a half-orange ball, a hard peach band. |
 | Use the 28 px gloss in the ask bar. | A glossy Orb at 22 px (it turns to mush). |
 | Flat disc under 28 px. | Shrinking the gloss art below 28 px. |
 
@@ -179,7 +193,7 @@ The product is **Orby**. The Orb is the mark, so the name and the mark are one i
 
 ### 2.7 What never to do
 
-Sheet: `assets/logo-donts.png`. Never: stretch or squash; retype the name in another face; swap the O for the Orb; set the name in caps; recolor the Orb; make a two-tone ball; show two Orbs on one screen; put the logo on a busy or clashing ground; give the Orb a face; add drop shadows or bevels; grey or tint the wordmark; change the spacing; rotate or tilt; say "the Orby" or "Orby app"; box the logo or add rules around it.
+Sheet: `assets/logo-donts.png`. Never: stretch or squash; retype the name in another face; swap the O for the Orb; set the name in caps; recolor the Orb; make a two-tone ball (the splash's sunrise state, 2.1, is the one warmer drawing, and it stays blue first); show two Orbs on one screen; put the logo on a busy or clashing ground; give the Orb a face; add drop shadows or bevels; grey or tint the wordmark; change the spacing; rotate or tilt; say "the Orby" or "Orby app"; box the logo or add rules around it.
 
 ---
 
@@ -216,6 +230,7 @@ Support colors (refinements, each added for a contrast or role need):
 | Data tones | Lagoon `#117A74`, Deep Sky `#0A6CA6`, Plum `#7E3F8F`, Rose `#B23A5B`, Indigo `#4A4FB0`, Ochre `#7D6210`, Pencil `#7A8794` | Session kinds (easy, long, hard, fast, lift, cross, rest). Glyphs, lines and 3 px markers only; never a surface or a tinted card. Each is 5.0:1 or better on Paper except Pencil (marks only). Hard moved off orange so orange keeps one meaning. |
 | Brand art | Poster sky `#8DD0F5`, `#AEDDF8`, `#CFEBFA`; horizon `#F4E6D2`, `#FFD2AE`; hills `#8FCDEE`, `#4FA9DB`, `#0A6CA6` | Posters, heroes, the icon. Not app chrome. |
 | App washes | `--wash-bar` `#D0EAF8`, `--wash-strip` `#DAEEFA`, `--wash-strip-end` `#E2F2FB`, `--welcome-warm` `#FFF1E4`, `--entry-2` `#7FCBF3`, `--orb-arc` `#FF9F5A` | Sticky bars and strip, the welcome and splash grounds, journal two-entry disc, the thinking arc. Tokens only. |
+| Splash lights | `--splash-day`, `--splash-glow`, `--splash-halo`, `--splash-bloom`, `--splash-ring` | The sunrise splash (9.2). `--splash-day` is the day's colors as one layer: poster sky `#8DD0F5` to `#AEDDF8` over the top 28 percent, and the horizon band `#F4E6D2` to `#FFD2AE` from 48 to 88 percent, with nothing between them. The other three are its soft lights: Apricot `#FFB680` radial falloffs (the bloom starts from `#FFF1E4`). `--splash-ring` is the soft Apricot band just inside each sun ring's white line (8.3). Each is drawn once and only faded or scaled. Brand art, not app chrome. |
 
 ### 3.2 Allowed text pairings
 
@@ -235,7 +250,7 @@ Only these. A pairing not in this table is not allowed.
 | Dusk | Linen | 6.36 | Body |
 | Dusk | Haze | 5.65 | Body (disabled button label) |
 | Deep Sky | Paper | 5.57 | Body: links |
-| Deep Sky | Cloud | 5.11 | Body |
+| Deep Sky | Cloud | 5.11 | Body; also Try again on the splash sky above its warm band (measured 4.86 to 5.11; the column rises to stay there, 9.2) |
 | Deep Sky | Linen | 4.99 | Body |
 | Deep Sky | Haze | 4.43 | Large text only; for body on Haze use `#085A8C` (5.76) |
 | Ember | Paper | 5.51 | Body |
@@ -649,13 +664,15 @@ The Orb is the only glossy, 3D object in the system. Everything else is flat col
 
 ### 8.2 How it is lit
 
-Key light from above (the cool white specular at the top), warm fill from below (the Apricot sunrise underlight). Never lit from the side, never a hard drop shadow, never a reflection of a room.
+Key light from above (the cool white specular at the top), warm fill from below (the Apricot sunrise underlight). Never lit from the side, never a hard drop shadow, never a reflection of a room. The splash's sunrise state (2.1) adds one more, from behind and below: the limb glow, the sun's light wrapping the lower edge as it comes up.
 
 ### 8.3 The poster
 
 For brand surfaces (heroes, store art, share cards, the deck): flat bands of sky (`#8DD0F5` to `#AEDDF8` to `#CFEBFA`) meeting a warm horizon (`#F4E6D2` to `#FFD2AE`); rolling hills in three flat blues (`#8FCDEE`, `#4FA9DB`, `#0A6CA6`); concentric sun rings around the Orb in 1.5 px white at 70 percent stepping down 10 percent per ring; paper grain on top. Headlines in Fraunces 700, Night Ink (9.59 on poster sky). See `assets/hero-poster.png` and `assets/hero-landscape.png`.
 
-**Staging the Orb (one rule for every image):** the Orb's bottom clears the horizon (the crest of the first hill under it) by 0.1 D, where D is its diameter. The horizon glow, an Apricot ellipse centered on the horizon, carries the warmth. Nothing covers the Orb's lower hemisphere: no hill, no phone, no text, no stamp. Rings center on the Orb and never cross text; mask or drop a ring rather than run it through words. Applies to the cover, the app icon (2.5), the poster, the landscape hero and the splash (12.1).
+**Staging the Orb (one rule for every image):** the Orb's bottom clears the horizon (the crest of the first hill under it) by 0.1 D, where D is its diameter. The horizon glow, an Apricot ellipse centered on the horizon, carries the warmth (on the splash the Orb's sunrise state carries it too, 2.1). Nothing covers the Orb's lower hemisphere: no hill, no phone, no text, no stamp. Rings center on the Orb and never cross text; mask or drop a ring rather than run it through words. Applies to the cover, the app icon (2.5), the poster, the landscape hero and the splash (12.1).
+
+**The rings on the splash** are the poster's five (radii 0.66, 0.86, 1.06, 1.24 and 1.4 D; 70 percent stepping down 10 a ring). Each carries a soft Apricot band 12 px wide just inside its white line, so a ring leaving the Orb reads on the pale sky before the horizon has warmed. A ring that would come within 16 px of the words (a short screen, a large text size) is not drawn.
 
 ### 8.4 The milestone stamp
 
@@ -674,7 +691,7 @@ Discs, rings, domes, half-suns on a horizon, orbits. A done run is a half-sun on
 
 ### 9.1 Durations and easings
 
-Springs come from `apps/web/src/lib/motion.ts` (`springs.page`, `settle`, `sheet`, `number`, `complete` and the rest); CSS uses the `--dur-*` and `--ease-*` tokens.
+Springs come from `apps/web/src/lib/motion.ts` (`springs.page`, `settle`, `sheet`, `number`, `complete` and the rest); CSS uses the `--dur-*` and `--ease-*` tokens (`--ease-out`, `--ease-sheet`, and `--ease-in-out` for light that comes up and settles). One named exception: the sunrise splash's length and the easing of its climb are numbers in `apps/web/src/app/splashTimeline.ts` (`SPLASH_MS`, `RISE_EASE`), because its haptics and its beat are computed from the same figures; its styles read them from there as custom properties.
 
 | Move | Duration | Easing or spring |
 |---|---|---|
@@ -691,26 +708,39 @@ Springs come from `apps/web/src/lib/motion.ts` (`springs.page`, `settle`, `sheet
 | Hold ring | 600 ms | `--dur-ring`, linear, `stroke-dashoffset` |
 | Gauge ticks | 6 ms stagger, 240 ms cap | linear |
 | Chart bars rising (a new range or mode) | 480 ms each, 12 ms apart (`--bar-stagger`), 240 ms from the first to the last at most (more bars than 21 share the 240 ms evenly) | `--dur-number`, `--ease-out`; a `transform` on each bar's own box, from its foot. The plan outline, its label and the now dot fade in (`--dur-in`, 120 ms) half way through the last bar's rise, when it is all but up. |
+| Sunrise splash | 2.8 s, first frame to the app | `SPLASH_MS` in `apps/web/src/app/splashTimeline.ts`, the one constant its whole schedule is derived from; the climb runs 2.0 s on `cubic-bezier(0.32, 0.42, 0.22, 1)` (`RISE_EASE` there); its light (the sky's colors, the glows, the Orb's two overlays) comes up, and the splash dissolves, on `--ease-in-out` `cubic-bezier(0.45, 0, 0.55, 1)`; the veil, the rings and the words on `--ease-out` (9.2) |
+| Quiet opening, Reduce Motion's splash crossfade | 300 ms | `--dur-launch`, `--ease-out` (linear under Reduce Motion) |
 
-**What may animate:** `transform` and `opacity`, plus these named cases only: `color` and `background-color` (the 200 ms color and halo change), `stroke-dashoffset` (the gauge fill and the hold ring). A gradient never transitions: the dawn wash and the Orb's warming underlight fade in as an overlay layer's `opacity`.
+**What may animate:** `transform` and `opacity`, plus these named cases only: `color` and `background-color` (the 200 ms color and halo change), `stroke-dashoffset` (the gauge fill and the hold ring). A gradient never transitions: the dawn wash and the Orb's warming underlight fade in as an overlay layer's `opacity`. A moment that plays by itself (the splash) is CSS keyframes with both ends named and one property each, eased with `cubic-bezier` (never `linear()` with points or `steps()`: WebKit keeps those on the main thread), so the compositor carries it while the app starts up.
 
 ### 9.2 Brand moments
 
-- **Sunrise splash** (first open of the day): the Orb rises 24 px to its resting place (bottom 0.1 D above the hills' crest) while its underlight layer's opacity goes from 0 to 1, 900 ms; then the wordmark fades in over 200 ms. Later launches: a 300 ms fade only. Hard cap 3.5 s.
+- **Sunrise splash** (every cold open, once per session): the Orb is the sun. 2.8 s from the first frame to the app, all of it derived from `SPLASH_MS` (times below are for 2.8 s).
+  - **0 to 450 ms.** The first frame is the launch image's plain Cloud. A Cloud veil lifts off the picture: the hills, with the sky pale above them (the app's own dawn wash).
+  - **100 to 2100 ms, the climb.** The Orb rises 1.35 D on one long ease, `cubic-bezier(0.32, 0.42, 0.22, 1)`: from hidden behind the near hill (its top 0.25 D under the crest) to its resting place, its bottom 0.1 D above the crest (8.3). Its top shows at about 330 ms; it comes over the hill at its fastest and slows all the way to rest.
+  - **Its light warms as it climbs.** Three drawings of the one sphere, each fading in over the last: the blue Orb with no underlight, the sunrise state's pale light alone (350 to 950 ms), the sunrise state (800 to 1500 ms; 2.1). Blue fades to pale, then pale to warm, so no frame mixes blue with orange, which reads grey. The sky's colors come with it as one layer (300 to 1800 ms): poster sky blue from the top, the warm horizon band below, Cloud left between them for the words. The horizon glow grows from half its size (200 to 1700 ms), and the Orb's own halo with the sunrise state.
+  - **The rings.** The five sun rings leave the Orb one by one, outermost first, each from the Orb's own edge to its radius, bright as it leaves and fading to its resting opacity. They are born 1000, 710, 470, 280 and 130 ms before the beat, so the gaps shorten.
+  - **The beat, at 1395 ms.** The frame the whole disc has left the hill line (its lowest point 0.025 D above the crest's center). A bloom of light swells and fades over 900 ms; the wordmark arrives over 520 ms and the line 120 ms behind it (over 480 ms), each fading in and rising 10 px, so the words rest for about 450 ms before the exit.
+  - **Rest, then the app.** At 2450 ms the splash dissolves over the app in 350 ms, the words first. It leaves on time when the first screen has painted; a cap at 3.5 s stands in for a screen that never says so. If the app is waiting on the server with nothing saved, the sun rests and breathes (2.1 idle breath) until it arrives; after 4 s "Still loading. Check your connection." and Try again join the words, the column rises clear of the Orb and above the warm horizon band as far as it can (64 pt from the top at most), so Try again reads on the Cloud, and the rings step back.
+  - **A tap or a key** runs what is left 8 times faster and lets the app through.
+  - **Once per session.** The same session opening the page again (a reload after sign out, a web view the system brought back) gets the final frame: a 300 ms fade in, then a 300 ms fade out as soon as the first screen is ready. No haptics.
+  - Haptics: 9.5. Reduce Motion: 9.4.
 - **Dawn wash** (first open after 4 a.m. local): a wash layer over the Cloud ground fades its `opacity` from 0 to 1 over 600 ms. Once a day.
 - **The Orb:** idle breath 4 s loop; thinking orbit 1.2 s per turn; one shared 24 fps loop that stops when no Orb is visible or the app is in the background.
 
 ### 9.3 What never moves
 
-Text blocks, cards on scroll, the palette, backgrounds after load, gauge scales and labels, the logo (except the splash rise).
+Text blocks, cards on scroll, the palette, backgrounds after load, gauge scales and labels, the logo (except the splash rise). On the splash the wordmark and the line rise 10 px as they arrive, and the words move up once, only as far as they must, to make room for "Still loading" and keep Try again above the warm band (9.2); nothing else there is text in motion.
 
 ### 9.4 Reduce Motion
 
-Every move becomes a 150 ms linear fade. The Orb holds its still frame. Gauge pointers jump. The splash shows the final frame. No parallax, no breath, no orbit.
+Every move becomes a 150 ms linear fade (`--dur-reduce`); the one longer fade is the splash's 300 ms crossfade in, below. The Orb holds its still frame. Gauge pointers jump. The splash shows its final frame: it crossfades in from the launch Cloud over 300 ms with the one `dawn` haptic, rests half a second and fades out in 150 ms; nothing in it moves. No parallax, no breath, no orbit.
 
 ### 9.5 Haptics
 
-Unchanged from `lib/haptics.ts`: named events, at most one per action, fired on the visual peak frame. `tick` (words landing, selection, at most 1 per 100 ms), `select`, `toggle`, `orb` (a habit lit), `lift`, `drop`, `threshold`, `success`, `celebrate` (a milestone stamp), `delete`, `warning`, `error`. Never for a tap that only navigates. The Settings switch turns them all off.
+From `lib/haptics.ts`: named events, at most one per action, fired on the visual peak frame (the sunrise splash's phrase, below, is the one exception). `tick` (words landing, selection, at most 1 per 100 ms), `select`, `toggle`, `orb` (a habit lit), `lift`, `drop`, `threshold`, `success`, `celebrate` (a milestone stamp), `delete`, `warning`, `error`. Never for a tap that only navigates. The Settings switch turns them all off.
+
+**The sunrise splash** is the one phrase (9.2): `rise`, a light tap on the first frame of each sun ring (five at most, the gaps shortening from 290 to 150 ms), and `dawn`, one fuller beat on the frame the Orb clears the hill. Each is tied to something on screen: a ring that is not drawn is not felt. They are timed from the frame the animation really started; a tap that comes up more than 120 ms late (the main thread was busy starting the app) is dropped, never played out of time, and the beat may land up to 400 ms behind. None while the page is hidden, after a tap that skipped, or on the quiet opening.
 
 ---
 
@@ -785,7 +815,7 @@ Unchanged from `lib/haptics.ts`: named events, at most one per action, fired on 
 | The assistant | Per 6.12. | `mockups/assistant.png` |
 | Settings | Dawn wash on the pushed page header; Fraunces group titles at the card-title size (22/28); inset groups with Haze icon tiles; Deep Sky values where they are links. | `mockups/settings.png` |
 | Onboarding and welcome | The horizontal lockup at the top (outlined wordmark, the flat-Orb file at this size, never live caps); Fraunces 700 hero at `--fs-hero`; the sample card's line in Fraunces italic Night Ink and its session name at `--fs-stamp`; sample card in Paper; Sunrise live node; Sky "Next" with Ink words; Deep Sky "I have an account"; Apricot sunrise glow at the bottom. | `mockups/welcome.png` |
-| Splash | Dawn-to-sunrise ground with the poster's three hills as the horizon; the outlined wordmark 150 pt wide and "One good day at a time." in Fraunces italic Dusk (6.52 on the splash sky) in the sky; the 96 px Orb risen over the hills, staged per 8.3; a caption on the far hill in White (5.66 on Deep Sky) that follows the time of day: "GOOD MORNING" before 12:00, "GOOD AFTERNOON" from 12:00 to 17:00, "GOOD EVENING" after 17:00. Native splash: the still Orb centered on Cloud `#EAF5FC`; `capacitor.config.ts` `backgroundColor`, `theme-color` in `index.html` and the manifest become `#EAF5FC` (they are `#f3f8fb` today). | `mockups/splash.png`, `splash-evening.png` |
+| Splash | The sunrise (9.2). At rest: the poster's sky (poster sky blue from the top, Cloud behind the words, the warm horizon band and the Apricot horizon glow) over the poster's three hills; the outlined wordmark 150 pt wide and "One good day at a time." in Fraunces italic Dusk (6.52 on the splash sky) in the sky, their column starting 29.6 percent down (20 percent on a screen 640 pt tall or shorter); the Orb in its sunrise state (2.1) risen over the hills, staged per 8.3, `--orb-splash` across (96 pt on a short phone, 13 percent of the height between, 120 pt at most), with its five sun rings (8.3); a caption on the far hill in White (5.66 on Deep Sky) that follows the time of day: "GOOD MORNING" before 12:00, "GOOD AFTERNOON" from 12:00 to 17:00, "GOOD EVENING" after 17:00. Native launch image: plain Cloud `#EAF5FC`, which is the splash's first frame, so the hand-off cannot jump; `capacitor.config.ts` `backgroundColor`, `theme-color` in `index.html` and the manifest are `#EAF5FC`. | `mockups/splash.png`, `splash-evening.png` |
 | App icon | Replace `AppIcon-512@2x.png` with `assets/app-icon-1024.png`; dark and tinted variants in the asset catalog; replace the stale `apps/web/assets/*.png` and `public/icons/icon.svg` (they still hold the v2 ring-and-check) so `@capacitor/assets` cannot ship the old mark. | `assets/app-icon-homescreen.png` |
 
 ### 12.2 Token migration map
@@ -829,7 +859,7 @@ Full list with old values in `tokens.css` comments. The headline moves:
 
 Run all of it. A change is not done until every line is true. Lines marked (runtime) need the app running: `node docs/brand/tools/audit.mjs <url>` checks them; a rule you could not run is reported as unverified, never as passed.
 
-- [ ] Every color, radius, spacing, duration and font comes from a token in `tokens.css`. `node apps/web/scripts/check-brand.mjs <changed files>` adds no findings.
+- [ ] Every color, radius, spacing, duration and font comes from a token in `tokens.css` (the one named exception: the sunrise splash's length and climb easing, 9.1). `node apps/web/scripts/check-brand.mjs <changed files>` adds no findings.
 - [ ] Every text and ground pairing is in 3.2. `pnpm test` passes (contrast and px-font checks). (runtime: the audit checks each text element against its effective ground)
 - [ ] No Sky text on light grounds, no white on Sky, no Sunrise text.
 - [ ] At most 3 Sunrise elements on the screen (3.5 priority), each with a Paper keyline of at least 2 px (the gauge pointer 3.5); no orange button, fill, selected state, series or session kind. (runtime)
@@ -842,7 +872,7 @@ Run all of it. A change is not done until every line is true. Lines marked (runt
 - [ ] Icons: 1.75 stroke, round caps, from the set or rule-abiding Lucide; no emoji; the Progress glyph is the set's.
 - [ ] Copy: Orby (capital O, no "the", no "app"), "the assistant", American spelling, no em dashes, no model names outside required disclosures, at most one exclamation mark, sentence case.
 - [ ] Tested at 200 percent text, with Reduce Motion and Increase Contrast on; targets 44 pt. (runtime)
-- [ ] Only transform and opacity animate, plus the named cases in 9.1; durations match section 9; haptics fire on the peak frame, at most one per action.
+- [ ] Only transform and opacity animate, plus the named cases in 9.1; durations match section 9; haptics fire on the peak frame, at most one per action (the splash's timed phrase is the one exception, 9.5).
 - [ ] Third-party marks (6.15) are unmodified and marked `brand-ok: third-party`.
 - [ ] The checks in section 8 of `docs/brand/layout-and-hierarchy.md` pass (squint test, 3-second test, focal point high, proximity, type counts, containers, say it once, targets).
 - [ ] Internal identifiers unchanged (repo, `@logbook/*`, `com.joshbean.logbook`, storage keys, `LogbookAPIHost`).

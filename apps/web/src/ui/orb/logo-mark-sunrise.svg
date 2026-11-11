@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="150" height="150" viewBox="-25 -25 150 150">
+<defs>
+<radialGradient id="srb" cx="50%" cy="36%" r="64%" fx="50%" fy="26%"><stop offset="0" stop-color="#FFFFFF"/><stop offset=".12" stop-color="#E4F6FE"/><stop offset=".34" stop-color="#97D8F9"/><stop offset=".6" stop-color="#38B6F2"/><stop offset=".84" stop-color="#1590D2"/><stop offset="1" stop-color="#0A68A0"/></radialGradient>
+<radialGradient id="srw" cx="50%" cy="104%" r="58%">
+<stop offset="0" stop-color="#D6F1FE" stop-opacity=".95"/><stop offset=".5" stop-color="#9ADBFA" stop-opacity=".45"/><stop offset="1" stop-color="#7FD0F7" stop-opacity="0"/>
+</radialGradient>
+<radialGradient id="srp" gradientUnits="userSpaceOnUse" cx="50" cy="104" r="66" gradientTransform="translate(50 104) scale(1.5 1) translate(-50 -104)"><stop offset="0" stop-color="#FFF1E4" stop-opacity="0.9"/><stop offset="0.6" stop-color="#FFF1E4" stop-opacity="0.85"/><stop offset="0.8" stop-color="#F4F9FD" stop-opacity="0.45"/><stop offset="1" stop-color="#D6F1FE" stop-opacity="0"/></radialGradient>
+<radialGradient id="srt" gradientUnits="userSpaceOnUse" cx="50" cy="106" r="50" gradientTransform="translate(50 106) scale(1.6 1) translate(-50 -106)"><stop offset="0" stop-color="#FFA868" stop-opacity="0.95"/><stop offset="0.4" stop-color="#FFB680" stop-opacity="0.8"/><stop offset="0.7" stop-color="#FFC9A2" stop-opacity="0.45"/><stop offset="1" stop-color="#FFE3CB" stop-opacity="0"/></radialGradient>
+<radialGradient id="srq" gradientUnits="userSpaceOnUse" cx="50" cy="100" r="24" gradientTransform="translate(50 100) scale(1.9 1) translate(-50 -100)"><stop offset="0" stop-color="#FFF1E4" stop-opacity="0.75"/><stop offset="0.5" stop-color="#FFE3CB" stop-opacity="0.4"/><stop offset="1" stop-color="#FFE3CB" stop-opacity="0"/></radialGradient>
+<linearGradient id="srl" gradientUnits="userSpaceOnUse" x1="0" y1="56" x2="0" y2="98"><stop offset="0" stop-color="#FFE3CB" stop-opacity="0"/><stop offset="0.3" stop-color="#FFC9A2" stop-opacity="0.5"/><stop offset="0.62" stop-color="#FFA868" stop-opacity="0.85"/><stop offset="1" stop-color="#FF9F5A" stop-opacity="1"/></linearGradient>
+<linearGradient id="srr" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#0A5E92" stop-opacity="0.35"/><stop offset="0.45" stop-color="#0A5E92" stop-opacity="0.24"/><stop offset="0.75" stop-color="#B4430C" stop-opacity="0.2"/><stop offset="1" stop-color="#B4430C" stop-opacity="0.3"/></linearGradient>
+<radialGradient id="srs" cx="50%" cy="40%" r="60%"><stop offset="0" stop-color="#fff" stop-opacity="0.7"/><stop offset=".45" stop-color="#fff" stop-opacity="0.42"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient>
+<radialGradient id="srg" cx="50%" cy="50%" r="50%"><stop offset="0" stop-color="#FFB680" stop-opacity="0.72"/><stop offset="1" stop-color="#FFB680" stop-opacity="0"/></radialGradient>
+<mask id="srm"><circle cx="50" cy="50" r="48" fill="#fff"/><circle cx="50" cy="41.5" r="42.7" fill="#000"/></mask>
+<filter id="srf" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="3.6"/></filter>
+<filter id="srsf" x="-30%" y="-60%" width="160%" height="220%"><feGaussianBlur stdDeviation="2.5"/></filter>
+<clipPath id="src"><circle cx="50" cy="50" r="48"/></clipPath>
+</defs>
+<ellipse cx="50" cy="76" rx="68" ry="42" fill="url(#srg)"/>
+<circle cx="50" cy="50" r="48" fill="url(#srb)"/>
+<g clip-path="url(#src)">
+<circle cx="50" cy="50" r="48" fill="url(#srw)"/>
+<rect x="0" y="0" width="100" height="100" fill="url(#srp)"/>
+<rect x="0" y="0" width="100" height="100" fill="url(#srt)"/>
+<g filter="url(#srf)"><rect x="-10" y="-10" width="120" height="120" fill="url(#srl)" mask="url(#srm)"/></g>
+<rect x="0" y="0" width="100" height="100" fill="url(#srq)"/>
+<ellipse cx="50" cy="22" rx="27" ry="15" fill="url(#srs)" filter="url(#srsf)"/>
+</g>
+<circle cx="50" cy="50" r="47.6" fill="none" stroke="url(#srr)" stroke-width="0.8"/></svg>

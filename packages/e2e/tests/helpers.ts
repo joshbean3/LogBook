@@ -1,7 +1,30 @@
-import { expect, type Page } from '@playwright/test';
+import { expect, test as base, type Page } from '@playwright/test';
 import fs from 'node:fs';
 
 export const PASSWORD = 'correct-horse-battery-9';
+
+/**
+ * The app opens with a 2.8 second sunrise once per session (apps/web/src/app/BrandSplash.tsx), and with a quiet 300 ms
+ * fade whenever the same session opens it again. Tests are about the app, so every test's session starts with the
+ * opening already seen: the same mark the app itself leaves in sessionStorage. A test of the opening asks for it with
+ * `test.use({ opening: 'sunrise' })`.
+ */
+export const test = base.extend<{ opening: 'quiet' | 'sunrise' }>({
+  opening: ['quiet', { option: true }],
+  context: async ({ context, opening }, use) => {
+    if (opening === 'quiet') {
+      await context.addInitScript(() => {
+        try {
+          sessionStorage.setItem('logbook-splash-played', '1');
+        } catch {
+          /* a page with no storage */
+        }
+      });
+    }
+    await use(context);
+  },
+});
+export { expect };
 
 /** A fresh address for every account, so tests never share one (and can run side by side). */
 export const newEmail = (tag: string) => `e2e-${tag}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}@example.com`;
@@ -99,12 +122,19 @@ export const finishSetup = async (page: Page, opts: { habit?: string } = {}) => 
   await expect(page).toHaveURL(/\/today/, { timeout: 30_000 });
 };
 
-/** Sign out from Settings, through the confirmation when there is one. Ends on the signed-out screens. */
+/**
+ * Sign out from Settings, through the confirmation sheet. Sign out lives on the Account page (Settings, Account), so the
+ * helper opens that page; where a build still has it on the Settings root, the root's button is used. Ends on the
+ * signed-out screens.
+ */
 export const signOut = async (page: Page) => {
   await page.getByRole('link', { name: 'Profile and settings' }).click();
   await expect(page).toHaveURL(/\/settings/);
-  await page.getByRole('button', { name: 'Sign out', exact: true }).first().click();
+  const button = page.getByRole('button', { name: 'Sign out', exact: true }).first();
+  if (!(await button.isVisible().catch(() => false))) await go(page, '/settings/account');
+  await button.click();
   const confirm = page.getByRole('dialog').getByRole('button', { name: 'Sign out', exact: true });
+  await confirm.waitFor({ state: 'visible', timeout: 5000 }).catch(() => undefined);
   if (await confirm.isVisible().catch(() => false)) await confirm.click();
   await expect(page).toHaveURL(/\/(start|login)/, { timeout: 30_000 });
 };
