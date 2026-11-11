@@ -6,7 +6,7 @@ import { STRAVA_BUILT } from '@/lib/features';
 import { STRAVA_GAP_MS } from '@/lib/gesture';
 import { BadShapeError, parseBootstrap } from './bootstrap';
 import { api, ApiError, LONG_TIMEOUT_MS, NetworkError } from './client';
-import { write } from './outbox';
+import { outbox, write } from './outbox';
 import type { Bootstrap, Daily, ExportBundle, MonthBundle, OnboardingAnswers, OnboardingResult, TemplateApplied } from './types';
 
 // The blocks below are cut once (docs/feel.md build plan §0, contracts §E): each package edits only its own block.
@@ -223,6 +223,16 @@ export const useAllLifts = () => useQuery({ queryKey: keys.lifts, queryFn: () =>
 export const useActivities = () => useQuery({ queryKey: keys.activities, queryFn: () => api<Activity[]>(`/activities?from=${shiftDays(today(), -120)}&to=${shiftDays(today(), 7)}`), staleTime: 60_000 });
 
 // ---------- sessions ----------
+const ID_ALPHABET = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
+/** An id for a session made on this device, in the shape the server makes its own (`p` and twelve letters or digits). */
+export const newSessionId = (): string => {
+  const bytes = new Uint8Array(12);
+  if (typeof crypto !== 'undefined' && typeof crypto.getRandomValues === 'function') crypto.getRandomValues(bytes);
+  else for (let i = 0; i < bytes.length; i++) bytes[i] = Math.floor(Math.random() * 256);
+  let out = 'p';
+  for (const b of bytes) out += ID_ALPHABET[b % ID_ALPHABET.length];
+  return out;
+};
 export const useSessionMutations = () => {
   const qc = useQueryClient();
   const upsert = useMutation({
@@ -256,6 +266,51 @@ export const useSessionMutations = () => {
       return saved;
     },
     onError: (_e, input) => invalidateMonth(qc, monthOf(input.date), ...(input.prevDate ? [monthOf(input.prevDate)] : [])),
+  });
+  /**
+   * A new session made in one step (Plan's Add sheet), through the same `POST /sessions`. Its id is made here
+   * (`newSessionId`), not by the server, so the row keeps its identity from the first frame (no remount when the server
+   * answers), and the create is registered with the outbox under that id: Undo, a mark or an edit that names it before
+   * the server has answered waits behind the create, online or offline, and a replay of the create lands once (the same
+   * id is an update, never a second row). `mark` (a past day is added as done) goes as its own write, queued behind the
+   * create. The caller says what failed, with a way to try again (`meta.handlesError`: the app's own one-line toast stays
+   * quiet); a create refused for good takes the writes that waited on it out of the queue.
+   */
+  const add = useMutation({
+    meta: { handlesError: true },
+    mutationFn: async (s: Session) => {
+      const month = monthOf(s.date);
+      ensureMonth(qc, month);
+      patchMonth(qc, month, (b) => ({ ...b, sessions: [...b.sessions.filter((x) => x.id !== s.id), s].sort((a, b2) => (a.date === b2.date ? a.position - b2.position : a.date < b2.date ? -1 : 1)) }));
+      const refetch = [keys.month(month)];
+      const created = write<Session>('/sessions', 'POST', { id: s.id, date: s.date, kind: s.kind, type: s.type, title: s.title, details: s.details, miles: s.kind === 'run' ? s.miles : null, minutes: s.minutes }, refetch, { tmpId: s.id });
+      // it names the id, so it waits behind the create and goes out in order once the create is answered (or replayed)
+      const marked = s.mark ? write(`/sessions/${s.id}/mark`, 'POST', { mark: s.mark }, refetch) : null;
+      let saved: Session | null;
+      try {
+        saved = await created;
+        await marked;
+      } catch (e) {
+        await outbox.forget(s.id);
+        throw e;
+      }
+      // The server's row takes the place of the one written here only when it says something else (it rounds, it trims;
+      // a server that names the row itself), and only while the row is still as it was written: touched since (a mark,
+      // an edit), its own write settles it. When both say the same, nothing is written: a write here renders every
+      // mounted tab, right after the sheet that added the row has fallen away. The place in the day is not compared (the
+      // row was written last in its day, where the server puts it too).
+      if (saved) {
+        const shows = (a: Session, b: Session) => a.id === b.id && a.date === b.date && a.kind === b.kind && (a.type ?? null) === (b.type ?? null) && (a.title ?? null) === (b.title ?? null) && (a.details ?? null) === (b.details ?? null) && (a.miles ?? null) === (b.miles ?? null) && (a.minutes ?? null) === (b.minutes ?? null);
+        const cur = qc.getQueryData<MonthBundle>(keys.month(month))?.sessions.find((x) => x.id === s.id);
+        if (cur && shows(cur, s) && !shows(s, saved)) patchMonth(qc, month, (b) => ({ ...b, sessions: b.sessions.map((x) => (x.id === s.id ? { ...saved, mark: x.mark } : x)) }));
+      }
+      return saved;
+    },
+    // the row leaves at once (the server has none), then the month is read again
+    onError: (_e, s) => {
+      patchMonth(qc, monthOf(s.date), (b) => ({ ...b, sessions: b.sessions.filter((x) => x.id !== s.id) }));
+      invalidateMonth(qc, monthOf(s.date));
+    },
   });
   const remove = useMutation({
     mutationFn: async (s: Session) => {
@@ -291,7 +346,7 @@ export const useSessionMutations = () => {
     },
     onError: (_e, v) => invalidateMonth(qc, monthOf(v.session.date)),
   });
-  return { upsert, remove, restore, move, mark };
+  return { upsert, add, remove, restore, move, mark };
 };
 
 // ---------- habits ----------

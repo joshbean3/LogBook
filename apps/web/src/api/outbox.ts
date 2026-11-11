@@ -192,6 +192,17 @@ export const outbox = {
     inflight.delete(tmpId);
     if (client) void outbox.replay(client);
   },
+  /**
+   * A create the server refused for good (its caller says so): the writes that waited on its id can never land, so they
+   * leave the queue without a word of their own.
+   */
+  async forget(tmpId: string) {
+    inflight.delete(tmpId);
+    const kept = items.filter((x) => !mentions(x.path, x.json, tmpId));
+    if (kept.length === items.length) return;
+    items = kept;
+    await persist();
+  },
   /** The data layer's client, so a retry or a resolved create can replay without being handed one. */
   attach(qc: QueryClient) {
     client = qc;
