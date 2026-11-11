@@ -139,7 +139,7 @@ describe('the run landing and the Close card (docs/feel.md §5, §6)', () => {
   });
   it('the Close card stamps: only what happened, at most three; the miles tick from the plan, never from 0', () => {
     const r = dayStamps({ miles: 4.2, planned: 4, lit: 3, habits: 5, doneTodos: 2, openTodos: 1, restDay: false, runShown: true });
-    expect(r.stamps.map((s) => s.k)).toEqual(['Mi', 'Habits', 'To-dos']);
+    expect(r.stamps.map((s) => s.k)).toEqual(['Miles', 'Habits', 'To-dos']);
     expect(r.stamps[0]!.from).toBe(4);
     expect(r.line).toBeNull();
     const q = dayStamps({ miles: 0, planned: 0, lit: 0, habits: 5, doneTodos: 0, openTodos: 2, restDay: true, runShown: false });

@@ -1,12 +1,12 @@
 import { fmtDate, mondayOf, monthOf, shiftDays, type ISODate } from '@logbook/shared';
-import { ChevronRight } from 'lucide-react';
+import { ChevronRight, Lock } from 'lucide-react';
 import type * as React from 'react';
 import { lazy, memo, Suspense, useCallback, useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import { useGoals, useHabitMutations, useTodos } from '@/api/queries';
 import { STRAVA_BUILT } from '@/lib/features';
 import { hideSplash } from '@/lib/native';
 import { SectionHeader } from '@/ui/layout';
-import { EmptyState } from '@/ui/primitives';
+import { EmptyState, SectionEmpty } from '@/ui/primitives';
 import { Pressable } from '@/ui/Pressable';
 import { useSheet } from '@/ui/Sheet';
 import { NAV_EVENT, type NavEventDetail } from '@/ui/nav';
@@ -169,10 +169,15 @@ const HabitsTop = memo(function HabitsTop({ date, log }: { date: ISODate; log: L
   return (
     <section className="habits day-habits" aria-label="Habits">
       <SectionHeader title="Habits" meta={<HabitsMeta date={date} log={log} />} action="History" onAction={history} actionLabel="Every habit's history" />
-      {/* only the tiles are locked on a day still to come: History in the header still opens (today-body-18) */}
-      <div className="day-habits-card" inert={date > log.today || undefined}>
-        <OrbRowM date={date} log={log} />
-      </div>
+      {/* a day still to come: one row says when they open, not seven ghost tiles (layout plan 2.1 T15); History in the header
+          still opens (today-body-18) */}
+      {date > log.today && log.habits.length ? (
+        <SectionEmpty className="day-habits-later" icon={<Lock size={18} aria-hidden="true" />} title="Not open yet" line={`Your ${log.habits.length === 1 ? 'habit opens' : `${log.habits.length} habits open`} on ${fmtDate('dow', date)}.`} />
+      ) : (
+        <div className="day-habits-card" inert={date > log.today || undefined}>
+          <OrbRowM date={date} log={log} />
+        </div>
+      )}
     </section>
   );
 });

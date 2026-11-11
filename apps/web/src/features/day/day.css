@@ -1029,12 +1029,10 @@
 .cd-stamp + .cd-stamp {
   box-shadow: inset 1px 0 0 var(--line);
 }
-/* the labels in caption style, the numbers live (guide 6.13): Inter 650 tnum at the tile number's size, so the row keeps its
-   48 px (the guide's 44 px stat would make three numbers shout in one row) */
+/* the labels Inter 15 Dusk (the card's one caption is CLOSE THE DAY, guide 6.13), the numbers the value role: Inter 650 tnum
+   at --fs-value (layout plan 2.1 T13) */
 .cd-stamp-k {
-  font: 600 var(--fs-caps) / var(--lh-foot) var(--stamp);
-  letter-spacing: var(--tr-caps);
-  text-transform: uppercase;
+  font: 500 var(--fs-sub) / var(--lh-sub) var(--sans);
   color: var(--ink-2);
   white-space: nowrap;
   overflow: hidden;
@@ -1042,8 +1040,8 @@
 }
 .cd-num {
   /* a live numeral: three share a row, so it follows the text size to a limit */
-  font: 650 clamp(26px, 1.625rem, 34px) / clamp(30px, 1.875rem, 40px) var(--sans);
-  letter-spacing: var(--tr-hero);
+  font: 650 clamp(26px, var(--fs-value), 34px) / clamp(32px, var(--lh-value), 40px) var(--sans);
+  letter-spacing: var(--tr-value);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
   overflow: hidden;
@@ -1054,12 +1052,9 @@
   letter-spacing: 0;
   color: var(--ink-2);
 }
-/* nothing to stamp: one plain sentence in the stamps' place */
+/* nothing to stamp: one plain sentence under the title, no box of its own */
 .cd-line {
-  display: flex;
-  align-items: center;
-  min-height: 3rem;
-  margin: 14px 0 0;
+  margin: var(--sp-3) 0 0;
   font: 400 var(--fs-sub) / var(--lh-sub) var(--sans);
   color: var(--ink-2);
 }
@@ -1070,16 +1065,17 @@
   gap: 12px;
   height: auto;
   min-height: 4rem;
-  margin: 14px -16px 0;
-  padding: 6px 12px 6px 16px;
-  box-shadow: inset 0 1px 0 var(--line), inset 0 -1px 0 var(--line);
+  margin: var(--sp-4) calc(-1 * var(--sp-4)) 0;
+  padding: var(--sp-2) var(--sp-3) var(--sp-2) var(--sp-4);
+  border-block: 1px solid var(--line);
+  box-shadow: none;
   text-align: left;
   touch-action: pan-y;
 }
-/* a day of two or more sessions: the rows stack with one hairline between them */
+/* a day of two or more sessions: hairline rows, one hairline between them (no shadow: rows in a card, layout plan 2.1 T13) */
 .cd-run.pressable + .cd-run.pressable {
   margin-top: 0;
-  box-shadow: inset 0 -1px 0 var(--line);
+  border-top: 0;
 }
 .cd-run-text {
   display: grid;
@@ -1204,10 +1200,11 @@
 .cd-tgroup.group {
   margin: 0;
 }
-.cd-trow {
+.cd-tgroup > .cd-trow {
   display: flex;
   align-items: center;
-  gap: 12px;
+  /* the icon tile to the words: 12, as every row (layout standard 6.2) */
+  gap: var(--sp-3);
   min-height: 3.5rem;
   height: auto;
   padding: 4px 14px 4px 16px;
@@ -1227,7 +1224,8 @@
 }
 .cd-trow-right {
   flex: none;
-  font: 400 var(--fs-sub) / var(--lh-sub) var(--sans);
+  font: 400 var(--fs-row) / var(--lh-row) var(--sans);
+  font-variant-numeric: tabular-nums;
   color: var(--ink-3);
 }
 .cd-trow-chev {
@@ -1252,14 +1250,6 @@
   outline: none;
   user-select: text;
   -webkit-user-select: text;
-}
-.pill-row.cd-share {
-  color: var(--ink);
-}
-.cd-share-in {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
 }
 
 /* ---------- the word sheet (WordSheet.tsx) ---------- */

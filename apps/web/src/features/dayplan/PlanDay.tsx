@@ -542,11 +542,12 @@ const Focus = ({ cards, drag, api, date, today, editable }: { cards: Card[]; dra
   return (
     <div data-pd-box="" className={`pd-focus ${over ? 'is-over' : ''}`}>
       <div className="pd-zone pd-focus-zone" data-pd-zone="tray">
-        {grid.emptyRow ? (
+        {/* with everything done, the section's meta ("All 3 done") and the fold ("3 done") say it: no line of its own */}
+        {grid.emptyRow && !done ? (
           <p className="pd-top-empty" style={{ gridRow: grid.emptyRow }}>
-            {date < today ? (done ? 'Everything got done.' : 'Nothing was planned.') : done ? 'All done. Nothing left in front of you.' : `Add what matters ${date === today ? 'today' : 'that day'}. The first three become your priorities.`}
+            {date < today ? 'Nothing was planned.' : `Add what matters ${date === today ? 'today' : 'that day'}. The first three become your priorities.`}
             {/* the field's marks, said once, where the list is still empty */}
-            {date === today && !done ? <span className="pd-top-tip">Tip: end with “tomorrow” or “fri” to pick the day, or “!” to flag it.</span> : null}
+            {date === today ? <span className="pd-top-tip">Tip: end with “tomorrow” or “fri” to pick the day, or “!” to flag it.</span> : null}
           </p>
         ) : null}
         {/* every row comes from this one keyed list, in the order it reads: a row that crosses from one part to another

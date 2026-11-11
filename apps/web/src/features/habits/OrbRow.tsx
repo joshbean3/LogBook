@@ -136,7 +136,8 @@ export const useHabitShown = (date: string, id: string, fromMonth: boolean): boo
 /** The habits head's meta (§3.1 row 4, §3.3): `2 of 5` only when > 0; a future day counts its ghosts, `5 habits`. */
 export const HabitsMeta = ({ date, log }: { date: string; log: Log }): React.JSX.Element | null => {
   const { lit, total } = useHabitsLit(date, log);
-  const text = date > log.today ? (log.habits.length ? `${log.habits.length} ${log.habits.length === 1 ? 'habit' : 'habits'}` : null) : lit > 0 ? `${lit} of ${total}` : null;
+  // a day ahead says how many; today and before, how many are done, as Plan your day does ("0 of 7 done"; layout plan 2.1 T11)
+  const text = date > log.today ? (log.habits.length ? `${log.habits.length} ${log.habits.length === 1 ? 'habit' : 'habits'}` : null) : total ? `${lit} of ${total} done` : null;
   return text ? <>{text}</> : null;
 };
 
