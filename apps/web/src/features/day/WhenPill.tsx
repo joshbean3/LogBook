@@ -1,4 +1,3 @@
-import { CloudSun, Minus, Sunrise } from 'lucide-react';
 import type { ISODate } from '@logbook/shared';
 import { haptics } from '@/lib/haptics';
 import { SEG_TONE_WAYFINDING, Segmented, Stepper } from '@/ui/primitives';
@@ -7,16 +6,16 @@ import { shortClock } from './dayWords';
 import { afternoonStops, setAfternoon, type SessionKind, setTrainWhen, setTrainWhenDefault, useAfternoon, useTrainWhen, useTrainWhenDefault, type TrainWhen } from './trainWhen';
 
 /** `said` is what VoiceOver reads for each segment (today-top-20: "No set time", not "No time"). */
-const OPTS: Array<{ v: TrainWhen; label: string; said: string; Icon: typeof Sunrise }> = [
-  { v: 'morning', label: 'Morning', said: 'morning', Icon: Sunrise },
-  { v: 'afternoon', label: 'Afternoon', said: 'afternoon', Icon: CloudSun },
-  { v: 'none', label: 'No time', said: 'no set time', Icon: Minus },
+const OPTS: Array<{ v: TrainWhen; label: string; said: string }> = [
+  { v: 'morning', label: 'Morning', said: 'Morning' },
+  { v: 'afternoon', label: 'Afternoon', said: 'Afternoon' },
+  { v: 'none', label: 'No time', said: 'No set time' },
 ];
 
 /**
- * Morning · Afternoon · No time: when this day's training happens, on the shared segmented control (guide 6.3; its thumb in
- * the wayfinding tone, layout plan U6). A selection tick on change; the card follows at once. Its taps stay its own: the
- * hero under it opens the session.
+ * Morning · Afternoon · No time: when this day's training happens, on the shared segmented control (guide 6.3: text only;
+ * its thumb in the wayfinding tone, layout plan U6). No haptic on a segmented change, as every segmented control (contracts
+ * §C.6); the card follows at once. Its taps stay its own: the hero under it opens the session.
  */
 export const WhenPill = ({ date }: { date: ISODate }) => {
   const when = useTrainWhen(date);
@@ -26,16 +25,12 @@ export const WhenPill = ({ date }: { date: ISODate }) => {
         label="When you train"
         tone={SEG_TONE_WAYFINDING}
         value={when}
-        onChange={(v) => {
-          haptics.select();
-          setTrainWhen(date, v);
-        }}
-        options={OPTS.map(({ v, label, said, Icon }) => [
+        onChange={(v) => setTrainWhen(date, v)}
+        options={OPTS.map(({ v, label, said }) => [
           v,
           <>
-            <Icon size={15} strokeWidth={2.2} aria-hidden="true" />
             <span aria-hidden="true">{label}</span>
-            <span className="sr-only">{said[0]!.toUpperCase() + said.slice(1)}</span>
+            <span className="sr-only">{said}</span>
           </>,
         ])}
       />

@@ -118,22 +118,31 @@ export const statusWords = (kind: TrainingStatusKind, until: ISODate | null | un
 
 /**
  * Fit by measure (layout plan 2.1 T1): the row never wraps and never cuts a word. When a label would be cut, pill 1 drops its
- * end and shows the kind alone ("Injured"); the end stays in its VoiceOver label and in the status sheet. Measured on mount,
- * whenever the row resizes, and when the words change.
+ * end and shows the kind alone ("Injured"); the end stays in its VoiceOver label and in the status sheet. When even that is
+ * cut (large text on a small phone), the pills stack, as they do at 200 percent, and pill 1 gets its end back if it fits.
+ * Measured on mount, whenever the row resizes, and when the words change.
  */
 const useFit = (key: string) => {
   const ref = useRef<HTMLDivElement>(null);
   useLayoutEffect(() => {
     const row = ref.current;
     if (!row) return;
+    const cut = () => [...row.querySelectorAll<HTMLElement>('.status-pill-label')].some((l) => l.scrollWidth > l.clientWidth + 0.5);
     const fit = () => {
       delete row.dataset.short;
-      const cut = [...row.querySelectorAll<HTMLElement>('.status-pill-label')].some((l) => l.scrollWidth > l.clientWidth + 0.5);
-      if (cut) row.dataset.short = '';
+      delete row.dataset.stack;
+      if (!cut()) return;
+      row.dataset.short = '';
+      if (!cut()) return;
+      row.dataset.stack = '';
+      delete row.dataset.short;
+      if (cut()) row.dataset.short = '';
     };
     fit();
     const ro = new ResizeObserver(() => fit());
     ro.observe(row);
+    // the pills are a fixed 32 tall: a text size change resizes their labels, not always the row
+    row.querySelectorAll('.status-pill-label').forEach((l) => ro.observe(l));
     // Inter may arrive after the first paint (web): measure again once it has
     let gone = false;
     void document.fonts?.ready.then(() => !gone && fit());

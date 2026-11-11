@@ -283,7 +283,8 @@ const LineText = ({ line }: { line: string }) =>
       {` in ${line.slice(DOOR.length).replace(/ (h|min)\b/g, '\u00a0$1')}`}
     </>
   ) : (
-    <>{line}</>
+    // "Out · back by 7:54" breaks after the state word, never inside "back by 7:54"
+    <>{line.replace(/back by (\S+)$/, 'back\u00a0by\u00a0$1')}</>
   );
 
 /** Whether a face has anything in its deck (the control zone under the hairline). */

@@ -210,6 +210,8 @@
 .hero-sub,
 .hero-status {
   font: 400 var(--fs-foot) / var(--lh-foot) var(--sans);
+  /* "Leave 8:34 · in 1 h 34 min" counts down: even figures, so it does not shimmer (guide 4.4) */
+  font-variant-numeric: tabular-nums;
   color: var(--ink-3);
 }
 .hero-deck-done .hero-sub {
@@ -1413,6 +1415,11 @@
 .status-row[data-short] .st-end {
   display: none;
 }
+/* even the kind alone is cut (large text on a small phone): the pills stack, as at 200 percent (styles/layout.css) */
+.status-row[data-stack] {
+  flex-direction: column;
+  align-items: flex-start;
+}
 /* the status sheet's marks: on the plan Deep Sky, tapering a Deep Sky ring, paused Pencil (each beside its words) */
 .st-dot {
   flex: none;
@@ -1889,9 +1896,10 @@
 .hw-text {
   min-width: 0;
 }
+/* still a Paper pill on two lines (guide 6.5): the round ends need 4 more on each side so the words clear their curve */
 .hero-week.is-two {
-  padding-block: var(--sp-1);
-  border-radius: var(--r-tile);
+  padding: var(--sp-1) var(--sp-3) var(--sp-1) var(--sp-4);
+  border-radius: var(--r-pill);
 }
 .hero-week.is-two .hw-text {
   display: grid;
@@ -1993,8 +2001,8 @@
   background: var(--line);
 }
 /* ---------- when you train (WhenPill): Morning · Afternoon · No time, the control zone's first row ---------- */
-/* the shared segmented control (guide 6.3, Inter 15, 44 tall) across the card's inner width; its thumb's tone is the
-   wayfinding tone (SEG_TONE_WAYFINDING) */
+/* the shared segmented control (guide 6.3: text only, Inter 15, 44 tall) across the card's inner width; its thumb's tone
+   is the wayfinding tone (SEG_TONE_WAYFINDING) */
 .hero-when {
   position: relative;
   z-index: 2;
@@ -2002,11 +2010,6 @@
 }
 .hero-when .seg {
   width: 100%;
-}
-.hero-when .seg-label {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--sp-1);
 }
 .hero-when .seg-btn {
   padding-inline: var(--sp-1);
@@ -2019,12 +2022,7 @@
     font-size: clamp(15px, var(--fs-sub), 15px);
   }
 }
-/* a narrow card: the words alone (the glyphs repeat them) */
-@container card (max-width: 21rem) {
-  .hero-when .seg-label > svg {
-    display: none;
-  }
-}
+
 
 /* the afternoon's sheet */
 .pm-sheet {
