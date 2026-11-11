@@ -30,7 +30,7 @@ export const SHEET_DISMISS_V = 400;
 export const SHEET_DISMISS_FRAC = 0.25;
 export const SHEET_SCROLL_LOCK_MS = 100;
 
-/** Swipe rows (sheets, Library, Reads): the reveal detent, the full-swipe fraction of W and speed. */
+/** Swipe rows (sheets, Journal, Reads): the reveal detent, the full-swipe fraction of W and speed. */
 export const SWIPE_REVEAL_PX = 72;
 export const SWIPE_FULL_FRAC = 0.55;
 export const SWIPE_FULL_V = 600;

@@ -46,7 +46,7 @@ const itemOf = (row: HTMLElement) => {
 };
 
 /**
- * SwipeRow v2 (docs/feel.md §11.3, contracts §C.5; sheets, Library and Reads only, never inside a DayPager). The first
+ * SwipeRow v2 (docs/feel.md §11.3, contracts §C.5; sheets, Journal and Reads only, never inside a DayPager). The first
  * 10 px inside a 40° cone decide the direction, so a vertical scroll always wins; then the content follows the finger 1:1
  * (a side with no action does not move). Released past 72 px (projected 350 ms) it rests open at the **reveal detent**:
  * the action is a 44 px button there, until a tap elsewhere or a scroll closes it. Past 0.55 W, or flicked at ≥ 600 px/s,

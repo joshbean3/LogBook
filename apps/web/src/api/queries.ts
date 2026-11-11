@@ -1,5 +1,5 @@
 import { askAndWait, type JobAnswer } from '@/features/assistant/poll';
-import { type Attachment, addMonths, mondayOf, monthOf, monthsBetween, shiftDays, today, type Activity, type Habit, type HabitCheck, type JournalEntry, type LiftSet, type Link, type LinkVerdict, type MorningDayOverride, type MorningSettings, type PickResult, type PlanBlock, type Quote, type Session, type SessionInput, type SessionMark, type Todo, type TodoBucket, type TodoColor, type TodoGroup, type TodoPriority, type Aim, type GoalEvent, type GoalLevel, type GoalStatus, type GoalStep, type AssistantApplied, type AssistantProposal, type AssistantReply, type TemplateInput, type DayBands, type DayPlan, cleanBands, emptyBands, QUOTE_THEMES, type SavedTrainingProfile, type TrainingProfile, type TrainingStatus, type TrainingStatusKind, type ISODate } from '@logbook/shared';
+import { type Attachment, addMonths, mondayOf, monthOf, monthsBetween, shiftDays, today, type Activity, type Habit, type HabitCheck, type JournalEntry, type LiftSet, type Link, type LinkVerdict, type MorningDayOverride, type MorningSettings, type PickResult, type PlanBlock, type Quote, type Session, type SessionInput, type SessionMark, type Todo, type TodoBucket, type TodoColor, type TodoGroup, type TodoPriority, type Aim, type GoalEvent, type GoalLevel, type GoalStatus, type GoalStep, type AssistantApplied, type AssistantProposal, type AssistantReply, type TemplateInput, type DayBands, type DayPlan, cleanBands, emptyBands, type SavedTrainingProfile, type TrainingProfile, type TrainingStatus, type TrainingStatusKind, type ISODate } from '@logbook/shared';
 import { useIsMutating, useMutation, useQueries, useQuery, useQueryClient, type QueryClient, type UseMutationResult } from '@tanstack/react-query';
 import { useMemo } from 'react';
 import { STRAVA_BUILT } from '@/lib/features';
@@ -7,7 +7,7 @@ import { STRAVA_GAP_MS } from '@/lib/gesture';
 import { BadShapeError, parseBootstrap } from './bootstrap';
 import { api, ApiError, LONG_TIMEOUT_MS, NetworkError } from './client';
 import { write } from './outbox';
-import type { Bootstrap, Daily, ExportBundle, MonthBundle, OnboardingAnswers, OnboardingResult, QuotePage, TemplateApplied } from './types';
+import type { Bootstrap, Daily, ExportBundle, MonthBundle, OnboardingAnswers, OnboardingResult, TemplateApplied } from './types';
 
 // The blocks below are cut once (docs/feel.md build plan §0, contracts §E): each package edits only its own block.
 // `keys` is shared: a package adds its own keys inside its block with Object.assign(keys, { … }), never edits another's.
@@ -23,7 +23,6 @@ export const keys = {
   lifts: ['lifts'] as const,
   activities: ['activities'] as const,
   journal: (q: string, fav: boolean) => ['journal', q, fav] as const,
-  quotes: (p: Record<string, string | number>) => ['quotes', p] as const,
   reads: ['reads'] as const,
   pick: (date: string) => ['reads-pick', date] as const,
 };
@@ -84,8 +83,6 @@ export const prefetchAll = (qc: QueryClient) => {
   const from = shiftDays(mondayOf(t), -7 * 12);
   const to = shiftDays(mondayOf(t), 7 * 4 + 6);
   const months = [...new Set([...monthsBetween(from, to), ...monthsBetween(addMonths(t, -7), addMonths(t, 1))])];
-  const quoteParams = { theme: 'All', q: '', fav: 0, limit: 40, offset: 0 };
-  const qs = new URLSearchParams(Object.entries(quoteParams).map(([k, v]) => [k, String(v)])).toString();
   const jobs: Array<Promise<unknown>> = [
     ...months.map((m) => qc.prefetchQuery({ queryKey: keys.month(m), queryFn: () => fetchMonth(m), staleTime: 30_000 })),
     qc.prefetchQuery({ queryKey: keys.todos, queryFn: () => api<Todo[]>('/todos'), staleTime: 30_000 }),
@@ -93,7 +90,6 @@ export const prefetchAll = (qc: QueryClient) => {
     qc.prefetchQuery({ queryKey: keys.daily, queryFn: () => api<Daily>('/journal/daily'), staleTime: 5 * 60_000 }),
     qc.prefetchQuery({ queryKey: keys.lifts, queryFn: () => api<LiftSet[]>('/lifts'), staleTime: 60_000 }),
     qc.prefetchQuery({ queryKey: keys.journal('', false), queryFn: () => api<{ entries: JournalEntry[]; more: boolean }>('/journal?q=&fav=0&limit=200'), staleTime: 30_000 }),
-    qc.prefetchQuery({ queryKey: keys.quotes(quoteParams), queryFn: () => api<QuotePage>(`/quotes?${qs}`), staleTime: 5 * 60_000 }),
     qc.prefetchQuery({ queryKey: keys.reads, queryFn: fetchReads, staleTime: 30_000 }),
     qc.prefetchQuery({ queryKey: ['goals'], queryFn: () => api<Aim[]>('/goals'), staleTime: 30_000 }),
     qc.prefetchQuery({ queryKey: ['todo-groups'], queryFn: () => api<TodoGroup[]>('/todo-groups'), staleTime: 60_000 }),
@@ -715,11 +711,6 @@ export const whenShown = <T extends object>(vars: T, f: () => void): T => (shown
 // a search (q not empty) is a moment's question: kept a minute in memory, never on the device (perf-21, main.tsx)
 export const useJournalList = (q: string, fav: boolean) =>
   useQuery({ queryKey: keys.journal(q, fav), queryFn: () => api<{ entries: JournalEntry[]; more: boolean }>(`/journal?q=${encodeURIComponent(q)}&fav=${fav ? 1 : 0}&limit=200`), staleTime: 30_000, ...(q.trim() ? { gcTime: 60_000 } : {}) });
-export const useQuotes = (p: { theme?: string; q?: string; fav?: boolean; limit?: number; offset?: number }) => {
-  const params: Record<string, string | number> = { theme: p.theme ?? 'All', q: p.q ?? '', fav: p.fav ? 1 : 0, limit: p.limit ?? 40, offset: p.offset ?? 0 };
-  const qs = new URLSearchParams(Object.entries(params).map(([k, v]) => [k, String(v)])).toString();
-  return useQuery({ queryKey: keys.quotes(params), queryFn: () => api<QuotePage>(`/quotes?${qs}`), staleTime: 5 * 60_000, placeholderData: (prev) => prev });
-};
 
 // ---------- journal & quotes ----------
 type JournalList = { entries: JournalEntry[]; more: boolean };
@@ -819,74 +810,19 @@ export const useJournalMutations = () => {
   const quotePrefs = useMutation({
     mutationFn: async ({ id, fav, hidden }: { id: string; fav?: boolean; hidden?: boolean }) => {
       qc.setQueryData<Daily>(keys.daily, (d) => (d && d.quote?.id === id && fav !== undefined ? { ...d, quote: { ...d.quote, fav } } : d));
-      qc.setQueriesData<QuotePage>({ queryKey: ['quotes'] }, (p) => (p ? { ...p, quotes: p.quotes.map((q) => (q.id === id ? { ...q, fav: fav ?? q.fav } : q)).filter((q) => !(hidden && q.id === id)) } : p));
-      // a theme's list (the library's themes) answers too
-      qc.setQueriesData<Quote[]>({ queryKey: ['quote-theme'] }, (l) => (l ? l.map((q) => (q.id === id ? { ...q, fav: fav ?? q.fav } : q)).filter((q) => !(hidden && q.id === id)) : l));
-      await write(`/quotes/${id}/prefs`, 'PUT', { fav, hidden }, [['quotes'], keys.daily]);
-      // a favourite joins (or leaves) the favourites list, which the server filters; an unhidden quote comes back
-      if (fav !== undefined || hidden === false) void qc.invalidateQueries({ queryKey: ['quotes'] });
+      await write(`/quotes/${id}/prefs`, 'PUT', { fav, hidden }, [keys.daily]);
     },
-    onError: () => void qc.invalidateQueries({ queryKey: ['quotes'] }),
+    onError: () => void qc.invalidateQueries({ queryKey: keys.daily }),
   });
-  const addQuote = useMutation({
-    mutationFn: async (input: { text: string; author: string }) => {
-      const q = await api<Quote>('/quotes', { method: 'POST', json: input });
-      void qc.invalidateQueries({ queryKey: ['quotes'] });
-      return q;
-    },
-  });
-  const removeQuote = useMutation({
-    mutationFn: async (id: string) => {
-      qc.setQueriesData<QuotePage>({ queryKey: ['quotes'] }, (p) => (p ? { ...p, quotes: p.quotes.filter((q) => q.id !== id), total: Math.max(0, p.total - 1) } : p));
-      await write(`/quotes/${id}`, 'DELETE', undefined, [['quotes']]);
-    },
-  });
-  return { add, patch, remove, restore, another, quotePrefs, addQuote, removeQuote };
+  return { add, patch, remove, restore, another, quotePrefs };
 };
 
-// ---------- the quote library: themes, not a list (critic B5) ----------
-/** One theme card: how many quotes it holds (hidden ones left out) and one line from it, a different one each day. */
-export interface QuoteTheme {
-  theme: string;
-  count: number;
-  sample: Quote | null;
-}
-const quotePage = (theme: string, limit: number, offset: number, q = '') => api<QuotePage>(`/quotes?${new URLSearchParams({ theme, q, fav: '0', limit: String(limit), offset: String(offset) }).toString()}`);
-/** A small stable number for a string (the day's sample line, the day's shuffle). */
+/** A small stable number for a string (a day's stable pick from a list). */
 export const seedOf = (s: string) => {
   let h = 2166136261;
   for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 16777619);
   return h >>> 0;
 };
-/** Every theme's count and the day's sample line, in one query (two small reads per theme), cached for the day. */
-export const useQuoteThemes = (date: string) =>
-  useQuery({
-    queryKey: ['quote-themes', date],
-    queryFn: () =>
-      Promise.all(
-        QUOTE_THEMES.map(async (theme): Promise<QuoteTheme> => {
-          const head = await quotePage(theme, 1, 0);
-          if (!head.total) return { theme, count: 0, sample: null };
-          const at = seedOf(`${date}:${theme}`) % head.total;
-          const sample = at ? ((await quotePage(theme, 1, at)).quotes[0] ?? head.quotes[0] ?? null) : (head.quotes[0] ?? null);
-          return { theme, count: head.total, sample };
-        }),
-      ),
-    staleTime: 30 * 60_000,
-  });
-/** Every quote in a theme (read in pages of 200), for the theme's list to shuffle and page through on the client. */
-export const useThemeQuotes = (theme: string | null) =>
-  useQuery({
-    queryKey: ['quote-theme', theme],
-    enabled: !!theme,
-    queryFn: async () => {
-      const first = await quotePage(theme!, 200, 0);
-      const rest: Quote[] = [];
-      for (let off = 200; off < first.total; off += 200) rest.push(...(await quotePage(theme!, 200, off)).quotes);
-      return [...first.quotes, ...rest].filter((q) => !q.mine);
-    },
-    staleTime: 10 * 60_000,
-  });
 
 // ---------- reads ----------
 const fetchReads = () => api<{ links: Link[] }>('/reads').then((r) => r.links);

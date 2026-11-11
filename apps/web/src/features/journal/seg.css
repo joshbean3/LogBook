@@ -1,4 +1,4 @@
-/* WP6's in-page Segmented (Unread · Read, Progress's range; Journal · Library uses the Kit's 36 pt control): 32 px tall, a pill, 13/600, each segment a
+/* WP6's in-page Segmented (Unread · Read, Progress's range): 32 px tall, a pill, 13/600, each segment a
    44 px target (§8, §2.4's control at full width). One file, imported by each page that uses it (they load as separate chunks). */
 .seg.r-tabs,
 .seg.pg-range {

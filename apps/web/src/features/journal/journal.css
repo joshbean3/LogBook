@@ -1,63 +1,4 @@
-/* ---------- Journal (docs/experience.md §5.5): write first, memory second, fuel in the Library ---------- */
-
-/* the segmented switch, 32 px under the title row, pinned under the bar once scrolled (a sibling of the bar: §2.1's sticky rule) */
-.j-segrow {
-  position: sticky;
-  top: calc(44px + var(--safe-t));
-  z-index: 19;
-  margin: 0 calc(-1 * var(--gutter));
-  padding: 6px var(--gutter);
-  /* the switch row carries the wash it sits on, as the week strip does on Today (guide 12.1): no seam under the bar */
-  background: linear-gradient(180deg, var(--wash-bar), var(--wash-strip));
-}
-/* a short fade under the pinned switch, so cards slide away under it instead of being cut at its edge */
-.j-segrow::after {
-  content: '';
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: 100%;
-  height: 18px;
-  background: linear-gradient(var(--wash-strip), transparent);
-  pointer-events: none;
-}
-/* two mounted panes (M28): the shown one in flow; the leaving one absolute, held still by a transform while it fades; the
-   other hidden. The stack clips vertically so a hidden pane never adds scroll room */
-/* WP6 moves what a size change displaces itself (carry, FLIP on settle, docs/feel.md §10.1): the browser's scroll anchoring
-   must not move it too (review 3 feel R3-3: on Chromium a Save with the composer above the anchor moved the page twice,
-   66 px down and back). iOS Safari has no scroll anchoring, so this is the iPhone's behaviour everywhere. Every node under
-   this root is left out of anchor selection. */
-.j-panes {
-  overflow-anchor: none;
-}
-.j-panes {
-  position: relative;
-  overflow: visible clip;
-}
-.j-pane {
-  min-width: 0;
-}
-.j-pane.is-on {
-  position: relative;
-  z-index: 1;
-}
-.j-pane.is-leaving,
-.j-pane.is-off {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-}
-/* the hidden pane keeps its rendering state but is not drawn, hit or focusable; no inherited property flips on a switch
-   (visibility, pointer-events and inert restyle a whole pane: ~55 ms at 4× on the commit frame) */
-.j-pane.is-off {
-  content-visibility: hidden;
-}
-@supports not (content-visibility: hidden) {
-  .j-pane.is-off {
-    visibility: hidden;
-  }
-}
+/* ---------- Journal (docs/experience.md §5.5): write first, then memory ---------- */
 
 .composer {
   display: grid;
@@ -249,148 +190,10 @@ textarea.jtext:focus {
   color: var(--ink-2);
 }
 
-/* ---------- small marks: the run stamp (a Dusk-on-Cloud tag in caption style), the favorite heart ---------- */
-.jstamp {
-  display: inline-flex;
-  align-items: center;
-  height: 20px;
-  padding: 0 8px;
-  border-radius: var(--r-pill);
-  background: var(--cloud);
-  font-family: var(--stamp);
-  font-weight: 600;
-  font-size: var(--fs-caps);
-  line-height: 1;
-  letter-spacing: var(--tr-caps);
-  text-transform: uppercase;
-  color: var(--ink-2);
-  white-space: nowrap;
-  max-width: 100%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
+/* ---------- small marks: the favorite heart ---------- */
 .jfav {
   color: var(--star);
   flex: none;
-}
-
-/* ---------- the entry timeline: edge to edge, a day's date at the left of its first entry ---------- */
-.jtl-sec .section-head .icon-btn {
-  margin-right: -10px;
-}
-.jtl-search {
-  display: block;
-}
-.jtl-search .in {
-  margin: 4px 0 12px;
-}
-.jtl {
-  display: grid;
-  margin-inline: calc(-1 * var(--gutter));
-}
-.jtl-item {
-  position: relative;
-  overflow: hidden;
-}
-/* a hairline between days, not between the entries of one day */
-.jtl-item.first:not(:first-child)::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: var(--gutter);
-  right: 0;
-  height: 1px;
-  background: var(--line);
-  z-index: 2;
-}
-.jtl-row {
-  appearance: none;
-  border: 0;
-  background: none;
-  margin: 0;
-  width: 100%;
-  display: grid;
-  /* 40 px at the default size, wider with Larger Text, so the day's number never runs into its words */
-  grid-template-columns: 2.5rem minmax(0, 1fr);
-  gap: 12px;
-  padding: 14px var(--gutter);
-  min-height: 60px;
-  text-align: left;
-  color: inherit;
-  cursor: pointer;
-  transition: background-color var(--dur-color) var(--ease-out);
-}
-.jtl-item:not(.first) .jtl-row {
-  padding-top: 2px;
-}
-.jtl-row[data-pressed] {
-  background: var(--surface-2);
-}
-.jtl-date {
-  display: grid;
-  align-content: start;
-}
-.jtl-date-shared {
-  display: grid;
-  justify-items: start;
-}
-/* the day's number: a date that never changes after it is drawn, so Fraunces 600 at the card-title size (guide 4.4) */
-.jtl-day {
-  font: 600 var(--fs-head) / 1.5rem var(--serif);
-  letter-spacing: 0;
-  color: var(--ink);
-}
-.jtl-body {
-  display: grid;
-  gap: 6px;
-  min-width: 0;
-}
-.jtl-text {
-  font: italic 420 var(--fs-sentence-sm) / var(--lh-row) var(--serif);
-  letter-spacing: 0;
-  color: var(--j-ink);
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 4;
-  overflow: hidden;
-}
-.jtl-meta .caps {
-  font-variant-numeric: tabular-nums;
-}
-.jtl-meta {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 4px 10px;
-  min-width: 0;
-}
-.jtl-skel {
-  display: grid;
-  gap: 20px;
-  padding: 16px;
-}
-.jtl-skel-row {
-  display: flex;
-  gap: 12px;
-}
-.jtl-skel-lines {
-  display: grid;
-  flex: 1;
-  gap: 8px;
-}
-/* one clear control while searching: the header's X (the field's own cancel button is hidden) */
-.jtl-search input[type='search']::-webkit-search-cancel-button {
-  -webkit-appearance: none;
-  appearance: none;
-}
-.jtl-more {
-  margin-top: 8px;
-}
-/* the empty state's ghost rows: the timeline at 30% */
-.jtl-row.ghost {
-  cursor: default;
 }
 
 /* ---------- the entry sheet: words to read, then the verbs ---------- */
@@ -407,30 +210,28 @@ textarea.jtext:focus {
   color: var(--j-ink);
 }
 .esheet-meta {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
+  margin: 0;
+  font: 500 var(--fs-foot) / var(--lh-foot) var(--sans);
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-3);
 }
-/* three equal verbs in one row (the star's state is its fill, so the row never moves), Delete a quiet row under them */
+/* three equal verbs in one row, 12 apart (the heart's state is its fill, so the row never moves); Delete alone at the end,
+   the destructive button: Paper, Signal words, the edge, 44 like the verbs above it (guide 6.2, layout standard 6.6) */
 .esheet-actions {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 8px;
-  margin-top: 8px;
+  gap: var(--sp-3);
+  margin-top: var(--sp-2);
 }
 .esheet-actions .btn.is-fav svg {
   color: var(--star);
 }
-.btn.danger-quiet {
-  color: var(--bad);
-}
 .esheet-actions .btn {
   min-width: 0;
-  min-height: 44px;
+  min-height: var(--hit);
   height: auto;
-  padding: 4px 8px;
-  gap: 6px;
+  padding: var(--sp-1) var(--sp-2);
+  gap: var(--sp-2);
   white-space: normal;
 }
 .esheet-actions .btn svg {
@@ -439,13 +240,14 @@ textarea.jtext:focus {
 /* a narrow phone: the three verbs a size down, so each label keeps air inside its rounded end */
 @media (max-width: 359px) {
   .esheet-actions .btn {
-    gap: 4px;
+    gap: var(--sp-1);
     font-size: var(--fs-sub);
   }
 }
 .btn.esheet-del {
-  min-height: 44px;
-  margin-bottom: 8px;
+  width: 100%;
+  min-height: var(--hit);
+  margin: var(--sp-3) 0 var(--sp-2);
 }
 /* the editor: the sheet is the surface, so the text sits on a hairline with 8px of air */
 .jsheet-text {
@@ -457,244 +259,6 @@ textarea.jtext:focus {
 textarea.jsheet-text {
   overflow: auto;
 }
-/* ---------- Library ---------- */
-.library {
-  padding-top: 0;
-}
-/* favorites: a carousel of quote and entry cards */
-.fav-carousel {
-  --carousel-item: min(78%, 300px);
-  padding-block: 4px;
-}
-.fav-card {
-  appearance: none;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  gap: 12px;
-  min-height: 156px;
-  padding: 16px;
-  background: var(--surface);
-  border: var(--card-border);
-  box-shadow: var(--shadow-1);
-  border-radius: var(--r-lg);
-  text-align: left;
-  color: inherit;
-  cursor: pointer;
-}
-.fav-card.is-entry {
-  background: var(--bg);
-  border-color: var(--line-strong);
-}
-.fav-text {
-  font: italic 420 var(--fs-sentence-sm) / var(--lh-row) var(--serif);
-  letter-spacing: 0;
-  color: var(--j-ink);
-  overflow-wrap: anywhere;
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 4;
-  overflow: hidden;
-}
-.fav-card:not(.is-entry) .fav-text {
-  font-style: italic;
-}
-.fav-by {
-  font-size: var(--fs-foot);
-  line-height: var(--lh-foot);
-  font-weight: 600;
-  color: var(--ink-2);
-}
-/* quote lists, edge to edge */
-.lib-list > .lib-item {
-  overflow: hidden;
-}
-.qrow {
-  appearance: none;
-  border: 0;
-  background: none;
-  margin: 0;
-  width: 100%;
-  display: grid;
-  gap: 4px;
-  padding-block: 12px;
-  min-height: 60px;
-  text-align: left;
-  color: inherit;
-  cursor: pointer;
-}
-.qrow[data-pressed] {
-  background: var(--surface-2);
-}
-.qrow-text {
-  font: italic 420 var(--fs-sentence-sm) / var(--lh-row) var(--serif);
-  letter-spacing: 0;
-  color: var(--ink);
-  overflow-wrap: anywhere;
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 4;
-  overflow: hidden;
-}
-.qrow-by {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  min-width: 0;
-  font-size: var(--fs-foot);
-  line-height: var(--lh-foot);
-  color: var(--ink-2);
-}
-.by {
-  display: inline-flex;
-  flex-wrap: wrap;
-  gap: 0 6px;
-  align-items: baseline;
-  min-width: 0;
-}
-.by-author {
-  font-weight: 600;
-  color: var(--ink-2);
-}
-.by cite {
-  font-style: normal;
-  color: var(--ink-2);
-}
-.sec-verb {
-  height: 44px;
-  padding: 0 10px;
-  margin-right: -10px;
-}
-.qadd {
-  margin-bottom: 12px;
-}
-.qadd-by {
-  border-top: 1px solid var(--line);
-  min-height: 44px;
-}
-/* the search sheet before two letters: what it needs */
-.qsearch-hint {
-  margin: 12px 4px 0;
-  font: 400 var(--fs-sub) / var(--lh-sub) var(--sans);
-  color: var(--ink-2);
-}
-.anchor {
-  display: block;
-  position: relative;
-  top: -80px;
-}
-/* the themes: a 2-column grid of cards, each its theme's name, its count, and the day's line from it */
-.theme-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
-}
-.theme-grid.odd > :last-child {
-  grid-column: 1 / -1;
-}
-.theme-card {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  min-height: 128px;
-  padding: 14px 14px 16px;
-  background: var(--surface);
-  border: var(--card-border);
-  box-shadow: var(--shadow-1);
-  border-radius: var(--r-lg);
-  text-align: left;
-  color: inherit;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-}
-.theme-card-top {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 0 8px;
-}
-/* a name breaks between words, never inside one ("Acceptanc / e" in the wider Fraunces): when the name and its count do
-   not fit on one line, the count drops under the name instead */
-.theme-name {
-  font: 600 var(--fs-head) / var(--lh-head) var(--serif);
-  letter-spacing: 0;
-  color: var(--ink);
-  min-width: 0;
-  overflow-wrap: break-word;
-  hyphens: manual;
-}
-@media (max-width: 359px) {
-  .theme-name {
-    font-size: 1.25rem;
-    line-height: 1.5rem;
-  }
-}
-.theme-count {
-  flex: none;
-  font-size: var(--fs-foot);
-  line-height: var(--lh-foot);
-  font-weight: 600;
-  color: var(--ink-2);
-  font-variant-numeric: tabular-nums;
-}
-.theme-sample {
-  font: italic 420 var(--fs-sentence-sm) / var(--lh-row) var(--serif);
-  letter-spacing: 0;
-  color: var(--ink-2);
-  overflow-wrap: anywhere;
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 3;
-  overflow: hidden;
-}
-.theme-more {
-  margin-top: 12px;
-  min-height: 48px;
-}
-.qsearch {
-  display: grid;
-  gap: 12px;
-}
-/* the quote sheet: the quote at 22/28, the work, Favorite as the verb */
-.qsheet {
-  display: grid;
-  gap: 10px;
-}
-.quote-text {
-  font-family: var(--display);
-  font-style: italic;
-  font-weight: 420;
-  color: var(--ink);
-  text-wrap: pretty;
-  white-space: pre-line;
-  overflow-wrap: anywhere;
-}
-.quote-text.long {
-  font-size: 1.375rem;
-  line-height: 1.75rem;
-}
-.qsheet-work {
-  font-family: var(--serif);
-  font-style: italic;
-  font-weight: 420;
-  font-size: var(--fs-sentence-sm);
-  line-height: var(--lh-row);
-  color: var(--ink-2);
-}
-.qsheet .sheet-foot .btn svg {
-  margin-right: 2px;
-}
-.qsheet .sheet-foot .foot-right {
-  flex-wrap: wrap;
-  justify-content: flex-end;
-}
-
-/* rows that are buttons: no UA inline padding, the row sets its own */
-.qrow {
-  padding-inline: 0;
-}
-
 /* contracts §F: the exported QuoteLine, one serif line 44 tall (15/20 --ink-3, docs/feel.md §5 row 3) */
 .qline.quote-line {
   display: flex;
@@ -726,10 +290,6 @@ textarea.jsheet-text {
   -webkit-line-clamp: 2;
 }
 
-/* Library's empty favorites: one quiet 60 row (§8, visual S8) */
-.lib-fav-empty-row {
-  min-height: 60px;
-}
 /* the day's quote line inside the Journal composer sits on the card's 16 px inset */
 .composer .qline.quote-line {
   width: auto;
@@ -737,43 +297,29 @@ textarea.jsheet-text {
 }
 
 /* ======================================================================================================================
-   Journal on shape system v2 (docs/shape-system.md): the Journal · Library control under the title, Remember when as the
-   insight card, the calendar and the day card in their own cards (calendar.css), the entries as rows of one card.
-   The Library: Reads as a row, favorites as a strip of cards, your quotes as rows
-   of one card, the themes as tiles.
+   Journal on shape system v2 (docs/shape-system.md): Remember when as the insight card, the calendar and the day card in
+   their own cards (calendar.css), the entries as rows of one card.
    ====================================================================================================================== */
 
-/* the control under the title */
-.j-segrow {
-  padding: 4px var(--gutter) 4px;
-}
-.journal-page > .nb-gap {
-  height: 8px;
-}
-.j-pane > .recall-wrap {
-  margin-bottom: var(--gap);
-}
-
-/* ---------- the entries: rows of one card, a hairline between days ---------- */
+/* ---------- the entries (layout standard 2.8, 6.2): one inset group per month, date-gutter rows ---------- */
 .jtl-sec.k-sec {
   scroll-margin-top: 96px;
 }
-.jtl.k-rows {
-  display: grid;
-  margin-inline: 0;
+/* the meta names the newest month (it titles the first group), so it stays on a narrow phone, where the shared header drops
+   a meta beside a slot; "Entries", "November" and the search glyph fit in 288 pt, and a longer meta ends in an ellipsis */
+@media (max-width: 359px) {
+  html:not([data-text-xl]) .jtl-sec > .lb-head:has(> .lb-slot) > .lb-meta {
+    display: block;
+  }
 }
-.jtl.k-rows > .jtl-item::before {
-  content: none;
+.jtl-sec .lb-slot .icon-btn {
+  width: var(--hit);
+  height: var(--hit);
+  margin-right: calc((20px - var(--hit)) / 2); /* brand-ok: geometry, the 20 px glyph's edge on the gutter */
+  color: var(--ink);
 }
-.jtl.k-rows > .jtl-item.first:not(:first-child)::before {
-  content: '';
-  left: 68px;
-}
-.jtl.k-rows .jtl-row {
-  padding: 14px 16px;
-}
-.jtl.k-rows .jtl-item:not(.first) .jtl-row {
-  padding-top: 0;
+.jtl-search {
+  display: block;
 }
 .jtl-search .in {
   margin: 0 0 var(--gap);
@@ -781,80 +327,117 @@ textarea.jsheet-text {
   background: var(--surface);
   box-shadow: var(--shadow-1);
 }
-.jtl-more.pill-row {
-  margin-top: var(--gap);
+/* one clear control while searching: the header's X (the field's own cancel button is hidden) */
+.jtl-search input[type='search']::-webkit-search-cancel-button {
+  -webkit-appearance: none;
+  appearance: none;
 }
-.jtl-empty .empty-state,
-.lib-empty .empty-state {
-  margin: 0;
-  padding: 0;
+.jtl-months {
+  display: grid;
 }
-.jtl-sec .lb-slot .icon-btn,
-.lib-themes .lb-slot .icon-btn {
-  width: 44px;
-  height: 44px;
-  margin-right: -10px;
+/* an older month: the list-page group title, 24 above and 8 below (no 26 sits directly over a 22) */
+.jtl-mhead {
+  margin: var(--sp-6) 0 var(--sp-2);
+  font: 600 var(--fs-head) / var(--lh-head) var(--serif);
+  letter-spacing: 0;
   color: var(--ink);
 }
-
-/* ---------- the Library ---------- */
-.library > .lib-reads {
-  margin-top: 0;
+.jtl-item {
+  overflow: hidden;
 }
-.reads-row.k-row {
-  min-height: 64px;
+/* the hairline starts where the words do, past the date gutter; a day's later entries keep the gutter empty, so the day
+   still reads as one */
+.group.jtl > * + *::before {
+  left: calc(var(--sp-4) + 2.5rem + var(--sp-3));
+  z-index: 2;
 }
-.fav-carousel {
-  --carousel-item: min(78%, 300px);
-  padding-block: 4px;
+.lrow.jtl-row {
+  appearance: none;
+  width: 100%;
+  margin: 0;
+  align-items: flex-start;
+  padding-block: var(--sp-3);
+  border: 0;
+  text-align: left;
+  color: inherit;
+  cursor: pointer;
+  transition: background-color var(--dur-color) var(--ease-out);
 }
-.fav-card {
-  min-height: 156px;
-  padding: var(--pad-card);
-  border-radius: var(--r-card);
+.lrow.jtl-row[data-pressed] {
+  background: var(--surface-2);
 }
-.fav-card.is-entry {
-  background: var(--surface);
-  border: var(--card-border);
+/* the numeral's circle centers on the first line of words; the column is 40 at the default size and grows with Larger
+   Text (2.5rem), so "Mon" at 200 percent never runs into the words */
+.jtl-row > .date-gutter {
+  width: 2.5rem;
+  /* brand-ok: geometry, the circle centered on the excerpt's first line */
+  margin-top: calc((var(--lh-body) - max(var(--tile-ic), 1.6 * var(--fs-row))) / 2);
 }
-.fav-card.is-entry .fav-text {
-  color: var(--j-ink);
+/* the circle grows with Larger Text, so today's ring never cuts through its numeral (32 at the default size) */
+.jtl-row .date-gutter-num {
+  min-width: max(var(--tile-ic), 1.6em);
+  height: max(var(--tile-ic), 1.6em);
 }
-.lib-list.k-rows {
-  margin-inline: 0;
-}
-.lib-list.k-rows > .lib-item + .lib-item::before {
-  left: 16px;
-}
-.k-rows .qrow {
-  padding: 12px 16px;
-}
-.theme-grid {
-  gap: var(--gap);
-}
-.theme-card {
-  min-height: 132px;
-  padding: 14px;
-  border-radius: var(--r-tile);
-}
-.qadd.group {
-  margin-bottom: var(--gap);
-  border-radius: var(--r-card);
-}
-/* the hairline between the quote and its author, where the group's other separators start (an input cannot draw the
-   group's ::before separator, so it is painted on the field) */
-.qadd.group .qadd-by {
-  background: linear-gradient(var(--line), var(--line)) 16px 0 / calc(100% - 16px) 1px no-repeat;
-}
-
-/* the quote sheet: the quote in a card, Favorite pinned, Write under it */
-.qsheet-card {
+.jtl-body {
   display: grid;
-  gap: 8px;
+  flex: 1;
+  gap: var(--sp-1);
+  min-width: 0;
 }
-.qsheet .k-pin .btn {
-  display: inline-flex;
+/* the journal's voice (plan U3): Fraunces italic 17 on 24, Twilight, three lines at most */
+.jtl-text {
+  font: italic 420 var(--fs-sentence-sm) / var(--lh-body) var(--serif);
+  letter-spacing: 0;
+  color: var(--j-ink);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  overflow: hidden;
+}
+/* one Dusk line under the words: the time (or "Added Nov 9"), the run that day, a heart for a favorite; no caps */
+.jtl-meta {
+  display: flex;
   align-items: center;
-  justify-content: center;
-  gap: 8px;
+  flex-wrap: wrap;
+  gap: 0 var(--sp-2);
+  min-width: 0;
+  font: 500 var(--fs-foot) / var(--lh-foot) var(--sans);
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-3);
+}
+.jtl-stamp {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.jtl-stamp::before {
+  content: '·';
+  margin-right: var(--sp-2);
+}
+.jtl-fav {
+  flex: none;
+  color: var(--star);
+}
+.jtl-skel-row.lrow {
+  align-items: flex-start;
+  padding-block: var(--sp-3);
+}
+.jtl-skel-gutter {
+  display: grid;
+  justify-items: center;
+  gap: var(--sp-1);
+  width: var(--gutter-date);
+  flex: none;
+}
+.jtl-skel-lines {
+  display: grid;
+  flex: 1;
+  gap: var(--sp-2);
+}
+.jtl-more.pill-row {
+  margin-top: var(--gap);
 }

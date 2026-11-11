@@ -50,6 +50,9 @@ import { Rich } from './Rich';
 import { assistantStore, useAssistantBusy, useAssistantBusyChat, useAssistantChatId, useAssistantChats, useAssistantLive, useAssistantOffline, useAssistantSaveFailed, useAssistantStopped, useAssistantTurns } from './store';
 import './assistant.css';
 
+/** Reduce Motion is on: a scroll jumps instead of gliding. */
+const reduced = () => typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+
 /** The files a turn carried, as the thread shows them: a photo's preview, a PDF's name. */
 const TurnFiles = ({ files }: { files: AssistantFileShown[] }) => (
   <div className="as-turn-files">
@@ -69,7 +72,7 @@ const TurnFiles = ({ files }: { files: AssistantFileShown[] }) => (
 /** The screen it was opened from, in the set's own tab glyphs (guide 7; plan 5.4: never a pulse for Progress). */
 const SCREEN_ICON: Record<AssistantScreen['tab'], BrandIconComponent> = { today: TodayIcon, plan: PlanIcon, progress: ProgressIcon, goals: GoalsIcon, learned: LearnedIcon, journal: JournalIcon };
 
-/** Ways to start an empty chat: two lines each (what, then the rest), as ChatGPT's starter cards read. */
+/** Ways to start an empty chat: two lines each (what, then the rest), as starter cards in phone chat apps read. */
 type Starter = { title: string; sub: string; send?: string; attach?: true };
 const READ_PLAN: Starter = { title: 'Read a plan', sub: 'from a photo or a PDF', attach: true };
 /**
@@ -148,7 +151,7 @@ const useSmoothText = (target: string) => {
 };
 
 /**
- * How it got to the answer (Claude's and ChatGPT's fold above a reply): "Thought for 7s ›" opens the steps it took
+ * How it got to the answer (the fold above a reply in phone chat apps): "Thought for 7s ›" opens the steps it took
  * ("Read your plan, Nov 2 to Nov 8") and its reasoning. Nothing shows for an answer that took no time and no steps.
  */
 const Process = ({ thoughts, seconds, steps }: { thoughts?: string; seconds?: number; steps?: string[] }) => {
@@ -261,7 +264,7 @@ const shareText = async (text: string) => {
   return false;
 };
 
-/** Under a finished answer, as ChatGPT lays them out: Copy, Read aloud, thumbs, Share, and Ask again on the newest. */
+/** Under a finished answer, as phone chat apps lay them out: Copy, Read aloud, thumbs, Share, and Ask again on the newest. */
 const AnswerActions = ({ t, index, chat, newest, speaker, onRegenerate, onReport }: { t: AssistantTurn; index: number; chat: string; newest: boolean; speaker: ReturnType<typeof useSpeaker>; onRegenerate: () => void; onReport: () => void }) => {
   const [copied, setCopied] = useState(false);
   const toast = useToast();
@@ -324,7 +327,7 @@ const AnswerActions = ({ t, index, chat, newest, speaker, onRegenerate, onReport
   );
 };
 
-/** The owner's words: a soft bubble at the right. A tap shows Copy and Edit under it (ChatGPT's message menu). */
+/** The owner's words: a soft bubble at the right. A tap shows Copy and Edit under it (the usual message menu). */
 const UserTurn = ({ t, canEdit, confirmEdit, onEdit }: { t: AssistantTurn; canEdit: boolean; confirmEdit: boolean; onEdit: () => void }) => {
   const [open, setOpen] = useState(false);
   // editing takes the answers after it off: when one of them has changes applied, it asks first
@@ -419,6 +422,31 @@ const useOutOfView = (el: HTMLElement | null) => {
   return out;
 };
 
+/**
+ * The chat's title, centered on the sheet between two equal 88 pt sides (layout standard 2.10). A title too long for the
+ * card-title size steps down to Inter 17/600 before it is cut with an ellipsis.
+ */
+const FitTitle = ({ text }: { text: string }) => {
+  const ref = useRef<HTMLSpanElement>(null);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const fit = () => {
+      el.classList.remove('is-small');
+      if (el.scrollWidth > el.clientWidth + 1) el.classList.add('is-small');
+    };
+    fit();
+    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(fit) : null;
+    ro?.observe(el);
+    return () => ro?.disconnect();
+  }, [text]);
+  return (
+    <span ref={ref} className="as-title">
+      {text}
+    </span>
+  );
+};
+
 /** The chat's title and its History and New buttons, in the sheet's header (one white capsule at the right). */
 const useHeader = (onHistory: () => void, pushed: React.RefObject<boolean>, own: boolean) => {
   const sheet = useSheet();
@@ -429,7 +457,7 @@ const useHeader = (onHistory: () => void, pushed: React.RefObject<boolean>, own:
     // a pane inside another sheet (the plan summary) leaves its host's header alone
     if (!own || pushed.current) return;
     sheet.update({
-      title: <span className="as-title">{title}</span>,
+      title: <FitTitle text={title} />,
       action: (
         <span className="as-head-actions">
           <button type="button" className="as-head-btn" aria-label="History" title="History" onClick={onHistory}>
@@ -475,7 +503,7 @@ export interface AssistantPaneProps {
 }
 
 /**
- * The assistant, laid out the way ChatGPT and Claude are on a phone: a greeting and starter cards on a
+ * The assistant, laid out the way chat apps are on a phone: a greeting and starter cards on a
  * new chat; the owner's words in soft bubbles at the right; the answers straight on the page, full width, with how it got
  * there folded above and its actions below; the question just sent pinned at the top while the answer streams in under
  * it; a composer box with the attach button, the screen it was opened from and Send (Stop while it works). Every chat is
@@ -599,7 +627,7 @@ const Conversation = ({ date, initial, screen: openedFrom, chatId, own, placehol
   // a request handed in pre-filled (Plan's "Move them") shows whole, not cut to one line
   useEffect(() => fitField(field.current), [initial]);
 
-  // ---------- scrolling, the ChatGPT way ----------
+  // ---------- scrolling, the way phone chat apps do it ----------
   // The last exchange (the newest question and everything after it) sits in a block at least a screen tall, so the
   // question just sent can rise to the top and the answer stream in below it without the page jumping. Open a chat and
   // it shows its end.
@@ -655,6 +683,20 @@ const Conversation = ({ date, initial, screen: openedFrom, chatId, own, placehol
   const [waitingEl, setWaitingEl] = useState<HTMLElement | null>(null);
   useLayoutEffect(() => setWaitingEl(root.current?.querySelector<HTMLElement>('.as-proposal[data-waiting]') ?? null), [waiting?.id, turns.length]);
   const outOfView = useOutOfView(waitingEl);
+  // a proposal answered just now brings its decision into view: the card's foot (Apply) rises to 12 above the composer,
+  // so the one thing to do is on the first screen (layout standard 2.10). A chat opened from History already shows its end.
+  const broughtUp = useRef<string | null>(null);
+  useEffect(() => {
+    if (!waitingEl || !waiting || broughtUp.current === waiting.id) return;
+    broughtUp.current = waiting.id;
+    if (turns.length <= mountedAt.current) return;
+    const body = bodyOf();
+    const box = compose.current;
+    if (!body || !box) return;
+    const foot = waitingEl.querySelector('.as-proposal-foot') ?? waitingEl;
+    const over = foot.getBoundingClientRect().bottom - (box.getBoundingClientRect().top - 12);
+    if (over > 0) body.scrollTo({ top: body.scrollTop + over, behavior: reduced() ? 'auto' : 'smooth' });
+  }, [waitingEl, waiting?.id]); // eslint-disable-line react-hooks/exhaustive-deps
   const waitingCount = waiting ? waiting.changes.length - (waiting.skipped?.length ?? 0) : 0;
 
   /** Picked files: each becomes a photo (shrunk, as a JPEG) or a PDF, up to four with a message. */
@@ -714,7 +756,8 @@ const Conversation = ({ date, initial, screen: openedFrom, chatId, own, placehol
     });
   };
 
-  const replies = !busy && last?.role === 'assistant' && !last.error && last.replies?.length ? last.replies : null;
+  // the follow-up chips step aside while a proposal waits: they come back once it is applied or set aside
+  const replies = !busy && !waiting && last?.role === 'assistant' && !last.error && last.replies?.length ? last.replies : null;
   const tailFrom = (() => {
     for (let i = turns.length - 1; i >= 0; i--) if (turns[i]!.role === 'user') return i;
     return turns.length;
@@ -743,8 +786,10 @@ const Conversation = ({ date, initial, screen: openedFrom, chatId, own, placehol
               <Rich text={t.text} />
             </div>
           ) : null}
-          {t.proposal ? <ProposalCard p={t.proposal} waiting={t.proposal.id === waiting?.id} chat={target} onApplied={onApplied} /> : null}
-          <AnswerActions
+          {t.proposal ? <ProposalCard p={t.proposal} waiting={t.proposal.id === waiting?.id} chat={target} onApplied={onApplied} typing={!!draft.trim()} /> : null}
+          {/* while its proposal waits for a decision, an answer's actions fold away so Apply is the one thing to do */}
+          {t.proposal?.status === 'proposed' ? null : (
+            <AnswerActions
             t={t}
             index={i}
             chat={chatId}
@@ -752,7 +797,8 @@ const Conversation = ({ date, initial, screen: openedFrom, chatId, own, placehol
             speaker={speaker}
             onRegenerate={() => void regenerate(askAssistant, askDate, screen, stopAssistant, target)}
             onReport={() => openPanel('Report this answer', (done) => <ReportPanel answer={t.text} onDone={done} />)}
-          />
+            />
+          )}
         </>
       )}
     </div>
@@ -797,9 +843,8 @@ const Conversation = ({ date, initial, screen: openedFrom, chatId, own, placehol
             </p>
             {training ? (
               <>
-                <p className="as-hello-sub">Ask about your plan, or ask for a change.</p>
+                <p className="as-hello-sub">Ask about your plan, or ask for a change. Nothing changes until you tap Apply.</p>
                 {!chip ? <p className="as-hello-foot">The assistant sees your plan, sessions, training status, goals and to-dos. It can’t read your journal.</p> : null}
-                <p className="as-hello-foot">Nothing changes until you tap Apply.</p>
               </>
             ) : (
               <>

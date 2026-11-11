@@ -71,7 +71,6 @@ export const ROUTES: readonly RouteDef[] = [
   // a metric's page, pushed from Progress's trend cards (features/progress/metrics.ts names the ids)
   { pattern: '/progress/metric/:id', owner: 'progress', kind: 'pushed', depth: 1, title: (p) => METRIC_TITLE[p.id ?? ''] ?? 'Progress' },
   { pattern: '/journal', owner: 'journal', kind: 'root' },
-  { pattern: '/journal/library', owner: 'journal', kind: 'root' },
   { pattern: '/welcome/*', owner: null, kind: 'full' },
   { pattern: '/start', owner: null, kind: 'full' },
   { pattern: '/login', owner: null, kind: 'full' },
@@ -83,8 +82,10 @@ export const ROUTES: readonly RouteDef[] = [
   { pattern: '/reads/:tab?', owner: null, kind: 'redirect', to: '/settings/reads/:tab?' },
   { pattern: '/journal/reads/:tab?', owner: null, kind: 'redirect', to: '/settings/reads/:tab?' },
   { pattern: '/plan/plans', owner: null, kind: 'redirect', to: '/settings/plans' },
-  { pattern: '/journal/quotes', owner: null, kind: 'redirect', to: '/journal/library' },
-  { pattern: '/journal/favorites', owner: null, kind: 'redirect', to: '/journal/library' },
+  // the Library was removed (owner request): its old links land on Journal
+  { pattern: '/journal/library', owner: null, kind: 'redirect', to: '/journal' },
+  { pattern: '/journal/quotes', owner: null, kind: 'redirect', to: '/journal' },
+  { pattern: '/journal/favorites', owner: null, kind: 'redirect', to: '/journal' },
   { pattern: '/trends', owner: null, kind: 'redirect', to: '/progress' },
   { pattern: '/setup', owner: null, kind: 'redirect', to: '/signup' },
   { pattern: '*', owner: null, kind: 'redirect', to: '/today' },
@@ -222,8 +223,7 @@ export const matchRoute = (pathname: string): RouteMatch => {
     }
     if (route.kind === 'full') return { kind: 'full', tab: null, root: path, stack: [], params, route };
     const tab = route.owner!;
-    // Journal's segment is page state like a date (§1.2): /journal/library names it, so a root request can tell the two apart
-    if (route.kind === 'root') return { kind: 'root', tab, root: path, stack: [], params: route.pattern === '/journal/library' ? { ...params, segment: 'library' } : params, route };
+    if (route.kind === 'root') return { kind: 'root', tab, root: path, stack: [], params, route };
     // pushed: the root under it and the layers it implies
     if (route.pattern === '/today/:date/morning') {
       const root = `/today/${params.date}`;

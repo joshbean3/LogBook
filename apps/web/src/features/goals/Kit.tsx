@@ -7,7 +7,7 @@ import './kit.css';
 
 /*
  * The shape kit's pieces (kit.css): a section (the shared PageSection), the sheet's pinned pill, and the sheet's delete (a Signal
- * trash in a Signal soft circle, then a confirm). Shared by Goals, Learned, Journal, Library and Reads so they read the same.
+ * trash in a Signal soft circle, then a confirm). Shared by Goals, Learned, Journal and Reads so they read the same.
  */
 
 /** A section: the shared header (ui/layout.tsx: Fraunces title, Dusk meta, a Deep Sky action at the right), then its cards. */

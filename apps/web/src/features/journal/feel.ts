@@ -158,9 +158,11 @@ interface FlipSnap {
   rows: Map<string, number>;
   after: Array<[HTMLElement, number]>;
 }
+/** The rows a FLIP moves: every keyed element under the list (a row, or a month's title over a group of rows). */
+const keyed = (box: HTMLElement) => box.querySelectorAll<HTMLElement>('[data-key]');
 const snapOf = (box: HTMLElement, sig: string): FlipSnap => {
   const rows = new Map<string, number>();
-  for (const r of box.children as HTMLCollectionOf<HTMLElement>) if (r.dataset.key) rows.set(r.dataset.key, r.getBoundingClientRect().top);
+  for (const r of keyed(box)) rows.set(r.dataset.key!, r.getBoundingClientRect().top);
   return { sig, rows, after: below(box).map((n) => [n, n.getBoundingClientRect().top]) };
 };
 export const useListFlip = (ref: RefObject<HTMLElement | null>, sig: string) => {
@@ -179,9 +181,8 @@ export const useListFlip = (ref: RefObject<HTMLElement | null>, sig: string) => 
     // Measured against an ancestor that kept moving while the rows' springs had not started, a row dipped 17–34 px the
     // wrong way first (review 3: Journal Save, Reads delete just after the pick landed).
     for (let a = box.parentElement; a && !a.matches(SCROLLERS); a = a.parentElement) if (carries.has(a)) carry(a, 0);
-    for (const r of box.children as HTMLCollectionOf<HTMLElement>) {
-      const k = r.dataset.key;
-      if (!k) continue;
+    for (const r of keyed(box)) {
+      const k = r.dataset.key!;
       const old = was.rows.get(k);
       if (old == null) {
         r.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 150, easing: 'cubic-bezier(.22,1,.36,1)' });

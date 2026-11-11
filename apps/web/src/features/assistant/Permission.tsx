@@ -1,6 +1,6 @@
 import { CONSENT_VERSION, type AssistantScreen, type ISODate } from '@logbook/shared';
 import { useQueryClient } from '@tanstack/react-query';
-import { useEffect, useState } from 'react';
+import { useEffect, useLayoutEffect, useState } from 'react';
 import { useBootstrap } from '@/api/queries';
 import { askAssistant, stopAssistant } from './api';
 import { consentKey, useConsent, useSaveConsent } from '@/lib/consent';
@@ -40,10 +40,11 @@ export const AssistantPermission = ({ gate, retry, date, screen, chat, inPane }:
   const sheet = useSheet();
   const save = useSaveConsent();
   const [failed, setFailed] = useState(false);
-  // the header is the sheet's own here: no chat title, no History or New
-  useEffect(() => {
-    if (!inPane) sheet.update({ title: 'Assistant', action: undefined });
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  // the header is the sheet's own here: no chat title, no History or New. On the question itself "Before you ask" is the one
+  // heading, so the bar's title is left to VoiceOver (layout standard 4.4: no stacked headers)
+  useLayoutEffect(() => {
+    if (!inPane) sheet.update({ title: gate === 'ask' ? <span className="sr-only">Assistant</span> : 'Assistant', action: undefined });
+  }, [gate]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const choose = async (training: boolean) => {
     if (save.isPending) return;

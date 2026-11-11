@@ -1,17 +1,18 @@
 import type * as React from 'react';
-import { fmtDate, parseISO, type JournalEntry, type Quote } from '@logbook/shared';
-import { EyeOff, PenLine, Search, Share, Trash2, X } from 'lucide-react';
-import { FavoriteIcon } from '@/ui/icons';
+import { fmtDate, type JournalEntry, type Quote } from '@logbook/shared';
+import { CircleAlert, EyeOff, PenLine, Search, Share, Trash2, X } from 'lucide-react';
+import { FavoriteIcon, JournalIcon } from '@/ui/icons';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useDaily, useJournalList, useJournalMutations } from '@/api/queries';
 import { haptics } from '@/lib/haptics';
 import { revealField } from '@/lib/keyboard';
-import { EmptyState, IconButton, Pressable, Skeleton, SkeletonGroup, SwipeRow, useSheet, useToast } from '@/ui';
+import { DateGutter, IconButton, Pressable, Row, SectionEmpty, Skeleton, SkeletonGroup, SwipeRow, useSheet, useToast } from '@/ui';
 import { useLog } from '../log/useLog';
-import { FavStar } from './FavStar';
 import { PressButton } from './PressButton';
+import { FavStar } from './FavStar';
 import { measureBelow, popFav, useListFlip } from './feel';
-import { EntryEditor, entryDay, entryWhen, monthsOf, useEntryActions, useOpenEntry } from './JournalDaySection';
+import { EntryEditor, entryDay, entryWhen, monthsOf, upperFirst, useEntryActions, useOpenEntry } from './JournalDaySection';
+import { groupByMonth } from './entryGroups';
 import { runStamp } from './prompt';
 import { KSection } from '../goals/Kit';
 
@@ -90,11 +91,14 @@ export const SEARCH_WAIT_MS = 250;
 export const SEARCH_MIN = 2;
 
 /**
- * Every entry, newest first, edge to edge. The date stands at the left of a day's first entry; a day with a run wears the
- * run's name as a stamp. Tap: the entry. Swipe left: Delete (with Undo). Hold: Edit, Favorite, Share, Delete. The rows come
- * from the cache; with nothing cached, skeleton rows hold the place until the first answer, and a failed first answer
- * says so with Try again. A row that arrives fades in and the rows it displaces ride a FLIP on `settle`; nothing animates
- * height. Search asks the server once typing pauses, from two characters on; the header counts what it found.
+ * Every entry, newest first, in one inset group per month (layout standard 2.8, 6.2). Each row is a date-gutter row: the
+ * day's numeral and weekday in the 40 px gutter of its first entry (a day's later entries leave it empty), the entry's
+ * opening in the journal's voice (Fraunces italic 17/24, at most three lines), then one Dusk line: the time, the run that
+ * day, a heart for a favorite. The newest month names itself in the section's meta; older months get a list-page title.
+ * Tap: the entry. Swipe left: Delete (with Undo). Hold: Edit, Favorite, Share, Delete. The rows come from the cache; with
+ * nothing cached, skeleton rows hold the place until the first answer, and a failed first answer says so with Try again.
+ * A row that arrives fades in and the rows it displaces ride a FLIP on `settle`; nothing animates height. Search asks the
+ * server once typing pauses, from two characters on; the header counts what it found.
  */
 export const Timeline = ({
   today,
@@ -163,8 +167,9 @@ export const Timeline = ({
   useListFlip(rowsRef, shown.map((e) => keyOf(e.id)).join(','));
   const stampOf = (d: string) => (log.loaded(d) ? runStamp(log.snap, d) : null);
   const everything = total === null ? `${all.length}+` : String(total);
-  // while searching, how many of them say it: "7 of 23"
-  const meta = failed || pending ? undefined : needle ? (found.data ? `${list.length}${found.data.more ? '+' : ''} of ${everything}` : undefined) : total === null ? `${all.length}+` : total || undefined;
+  const months = groupByMonth(shown, today);
+  // while searching, how many of them say it ("7 of 23"); otherwise the newest month's name, which titles the first group
+  const meta = failed || pending ? undefined : needle ? (found.data ? `${list.length}${found.data.more ? '+' : ''} of ${everything}` : undefined) : months[0]?.label;
   const asking = !!needle && !found.data;
   return (
     <KSection
@@ -198,14 +203,27 @@ export const Timeline = ({
         </div>
       ) : null}
       {failed ? (
-        <div className="k-card jtl-empty jtl-failed" role="alert">
-          <EmptyState verb={onRetry ? { label: 'Try again', onPress: onRetry } : undefined}>Couldn’t load your journal.</EmptyState>
+        // a section that failed says so in the section's own form: one row, and the row itself tries again
+        <div className="group jtl-empty" role="alert">
+          <Row
+            left={
+              <span className="icon-tile" aria-hidden="true">
+                <CircleAlert size={18} />
+              </span>
+            }
+            title="Couldn’t load entries"
+            sub={onRetry ? 'Tap to try again.' : 'Check your connection.'}
+            onClick={onRetry}
+          />
         </div>
       ) : pending || asking ? (
-        <SkeletonGroup label={asking ? 'Searching your entries' : 'Loading your entries'} className="k-card jtl-skel">
+        <SkeletonGroup label={asking ? 'Searching your entries' : 'Loading your entries'} className="group jtl-skel">
           {[0, 1, 2].map((i) => (
-            <div key={i} className="jtl-skel-row">
-              <Skeleton w={28} h={22} />
+            <div key={i} className="lrow jtl-skel-row">
+              <span className="jtl-skel-gutter">
+                <Skeleton w={20} h={18} />
+                <Skeleton w={26} h={12} />
+              </span>
               <div className="jtl-skel-lines">
                 <Skeleton w={`${88 - i * 14}%`} h={16} />
                 <Skeleton w={`${60 - i * 8}%`} h={16} />
@@ -214,60 +232,58 @@ export const Timeline = ({
           ))}
         </SkeletonGroup>
       ) : !all.length ? (
-        // the sentence and its verb, no ghost rows: they read as the loading skeleton (review feel F10)
-        <div className="k-card jtl-empty">
-          <EmptyState verb={{ label: 'Write today’s entry', onPress: onWrite }}>
-            Two sentences a day. Every one lands here, newest first.
-          </EmptyState>
-        </div>
+        // one row, no button: "Write today's entry" is already the calendar's last row (say it once)
+        <SectionEmpty icon={<JournalIcon size={18} />} title="No entries yet" line="They land here, newest first." className="jtl-empty" />
       ) : needle && !list.length && found.data ? (
         // the header's X is the one way out of a search
-        <div className="k-card jtl-empty">
-          <EmptyState>Nothing you wrote says “{needle}”.</EmptyState>
-        </div>
+        <SectionEmpty icon={<Search size={18} />} title="No matches" line={`Nothing you wrote says “${needle}”.`} className="jtl-empty" />
       ) : (
-        <div ref={rowsRef} className="jtl k-rows" role="list">
-          {shown.map((e, i) => {
-            const first = i === 0 || shown[i - 1]!.date !== e.date;
-            const stamp = first ? stampOf(e.date) : null;
-            return (
-              <div key={keyOf(e.id)} data-key={keyOf(e.id)} role="listitem" className={`jtl-item ${first ? 'first' : ''}`}>
-                <SwipeRow
-                  label={`Entry from ${entryDay(e.date, today)}`}
-                  left={{ label: 'Delete', icon: <Trash2 size={20} />, tone: 'bad', onCommit: () => act.del(e) }}
-                  menuItems={[
-                    { label: 'Edit', icon: <PenLine size={18} />, onSelect: () => sheet.open({ eyebrow: entryDay(e.date, today), title: 'Edit', body: <EntryEditor e={e} />, detent: 'large' }) },
-                    { label: e.fav ? 'Unfavorite' : 'Favorite', icon: <FavoriteIcon size={18} />, onSelect: () => act.fav(e) },
-                    { label: 'Share', icon: <Share size={18} />, onSelect: () => act.share(e) },
-                  ]}
-                >
-                  <PressButton
-                    className="jtl-row"
-                    aria-label={`${fmtDate('long', e.date)}, ${entryWhen(e)}${stamp ? `, ${stamp}` : ''}${e.fav ? ', a favorite' : ''}. ${e.text}`}
-                    onClick={(ev) => openEntry(e, { from: ev.currentTarget.querySelector('.jtl-date-shared'), stamp: stampOf(e.date) })}
-                  >
-                    <span className="jtl-date" aria-hidden="true">
-                      {first ? (
-                        <span className="jtl-date-shared">
-                          <span className="jtl-day">{parseISO(e.date).getDate()}</span>
-                          <span className="caps">{e.date === today ? 'Today' : fmtDate('dow', e.date)}</span>
-                        </span>
-                      ) : null}
-                    </span>
-                    <span className="jtl-body" aria-hidden="true">
-                      <span className="jtl-text">{e.text}</span>
-                      <span className="jtl-meta">
-                        {first && e.date.slice(0, 7) !== today.slice(0, 7) ? <span className="caps">{e.date.slice(0, 4) !== today.slice(0, 4) ? fmtDate('month', e.date) : fmtDate('monthShort', e.date)}</span> : null}
-                        <span className="caps">{entryWhen(e)}</span>
-                        {stamp ? <span className="jstamp">{stamp}</span> : null}
-                        <FavStar on={e.fav} />
-                      </span>
-                    </span>
-                  </PressButton>
-                </SwipeRow>
+        <div ref={rowsRef} className="jtl-months">
+          {months.map((m, mi) => (
+            <div key={m.month} className="jtl-month">
+              {mi > 0 ? (
+                <h3 className="jtl-mhead" data-key={`month:${m.month}`}>
+                  {m.label}
+                </h3>
+              ) : null}
+              <div className="group jtl" role="list" aria-label={m.label}>
+                {m.entries.map((e, i) => {
+                  const first = i === 0 || m.entries[i - 1]!.date !== e.date;
+                  const stamp = first ? stampOf(e.date) : null;
+                  const when = entryWhen(e);
+                  return (
+                    <div key={keyOf(e.id)} data-key={keyOf(e.id)} role="listitem" className={`jtl-item ${first ? 'first' : ''}`}>
+                      <SwipeRow
+                        label={`Entry from ${entryDay(e.date, today)}`}
+                        left={{ label: 'Delete', icon: <Trash2 size={18} />, tone: 'bad', onCommit: () => act.del(e) }}
+                        menuItems={[
+                          { label: 'Edit', icon: <PenLine size={18} />, onSelect: () => sheet.open({ eyebrow: entryDay(e.date, today), title: 'Edit', body: <EntryEditor e={e} />, detent: 'large' }) },
+                          { label: e.fav ? 'Unfavorite' : 'Favorite', icon: <FavoriteIcon size={18} />, onSelect: () => act.fav(e) },
+                          { label: 'Share', icon: <Share size={18} />, onSelect: () => act.share(e) },
+                        ]}
+                      >
+                        <PressButton
+                          className="lrow jtl-row"
+                          aria-label={`${fmtDate('long', e.date)}, ${when}${stamp ? `, ${stamp}` : ''}${e.fav ? ', a favorite' : ''}. ${e.text}`}
+                          onClick={(ev) => openEntry(e, { from: ev.currentTarget.querySelector('.date-gutter'), stamp: stampOf(e.date) })}
+                        >
+                          {first ? <DateGutter date={e.date} today={e.date === today} /> : <span className="date-gutter is-empty" aria-hidden="true" />}
+                          <span className="jtl-body" aria-hidden="true">
+                            <span className="jtl-text">{e.text}</span>
+                            <span className="jtl-meta">
+                              <span className="jtl-when">{upperFirst(when)}</span>
+                              {stamp ? <span className="jtl-stamp">{stamp}</span> : null}
+                              <FavStar on={e.fav} size={15} className="jtl-fav" />
+                            </span>
+                          </span>
+                        </PressButton>
+                      </SwipeRow>
+                    </div>
+                  );
+                })}
               </div>
-            );
-          })}
+            </div>
+          ))}
         </div>
       )}
       {left > 0 || canFetch ? (

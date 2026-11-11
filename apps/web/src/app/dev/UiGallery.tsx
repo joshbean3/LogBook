@@ -708,7 +708,7 @@ function Gallery({ onLab }: { onLab: () => void }) {
               Each run you log lands here.
             </EmptyState>
           </Demo>
-          <Demo title="GhostRows" note="Journal, Library: two grey bars a row, no dates, no words">
+          <Demo title="GhostRows" note="Journal, Reads: two grey bars a row, no dates, no words">
             <EmptyState ghost={<GhostRows rows={3} lead="dot" />} verb={{ label: 'Write the first one', onPress: () => toast('Write') }}>
               Two sentences a day add up.
             </EmptyState>

@@ -11,3 +11,12 @@ describe('a long proposal’s count line', () => {
     expect(countLine([c('update_session'), c('mark_session'), c('set_goal'), c('add_todo')])).toBe('4 changes: 1 added, 3 changed');
   });
 });
+
+describe('the fold row of a proposal past three changes', () => {
+  it('says how many are folded and what kinds they are', async () => {
+    const { foldLine, SHOWN } = await import('./Proposal');
+    expect(SHOWN).toBe(3);
+    expect(foldLine([c('delete_session')])).toBe('Show 1 more · 1 removed');
+    expect(foldLine([c('add_todo'), c('move_session'), c('add_session')])).toBe('Show 3 more · 2 added, 1 moved');
+  });
+});

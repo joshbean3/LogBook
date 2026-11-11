@@ -1,5 +1,5 @@
 import { recallDay, type RecallItem } from '@logbook/shared';
-import { Bell, ChevronRight, Copy, Download, EyeOff, Loader2, Share, Shuffle } from 'lucide-react';
+import { Bell, Copy, Download, EyeOff, Loader2, Share, Shuffle } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
 import { useEffect, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
@@ -72,7 +72,7 @@ const ShareRecall = ({ summary, when }: { summary: string; when: string }) => {
       <div className="recall-share-preview">
         {img ? <img src={img.url} alt={`Remember when, ${when}: ${summary}`} /> : <span className="recall-share-wait">{failed ? 'The image could not be drawn. Copy the text instead.' : ' '}</span>}
       </div>
-      <div className="recall-share-actions">
+      <div className="recall-share-actions btn-stack">
         <Button variant="primary" block onClick={() => void save()} disabled={!img}>
           {isNative ? <Share size={17} aria-hidden="true" /> : <Download size={17} aria-hidden="true" />} {isNative ? 'Share image' : 'Save as image'}
         </Button>
@@ -85,15 +85,16 @@ const ShareRecall = ({ summary, when }: { summary: string; when: string }) => {
 };
 
 /**
- * "Remember when" (the top of the Journal tab): one past entry or learning a day, as an insight card: a soft Columbia header
- * with the date and Share, the reminder in the serif under it. Tap the words to open that day's page (a learning opens What
- * I learned). Under it three quiet verbs: Remind me more (the server picks it four times as often), Another, Hide (with
- * Undo). Nothing eligible, or still loading: no card at all; it fades in once there is one, and a change of item
- * cross-fades in place.
+ * "Remember when" (the top of the Journal tab; layout standard 6.9): one past entry or learning a day. The card's tinted
+ * header holds all of it: the caption, Share, and the reminder in the serif ("On Oct 11 you wrote: “…”", at most four
+ * lines). Tap the words to open that day's page (a learning opens What I learned). On Paper under the header, three quiet
+ * verbs: Remind me more (the server picks it four times as often), Another, Hide (with Undo). Nothing eligible: no card at
+ * all; it fades in once there is one, and a change of item cross-fades in place.
  *
  * The reminder is Claude's line only when the account has said yes to that (the recall switch, Contract 1; the server
- * holds the same switch). Then it is marked "Written by AI", with the entry itself one tap away. With the switch off the
- * card shows the plain line made here from the entry's own words.
+ * holds the same switch). Then it is marked "Written by AI", and the line itself opens the entry. With the switch off the
+ * card shows the plain line made here from the entry's own words. The caption carries the date only when the line does
+ * not already open with it (say it once).
  */
 export const RecallCard = ({ today, onOpenDay }: { today: string; onOpenDay: (date: string) => void }) => {
   const q = useRecall(today);
@@ -160,71 +161,69 @@ export const RecallCard = ({ today, onOpenDay }: { today: string; onOpenDay: (da
         <Card className="recall is-loading" aria-label="Remember when">
           <SkeletonGroup label="Loading Remember when" className="recall-skel">
             <div className="recall-head">
-              <span className="recall-head-light" aria-hidden="true" />
-              <Skeleton w={150} h={12} />
-            </div>
-            <div className="recall-skel-lines">
-              <Skeleton w="92%" h={22} />
-              <Skeleton w="64%" h={22} />
-            </div>
-            {/* with the recall switch on the answer carries the "Written by AI" row: its room is held too */}
-            {recall ? (
-              <div className="recall-skel-ai">
-                <Skeleton w={90} h={14} />
+              <div className="recall-top">
+                <Skeleton w={120} h={12} />
+                <span className="recall-share-btn is-ghost" aria-hidden="true" />
               </div>
-            ) : null}
+              <div className="recall-skel-lines">
+                <Skeleton w="92%" h={20} />
+                <Skeleton w="64%" h={20} />
+              </div>
+            </div>
             <div className="recall-tools" aria-hidden="true">
-              <span className="recall-tool" />
-              <span className="recall-tool" />
-              <span className="recall-tool" />
+              <Skeleton w={120} h={14} />
+              <Skeleton w={64} h={14} />
+              <Skeleton w={40} h={14} />
             </div>
           </SkeletonGroup>
         </Card>
       </div>
     );
+  const day = item ? recallDay(item.date, today) : '';
+  // the plain line opens with the date ("On Oct 11 you wrote"); a line written by the assistant may not
+  const dated = !!item && !lineOf(item).startsWith(`On ${day} `);
   return (
     <AnimatePresence initial={false}>
       {item ? (
         <motion.div key="recall" className="recall-wrap" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={fadeIn}>
           <Card className="recall" aria-label="Remember when" aria-busy={busy || undefined}>
             <div className="recall-head">
-              <span className="recall-head-light" aria-hidden="true" />
-              <p className="caps recall-eyebrow">
-                Remember when <span aria-hidden="true">·</span> {recallDay(item.date, today)}
-              </p>
-              <PressButton press="dim" className="recall-share-btn" aria-label="Share" onClick={() => share(item)}>
-                <Share size={17} aria-hidden="true" />
-              </PressButton>
-            </div>
-            <div className="recall-stack">
-              <AnimatePresence initial={false}>
-                <motion.div key={`${item.kind}:${item.id}`} className="recall-body" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={reduce ? fadeIn : crossfade}>
-                  <PressButton press="dim" className="recall-text" onClick={() => open(item)} aria-label={`${lineOf(item)} ${item.kind === 'learning' ? 'Open What I learned' : 'Open that day'}`}>
-                    {lineOf(item)}
-                  </PressButton>
-                  {byAi ? (
-                    <p className="recall-ai">
-                      <span className="recall-ai-mark">Written by AI</span>
-                      <PressButton press="dim" className="recall-ai-open" onClick={() => open(item)}>
-                        {item.kind === 'learning' ? 'See the learning' : 'Read the entry'}
-                        <ChevronRight size={14} aria-hidden="true" />
-                      </PressButton>
-                    </p>
+              <div className="recall-top">
+                <p className="caps recall-eyebrow">
+                  Remember when
+                  {dated ? (
+                    <>
+                      {' '}
+                      <span aria-hidden="true">·</span> {day}
+                    </>
                   ) : null}
-                </motion.div>
-              </AnimatePresence>
+                </p>
+                <PressButton press="dim" className="recall-share-btn" aria-label="Share" onClick={() => share(item)}>
+                  <Share size={18} aria-hidden="true" />
+                </PressButton>
+              </div>
+              <div className="recall-stack">
+                <AnimatePresence initial={false}>
+                  <motion.div key={`${item.kind}:${item.id}`} className="recall-body" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={reduce ? fadeIn : crossfade}>
+                    <PressButton press="dim" className="recall-text" onClick={() => open(item)} aria-label={`${lineOf(item)} ${item.kind === 'learning' ? 'Open What I learned' : 'Open that day'}`}>
+                      <span className="recall-quote">{lineOf(item)}</span>
+                    </PressButton>
+                    {byAi ? <p className="recall-ai">Written by AI</p> : null}
+                  </motion.div>
+                </AnimatePresence>
+              </div>
             </div>
             <div className="recall-tools">
               <PressButton press="dim" className={`recall-tool is-boost ${item.boosted ? 'is-on' : ''}`} aria-pressed={item.boosted} onClick={() => boost(item)}>
-                <Bell size={14} aria-hidden="true" fill={item.boosted ? 'currentColor' : 'none'} />
+                <Bell size={18} aria-hidden="true" fill={item.boosted ? 'currentColor' : 'none'} />
                 Remind me more
               </PressButton>
               <PressButton press="dim" className="recall-tool" onClick={() => shuffle(item)} disabled={busy} aria-busy={another.isPending || undefined}>
-                {another.isPending ? <Loader2 size={14} aria-hidden="true" className="recall-spin" /> : <Shuffle size={14} aria-hidden="true" />}
+                {another.isPending ? <Loader2 size={18} aria-hidden="true" className="recall-spin" /> : <Shuffle size={18} aria-hidden="true" />}
                 Another
               </PressButton>
               <PressButton press="dim" className="recall-tool" onClick={() => hide(item)} disabled={busy}>
-                <EyeOff size={14} aria-hidden="true" />
+                <EyeOff size={18} aria-hidden="true" />
                 Hide
               </PressButton>
             </div>

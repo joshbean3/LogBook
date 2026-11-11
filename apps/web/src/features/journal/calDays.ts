@@ -18,12 +18,6 @@ export type CalView = 'week' | 'month';
  *   brand  today, the full mix (the calendar's live orb)
  */
 export type OrbVariant = 'brand' | 'sun' | 'sky' | 'dusk' | 'tide';
-export const ORB_KEY: ReadonlyArray<{ v: OrbVariant; label: string }> = [
-  { v: 'sky', label: '1' },
-  { v: 'dusk', label: '2' },
-  { v: 'tide', label: '3+' },
-  { v: 'sun', label: 'Favorite' },
-];
 
 /** The palette for a day's entries; null for a day with none. */
 export const orbVariant = (entries: readonly Pick<JournalEntry, 'fav'>[] | undefined): OrbVariant | null => {
