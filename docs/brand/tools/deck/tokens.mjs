@@ -230,6 +230,7 @@ add('space', [
 add('motion', [
   ['--ease-out', 'cubic-bezier(0.22, 1, 0.36, 1)', 'Everything that moves in.', 'same'],
   ['--ease-sheet', 'cubic-bezier(0.32, 0.72, 0, 1)', 'Sheets.', null],
+  ['--ease-in-out', 'cubic-bezier(0.45, 0, 0.55, 1)', "Light that comes up and settles: the sunrise splash's sky, glow and Orb light, its resting breath and its dissolve.", null],
   ['--dur-fast', '160ms', 'Press to scale 0.97.', 'same'],
   ['--dur', '220ms', 'Small state changes.', 'same'],
   ['--dur-in', '120ms', 'Fade in.', 'same'],

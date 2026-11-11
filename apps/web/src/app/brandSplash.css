@@ -204,25 +204,25 @@
   animation: bs-climb var(--bs-climb-for) var(--bs-rise-ease) var(--bs-climb-at) both;
 }
 .brand-splash[data-moment='sunrise'] .bs-day {
-  animation: bs-in var(--bs-warm-for) ease-in-out var(--bs-warm-at) both;
+  animation: bs-in var(--bs-warm-for) var(--ease-in-out) var(--bs-warm-at) both;
 }
 .brand-splash[data-moment='sunrise'] .bs-glow {
   animation:
-    bs-glow-in var(--bs-glow-for) ease-in-out var(--bs-glow-at) both,
-    bs-swell var(--bs-glow-for) ease-in-out var(--bs-glow-at) both;
+    bs-glow-in var(--bs-glow-for) var(--ease-in-out) var(--bs-glow-at) both,
+    bs-swell var(--bs-glow-for) var(--ease-in-out) var(--bs-glow-at) both;
 }
 /* the Orb's light: its pale underlight over the blue sphere first, then the sunrise art over both, and its light on the sky.
    Blue to pale to warm never passes through grey, as blue straight to orange would */
 .brand-splash[data-moment='sunrise'] .bs-orb-first {
-  animation: bs-in var(--bs-first-for) ease-in-out var(--bs-first-at) both;
+  animation: bs-in var(--bs-first-for) var(--ease-in-out) var(--bs-first-at) both;
 }
 .brand-splash[data-moment='sunrise'] .bs-orb-lit {
-  animation: bs-in var(--bs-light-for) ease-in-out var(--bs-light-at) both;
+  animation: bs-in var(--bs-light-for) var(--ease-in-out) var(--bs-light-at) both;
 }
 .brand-splash[data-moment='sunrise'] .bs-halo {
   animation:
-    bs-in var(--bs-light-for) ease-in-out var(--bs-light-at) both,
-    bs-swell var(--bs-light-for) ease-in-out var(--bs-light-at) both;
+    bs-in var(--bs-light-for) var(--ease-in-out) var(--bs-light-at) both,
+    bs-swell var(--bs-light-for) var(--ease-in-out) var(--bs-light-at) both;
 }
 /* a ring leaves the Orb's own edge and widens to its place: bright as it leaves, fading to its resting opacity as it travels */
 .brand-splash[data-moment='sunrise'] .bs-ring {
@@ -247,7 +247,7 @@
 }
 /* at rest the Orb breathes (guide 2.1), for as long as the app keeps it waiting */
 .brand-splash[data-moment='sunrise'] .bs-orb {
-  animation: bs-breath var(--orb-breath) ease-in-out var(--bs-rest-at) infinite;
+  animation: bs-breath var(--orb-breath) var(--ease-in-out) var(--bs-rest-at) infinite;
 }
 /* the quiet fade, and Reduce Motion's crossfade: the final frame comes through the Cloud, words and all */
 .brand-splash[data-moment='fade'] .bs-veil {
@@ -264,10 +264,10 @@
 }
 /* then the app appears underneath: the picture dissolves, and the words go first so they never sit on the app's own */
 .brand-splash[data-leave] {
-  animation: bs-lift var(--bs-out) ease both;
+  animation: bs-lift var(--bs-out) var(--ease-in-out) both;
 }
 .brand-splash[data-leave] .bs-head {
-  animation: bs-lift calc(var(--bs-out) * 0.45) ease both;
+  animation: bs-lift calc(var(--bs-out) * 0.45) var(--ease-in-out) both;
 }
 /* a natural exit lets taps through as it fades; after a tap that skipped, it keeps them until it is gone, so the tap's own
    click cannot land on the app */

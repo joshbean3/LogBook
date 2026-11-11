@@ -691,7 +691,7 @@ Discs, rings, domes, half-suns on a horizon, orbits. A done run is a half-sun on
 
 ### 9.1 Durations and easings
 
-Springs come from `apps/web/src/lib/motion.ts` (`springs.page`, `settle`, `sheet`, `number`, `complete` and the rest); CSS uses the `--dur-*` and `--ease-*` tokens.
+Springs come from `apps/web/src/lib/motion.ts` (`springs.page`, `settle`, `sheet`, `number`, `complete` and the rest); CSS uses the `--dur-*` and `--ease-*` tokens (`--ease-out`, `--ease-sheet`, and `--ease-in-out` for light that comes up and settles).
 
 | Move | Duration | Easing or spring |
 |---|---|---|
@@ -707,7 +707,7 @@ Springs come from `apps/web/src/lib/motion.ts` (`springs.page`, `settle`, `sheet
 | Completion | 300 ms to 1.12, once | `springs.complete` (0.30 s, bounce 0.30), `orb` haptic on the peak |
 | Hold ring | 600 ms | `--dur-ring`, linear, `stroke-dashoffset` |
 | Gauge ticks | 6 ms stagger, 240 ms cap | linear |
-| Sunrise splash | 2.8 s, first frame to the app | `SPLASH_MS` in `apps/web/src/app/splashTimeline.ts`, the one constant its whole schedule is derived from; the climb runs 2.0 s on `cubic-bezier(0.32, 0.42, 0.22, 1)` (9.2) |
+| Sunrise splash | 2.8 s, first frame to the app | `SPLASH_MS` in `apps/web/src/app/splashTimeline.ts`, the one constant its whole schedule is derived from; the climb runs 2.0 s on `cubic-bezier(0.32, 0.42, 0.22, 1)` (`RISE_EASE` there); its light (the sky's colors, the glows, the Orb's two overlays) comes up, and the splash dissolves, on `--ease-in-out` `cubic-bezier(0.45, 0, 0.55, 1)`; the veil, the rings and the words on `--ease-out` (9.2) |
 | Quiet opening, Reduce Motion's splash crossfade | 300 ms | `--dur-launch`, `--ease-out` (linear under Reduce Motion) |
 
 **What may animate:** `transform` and `opacity`, plus these named cases only: `color` and `background-color` (the 200 ms color and halo change), `stroke-dashoffset` (the gauge fill and the hold ring). A gradient never transitions: the dawn wash and the Orb's warming underlight fade in as an overlay layer's `opacity`. A moment that plays by itself (the splash) is CSS keyframes with both ends named and one property each, eased with `cubic-bezier` (never `linear()` with points or `steps()`: WebKit keeps those on the main thread), so the compositor carries it while the app starts up.

@@ -262,6 +262,7 @@
   /* ---------- motion (guide 9.1); springs live in lib/motion.ts ---------- */
   --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
   --ease-sheet: cubic-bezier(0.32, 0.72, 0, 1);
+  --ease-in-out: cubic-bezier(0.45, 0, 0.55, 1); /* light that comes up and settles: the sunrise splash's sky, glow and Orb light, its resting breath and its dissolve */
   --dur-fast: 160ms;
   --dur: 220ms;
   --dur-in: 120ms;
