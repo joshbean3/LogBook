@@ -1,10 +1,8 @@
-import { currentGoals, goalProgress, periodOf, periodSpan, shiftDays, shiftPeriod, type Aim, type GoalLevel } from '@logbook/shared';
-import { Bell, CalendarRange, Check, ChevronRight, Minus, Plus, Sunrise, X } from 'lucide-react';
-import { motion } from 'motion/react';
+import { awaitingReview, currentGoals, periodOf, periodSpan, shiftDays, shiftPeriod, type Aim, type GoalLevel } from '@logbook/shared';
+import { Bell, CalendarDays, CalendarRange, ChevronRight, Flag, Plus, Sunrise } from 'lucide-react';
 import { useEffect, useId, useRef, useState } from 'react';
 import { useNav } from '@/app/NavController';
 import { useBootstrap, useGoals } from '@/api/queries';
-import { useReduced } from '@/lib/motion';
 import { useToday } from '@/lib/useToday';
 import { dayCaption, NavBar } from '@/ui/NavBar';
 import { Pressable } from '@/ui/Pressable';
@@ -18,12 +16,19 @@ import { cardCaps, clockOf, goalOf, LEVEL, setWords, STATUS_WORD } from './model
 import { disableReminders, enableReminders, openAppSettings, reminderPermission, remindersOn, remindersSupported, reminderTime } from './reminders';
 import { useOpenGoal } from './GoalSheets';
 import { useReviewAccess } from './refine';
-import { ScoreStrip, StaleNudge } from './GoalParts';
-import { Burst, celebrateOnce } from './game';
+import { ScoreStrip } from './GoalParts';
+import { celebrateOnce } from './game';
+import { ReviewRow } from './ReviewRow';
+import { CarryOver } from './CarryOver';
+import { carryable } from './follow';
 import { TodayGoal } from './TodayGoal';
 import { useCelebrate } from './Celebrate';
 import { KSection } from './Kit';
 import './goals.css';
+
+/** Each level's glyph: the day a sunrise, the week its span, the month its days, the year a flag. */
+const LEVEL_ICON: Record<GoalLevel, typeof CalendarRange> = { day: Sunrise, week: CalendarRange, month: CalendarDays, year: Flag };
+const icon = (level: GoalLevel) => LEVEL_ICON[level];
 
 /** Nearest first: the day, then the week, the month, the year. */
 const LEVELS: readonly GoalLevel[] = ['day', 'week', 'month', 'year'];
@@ -33,122 +38,64 @@ const BIGGER: readonly GoalLevel[] = ['week', 'month', 'year'];
 /** A goal's words inside a longer name, without its own full stop. */
 const bare = (t: string) => t.replace(/[.\s]+$/, '');
 
-const MR = 19;
-const MC = 2 * Math.PI * MR;
-// the rings fill from empty once a session, the first time the tab shows them
-let ringsDrawn = false;
-
 /**
- * A level's ring: Deep Sky filling as far as the goal has come (its steps; all of it once done), k/n in the middle, a
- * check once it is kept, a plus while it is unset. `hit` throws the burst.
+ * The week, the month or the year as a row of the one inset group under "Further out" (layout plan 2.2 G1): its icon tile,
+ * the period as the title, the goal (or "Not set") under it, the time left (or the answer) at the trailing edge, and a
+ * chevron. A tap opens the goal, or the ways to set one.
  */
-const MiniRing = ({ goal, hit, first }: { goal: Aim | null; hit: number; first: boolean }) => {
-  const reduce = useReduced();
-  const p = goal ? goalProgress(goal) : 0;
-  const n = goal?.steps.length ?? 0;
-  const k = goal?.steps.filter((s) => s.done).length ?? 0;
-  return (
-    <span className={`gl-ring ${goal ? `is-${goal.status}` : 'is-empty'}`} aria-hidden="true">
-      <svg viewBox="0 0 48 48" className="gl-ring-svg">
-        <circle cx={24} cy={24} r={MR} className="gl-ring-track" />
-        {goal ? (
-          <motion.circle
-            cx={24}
-            cy={24}
-            r={MR}
-            className="gl-ring-arc"
-            strokeDasharray={MC}
-            transform="rotate(-90 24 24)"
-            initial={first ? { strokeDashoffset: MC } : false}
-            animate={{ strokeDashoffset: MC * (1 - Math.max(p > 0 ? 0.02 : 0, p)) }}
-            transition={reduce ? { duration: 0 } : { type: 'spring', duration: first ? 1 : 0.6, bounce: 0.15, delay: first ? 0.25 : 0 }}
-          />
-        ) : null}
-      </svg>
-      <span className="gl-ring-mid">
-        {!goal ? (
-          <Plus size={18} />
-        ) : goal.status === 'done' ? (
-          <Check size={18} />
-        ) : goal.status === 'partly' ? (
-          <Minus size={18} />
-        ) : goal.status === 'missed' ? (
-          <X size={18} />
-        ) : n ? (
-          <span className="gl-ring-num tnum">
-            {k}/{n}
-          </span>
-        ) : (
-          <i className="gl-ring-dot" />
-        )}
-      </span>
-      <Burst go={hit} />
-    </span>
-  );
-};
-
-/**
- * The week, the month or the year as a card under today's: its ring, the period with a chip for its time left, the goal in
- * the serif (or the way to set it), and a chevron. A tap opens the goal, or the two ways to set one.
- */
-const LevelCard = ({ level, period, goal, today, now, hit, first }: { level: GoalLevel; period: string; goal: Aim | null; today: string; now: number; hit: number; first: boolean }) => {
+const LevelRow = ({ level, period, goal, today, now }: { level: GoalLevel; period: string; goal: Aim | null; today: string; now: number }) => {
   const open = useOpenGoal();
-  const caps = cardCaps(level, period, today);
+  const name = cardCaps(level, period, today);
   const clock = clockOf(level, period, now);
   const n = goal?.steps.length ?? 0;
   const k = goal?.steps.filter((s) => s.done).length ?? 0;
   const answered = goal && goal.status !== 'open';
-  // the printed words first (caps, chip, goal), then what only a listener needs
-  const chip = answered ? STATUS_WORD[goal.status] : clock.words;
+  const end = answered ? STATUS_WORD[goal.status] : clock.words;
+  // the printed words first (the period, the goal, the time left), then what only a listener needs
   const label = goal
-    ? `${caps}, ${chip}, ${bare(goal.text)}. ${LEVEL[level].label} goal${!answered && n ? `, ${k} of ${n} steps` : ''}. Open`
-    : `${caps}, ${chip}, ${setWords(level, period, today)}. ${LEVEL[level].label} goal, not set`;
+    ? `${name}, ${bare(goal.text)}, ${end}. ${LEVEL[level].label} goal${!answered && n ? `, ${k} of ${n} steps` : ''}. Open`
+    : `${name}, not set, ${end}. ${setWords(level, period, today)}`;
+  const Icon = icon(level);
   return (
-    <Pressable className={`gl-card ${goal ? `is-${goal.status}` : 'is-empty'}`} press="scale" onPress={() => open(level, period)} label={label}>
-      <MiniRing goal={goal} hit={hit} first={first} />
-      <span className="gl-main" aria-hidden="true">
-        <span className="gl-head">
-          <span className="caps gl-caps">{caps}</span>
-          <span className={`gl-chip ${answered ? `is-${goal.status}` : ''}`}>{answered ? STATUS_WORD[goal.status] : clock.words}</span>
-        </span>
-        {goal ? <span className="gl-text">{goal.text}</span> : <span className="gl-set">{setWords(level, period, today)}</span>}
+    <Pressable className={`k-row two gl-row ${goal ? `is-${goal.status}` : 'is-empty'}`} press="surface" onPress={() => open(level, period)} label={label}>
+      <span className="icon-tile" aria-hidden="true">
+        <Icon size={18} />
       </span>
-      <ChevronRight size={18} className="gl-chev" aria-hidden="true" />
+      <span className="k-row-main" aria-hidden="true">
+        <span className="k-row-title">{name}</span>
+        <span className="k-row-sub">{goal ? goal.text : 'Not set'}</span>
+      </span>
+      <span className={`k-row-end gl-end ${answered ? `is-${goal.status}` : ''}`} aria-hidden="true">
+        {end}
+      </span>
+      <ChevronRight size={18} aria-hidden="true" className="k-chev" />
     </Pressable>
   );
 };
 
+
 /**
- * Something ahead (tomorrow's goal, next week's), as a small chip in the row over the list: an icon tile and its name, then
- * the goal on one line with a chevron, or "Not set" with a Set pill that opens the two ways to set it.
+ * Something ahead (tomorrow's goal, next week's) as a context chip in the row over the hero (guide 6.3, layout plan 2.2
+ * G8): a 40 px Haze disc (at 375 pt and wider), the name on one line and the goal or "Not set" under it. The whole chip is
+ * the one target; "Not set" shows a + in the disc.
  */
-const AheadChip = ({ level, period, goal, today, icon, title, when, describedBy }: { level: GoalLevel; period: string; goal: Aim | null; today: string; icon: React.ReactNode; title: string; when: string; describedBy: string }) => {
+const AheadChip = ({ level, period, goal, today, title, when, describedBy }: { level: GoalLevel; period: string; goal: Aim | null; today: string; title: string; when: string; describedBy: string }) => {
   const open = useOpenGoal();
+  const Icon = goal ? icon(level) : Plus;
   return (
     <Pressable
-      className={`ga-chip ${goal ? 'is-set' : 'is-empty'}`}
+      className={`ctx-chip ga-chip ${goal ? 'is-set' : 'is-empty'}`}
       press="scale"
       onPress={() => open(level, period)}
-      label={goal ? `${title}, ${bare(goal.text)}. ${when}. Open` : `${title}, Not set, Set. ${when}. ${setWords(level, period, today)}`}
+      label={goal ? `${title}, ${bare(goal.text)}. ${when}. Open` : `${title}, not set. ${when}. ${setWords(level, period, today)}`}
       aria-describedby={describedBy}
     >
-      <span className="ga-top" aria-hidden="true">
-        <span className="ga-ic">{icon}</span>
-        <span className="ga-title">{title}</span>
-        {goal ? <ChevronRight size={15} className="gl-chev ga-chev" /> : null}
+      <span className="ctx-ic" aria-hidden="true">
+        <Icon />
       </span>
-      <span className="ga-line" aria-hidden="true">
-        {goal ? (
-          <span className="ga-goal">{goal.text}</span>
-        ) : (
-          <>
-            <span className="ga-none">Not set</span>
-            <span className="ga-pill">
-              <Plus size={15} />
-              Set
-            </span>
-          </>
-        )}
+      <span className="ctx-text" aria-hidden="true">
+        <span className="ctx-title">{title}</span>
+        <span className="ctx-sub">{goal ? goal.text : 'Not set'}</span>
       </span>
     </Pressable>
   );
@@ -225,9 +172,10 @@ const Reminders = ({ goals, today }: { goals: Aim[]; today: string }) => {
 };
 
 /**
- * Goals (the second tab): what is ahead (tomorrow, next week) as two small chips at the top, then today's goal as the
- * hero (its gauge, its steps to check, the next move), a review owed, then the week, the month and the year as smaller
- * cards with their rings. Then the record and the reminders. Each goal goes through the review when it is set (Locke and
+ * Goals (the second tab; layout plan 2.2): what is ahead (tomorrow, next week) as two context chips at the top, then
+ * today's goal as the hero (its gauge, its steps to check, the next move), a card with the review owed and the carry-over
+ * while either has a row, then the week, the month and the year as rows of one inset group. Then the record and the
+ * reminders. Each goal goes through the review when it is set (Locke and
  * Latham's rules), and everything that happens to it is kept.
  */
 export default function GoalsView(): React.JSX.Element {
@@ -243,15 +191,11 @@ export default function GoalsView(): React.JSX.Element {
   const aheadHint = useId();
   // the review is promised only where it runs (assistant access on)
   const review = useReviewAccess();
-  const reduce = useReduced();
 
-  // a goal turning done while the tab is open (open → done), never one that loads done: its burst and the moment, once
+  // today's goal turning done while the tab is open (open → done), never one that loads done: its burst and the moment,
+  // once; the week's, month's and year's moments play the same way, without a burst of their own
   const was = useRef<Record<string, string>>({});
-  const [hits, setHits] = useState<Partial<Record<GoalLevel, number>>>({});
-  const firstRings = useRef(!ringsDrawn && !reduce);
-  useEffect(() => {
-    if (goals.data) ringsDrawn = true;
-  }, [goals.data]);
+  const [hit, setHit] = useState(0);
   const celebrate = useCelebrate();
   const sig = LEVELS.map((l) => `${cur[l]?.id}:${cur[l]?.status}`).join('|');
   useEffect(() => {
@@ -262,12 +206,14 @@ export default function GoalsView(): React.JSX.Element {
       was.current[g.id] = g.status;
       if (before === 'open' && g.status === 'done') {
         celebrateOnce(`${g.id}:${g.updatedAt}`, l !== 'day');
-        setHits((h) => ({ ...h, [l]: Date.now() }));
+        if (l === 'day') setHit(Date.now());
         celebrate(g);
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sig]);
+  // the review owed and the carry-over share one card under the hero, and it shows only while one of them has a row
+  const follow = awaitingReview(list, today).length > 0 || !!carryable(list, today);
 
   return (
     <div className="page g-page">
@@ -285,27 +231,30 @@ export default function GoalsView(): React.JSX.Element {
       ) : (
         <>
           <Stack className="g-top">
-          <div className="ga-row" role="group" aria-label="Ahead">
-            <AheadChip level="day" period={tomorrow} goal={goalOf(list, 'day', tomorrow)} today={today} icon={<Sunrise size={15} />} title="Tomorrow" when={periodSpan('day', tomorrow)} describedBy={aheadHint} />
-            <AheadChip level="week" period={nextWeek} goal={goalOf(list, 'week', nextWeek)} today={today} icon={<CalendarRange size={15} />} title="Next week" when={periodSpan('week', nextWeek)} describedBy={aheadHint} />
-            <span id={aheadHint} className="sr-only">
-              {review === 'on' ? 'Set them the night before. The review makes each one specific and due on time.' : 'Set them the night before.'}
-            </span>
-          </div>
-          <TodayGoal goal={cur.day} today={today} now={now} hit={hits.day ?? 0} />
-          <StaleNudge goals={list} today={today} />
+            <div className="ga-row" role="group" aria-label="Ahead">
+              <AheadChip level="day" period={tomorrow} goal={goalOf(list, 'day', tomorrow)} today={today} title="Tomorrow" when={periodSpan('day', tomorrow)} describedBy={aheadHint} />
+              <AheadChip level="week" period={nextWeek} goal={goalOf(list, 'week', nextWeek)} today={today} title="Next week" when={periodSpan('week', nextWeek)} describedBy={aheadHint} />
+              <span id={aheadHint} className="sr-only">
+                {review === 'on' ? 'Set them the night before. The review makes each one specific and due on time.' : 'Set them the night before.'}
+              </span>
+            </div>
+            <TodayGoal goal={cur.day} today={today} now={now} hit={hit} />
+            {follow ? (
+              <div className="k-rows has-icons g-follow">
+                <ReviewRow today={today} />
+                <CarryOver today={today} />
+              </div>
+            ) : null}
           </Stack>
           <KSection title="Further out" meta={`${BIGGER.filter((l) => cur[l]).length} of 3 set`} className="g-now">
-            <Stack className="gl-list">
+            <div className="k-rows has-icons gl-list">
               {BIGGER.map((l) => (
-                <LevelCard key={l} level={l} period={periodOf(l, today)} goal={cur[l]} today={today} now={now} hit={hits[l] ?? 0} first={firstRings.current} />
+                <LevelRow key={l} level={l} period={periodOf(l, today)} goal={cur[l]} today={today} now={now} />
               ))}
-            </Stack>
+            </div>
           </KSection>
-          <KSection title="History" action="See all" actionLabel="See all of the history" onAction={() => nav.push('/goals/history')} className="g-past">
-            <Stack>
-              <ScoreStrip goals={list} today={today} />
-            </Stack>
+          <KSection title="History" meta="Goals kept" action="See all" actionLabel="See all of the history" onAction={() => nav.push('/goals/history')} className="g-past">
+            <ScoreStrip goals={list} today={today} />
           </KSection>
           {remindersSupported() ? <Reminders goals={list} today={today} /> : null}
         </>
