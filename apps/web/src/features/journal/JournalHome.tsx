@@ -6,7 +6,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useDaily, useJournalList, useJournalMutations } from '@/api/queries';
 import { haptics } from '@/lib/haptics';
 import { revealField } from '@/lib/keyboard';
-import { DateGutter, IconButton, Pressable, SectionEmpty, Skeleton, SkeletonGroup, SwipeRow, useSheet, useToast } from '@/ui';
+import { DateGutter, IconButton, Pressable, Row, SectionEmpty, Skeleton, SkeletonGroup, SwipeRow, useSheet, useToast } from '@/ui';
 import { useLog } from '../log/useLog';
 import { PressButton } from './PressButton';
 import { FavStar } from './FavStar';
@@ -203,9 +203,18 @@ export const Timeline = ({
         </div>
       ) : null}
       {failed ? (
-        // a section that failed says so in the section's own form (one row), with Try again as its quiet link
-        <div role="alert">
-          <SectionEmpty icon={<CircleAlert size={18} />} title="Couldn’t load your journal" line="Check your connection." action={onRetry ? { label: 'Try again', onPress: onRetry } : undefined} className="jtl-empty" />
+        // a section that failed says so in the section's own form: one row, and the row itself tries again
+        <div className="group jtl-empty" role="alert">
+          <Row
+            left={
+              <span className="icon-tile" aria-hidden="true">
+                <CircleAlert size={18} />
+              </span>
+            }
+            title="Couldn’t load entries"
+            sub={onRetry ? 'Tap to try again.' : 'Check your connection.'}
+            onClick={onRetry}
+          />
         </div>
       ) : pending || asking ? (
         <SkeletonGroup label={asking ? 'Searching your entries' : 'Loading your entries'} className="group jtl-skel">
