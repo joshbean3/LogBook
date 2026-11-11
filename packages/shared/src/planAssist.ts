@@ -92,7 +92,10 @@ export const zPlanAssistRequest = z.object({
 });
 export type PlanAssistRequest = z.infer<typeof zPlanAssistRequest>;
 
-/** Which answers may not be sent: the ones the builder read from the calendar's runs and nobody has set since. */
+/**
+ * Which answers may not be sent: the ones tracked runs (activities, which can come from Strava) had a part in and the
+ * person has not set since.
+ */
 export interface AnswersFromRuns {
   runDays: boolean;
   weeklyMiles: boolean;

@@ -34,9 +34,10 @@ export const useAssistantGate = (): { gate: Gate; retry: () => void } => {
  */
 /**
  * `chat`: a pane's own chat (AssistantPane), whose held question goes once answered; the open chat when absent. `inPane`:
- * the step sits inside a host's sheet, whose header it leaves alone.
+ * the step sits inside a host's sheet, whose header it leaves alone. `onNotNow`: what Not now does in a host that should
+ * stay open (the plan builder goes back to its controls); without it Not now closes the sheet.
  */
-export const AssistantPermission = ({ gate, retry, date, screen, chat, inPane }: { gate: Exclude<Gate, 'open'>; retry: () => void; date: ISODate; screen?: AssistantScreen; chat?: string; inPane?: boolean }) => {
+export const AssistantPermission = ({ gate, retry, date, screen, chat, inPane, onNotNow }: { gate: Exclude<Gate, 'open'>; retry: () => void; date: ISODate; screen?: AssistantScreen; chat?: string; inPane?: boolean; onNotNow?: () => void }) => {
   const sheet = useSheet();
   const save = useSaveConsent();
   const [failed, setFailed] = useState(false);
@@ -122,7 +123,8 @@ export const AssistantPermission = ({ gate, retry, date, screen, chat, inPane }:
           disabled={save.isPending}
           onClick={() => {
             haptics.select();
-            sheet.close();
+            if (onNotNow) onNotNow();
+            else sheet.close();
           }}
         >
           Not now

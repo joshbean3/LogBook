@@ -1,4 +1,4 @@
-import { daysBetween, fmtDate, GOAL_SPECS, label, num, shiftDays, tone, type Goal, type PlanBlock, type Session, type TrainingProfile } from '@logbook/shared';
+import { daysBetween, fmtDate, GOAL_SPECS, isTemplateSource, label, num, shiftDays, TEMPLATE_ASSISTED_SOURCE, tone, type Goal, type PlanBlock, type Session, type TrainingProfile } from '@logbook/shared';
 import { firstMonOf } from './topWords';
 
 /*
@@ -22,7 +22,7 @@ const localDay = (iso: string) => {
 /** A goal's plain name: `Half marathon`, `Marathon`, `10K`, `5K`, `Base build`. */
 const GOAL_WORD = (g: Goal) => (g === 'base' ? 'Base build' : GOAL_SPECS[g].name);
 /** The answers built this block: onboarding wrote it, or the block builder did (both from the goal, days and miles asked). */
-const fromAnswers = (b: PlanBlock) => b.source === 'onboarding' || b.source === 'template';
+const fromAnswers = (b: PlanBlock) => b.source === 'onboarding' || isTemplateSource(b.source);
 
 /**
  * The block's goal type: what its name says (`Half marathon · 12 weeks`), else, for a block the training answers built,
@@ -39,7 +39,8 @@ export const goalOf = (b: PlanBlock, profile?: TrainingProfile | null): string |
 /**
  * Where the block came from, as the block records it (`source`, set by the route that wrote it) and when (`createdAt`):
  * `onboarding` (POST /me/onboarding: buildTemplate from the onboarding answers), `template` (POST /plans/template: the block
- * builder), `file` / `text` / `describe` / `revise` / `chat` (POST /ai/plans/apply: an assistant draft from a PDF or photo,
+ * builder), `template-assisted` (the same, with its answers shaped by the assistant in the builder),
+ * `file` / `text` / `describe` / `revise` / `chat` (POST /ai/plans/apply: an assistant draft from a PDF or photo,
  * pasted text, a description, a revision, or a chat). Null for a block that records no source (an import, an older block).
  */
 export const sourceWords = (b: Pick<PlanBlock, 'source' | 'createdAt'>): string | null => {
@@ -50,6 +51,8 @@ export const sourceWords = (b: Pick<PlanBlock, 'source' | 'createdAt'>): string 
       return `Built from your answers${on}`;
     case 'template':
       return `Made with the plan builder${on}`;
+    case TEMPLATE_ASSISTED_SOURCE:
+      return `Made with the plan builder and the assistant${on}`;
     case 'file':
       return `Written by the assistant from a file you shared${on}`;
     case 'text':

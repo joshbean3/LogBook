@@ -1,0 +1,402 @@
+/*
+ * The plan builder's assistant (BuilderAssist.tsx; guide 6.16, layout standard 6.11). One Paper container at the top of
+ * the builder with the card radius: 48 tall it reads as the dock's ask bar (the Orb and a line of words), opened it is
+ * the composer (guide 6.12), and the line about what changed is a hairline row inside it. Every value is a token.
+ */
+.pa {
+  display: grid;
+  gap: var(--sp-2);
+  min-width: 0;
+}
+.pa-box {
+  min-width: 0;
+  overflow: hidden;
+  border-radius: var(--r-card);
+  background: var(--surface);
+  /* transparent; the card edge under Increase Contrast (tokens.css) */
+  border: var(--card-border);
+  box-shadow: var(--shadow-1);
+}
+/* opened, it is the composer: a 1 px edge (guide 6.12) */
+.pa.is-open .pa-box {
+  box-shadow: var(--shadow-1), inset 0 0 0 1px var(--edge);
+}
+/* the composer has the keyboard: its edge firms up, as the assistant's own composer does (the caret says where focus is) */
+.pa.is-open .pa-box:focus-within {
+  box-shadow: var(--shadow-1), inset 0 0 0 1px var(--line-strong);
+}
+
+/* ---------- the pill: the Orb at 28 px, 12 from the edge, then the words (guide 6.1's ask bar) ---------- */
+.pa-pill {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  width: 100%;
+  min-height: var(--ask-h);
+  padding: var(--sp-2) var(--sp-4) var(--sp-2) var(--sp-3);
+  border: 0;
+  background: var(--surface);
+  color: var(--ink-2);
+  text-align: left;
+  transition: background-color var(--dur-color) var(--ease-out);
+}
+/* pressed: the row's surface, as every pressable row shows it */
+.pa-pill:active {
+  background: var(--surface-2);
+}
+.pa-pill:focus-visible {
+  outline: none;
+  box-shadow: inset 0 0 0 1.5px var(--focus-edge);
+}
+.pa-pill-text {
+  flex: 1 1 auto;
+  min-width: 0;
+  font: 400 var(--fs-row) / var(--lh-row) var(--sans);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0;
+}
+/* words that were typed and not sent yet: they are kept, on one line, in the ink of typed text */
+.pa-pill-text.is-draft {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--ink);
+}
+.pa-orb {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: var(--orb-dock);
+  height: var(--orb-dock);
+}
+/* its Orb is over the builder, thinking: one Orb on the screen */
+.pa.is-away .pa-orb {
+  opacity: 0;
+}
+
+/* ---------- the composer ---------- */
+.pa-compose {
+  display: grid;
+  gap: var(--sp-1);
+  padding: var(--sp-2);
+}
+.pa-input {
+  display: block;
+  width: 100%;
+  min-height: 3.25rem;
+  max-height: 8.5rem;
+  padding: var(--sp-2) var(--sp-2) 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--ink);
+  /* never under 16 px: a smaller field makes the phone zoom in on focus */
+  font: 400 max(16px, var(--fs-row)) / var(--lh-row) var(--sans);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0;
+  resize: none;
+  field-sizing: content;
+}
+.pa-input::placeholder {
+  color: var(--ink-2);
+  opacity: 1;
+}
+.pa-input:focus {
+  outline: none;
+}
+.pa-tools {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-2);
+  min-width: 0;
+  padding-left: var(--sp-1);
+}
+/* Send, 40 px (guide 6.12): Haze with a Dusk arrow while empty, Sky with a Night Ink arrow when there are words */
+.pa-send {
+  position: relative;
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: var(--primary);
+  color: var(--primary-ink);
+  transition:
+    background-color var(--dur-color) var(--ease-out),
+    transform var(--dur-fast) var(--ease-out);
+}
+/* 44 x 44 to the touch around the 40 px circle */
+.pa-send::after {
+  content: '';
+  position: absolute;
+  inset: -2px;
+}
+.pa-send:disabled {
+  background: var(--haze);
+  color: var(--ink-2);
+}
+.pa-send:active:not(:disabled) {
+  transform: scale(0.9);
+}
+.pa-send:focus-visible,
+.pa-link:focus-visible,
+.pa-stop:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 1.5px var(--focus-edge), var(--focus-ring);
+}
+/* the provider line (lib/copy.ts AI_LABEL), exactly as written, under the composer while it is open */
+.pa-ai {
+  margin: 0;
+  padding: 0 var(--sp-2);
+  font: 400 var(--fs-foot) / var(--lh-foot) var(--sans);
+  color: var(--ink-2);
+  text-align: center;
+  text-wrap: balance;
+}
+
+/* ---------- the line: what changed with Undo, or what went wrong with Try again ---------- */
+.pa-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  column-gap: var(--sp-3);
+  margin: 0 var(--sp-4);
+  padding: var(--sp-3) 0;
+  border-top: 1px solid var(--line);
+  animation: pa-row-in var(--dur-in) var(--ease-out) both;
+}
+.pa-row.is-failure {
+  grid-template-columns: auto minmax(0, 1fr) auto;
+}
+@keyframes pa-row-in {
+  from {
+    opacity: 0;
+  }
+}
+.pa-row-text {
+  min-width: 0;
+  margin: 0;
+  font: 500 var(--fs-sub) / var(--lh-sub) var(--sans);
+  /* the line holds numbers that change (weeks, miles, a date) */
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0;
+  color: var(--ink-2);
+  overflow-wrap: anywhere;
+}
+/* what changed leads, in ink; with nothing changed, what could not be done is the answer and takes the ink */
+.pa-set {
+  font-weight: 600;
+  color: var(--ink);
+}
+.pa-notes:first-child {
+  color: var(--ink);
+}
+.pa-row.is-failure .pa-row-text {
+  color: var(--ink);
+}
+.pa-row-ic {
+  margin-top: 1px;
+  color: var(--bad);
+}
+/* a quiet verb with a 44 pt target on the row's first line */
+.pa-link {
+  display: inline-flex;
+  align-items: center;
+  justify-self: end;
+  min-height: var(--hit);
+  margin: calc(-1 * var(--sp-3)) calc(-1 * var(--sp-2)) calc(-1 * var(--sp-3)) 0;
+  padding: 0 var(--sp-2);
+  border: 0;
+  border-radius: var(--r-pill);
+  background: none;
+  color: var(--accent-text);
+  font: 600 var(--fs-sub) / var(--lh-sub) var(--sans);
+  white-space: nowrap;
+}
+.pa-link:active:not(:disabled) {
+  opacity: 0.55;
+}
+/* a narrow sheet, or large text: the verb goes under the words, at their leading edge, so the words keep the width */
+@container sheet (max-width: 22rem) {
+  .pa-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .pa-row.is-failure {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+  .pa-row.is-failure > .pa-row-text,
+  .pa-row.is-failure > .pa-link {
+    grid-column: 2;
+  }
+  .pa-row > .pa-link {
+    justify-self: start;
+    margin: 0 0 calc(-1 * var(--sp-3)) calc(-1 * var(--sp-2));
+  }
+}
+
+/* ---------- a control the update changed: a 2 px Sky ring that fades (decorative: the line says what changed) ---------- */
+.pa-flashable {
+  position: relative;
+}
+.pa-halo {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  border-radius: inherit;
+  box-shadow: inset 0 0 0 2px var(--sky);
+  opacity: 0;
+  pointer-events: none;
+}
+/* two names for one move: a control changed twice in a row plays it again */
+.pa-halo[data-run='a'] {
+  animation: pa-halo-a calc(var(--dur-ring) * 2) var(--ease-out) calc(var(--dur-in) + var(--i, 0) * var(--dur-out)) both;
+}
+.pa-halo[data-run='b'] {
+  animation: pa-halo-b calc(var(--dur-ring) * 2) var(--ease-out) calc(var(--dur-in) + var(--i, 0) * var(--dur-out)) both;
+}
+@keyframes pa-halo-a {
+  12%,
+  55% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+@keyframes pa-halo-b {
+  12%,
+  55% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+/* ---------- the veil: over the builder's header and body while the assistant works ---------- */
+.pa-veil {
+  /* the form shows through, softened: enough to know it is still there, not enough to read */
+  --veil-blur: blur(6px);
+  --veil-tint: 0.62;
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 6;
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  gap: var(--sp-4);
+  padding: 0 var(--gutter) 12vh;
+  touch-action: none;
+}
+.pa-veil-scrim {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  -webkit-backdrop-filter: var(--veil-blur);
+  backdrop-filter: var(--veil-blur);
+}
+.pa-veil-scrim::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: var(--cloud);
+  opacity: var(--veil-tint);
+}
+.pa-veil-orb {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: var(--orb-assistant);
+  height: var(--orb-assistant);
+  will-change: transform;
+}
+.pa-veil-mid {
+  position: relative;
+  display: grid;
+  justify-items: center;
+  gap: var(--sp-3);
+  opacity: 0;
+  text-align: center;
+}
+/* a pool of solid Cloud behind the words, so the status line is read on Cloud whatever is under the veil */
+.pa-veil-mid::before {
+  content: '';
+  position: absolute;
+  inset: calc(-1 * var(--sp-12)) calc(-1 * var(--sp-12)) calc(-1 * var(--sp-6));
+  border-radius: 50%;
+  background: radial-gradient(closest-side, var(--cloud) 45%, rgba(234, 245, 252, 0));
+}
+.pa-veil-line {
+  position: relative;
+  margin: 0;
+  font: 500 var(--fs-sub) / var(--lh-sub) var(--sans);
+  letter-spacing: 0;
+  color: var(--ink-2);
+}
+.pa-stop.btn {
+  position: relative;
+  min-width: 96px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* the halo is a fade, not a move, so it stays: one after another is a kind of motion, so they show together. The
+     app's reset (base.css) would end it in 0.01 ms; this one fade keeps its time */
+  .pa-halo[data-run] {
+    animation-duration: calc(var(--dur-ring) * 2) !important;
+    animation-delay: var(--dur-in);
+  }
+}
+@media (prefers-contrast: more) {
+  .pa-veil {
+    --veil-blur: none;
+    --veil-tint: 0.94;
+  }
+  .pa-halo {
+    box-shadow: inset 0 0 0 2px var(--deep-sky);
+  }
+}
+
+/* ---------- the builder around it ---------- */
+/* the composer has the keyboard: the foot and its verb step out, so the composer and its line are never covered */
+.tp.is-composing > .tp-foot {
+  display: none;
+}
+/* the permission step, in place of the builder's controls */
+.tp.is-asking {
+  min-height: 100%;
+}
+/* a peak the assistant set: a third number, across both columns, with a way back to the plan's own */
+.tp-step.tp-peak {
+  grid-column: 1 / -1;
+}
+.tp-peak-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  min-width: 0;
+}
+.tp-peak-clear {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--hit);
+  margin: calc(-1 * var(--sp-3)) calc(-1 * var(--sp-2)) calc(-1 * var(--sp-3)) 0;
+  padding: 0 var(--sp-2);
+  border: 0;
+  border-radius: var(--r-pill);
+  background: none;
+  color: var(--accent-text);
+  font: 600 var(--fs-sub) / var(--lh-sub) var(--sans);
+  white-space: nowrap;
+}
+.tp-peak-clear:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 1.5px var(--focus-edge), var(--focus-ring);
+}

@@ -612,7 +612,8 @@ export interface PlanTemplateResult {
 export const useTemplatePlan = () => {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (body: TemplateInput & { replace?: boolean }) => api<PlanTemplateResult>('/plans/template', { method: 'POST', json: body }),
+    // `assisted`: the assistant shaped the builder's answers; the plan's source records it
+    mutationFn: (body: TemplateInput & { replace?: boolean; assisted?: boolean }) => api<PlanTemplateResult>('/plans/template', { method: 'POST', json: body }),
     onSuccess: async (r) => {
       // a replace can reach months past the new block (the old block's tail): refetch every month in the cache
       if (r.replacedIds?.length || r.endedBlock || r.endedBlocks?.length) void qc.invalidateQueries({ queryKey: ['month'] });
