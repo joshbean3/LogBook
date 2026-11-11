@@ -1,4 +1,5 @@
-/* ---------- Orby's cards, small and still (welcome pager, feature intros): Paper cards on the welcome ground ---------- */
+/* ---------- Orby's cards, small and still (welcome pager, feature intros): Paper cards on the welcome ground, at the
+   page's full width so their edge sits on the 16 px gutter with the headline's (layout standard 3.3.6; plan O3) ---------- */
 .lc {
   position: relative;
   isolation: isolate;
@@ -6,8 +7,6 @@
   display: grid;
   gap: var(--sp-1);
   width: 100%;
-  max-width: 340px;
-  margin-inline: auto;
   padding: var(--pad-hero);
   background: var(--surface);
   border: var(--card-border);
@@ -36,10 +35,11 @@
   font-weight: 420;
 }
 
-/* the morning: the session name in Fraunces 650 at the stamp size, the line in the sentence voice (guide 12.1) */
+/* the morning: the session name in Fraunces 650, the line in the sentence voice (guide 12.1). In a sample it is the
+   section size, 26, so the page's 38 headline wins (plan U5, O2: 38 / 26 = 1.46) */
 .lc-big {
   margin-top: var(--sp-1);
-  font: 650 clamp(30px, var(--fs-stamp), 40px) / clamp(34px, var(--lh-stamp), 44px) var(--serif);
+  font: 650 var(--fs-section) / var(--lh-section) var(--serif);
   letter-spacing: var(--tr-title);
   color: var(--ink);
 }
@@ -336,8 +336,10 @@
   min-height: 32px;
   padding: 0 var(--sp-4);
   border-radius: var(--r-pill);
-  background: var(--accent);
-  color: var(--accent-ink);
+  /* a picture of a button, not a button: Haze with Night Ink words, so the page's one Sky fill is its own Next
+     (layout standard 2.1; plan O4) */
+  background: var(--haze);
+  color: var(--ink);
   font-size: var(--fs-sub);
   line-height: var(--lh-sub);
   font-weight: 650;

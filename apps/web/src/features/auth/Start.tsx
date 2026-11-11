@@ -34,8 +34,8 @@ let lastPage = 0;
  *
  *   /start                     a four-page pager, each page a real Logbook card; one navy pill in a fixed place (Next,
  *                              then Get started) over the page dots, and a quiet "I have an account" under it
- *   /start (state: privacy)    the privacy page, before any account: the promise, what Allow would send to Claude and
- *                              what is not sent, and two buttons, Allow and Not now (nothing is preselected)
+ *   /start (state: privacy)    the privacy page, before any account: the question, the promise, what Allow would send
+ *                              to Claude and what is not sent, and two buttons, Allow and Not now (nothing is preselected)
  *   /signup                    the account, carrying the answer (it waits on this device until then)
  *
  * The pages swipe (a horizontal scroll-snap track, so the finger owns it) and the pill pages too. The privacy page is its
@@ -216,23 +216,21 @@ const PrivacyStep = () => {
         </button>
       </div>
       <div className="pv-body">
-        <h1 ref={heading} className="start-title display pv-title" tabIndex={-1}>
-          Kept private.
+        {/* the question is the step's heading (layout standard 2.11, plan O8): the same 26 as every question in setup, the
+            promise as its line, then the whole of what goes and what does not as one inset group */}
+        <h1 ref={heading} className="pv-title display" tabIndex={-1}>
+          Allow the assistant?
         </h1>
         <p className="start-sub pv-promise">{PRIVACY_PROMISE}</p>
-        <div className="pv-choice">
-          <h2 className="pv-choice-title">Allow the AI assistant?</h2>
-          <p className="pv-choice-sub">It runs on Claude, by Anthropic. To answer you, Orby sends Claude what is listed here. Nothing is sent until you allow it.</p>
-          {/* the policy, on screen before the answer is given */}
-          <SiteLink href={LEGAL.privacy} className="pv-policy">
-            Privacy Policy
-          </SiteLink>
-        </div>
-        {/* under the ask, where it is read before the answer (auth-20) */}
-        <p className="pv-later">Not now keeps the assistant off, and Orby asks again before it sends anything. You can change this any time in Settings › Privacy.</p>
         <PrivacyFacts consent={null} />
+        {/* the policy, on screen before the answer is given */}
+        <SiteLink href={LEGAL.privacy} className="pv-policy">
+          Privacy policy
+        </SiteLink>
       </div>
       <div className="start-foot pv-foot">
+        {/* what Not now means, 8 above the pair it explains (layout standard 3.3; auth-20) */}
+        <p className="pv-later">Not now keeps the assistant off. Orby asks before it sends anything, and you can change it in Settings.</p>
         <div className="pv-answers">
           <Pressable className="btn soft start-cta" onPress={() => choose('later')}>
             Not now

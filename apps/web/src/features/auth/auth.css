@@ -1,6 +1,6 @@
-/* ---------- Sign in and sign up (shape system v2, reference 710-711): the round back button, the Fraunces title, the
-   fields in one Paper card, and the one Sky primary pinned at the bottom with the other door under it. The welcome
-   ground's sunrise comes up once. ---------- */
+/* ---------- Sign in and sign up (shape system v2, reference 710-711; layout standard 2.11, 3.3.5): the round back
+   button, the Fraunces title (56 for a brand moment, 26 for a question), the fields on the ground, each with its edge, and
+   the one Sky primary pinned at the bottom with the other door 8 under it. The welcome ground's sunrise comes up once. ---------- */
 .auth {
   position: relative;
   isolation: isolate;
@@ -96,6 +96,14 @@
   color: var(--ink);
   overflow-wrap: break-word;
 }
+/* a question step (the email, a password): the question is the step's heading at the section size, left aligned, the
+   same level as every question in setup (layout standard 2.11, 4.1; plan O7) */
+.auth-title.is-question {
+  font-weight: 600;
+  font-size: var(--fs-section);
+  line-height: var(--lh-section);
+  letter-spacing: var(--tr-title);
+}
 .auth-sub {
   margin: var(--sp-2) 0 var(--sp-6);
   font-size: var(--fs-sub);
@@ -111,18 +119,19 @@
   flex-direction: column;
   gap: var(--gap);
 }
-/* the fields: one Paper card, each field a label over a Paper input with its edge, a hairline between two */
-.card.auth-fields {
-  gap: 0;
-  padding: var(--sp-1) var(--sp-4);
+/* a screen with no line under its title: the form starts where the line would have ended */
+.auth-title + .auth-form {
+  margin-top: var(--sp-6);
+}
+/* the fields on the ground (layout standard 3.3.5, 5.1: the field's own edge is the one grouping cue, so no card and
+   no hairline): each a label over a Paper input with its edge, 12 apart */
+.auth-fields {
+  display: grid;
+  gap: var(--sp-3);
 }
 .auth-field {
   display: grid;
   gap: var(--sp-2);
-  padding: var(--sp-3) 0 var(--sp-4);
-}
-.auth-field + .auth-field {
-  border-top: 1px solid var(--line);
 }
 /* the label above the field: Inter 15 600 Night Ink (guide 6.14) */
 .auth-label {
@@ -135,7 +144,7 @@
 .auth-in-wrap {
   position: relative;
 }
-/* the field (guide 6.14): Paper, a 1 px edge that reads against the card (3.20), r 14. Focus draws the Deep Sky edge and
+/* the field (guide 6.14): Paper, a 1 px edge that reads on the ground (3.20), r 14. Focus draws the Deep Sky edge and
    the Sky ring; an error the Signal edge. Both are a box-shadow, so the text never shifts */
 .auth .in.auth-in {
   height: 52px;
@@ -272,8 +281,9 @@
   line-height: var(--lh-sub);
   color: var(--ink-2);
 }
+/* the other door, 8 under the pinned button (layout standard 3.2) */
 .auth-foot {
-  margin-top: var(--sp-1);
+  margin-top: var(--sp-2);
 }
 /* with the keyboard up the other door steps aside, so the field, its message and the button all fit above it */
 html.kb-open .auth-foot {

@@ -56,7 +56,7 @@ export const privacyFacts = (consent: Consent | null | undefined): Facts => {
 };
 
 /** The line under the list that names who receives the checked items (the list itself is the same either way). */
-export const factsWho = (asked: boolean): string => (asked ? 'Checked items go to Claude, by Anthropic. Crossed items are not sent.' : 'If you allow, checked items go to Claude, by Anthropic. Crossed items are not sent.');
+export const factsWho = (asked: boolean): string => (asked ? 'Checked items go to Claude, by Anthropic. Crossed items are not sent.' : 'If you allow, checked items go to Claude, by Anthropic, to answer you. Crossed items are not sent.');
 
 /**
  * What goes to Claude (made by Anthropic) and what does not, in plain words. Shared by the privacy page and Settings so

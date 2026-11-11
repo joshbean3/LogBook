@@ -45,9 +45,10 @@
   scroll-snap-stop: always;
   display: flex;
   flex-direction: column;
-  /* centered while it fits; never pushed above the top when it does not (auth-12) */
-  justify-content: safe center;
-  padding: var(--sp-4) var(--gutter) var(--sp-2);
+  /* top-anchored (layout standard 2.11; plan O1): every page's card starts 24 under the brand row, so the card and the
+     headline hold still while you swipe and only the card's height changes */
+  justify-content: flex-start;
+  padding: var(--sp-6) var(--gutter) var(--sp-2);
   /* the last resort on a short screen at a large text size: the page scrolls rather than clips */
   overflow-x: hidden;
   overflow-y: auto;
@@ -67,15 +68,16 @@
   max-width: 400px;
   margin-inline: auto;
 }
+/* the headline 24 under the card, the line 8 under the headline: one unit (layout standard 2.11) */
 .start-words {
-  margin-top: var(--sp-8);
+  margin-top: var(--sp-6);
 }
 /* at a larger text size the card keeps its proportions: laid out at its own width in rem, then scaled to fit (fit()) */
 .start-card.as-picture {
   max-width: none;
 }
 .start-card.as-picture .lc {
-  width: 21.25rem;
+  width: 22.375rem;
   max-width: none;
 }
 .start-title {
@@ -112,7 +114,8 @@
   justify-content: center;
   align-items: center;
   height: 24px;
-  margin-bottom: var(--sp-3);
+  /* 16 above Next (layout standard 2.11; plan O4) */
+  margin-bottom: var(--sp-4);
 }
 /* where you are, not a control (swipe and Next do the paging): a 7 px dot in the coin ring's grey, the current one a
    Night Ink bar (mockups/welcome.png) */
@@ -138,7 +141,7 @@
   height: 54px;
   font-size: var(--fs-row);
 }
-/* the quiet way in for someone who already has an account: a Deep Sky quiet link in a full 48 px target */
+/* the quiet way in for someone who already has an account: a Deep Sky quiet link, 44 to the thumb, 8 under Next */
 .start-signin {
   appearance: none;
   border: 0;
@@ -148,8 +151,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  min-height: 48px;
-  margin-top: var(--sp-1);
+  min-height: 44px;
+  margin-top: var(--sp-2);
   font-size: var(--fs-row);
   font-weight: 600;
   color: var(--accent-text);
@@ -195,55 +198,41 @@
   margin-inline: auto;
   padding: var(--sp-6) var(--gutter) var(--sp-4);
 }
+/* the question: Fraunces 600 at the section size, left aligned (layout standard 2.11; plan O7, O8) */
 .pv-title {
-  font-size: clamp(30px, var(--fs-title), 44px);
-  line-height: clamp(34px, var(--lh-title), 48px);
+  margin: 0;
+  font-style: normal;
+  font-weight: 600;
+  font-size: var(--fs-section);
+  line-height: var(--lh-section);
+  letter-spacing: var(--tr-title);
+  color: var(--ink);
+}
+.pv-title:focus {
+  outline: none;
 }
 .pv-promise {
-  color: var(--ink);
-  font-weight: 500;
-}
-.pv-choice {
-  display: grid;
-  gap: var(--sp-1);
-  margin-top: var(--sp-6);
-  padding: var(--sp-4);
-  background: var(--surface);
-  border: var(--card-border);
-  border-radius: var(--r-card);
-  box-shadow: var(--shadow-1);
-}
-.pv-choice-title {
-  margin: 0;
-  font-family: var(--sans);
-  font-size: var(--fs-row);
-  line-height: var(--lh-row);
-  font-weight: 600;
-  color: var(--ink);
-}
-.pv-choice-sub {
-  margin: 0;
-  font-size: var(--fs-sub);
-  line-height: var(--lh-sub);
   color: var(--ink-2);
 }
 .start-privacy .pv-facts {
-  margin-top: var(--sp-3);
+  margin-top: var(--sp-6);
 }
+/* what Not now means: a Dusk footnote 8 above the pair, in the pinned foot */
 .pv-later {
-  margin-top: var(--sp-2);
+  margin: 0 0 var(--sp-2);
   padding: 0 var(--sp-4);
   font-size: var(--fs-foot);
   line-height: var(--lh-foot);
   color: var(--ink-2);
+  pointer-events: auto;
 }
-/* the policy, one tap away before any account: its own line, a 44 px target, a Deep Sky link */
+/* the policy, one tap away before any account: its own line, a 44 px target, a Deep Sky link, 16 in like the footnote */
 .pv-policy.site-link {
-  justify-self: start;
   display: inline-flex;
   align-items: center;
   min-height: 44px;
-  margin-bottom: calc(-1 * var(--sp-3));
+  margin-top: var(--sp-1);
+  padding: 0 var(--sp-4);
   color: var(--accent-text);
   font-size: var(--fs-sub);
   line-height: var(--lh-sub);
@@ -302,24 +291,13 @@
 
 @media (max-width: 359px), (max-height: 700px) {
   /* a small phone: the title holds at 34 px so the longest ones keep two lines (the pager's fit() does the rest) */
-  .start-title,
-  .pv-title {
+  .start-title {
     font-size: clamp(30px, var(--fs-title), 34px);
     line-height: clamp(34px, var(--lh-title), 38px);
-  }
-  .start-words {
-    margin-top: var(--sp-5);
   }
   .start-sub {
     font-size: var(--fs-sub);
     line-height: var(--lh-sub);
-  }
-  .start-cta.btn {
-    height: 52px;
-  }
-  .start-signin {
-    min-height: 44px;
-    margin-top: 0;
   }
 }
 @media (prefers-reduced-motion: reduce) {
