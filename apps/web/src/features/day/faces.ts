@@ -31,6 +31,8 @@ export interface Face {
   /** The next session under a rest morning's line ('Tomorrow: Long 4 · out 5:55'), in the control zone. */
   aside?: string;
   stamp: string;
+  /** The stamp is the day's words, not a session's name ("Nothing planned"): drawn at the long size (30/34), never 40. */
+  soft?: boolean;
   line: string;
   /** Another day's record or plan: the stamp in --ink-2 and the line in --ink-3. */
   quiet: boolean;
@@ -243,7 +245,9 @@ export const faceOf = (log: Log, date: ISODate, ph: DayPhase): Face => {
       return { ...base, key: `${skipped ? 'skipped' : 'planned'}-${s.id}`, kind: skipped ? 'skipped' : 'planned', stamp: label(s), line, stops: show ? stops! : undefined, stopsLabel: show ? stopsLabel(stops!) : undefined };
     }
     const none = !inPlan(log, date);
-    return { ...base, key: none ? 'none' : 'rest', kind: 'rest', stamp: none ? '' : REST, line: none ? NOTHING : '', stops: show ? stops! : undefined, stopsLabel: show ? stopsLabel(stops!) : undefined, pressable: false };
+    // a day ahead says what comes after it, as today's rest card does (the dusk card's line under the title)
+    const next = past ? undefined : nextUp(log, date, now);
+    return { ...base, key: none ? 'none' : 'rest', kind: 'rest', stamp: none ? NOTHING : REST, soft: none || undefined, line: '', next, stops: show ? stops! : undefined, stopsLabel: show ? stopsLabel(stops!) : undefined, pressable: false };
   }
 
   // ---------- today ----------
@@ -293,11 +297,12 @@ export const faceOf = (log: Log, date: ISODate, ph: DayPhase): Face => {
   if (rm) {
     const line = now < rm.wake ? `Wake time in ${durationWords(Math.ceil(rm.wake - now))}` : `Leave in ${durationWords(Math.ceil(rm.leave - now))}`;
     const none = !inPlan(log, date);
-    return { ...base, quiet: false, key: 'rest-morning', kind: 'restMorning', aside: next ? next.text : undefined, stamp: none ? '' : REST, line: none ? `${NOTHING}. ${line}` : line, stops: rm.stops, stopsLabel: stopsLabel(rm.stops), pressable: false };
+    // "Nothing planned" is the stamp and the countdown stays alone in the line: a live number never sets in Fraunces
+    return { ...base, quiet: false, key: 'rest-morning', kind: 'restMorning', aside: next ? next.text : undefined, stamp: none ? NOTHING : REST, soft: none || undefined, line, stops: rm.stops, stopsLabel: stopsLabel(rm.stops), pressable: false };
   }
   // rest is said once, by the stamp; a day outside any plan says "Nothing planned" instead (today-top-12, today-top-18)
   const none = !inPlan(log, date);
-  return { ...base, quiet: false, key: none ? 'none' : 'rest', kind: 'rest', stamp: none ? '' : REST, line: none ? NOTHING : '', next, pressable: false };
+  return { ...base, quiet: false, key: none ? 'none' : 'rest', kind: 'rest', stamp: none ? NOTHING : REST, soft: none || undefined, line: '', next, pressable: false };
 };
 
 /**

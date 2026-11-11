@@ -100,10 +100,13 @@ describe('the hero faces (docs/feel.md §3.2, §3.3)', () => {
   it('a day outside any plan says Nothing planned, never Rest day (today-top-12)', () => {
     const none = logOf(bundle([]), FRI, []);
     const f = faceOf(none, FRI, phaseOf(none, FRI, 12 * 60));
-    expect(f.stamp).toBe('');
-    expect(f.line).toBe('Nothing planned');
+    // the day's words are the stamp, drawn at the long size (soft); the line is free for a countdown (hero spec 15.1)
+    expect(f.stamp).toBe('Nothing planned');
+    expect(f.soft).toBe(true);
+    expect(f.line).toBe('');
     const other = faceOf(none, '2026-10-27', phaseOf(none, '2026-10-27', 12 * 60));
-    expect(other.line).toBe('Nothing planned');
+    expect(other.stamp).toBe('Nothing planned');
+    expect(other.line).toBe('');
     expect([f, other].map((x) => `${x.stamp} ${x.line}`).join(' ')).not.toMatch(/rest/i);
     // inside a plan, a day with no session is a rest day
     const planned = logOf(bundle([]));

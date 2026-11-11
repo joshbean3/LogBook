@@ -80,7 +80,7 @@
   box-shadow: var(--focus-ring);
 }
 /* the card's other controls: siblings of the title's button, above its hit layer */
-.card-group :is(.hold-ring, .ss-ring, .hero-week, .hero-when, .mini-tl, .hero-share, .hero-share-slot, .hero-verb, .hero-next) {
+.card-group :is(.hold-ring, .ss-ring, .hz-band, .hz-next, .hero-when, .mini-tl, .hero-share, .hero-share-slot, .hero-verb, .hero-next) {
   position: relative;
   z-index: 2;
 }
@@ -1687,305 +1687,602 @@
   margin-top: var(--section);
 }
 
-/* ---------- the hero as the page's centerpiece (HeroGauge, guide 6.4 and 6.5): Paper, the one sunrise glow under it, the
-   day's words centered in the week's dial ---------- */
+/* ---------- the hero: the week horizon (HeroHorizon, guide 6.5, docs/brand/hero.md). Two zones: the scene (full-bleed:
+   the sky, the words, the drawing, the band on the far hill), then the control zone on Paper under the hill's straight
+   edge. The card's light is the horizon's: no glow under its bottom edge ---------- */
 .hero.aura:not(.is-tall) {
-  /* as tall as the face in it (today-top-01): the eyebrow, the dial, the When switch and the deck, each only when it is
-     there. A fixed height per face cut the deck off whenever the content and the selector disagreed. The card's ground,
-     shadow and glow are the hero card's own (ui.css .aura): no wash of its own */
+  /* as tall as the face in it (today-top-01): the scene, the When switch and the deck, each only when it is there */
   height: auto;
 }
 /* while the page loads (and a neighbour's shell): the card's usual box */
 :root .hero.aura.hero-skel {
-  height: 330px;
+  height: 360px;
 }
-.hero.aura:not(.is-tall) > .hero-face {
-  padding: var(--pad-hero) var(--pad-hero) var(--sp-4);
-  align-items: stretch;
+.hero.aura.hz-card::after {
+  content: none;
 }
-/* the dial: 196 tall, and the words inside it in flow, so words that outgrow the bowl (large text) push the card taller
-   instead of running under the When switch */
-.hg {
+.hero.aura > .hero-face.hz-face {
+  padding: 0;
+  display: block;
+}
+
+/* the scene zone: the sky from the card's top edge to the far hill */
+.hz {
   position: relative;
-  flex: none;
-  min-height: 196px;
-  margin-top: 2px;
+  isolation: isolate;
+  display: block;
 }
-.hg-dial {
+.hz-sky {
   position: absolute;
-  left: 50%;
-  top: 0;
-  width: min(100%, 294px);
-  height: 196px;
-  transform: translateX(-50%);
-  overflow: visible;
+  inset: 0;
+  z-index: -2;
+  background: linear-gradient(180deg, var(--haze) 0, var(--cloud) 40%, var(--paper) 66%);
 }
-/* the end labels' box is the drawing's own (3 : 2, centered in the dial's box as the SVG draws it on a narrow phone) */
-.hg-ends {
-  position: absolute;
-  left: 50%;
-  top: 98px;
-  width: min(100%, 294px);
-  aspect-ratio: 3 / 2;
-  transform: translate(-50%, -50%);
-  pointer-events: none;
+.hz-words {
+  position: relative;
+  z-index: 1;
+  /* the name's line and the detail's, so the drawing stays put on a face with no detail line */
+  min-height: calc(var(--pad-hero) + clamp(32px, var(--lh-stamp), 46px) + var(--sp-1) + clamp(20px, var(--lh-sub), 28px));
+  padding: var(--pad-hero) var(--pad-hero) 0;
+  display: grid;
+  align-content: start;
+  justify-items: start;
+  text-align: left;
 }
-/* the track: Haze, 16, round caps; no gradient, no shadow */
-.hg-track {
-  fill: none;
-  stroke: var(--haze);
-  stroke-width: 16;
-  stroke-linecap: round;
+.hz-words > .card-open {
+  max-width: 100%;
+  min-width: 0;
 }
-/* ticks by the mile on the track's outer edge: minor 1 × 5 (decorative), major 1.5 × 10 */
-.hg-tick {
-  stroke: var(--tick);
-  stroke-width: 1;
-}
-.hg-tick.is-major {
-  stroke: var(--tick-major);
-  stroke-width: 1.5;
-}
-/* the fill: Deep Sky, 9, from the 9 px start cap to the pointer (4.43 on Haze; Sky would be 1.80) */
-.hg-fill {
-  fill: none;
-  stroke: var(--deep-sky);
-  stroke-width: 9;
-  stroke-linecap: round;
-}
-.hg-start {
-  fill: var(--deep-sky);
-}
-/* the pointer, the now-mark: a 12 px Sunrise dot on a 3.5 px Paper keyline (the stroke is painted under the fill, so the
-   whole 3.5 shows outside the dot). It yields to Night Ink when the screen is over its budget */
-.hg-dot {
-  fill: var(--now);
-  stroke: var(--now-keyline);
-  stroke-width: 7;
-  paint-order: stroke;
-}
-.hg-dot[data-now='ink'] {
-  fill: var(--ink);
-}
-/* the ends: "0" and the plan, caption style, horizontal, on each end of the arc. Each hangs outboard from its end's center
-   (as the mockup draws them), so neither reaches over the bowl, where the session name sits on a small phone */
-.hg-end {
-  position: absolute;
-  top: 6.5%;
-  transform: translate(calc(-100% + 3px), -100%); /* brand-ok: geometry, the label's inner edge 3 px past the end's center */
-  /* a scale label: it follows the text size to 130% and holds, so it never reaches the eyebrow over the dial */
-  font: 600 clamp(11px, var(--fs-caps), 14px) / clamp(14px, var(--lh-caps), 18px) var(--stamp);
-  letter-spacing: var(--tr-caps);
-  text-transform: uppercase;
-  font-variant-numeric: tabular-nums;
-  color: var(--ink-2);
+/* the session name: Fraunces 650 40/42, left aligned, fit by measure (Hero.tsx): 30/34 (.is-long), then two lines (.is-wrap).
+   A face's own words ("Nothing planned") are always at the long size (.is-soft) */
+.hz .hz-name {
+  display: block;
+  margin: 0;
+  max-width: 100%;
+  height: auto;
+  font: 650 clamp(30px, var(--fs-stamp), 44px) / clamp(32px, var(--lh-stamp), 46px) var(--display);
+  letter-spacing: var(--tr-title);
+  color: var(--ink);
+  text-align: left;
+  text-transform: none;
   white-space: nowrap;
 }
-.hg-end + .hg-end {
-  transform: translate(-3px, -100%); /* brand-ok: geometry, as above */
-  /* a long plan at large text on a small phone slides back in, so it stays 4 px inside the card: the room right of the end
-     is 13% of the dial plus the card's padding */
-  transform: translate(min(-3px, calc(0.13 * min(100cqi - 2 * var(--pad-hero), 294px) + var(--pad-hero) - 4px - 100%)), -100%); /* brand-ok: geometry, as above */
+.hz .hz-name.is-long,
+.hz .hz-name.is-soft {
+  font-size: clamp(26px, 1.875rem, 30px);
+  line-height: clamp(30px, 2.125rem, 34px);
 }
-/* first view of the day: the ticks draw in, 6 ms apart, the last no later than 240 ms (guide 6.5); never under Reduce Motion */
-.hg.is-first .hg-tick {
-  animation: hg-tick-in var(--dur-in) linear both;
-  animation-delay: min(calc(var(--i) * var(--tick-stagger)), 240ms);
+.hz .hz-name.is-wrap {
+  white-space: normal;
+  text-wrap: balance;
 }
-@keyframes hg-tick-in {
+.hero.is-quiet .hz .hz-name {
+  color: var(--ink-2);
+}
+/* the detail: Inter 15 500 Dusk; it stays clear of the rings at the sun's place, and wraps rather than cuts */
+.hz .hz-line {
+  margin: var(--sp-1) 0 0;
+  max-width: calc(100% - 72px); /* brand-ok: geometry, clear of the sun's place */
+  height: auto;
+  font: 500 clamp(15px, var(--fs-sub), 22px) / clamp(20px, var(--lh-sub), 28px) var(--sans);
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-2);
+  text-align: left;
+  white-space: normal;
+  overflow: visible;
+}
+.hz-scene {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+
+/* the drawing (day). Only transform and opacity move */
+.hz-dotp {
+  fill: var(--tick-major);
+  opacity: 0;
+  transition: opacity var(--dur-out) var(--ease-out);
+}
+.hz-dotp.is-on {
+  opacity: 1;
+  transition-duration: var(--dur-in);
+}
+/* the first view of the day: the way comes in from the sun to its place, 6 ms apart, the last by 240 ms */
+.hz-scene.is-first .hz-dotp.is-on {
+  transition-delay: min(calc(var(--i) * var(--tick-stagger)), calc(2 * var(--dur-in)));
+}
+.hz-target {
+  fill: none;
+  stroke: var(--tick-major);
+  stroke-width: 1.5;
+  stroke-dasharray: 0.1 4.61; /* brand-ok: geometry, 20 dots round the place */
+  stroke-linecap: round;
+  opacity: 0;
+  transition: opacity var(--dur-out) var(--ease-out);
+}
+.hz-target.is-on {
+  opacity: 1;
+  transition-duration: var(--dur-in);
+}
+/* the count complete: two Paper rings bloom round the sun, inner then outer, no overshoot */
+.hz-ring {
+  fill: none;
+  stroke: var(--paper);
+  stroke-width: 2;
+  opacity: 0;
+  transform: scale(0.85);
+  transform-box: fill-box;
+  transform-origin: center;
+  transition: opacity var(--dur-out) var(--ease-out), transform var(--dur-out) var(--ease-out);
+}
+.hz-ring.is-on {
+  opacity: 0.95;
+  transform: none;
+  transition-duration: var(--dur-complete);
+}
+.hz-ring.is-outer.is-on {
+  opacity: 0.7;
+  transition-delay: calc(var(--dur-in) * 0.667);
+}
+.hz-scene.is-moving .hz-sun-g {
+  will-change: transform;
+}
+.hz-sun-key {
+  fill: var(--now-keyline);
+}
+.hz-sun {
+  fill: var(--now);
+}
+/* another day's page, or the screen's now budget spent: Apricot, the keyline kept (a Night Ink sun reads as an eclipse) */
+.hz-sun.is-quiet {
+  fill: var(--apricot);
+}
+.hz-hill-1 {
+  fill: var(--hill-1);
+}
+.hz-hill-2 {
+  fill: var(--hill-2);
+}
+.hz-hill-3 {
+  fill: var(--deep-sky);
+}
+.hz-rim {
+  fill: none;
+  stroke: var(--paper);
+  stroke-width: 2;
+  vector-effect: non-scaling-stroke;
+}
+/* a mark per run (or workout) on the week: a Deep Sky ring; the disc fades in when it is done (a change of shape, not only
+   of color). The one that fills on a change does the one overshoot to 1.12 */
+.hz-mark-key {
+  fill: var(--paper);
+}
+.hz-mark {
+  fill: var(--paper);
+  stroke: var(--deep-sky);
+  stroke-width: 1.5;
+  vector-effect: non-scaling-stroke;
+}
+.hz-mark-disc {
+  fill: var(--deep-sky);
+  opacity: 0;
+  transform-box: fill-box;
+  transform-origin: center;
+  transition: opacity var(--dur-out) var(--ease-out);
+}
+.hz-mark-disc.is-lit {
+  opacity: 1;
+  transition-duration: var(--dur-in);
+}
+.hz-mark-disc.is-pop {
+  animation: hz-pop var(--dur-complete) var(--ease-out);
+}
+@keyframes hz-pop {
+  40% {
+    transform: scale(1.12);
+  }
+}
+.hz-mark-g.is-in-sun {
+  opacity: 0;
+}
+/* the first view: the filled marks fade in, left to right, 80 ms apart from 120 ms */
+.hz-scene.is-first .hz-mark-disc.is-lit {
+  animation: hz-in var(--dur-in) var(--ease-out) both;
+  animation-delay: calc(var(--dur-in) * (1 + 0.667 * var(--i)));
+}
+@keyframes hz-in {
   from {
     opacity: 0;
   }
 }
+/* the completion pulse (the day's first completion, a run landing): the horizon's glow to full and back. Opacity only */
+.hero.aura.hz-card.halo-boost .hz-glow {
+  animation: hz-boost var(--dur-ring) var(--ease-out);
+}
+@keyframes hz-boost {
+  30% {
+    opacity: 1;
+  }
+}
 @media (prefers-reduced-motion: reduce) {
-  .hg.is-first .hg-tick {
+  .hero.aura.hz-card.halo-boost .hz-glow,
+  .hz-mark-disc.is-pop {
     animation: none;
   }
-}
-.hg-in {
-  /* the bowl's chord where the words sit: the track's inner edge at the dial's center height (220 of its 300 units, on the
-     dial's 294 px or the card's width) less 8 px on each side (guide 6.5): 200 at full size, 166 on a 320 phone */
-  --chord: min(200px, calc(0.7333 * (100cqi - 2 * var(--pad-hero)) - 16px));
-  position: relative;
-  margin: 0 var(--sp-8);
-  padding-top: var(--sp-5);
-  display: grid;
-  justify-items: center;
-  text-align: center;
-}
-.hg.is-empty {
-  min-height: 0;
-}
-.hg.is-empty .hg-in {
-  margin: 0;
-  padding: var(--sp-6) 0 var(--sp-2);
-}
-/* the session name: Fraunces 650 40/42, title case (guide 6.5), capped at 44 so large text cannot push it past the bowl.
-   One line at that size; a name that does not fit steps to 30/34 (.is-long), and past that takes two balanced lines
-   (.is-wrap), measured in Hero.tsx (plan 2.3, D6) */
-.hg .hero-stamp {
-  height: auto;
-  max-width: min(100%, var(--chord));
-  margin: 0 auto;
-  font: 650 clamp(30px, var(--fs-stamp), 44px) / clamp(32px, var(--lh-stamp), 46px) var(--display);
-  letter-spacing: var(--tr-title);
-  text-transform: none;
-  text-align: center;
-}
-.hg .hero-stamp.is-long {
-  /* the long size holds at 30 with larger text: a name that needed it has no room to grow in the bowl */
-  font-size: clamp(26px, 1.875rem, 30px);
-  line-height: clamp(30px, 2.125rem, 34px);
-}
-.hg .hero-stamp.is-wrap {
-  line-height: clamp(32px, 2rem, 32px);
-  white-space: normal;
-  text-wrap: balance;
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-  line-clamp: 2;
-}
-.hero.is-quiet .hg .hero-stamp {
-  color: var(--ink-2);
-}
-/* the detail: Inter 15 500 Dusk ("Floor 20 min"); a line too long for the bowl (large text) takes a second line, never cut.
-   It follows the text size to the readout's 22 px and holds, so at 200 percent it never outgrows the session name (30) */
-.hg .hero-line {
-  height: auto;
-  max-width: min(100%, var(--chord));
-  margin: 0;
-  white-space: normal;
-  overflow: visible;
-  text-wrap: balance;
-  /* (the size in one shorthand: a later shorthand used to undo the 22 px hold, so at 200 percent the line outgrew the name) */
-  font: 500 clamp(15px, var(--fs-sub), 22px) / clamp(20px, var(--lh-sub), 28px) var(--sans);
-  font-variant-numeric: tabular-nums;
-  color: var(--ink-2);
-}
-/* a rest day says rest once (the stamp, no line); a day outside any plan has only its line, "Nothing planned" */
-.hg .hero-stamp:empty,
-.hg .hero-line:empty {
-  display: none;
-}
-/* the readout (required, guide 6.5): a Paper pill, Inter 17 Night Ink, tnum, a Deep Sky chevron. It opens the week, and
-   it sits inside the bowl clear of the track's inner edge (8 px at least, measured at 320, 390 and 440) */
-.hero-week {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--sp-1);
-  max-width: 100%;
-  margin-top: var(--sp-2);
-  padding: var(--sp-1) var(--sp-2) var(--sp-1) var(--sp-3);
-  border: 0;
-  border-radius: var(--r-pill);
-  background: var(--surface);
-  box-shadow: var(--shadow-pill);
-  min-height: 0;
-  /* it follows the text size to 130% and holds there, so it stays a pill inside the bowl at large text */
-  font: 500 clamp(17px, var(--fs-row), 22px) / clamp(22px, var(--lh-row), 28px) var(--sans);
-  font-variant-numeric: tabular-nums;
-  color: var(--ink);
-  white-space: nowrap;
-}
-/* the card narrow for its text (large text): the pill may take two lines rather than run out of the dial */
-@container card (max-width: 13rem) {
-  .hero-week {
-    white-space: normal;
-    text-align: center;
-    border-radius: var(--r-tile);
+  .hz-dotp,
+  .hz-target,
+  .hz-ring,
+  .hz-mark-disc {
+    transition: opacity var(--dur-reduce) linear;
+    transition-delay: 0s;
   }
 }
-.hero-week svg {
-  flex: none;
-  color: var(--deep-sky);
+
+/* the band: the week in words on the far hill (White on Deep Sky, 5.66), and the view pill */
+.hz-band {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  width: 100%;
+  min-height: var(--hit);
+  margin: calc(-1 * var(--sp-2)) 0 0;
+  padding: 0 var(--pad-hero) 0 0;
 }
-/* the week in words: the miles and the runs on one line; two lines where one would reach the track (HeroGauge measures) */
-.hw-text {
-  min-width: 0;
-}
-/* still a Paper pill on two lines (guide 6.5): the round ends need 4 more on each side so the words clear their curve */
-.hero-week.is-two {
-  padding: var(--sp-1) var(--sp-3) var(--sp-1) var(--sp-4);
-  border-radius: var(--r-pill);
-}
-.hero-week.is-two .hw-text {
-  display: grid;
-  justify-items: center;
-}
-.hero-week.is-two .hw-mi {
-  font-weight: 600;
-}
-.hero-week.is-two .hw-dot {
-  display: none;
-}
-.hero-week.is-two .hw-runs {
-  font: 500 clamp(15px, var(--fs-sub), 20px) / clamp(20px, var(--lh-sub), 26px) var(--sans);
-  font-variant-numeric: tabular-nums;
-  color: var(--ink-2);
-}
-/* 30 drawn, 44 to touch */
-.hero-week::after {
+.hz-band::before {
   content: '';
   position: absolute;
-  inset: -7px 0; /* brand-ok: geometry, 7 + 30 + 7 = the 44 px hit (guide 5.1) */
+  inset: 6px 0 0; /* brand-ok: geometry, the ground starts under the hill's crest */
+  z-index: -1;
+  background: var(--deep-sky);
+}
+/* the label and the numbers: one button, it opens the week */
+.hz-band .hz-read {
+  appearance: none;
+  position: relative;
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: var(--hit);
+  display: block;
+  margin: 0;
+  padding: var(--sp-1) 0 var(--sp-2) var(--pad-hero);
+  border: 0;
+  border-radius: 0;
+  background: none;
+  color: var(--white);
+  text-align: left;
+  cursor: pointer;
+}
+.hz-words-x {
+  display: grid;
+}
+.hz-words-x > .hz-words-in {
+  grid-area: 1 / 1;
+}
+.hz-words-in {
+  display: grid;
+  justify-items: start;
+  min-width: 0;
+}
+/* the label: the caption style, with the chevron that says the band opens the week */
+.hz-label {
+  display: flex;
+  align-items: center;
+  gap: 2px; /* brand-ok: geometry, the chevron 2 after the caption */
+  max-width: 100%;
+  font: 600 clamp(11px, var(--fs-caps), 15px) / clamp(14px, var(--lh-caps), 18px) var(--stamp);
+  letter-spacing: var(--tr-caps);
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.hz-label > svg {
+  flex: none;
+  margin-top: -1px; /* brand-ok: geometry, the chevron on the caps' center */
+}
+/* the count leads (Inter 17 650), the miles follow (Inter 15 400). Where one line does not hold both, the miles take the
+   next line and the dot is dropped (each later item carries the dot; the wrapper cuts the one that would start a line) */
+.hz-nums {
+  display: block;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  --hz-dot: calc(0.9 * clamp(15px, var(--fs-sub), 20px));
+}
+.hz-nums-in {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  margin-left: calc(-1 * var(--hz-dot));
+  font: 400 clamp(15px, var(--fs-sub), 20px) / clamp(22px, var(--lh-row), 28px) var(--sans);
+  font-variant-numeric: tabular-nums;
+}
+.hz-nums-in > span {
+  position: relative;
+  padding-left: var(--hz-dot);
+  white-space: nowrap;
+}
+.hz-nums-in > span + span::before {
+  content: '\00B7';
+  position: absolute;
+  left: 0;
+  width: var(--hz-dot);
+  text-align: center;
+}
+.hz-count {
+  font-size: clamp(17px, var(--fs-row), 22px);
+  font-weight: 650;
+}
+.hz-second {
+  line-height: clamp(20px, var(--lh-sub), 26px);
+}
+/* the view pill: the app's segmented control in a small quiet form on the hill. Track Night Ink at 22 percent, thumb Haze;
+   each segment hugs its word, never under 44 wide, and its hit box is 44 tall */
+:root .seg.hz-views {
+  position: relative;
+  z-index: 2;
+  flex: none;
+  display: flex;
+  gap: 0;
+  height: clamp(28px, 1.75rem, 36px);
+  padding: 2px; /* brand-ok: geometry, the thumb's inset */
+  border-radius: var(--r-pill);
+  background: none;
+}
+:root .seg.hz-views::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: var(--night-ink);
+  opacity: 0.22;
+}
+:root .seg.hz-views .seg-thumb {
+  top: 2px; /* brand-ok: geometry, the thumb's inset */
+  bottom: 2px; /* brand-ok: geometry, the thumb's inset */
+  background: var(--haze);
+}
+:root .seg.hz-views .seg-btn {
+  flex: none;
+  min-width: var(--hit);
+  height: 100%;
+  padding: 0 var(--sp-2);
+  color: var(--white);
+  font: 550 clamp(13px, var(--fs-foot), 17px) / clamp(16px, 1rem, 22px) var(--sans);
+}
+:root .seg.hz-views .seg-btn[aria-checked='true'] {
+  font-weight: 650;
+  color: var(--ink);
+}
+.hz-view-label {
+  position: relative;
+  display: grid;
+}
+/* each segment is as wide as its label at 650, so the pill keeps its width when the choice changes */
+.hz-view-label::after {
+  content: attr(data-text);
+  height: 0;
+  overflow: hidden;
+  visibility: hidden;
+  font-weight: 650;
+}
+/* a narrow card or large text (the card under 21rem): the pill takes its own row under the words */
+@container card (max-width: 21rem) {
+  .hz-band {
+    display: grid;
+    padding-right: 0;
+  }
+  .hz-band .hz-read {
+    padding-right: var(--pad-hero);
+  }
+  .hz-band.has-views .hz-read {
+    padding-bottom: var(--sp-1);
+  }
+  :root .seg.hz-views {
+    justify-self: start;
+    margin: var(--sp-1) 0 var(--sp-3) var(--pad-hero);
+  }
 }
 
-/* the deck under the dial: 24 under the dial, 12 under the When switch, at least 56 so the ring at the card's bottom
-   right (56) always has its row, and gone when it has nothing to say */
-.hero.aura:not(.is-tall) .hero-deck {
+/* the control zone: Paper, under the far hill's edge (the hill is the divider: no hairline). The deck is at least 56, so
+   the ring at the card's bottom right always has its row, and it is gone when it has nothing to say */
+.hz-ctl {
+  padding: var(--sp-4) var(--pad-hero);
+}
+.hz-card .hero-deck {
   height: auto;
   min-height: 56px;
-  margin-top: var(--sp-6);
+  margin-top: var(--sp-3);
   padding: 0;
 }
-.hero.aura:not(.is-tall) .hero-when + .hero-deck {
-  margin-top: var(--sp-3);
-}
-.hero.aura:not(.is-tall) .hero-rule + .hero-deck {
+.hz-card .hz-ctl > .hero-deck:first-child {
   margin-top: 0;
 }
-.hero.aura:not(.is-tall) .hero-deck:empty {
+.hz-card .hero-deck:empty {
   display: none;
 }
-.hero.aura:not(.is-tall) .hero-deck:not(:empty)::before {
+.hz-card .hero-deck:not(:empty)::before {
   display: none;
 }
-/* the rest face's next session: a row on Cloud inside the hero (a tile in a card, not a card in a card) */
-.hero.aura:not(.is-tall) .hero-next {
+/* a skipped day's next session: a row on Cloud inside the hero (a tile in a card, not a card in a card) */
+.hz-card .hero-next {
   min-height: 52px;
-  /* centered in the deck, not pulled 8 left as the plain row is (today-top-14) */
   margin: 0;
   padding: 0 var(--sp-4);
   border-radius: var(--r-tile);
   background: var(--cloud);
 }
-/* two lines of name: the words start higher in the bowl, so the readout stays clear of the track */
-.hg-in:has(.is-wrap) {
-  padding-top: var(--sp-2);
+
+/* dusk: a day with no run and no workout. The same hills after sunset */
+.hz.is-dusk .hz-sky {
+  background: linear-gradient(180deg, var(--night-ink) -40%, var(--twilight) 40%, var(--deep-sky) 100%);
 }
-@media (max-width: 359px) {
-  .hg-in {
-    margin-inline: var(--sp-6);
-    /* the bowl is 246 wide here: the words start 12 higher and the readout sits 4 under them, so its two lines keep their
-       8 px from the track (measured: 9.4 with "Easy 6.5") */
-    padding-top: var(--sp-2);
-  }
-  .hero-week {
-    margin-top: var(--sp-1);
-  }
-  /* and the name takes the guide's long size (30/34) from the start: at 40 it pushed the readout onto the track */
-  .hg .hero-stamp {
-    font-size: clamp(26px, 1.875rem, 30px);
-    line-height: clamp(30px, 2.125rem, 34px);
-  }
-  .hg-in:has(.is-wrap) {
-    padding-top: var(--sp-2);
+.hz.is-dusk .hz-name {
+  color: var(--paper);
+}
+.hero.is-quiet .hz.is-dusk .hz-name {
+  color: var(--haze);
+}
+.hz.is-dusk .hz-line {
+  color: var(--haze);
+}
+/* what comes next: one quiet line in the detail slot. It opens that session, or the Add sheet; 44 to touch */
+.hz-words .hz-next {
+  appearance: none;
+  position: relative;
+  z-index: 2;
+  min-height: 0;
+  display: block;
+  max-width: calc(100% - 72px); /* brand-ok: geometry, as the detail line */
+  margin: var(--sp-1) 0 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--haze);
+  font: 500 clamp(15px, var(--fs-sub), 22px) / clamp(20px, var(--lh-sub), 28px) var(--sans);
+  font-variant-numeric: tabular-nums;
+  text-align: left;
+  cursor: pointer;
+}
+.hz-next::after {
+  content: '';
+  position: absolute;
+  inset: calc(-1 * var(--sp-3));
+}
+.hz-next > svg {
+  display: inline-block;
+  vertical-align: -0.15em;
+}
+/* the time after the session ("· out 6:10") shows only where the line holds it whole */
+@container card (max-width: 21rem) {
+  .hz-next-tail {
+    display: none;
   }
 }
-/* at large text the words keep their room under the end labels, wrapped or not (the card grows instead) */
-:root[data-text-xl] .hg-in {
-  padding-top: var(--sp-5);
+/* the light: an HTML layer behind the drawing, so its breath is an opacity the compositor runs. Percent of the scene box:
+   the halo round the sun (130 x 60 at 292, 66.2 of the 358 x 88 drawing) over the band of light along the horizon */
+.hz-stage {
+  position: relative;
+}
+.hz-stage > .hz-scene {
+  z-index: 1;
+}
+.hz-dusk-light {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse 36.31% 68.18% at 81.56% 75.26%, color-mix(in srgb, var(--horizon-2) 95%, transparent) 0, color-mix(in srgb, var(--apricot) 70%, transparent) 30%, color-mix(in srgb, var(--apricot) 26%, transparent) 62%, transparent 100%),
+    linear-gradient(0deg, color-mix(in srgb, var(--horizon-2) 98%, transparent) 0, color-mix(in srgb, var(--apricot) 90%, transparent) 12%, color-mix(in srgb, var(--apricot) 60%, transparent) 30%, color-mix(in srgb, var(--apricot) 30%, transparent) 52%, color-mix(in srgb, var(--horizon-2) 12%, transparent) 75%, transparent 100%) top / 100% 87.5% no-repeat;
+}
+/* the dusk breath: the light dims to 0.86 and comes back, once in two Orb breaths (8 s), only while the page is seen and
+   still (data-run, the Orb's gate). Opacity only, on the HTML layer */
+.hz.is-dusk[data-run] .hz-dusk-light {
+  animation: hz-breath calc(2 * var(--orb-breath)) var(--ease-in-out) infinite;
+  will-change: opacity;
+}
+@keyframes hz-breath {
+  50% {
+    opacity: 0.86;
+  }
+}
+/* the first view of a dusk day: the sun sinks 14 into its place, the light comes up, then the first stars */
+.hz-sun-dusk.is-first {
+  animation: hz-sink calc(1.5 * var(--dur-dawn)) var(--ease-out) both;
+}
+@keyframes hz-sink {
+  from {
+    transform: translateY(-14px); /* brand-ok: geometry, the sunset's travel */
+  }
+}
+.hz.is-dusk.is-first .hz-dusk-light {
+  animation: hz-light-in calc(1.5 * var(--dur-dawn)) var(--ease-out) both;
+}
+@keyframes hz-light-in {
+  from {
+    opacity: 0.7;
+  }
+}
+.hz.is-dusk.is-first .hz-star {
+  animation: hz-in var(--dur-in) var(--ease-out) both;
+  animation-delay: calc(var(--dur-dawn) + var(--dur-in) * 0.667 * var(--i));
+}
+@media (prefers-reduced-motion: reduce) {
+  .hz.is-dusk[data-run] .hz-dusk-light,
+  .hz.is-dusk.is-first .hz-dusk-light,
+  .hz.is-dusk.is-first .hz-star,
+  .hz-sun-dusk.is-first {
+    animation: none;
+  }
+}
+.hz-sun-dusk {
+  fill: var(--apricot);
+}
+.hz-star {
+  fill: var(--paper);
+}
+.hz-dhill-1 {
+  fill: var(--twilight);
+}
+.hz-dhill-2 {
+  fill: var(--night-ink);
+  opacity: 0.55;
+}
+.hz-dhill-3 {
+  fill: var(--night-ink);
+}
+.hz-rim-dusk {
+  fill: none;
+  stroke-width: 1.5;
+  vector-effect: non-scaling-stroke;
+}
+.hz.is-dusk .hz-band::before {
+  background: var(--night-ink);
+}
+.hz-band .hz-read-dusk {
+  padding-right: var(--pad-hero);
+  color: var(--haze);
+}
+.hz-totals {
+  display: block;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  --hz-dot: calc(0.9 * clamp(13px, var(--fs-foot), 18px));
+}
+.hz-totals-in {
+  display: flex;
+  flex-wrap: wrap;
+  margin-left: calc(-1 * var(--hz-dot));
+  font: 500 clamp(13px, var(--fs-foot), 18px) / clamp(18px, var(--lh-foot), 24px) var(--sans);
+  font-variant-numeric: tabular-nums;
+}
+.hz-totals-in > span {
+  position: relative;
+  padding-left: var(--hz-dot);
+  white-space: nowrap;
+}
+.hz-totals-in > span + span::before {
+  content: '\00B7';
+  position: absolute;
+  left: 0;
+  width: var(--hz-dot);
+  text-align: center;
+}
+.hz-band.hz-band-bare {
+  min-height: 28px; /* brand-ok: geometry, the bare far hill */
+}
+/* the dusk scene runs to the card's outer edge: no Paper hairline round a dark picture. Under Increase Contrast it is back */
+.hero.aura.hz-card.is-dusk {
+  border-width: 0;
+}
+@media (prefers-contrast: more) {
+  .hero.aura.hz-card.is-dusk {
+    border-width: 1px;
+  }
 }
 .hl-narrow {
   display: none;
@@ -1999,15 +2296,6 @@
   }
 }
 
-/* ---------- the hero's two zones (layout plan 2.1 T2): one full-bleed hairline, 16 above and below ---------- */
-.hero-rule {
-  display: block;
-  flex: none;
-  height: 1px;
-  margin: var(--sp-4) calc(-1 * var(--pad-hero));
-  border: 0;
-  background: var(--line);
-}
 /* ---------- when you train (WhenPill): Morning · Afternoon · No time, the control zone's first row ---------- */
 /* the shared segmented control (guide 6.3: text only, Inter 15, 44 tall) across the card's inner width; its thumb's tone
    is the wayfinding tone (SEG_TONE_WAYFINDING) */

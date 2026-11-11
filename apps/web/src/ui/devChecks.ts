@@ -2,16 +2,16 @@
  * Layout checks for development builds only (docs/brand/layout-and-hierarchy.md 4.4 and 5.2). main.tsx loads this module
  * behind `import.meta.env.DEV`, so a release bundle never carries it. It watches the page and warns once per offender:
  *
- *   - a shadowed surface inside a card, group or tile ("no card in a card"; the gauge's readout pill is the one named
- *     exception). Inset shadows are rings, not lift, and do not count.
+ *   - a shadowed surface inside a card, group or tile ("no card in a card"). Inset shadows are rings, not lift, and do not
+ *     count.
  *   - a stacked header: a 26 px section title directly above a card whose first line is a 22 px card title.
  *
  * It only reads the page; it never changes it.
  */
 
 const CONTAINERS = '.card, .group, .tile, .k-card, .k-rows, .aura';
-// the gauge's readout pill (brand 6.5, `.hero-week` in the app) and a switch's knob (a control's own part) are not cards
-const ALLOWED = '.hg-readout, .hero-week, .s-knob';
+// a switch's knob (a control's own part) is not a card
+const ALLOWED = '.s-knob';
 const seen = new Set<string>();
 
 const nameOf = (el: Element): string => {

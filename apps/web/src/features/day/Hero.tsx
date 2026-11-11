@@ -1,4 +1,4 @@
-import { label, num, shiftDays, tone as toneOf, type Activity, type ISODate, type PhaseSession, type Session, type SessionMark } from '@logbook/shared';
+import { label, mondayOf, num, shiftDays, tone as toneOf, type Activity, type ISODate, type PhaseSession, type Session, type SessionMark } from '@logbook/shared';
 import { ChevronRight, Share } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
 import type * as React from 'react';
@@ -30,8 +30,12 @@ import { markSuccess } from './success';
 import { StravaRetry, useStravaLanding, type Landing } from './useStravaLanding';
 import { useDeferredMinutes, useFaceMinutes } from './useDeferred';
 
-/** The shared element between the hero's four-stop line and This morning's Now card (contracts §F). */
-import { gaugeShown, HeroGauge, weekGauge } from './HeroGauge';
+import { useFirstToday } from '@/ui/useFirstToday';
+import { openAddSession } from '../sessions/AddSessionSheet';
+import { useOpenWeek } from '../progress/sheets';
+import { HeroHorizon, HorizonNext } from './HeroHorizon';
+import { setHeroView, useHeroView } from './heroView';
+import { faceLead, heroScene, heroWeek } from './heroWeek';
 import { sessionMinutes, useAfternoon, useTrainWhen, whenFace } from './trainWhen';
 import { AfternoonSheet, WhenPill } from './WhenPill';
 
@@ -42,7 +46,7 @@ export const morningLineId = (date: ISODate) => `morning-line-${date}`;
 export const morningPath = (date: ISODate) => `/today/${date}/morning`;
 
 /** Pointers that start on these are not the hero's: the ring and the line own their press; the deck's buttons theirs. */
-const HERO_IGNORE = '.hold-ring, [data-shared], .hero-share, .hero-verb, .hero-next, .hero-week, .hero-when, .mini-tl';
+const HERO_IGNORE = '.hold-ring, [data-shared], .hero-share, .hero-verb, .hero-next, .hz-read, .hz-views, .hz-next, .hero-when, .mini-tl';
 
 /** The share card's data for a day whose miles are logged by hand: the session's miles, and the week counted the same way. */
 const shareFor = (date: ISODate, s: Session | null, runs: Activity[], log: Log) => {
@@ -152,11 +156,12 @@ interface DeckCtx {
 }
 
 /** The deck (56): the only part that differs between faces. */
-const Deck = ({ c }: { c: DeckCtx }) => {
+const Deck = ({ c, dusk = false }: { c: DeckCtx; dusk?: boolean }) => {
   const { face } = c;
-  // the line's live node yields while the gauge's pointer is on screen, and counts only on the page on screen (guide 3.5)
+  // the line's live node yields while the week's sun is on screen, and counts only on the page on screen (guide 3.5); at
+  // dusk the setting sun is light, not a now-mark, and nothing yields to it
   const live = useIsLive(c.date);
-  const pointer = !face.tall && gaugeShown(weekGauge(c.log, c.date));
+  const pointer = !face.tall && isDayScene(face);
   const yieldNow = !live || pointer;
   const tone = face.lead ? toneOf(face.lead.session) : undefined;
   if (face.stops)
@@ -203,7 +208,8 @@ const Deck = ({ c }: { c: DeckCtx }) => {
         ) : null}
       </div>
     );
-  if (face.next)
+  // at dusk the next session is the line under the title, not a row here
+  if (face.next && !dusk)
     return (
       <div className="hero-deck">
         <Pressable
@@ -287,27 +293,30 @@ const LineText = ({ line }: { line: string }) =>
     <>{line.replace(/back by (\S+)$/, 'back\u00a0by\u00a0$1')}</>
   );
 
-/** Whether a face has anything in its deck (the control zone under the hairline). */
-const hasDeck = (f: Face) => !!(f.stops || f.out || f.kind === 'open' || f.landed || f.doneHand || f.next);
+/** Whether a face has anything in its deck (the control zone). At dusk the next session is the line under the title. */
+const hasDeck = (f: Face, dusk = false) => !!(f.stops || f.out || f.kind === 'open' || f.landed || f.doneHand || (f.next && !dusk));
+/** The face is the day scene of the horizon (it is about a session, or a run off the plan); else dusk (hero spec 6.7). */
+const isDayScene = (f: Pick<Face, 'lead' | 'runs'>) => !!f.lead || f.runs.length > 0;
 
 /**
- * The words of a face, in two zones split by one hairline (layout plan 2.1 T2): the gauge zone (the session name, the line,
- * the week's readout) and the control zone (when you train, the morning line or the deck). No eyebrow: the line and the
- * time of day already say when, and a state word ("Out", "Missed", "Done") is said in the line.
+ * The words of a face. The landed face with a route keeps its own layout (the route in place of the scene). Every other
+ * face is the week horizon (HorizonFace): two zones, the scene (the words, the drawing, the band on the far hill) and,
+ * under the hill's straight edge, the control zone (when you train, the morning line or the deck). No eyebrow: the line and
+ * the time of day already say when, and a state word ("Out", "Missed", "Done") is said in the line.
  */
 const FaceView = ({ c }: { c: DeckCtx }) => {
   const { face } = c;
   /*
    * The title is the card's "open" control (a11y-07): a real button whose hit layer covers the card, so a tap anywhere still
-   * opens the session while the ring, the When switch, the week pill and the line stay separate controls beside it. A face
-   * with nothing to open (a rest day) has a plain title.
+   * opens the session while the ring, the When switch, the band, the pill and the line stay separate controls beside it. A
+   * face with nothing to open (a rest day) has a plain title.
    */
   const fitRef = useStampFit(face.tall ? '' : face.stamp);
   // a cross day has no morning line for the switch to move (Morning and No time would look the same): no switch (today-top-06)
   const when = !face.tall && !!face.lead && face.lead.session.kind !== 'rest' && face.lead.session.kind !== 'cross' && c.date >= c.log.today && whenFaceKinds.has(face.kind);
   const title = (fit: boolean) => {
     const stamp = (
-      <span className="hero-stamp" ref={fit ? fitRef : undefined}>
+      <span className={`hero-stamp${fit ? ' hz-name' : ''}${face.soft ? ' is-soft' : ''}`} ref={fit ? fitRef : undefined}>
         {face.stamp}
       </span>
     );
@@ -319,32 +328,70 @@ const FaceView = ({ c }: { c: DeckCtx }) => {
       stamp
     );
   };
+  if (!face.tall) return <HorizonFace c={c} when={when} title={title(true)} />;
   return (
     <>
-      {face.tall ? (
-        <>
-          {title(false)}
-          {/* the verdict crossfades in once the landing's FLIP is at rest (§6.1 stage 4) */}
-          <motion.p className="hero-line" initial={false} animate={{ opacity: c.numbers === 'hold' ? 0 : 1 }} transition={crossfade}>
-            {face.line}
-          </motion.p>
-        </>
-      ) : (
-        // every other face: the day's words inside the week's dial (HeroGauge), the week's pill under them
-        <HeroGauge date={c.date} log={c.log}>
-          {/* a long name steps down and takes two lines inside the dial, never one clipped line (today-top-11) */}
-          {title(true)}
-          <motion.p className="hero-line" initial={false} animate={{ opacity: c.numbers === 'hold' ? 0 : 1 }} transition={crossfade}>
-            <LineText line={face.line} />
-          </motion.p>
-        </HeroGauge>
-      )}
-      {/* when the training happens: only while the session is still to come (today or later). Done, skipped, missed or
-          matched to a run, the choice is over and the switch goes (today-top-01) */}
-      {!face.tall && (when || hasDeck(face)) ? <hr className="hero-rule" /> : null}
-      {when ? <WhenPill date={c.date} /> : null}
-      {face.tall && face.landed?.polyline ? <LandingRoute polyline={face.landed.polyline} drawKey={c.isToday ? face.landed.drawKey : null} date={c.date} numbers={c.numbers} /> : null}
+      {title(false)}
+      {/* the verdict crossfades in once the landing's FLIP is at rest (§6.1 stage 4) */}
+      <motion.p className="hero-line" initial={false} animate={{ opacity: c.numbers === 'hold' ? 0 : 1 }} transition={crossfade}>
+        {face.line}
+      </motion.p>
+      {face.landed?.polyline ? <LandingRoute polyline={face.landed.polyline} drawKey={c.isToday ? face.landed.drawKey : null} date={c.date} numbers={c.numbers} /> : null}
       <Deck c={c} />
+    </>
+  );
+};
+
+/**
+ * Every face but the landed one with a route: the week horizon (HeroHorizon, the hero spec). The scene counts the week
+ * (heroWeek, heroScene): the day scene on a day with a session or a run, dusk on a day with neither. The view picked on the
+ * pill holds for this page today (heroView.ts). Under the far hill, the control zone: the When switch while the session is
+ * still to come, then the deck. At dusk the next session is the line under the title, so the control zone is there only
+ * for a rest morning's four-stop line.
+ */
+const HorizonFace = ({ c, when, title }: { c: DeckCtx; when: boolean; title: React.ReactNode }) => {
+  const { face, log, date } = c;
+  const isToday = date === log.today;
+  const picked = useHeroView(log.today, date);
+  const week = useMemo(() => heroWeek(log.snap, date), [log.snap, date]);
+  const scene = useMemo(() => heroScene({ week, ...faceLead(face), picked }), [week, face, picked]);
+  const dusk = scene.mode === 'dusk';
+  const live = useIsLive(date);
+  // the sunrise (or the sunset) plays on the first view of the day, on today's page only
+  const firstToday = useFirstToday(isToday ? (dusk ? 'hero-dusk' : 'hero-horizon') : null);
+  const openWeek = useOpenWeek(log.today);
+  const sheet = useSheet();
+  const ctl = when || hasDeck(face, dusk);
+  let line: React.ReactNode = null;
+  if (!dusk) {
+    line = face.line ? (
+      <motion.p className="hero-line hz-line" initial={false} animate={{ opacity: c.numbers === 'hold' ? 0 : 1 }} transition={crossfade}>
+        <LineText line={face.line} />
+      </motion.p>
+    ) : null;
+  } else if (face.line) {
+    // the face's own line ("Leave in 1 h 20 min"): plain words
+    line = <p className="hero-line hz-line">{face.line}</p>;
+  } else if (face.next) {
+    line = <HorizonNext text={face.next.head} tail={face.next.tail} label={`${face.next.text}. Open`} onPress={c.onOpenNext} />;
+  } else if (face.soft && date >= log.today) {
+    // a week with nothing ahead: the Add sheet, on this day (the Plan tab's own)
+    line = <HorizonNext text="Add a run or lift" label="Add a run or lift" onPress={() => openAddSession(sheet, mondayOf(date), date, log.today)} />;
+  }
+  return (
+    <>
+      <HeroHorizon scene={scene} isToday={isToday} firstToday={firstToday} quiet={face.quiet} live={live} onWeek={() => openWeek(week.mon)} onPick={(v) => setHeroView(log.today, date, v)}>
+        {title}
+        {line}
+      </HeroHorizon>
+      {ctl ? (
+        <div className="hz-ctl">
+          {/* when the training happens: only while the session is still to come (today or later). Done, skipped, missed or
+              matched to a run, the choice is over and the switch goes (today-top-01) */}
+          {when ? <WhenPill date={date} /> : null}
+          <Deck c={c} dusk={dusk} />
+        </div>
+      ) : null}
     </>
   );
 };
@@ -598,7 +645,7 @@ const DayHero = ({ date, log, ph, face: dayFace, minutes, markNow }: { date: ISO
       ref={(n) => {
         hero.current = n;
       }}
-      className={`hero aura halo-${face.halo} ${boost || landing.boost ? 'halo-boost' : ''} ${face.tall ? 'is-tall' : ''} ${face.quiet ? 'is-quiet' : ''} ${face.pressable ? 'is-pressable' : ''}`}
+      className={`hero aura halo-${face.halo} ${boost || landing.boost ? 'halo-boost' : ''} ${face.tall ? 'is-tall' : `hz-card${isDayScene(face) ? '' : ' is-dusk'}`} ${face.quiet ? 'is-quiet' : ''} ${face.pressable ? 'is-pressable' : ''}`}
       data-face={face.kind}
       data-landing={landing.stage === 'still' ? undefined : landing.stage}
       press={face.pressable ? 'scale' : 'none'}
@@ -626,12 +673,12 @@ const DayHero = ({ date, log, ph, face: dayFace, minutes, markNow }: { date: ISO
       {/* a new day (the midnight roll) is not a face change: the page crossfades in already on its face, never through a
           second crossfade from the day before's (day review 1 #1, #10) */}
       <AnimatePresence key={log.today} initial={false} mode="popLayout">
-        <motion.div key={main.key} className="hero-face" data-k={main.kind} initial={{ opacity: preShown ? 0 : FACE_FIRST_FRAME }} animate={{ opacity: preShown ? 0 : 1 }} exit={{ opacity: 0 }} transition={crossfade} inert={preShown || undefined} aria-hidden={preShown || undefined}>
+        <motion.div key={main.key} className={`hero-face${main.tall ? '' : ' hz-face'}`} data-k={main.kind} initial={{ opacity: preShown ? 0 : FACE_FIRST_FRAME }} animate={{ opacity: preShown ? 0 : 1 }} exit={{ opacity: 0 }} transition={crossfade} inert={preShown || undefined} aria-hidden={preShown || undefined}>
           <FaceLayer face={main} numbers={landing.numbers} date={date} log={log} isToday={isToday} now={ph.now} acts={acts} />
         </motion.div>
       </AnimatePresence>
       {preLayer ? (
-        <motion.div key="pre" className="hero-face hero-face-pre" data-k={pre.kind} initial={false} animate={{ opacity: preShown ? 1 : 0 }} transition={crossfade}>
+        <motion.div key="pre" className={`hero-face hero-face-pre${pre.tall ? '' : ' hz-face'}`} data-k={pre.kind} initial={false} animate={{ opacity: preShown ? 1 : 0 }} transition={crossfade}>
           <FaceLayer face={pre} numbers="still" date={date} log={log} isToday={isToday} now={ph.now} acts={acts} />
         </motion.div>
       ) : null}
