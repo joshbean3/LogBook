@@ -65,7 +65,7 @@
   gap: 2px;
   align-content: center;
   font: 400 var(--fs-row) / var(--lh-row) var(--sans);
-  letter-spacing: -0.02em;
+  letter-spacing: 0;
   -webkit-touch-callout: none;
 }
 .tt-row.two .tt-name {
@@ -79,7 +79,7 @@
 .tdl-row.is-done .tdl-name {
   color: var(--ink-3);
   text-decoration: line-through;
-  text-decoration-color: var(--ink-faint, var(--ink-4));
+  text-decoration-color: var(--pencil);
 }
 .tt-aside {
   color: var(--ink-3);
@@ -95,7 +95,7 @@
   padding: 0 16px;
   text-align: left;
   font: 400 var(--fs-row) / var(--lh-row) var(--sans);
-  letter-spacing: -0.02em;
+  letter-spacing: 0;
 }
 .tt-more {
   justify-content: space-between;
@@ -139,7 +139,7 @@
   color: var(--ink);
   /* never under 16px, whatever the text size: a smaller field makes iOS zoom the page on focus */
   font: 400 clamp(16px, var(--fs-row), 4rem) / var(--lh-row) var(--sans);
-  letter-spacing: -0.02em;
+  letter-spacing: 0;
   padding: 0;
   user-select: text;
   -webkit-user-select: text;
@@ -171,7 +171,8 @@
   }
 }
 
-/* the mark: 22, radius 6, a 44 hit; filled and checked on the tap's frame */
+/* the checkbox (guide 6.14): a 22 px circle, a 44 hit; off a 1.5 px field edge, checked Sky with a Night Ink check, filled
+   on the tap's frame */
 .tmark-hit {
   appearance: none;
   border: 0;
@@ -186,8 +187,8 @@
 .tmark {
   width: 22px;
   height: 22px;
-  border-radius: 6px;
-  border: 1.5px solid var(--ink-3);
+  border-radius: 50%;
+  border: 1.5px solid var(--field-edge);
   display: grid;
   place-items: center;
   color: transparent;
@@ -198,25 +199,26 @@
   border-color: var(--accent);
   color: var(--accent-ink);
 }
-/* the round check (the day board): a ring that fills with its section's colour (`--mk`) */
+/* the round check (Plan your day, the goal's steps): the same coin at 26, a Sky disc with the Night Ink check when on (guide
+   6.13); never a section's hue, never a glow */
 .tmark.round {
   width: 26px;
   height: 26px;
   border-radius: 50%;
-  border: 2px solid var(--ink-3);
+  border: 1.5px solid var(--field-edge);
 }
 .tmark.round.on {
-  background: var(--mk, var(--sun));
-  border-color: var(--mk, var(--sun));
-  color: var(--ink);
-  box-shadow: 0 0 14px color-mix(in srgb, var(--mk, var(--sun)) 55%, transparent);
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-ink);
 }
 .tmark-hit:focus-visible {
   outline: none;
 }
 .tmark-hit:focus-visible .tmark {
-  outline: 2px solid var(--accent-text);
+  outline: 1.5px solid var(--focus-edge);
   outline-offset: 3px;
+  box-shadow: var(--focus-ring);
 }
 
 /* the name, and the note under it at 15px, two lines at most */
@@ -248,7 +250,7 @@
   font-size: var(--fs-row);
   line-height: var(--lh-row);
   font-weight: 500;
-  letter-spacing: -0.02em;
+  letter-spacing: 0;
 }
 .trow-title > span {
   min-width: 0;
@@ -260,7 +262,7 @@
   font-size: var(--fs-sub);
   line-height: var(--lh-sub);
   font-weight: 400;
-  letter-spacing: -0.01em;
+  letter-spacing: 0;
   color: var(--ink-3);
   overflow: hidden;
   display: -webkit-box;
@@ -299,7 +301,7 @@
   color: var(--prio-3);
 }
 .is-done .prio {
-  color: var(--ink-faint, var(--ink-4));
+  color: var(--ink-2);
 }
 .seg-prio {
   display: inline-flex;
@@ -399,7 +401,7 @@
   font-size: var(--fs-row);
   line-height: var(--lh-row);
   font-weight: 500;
-  letter-spacing: -0.01em;
+  letter-spacing: 0;
   color: var(--ink);
   outline: none;
 }
@@ -452,7 +454,8 @@
   }
 }
 .tsheet-date {
-  color-scheme: dark;
+  /* the native date control inside a Paper sheet: light, like the app (plan risk 6a) */
+  color-scheme: light;
 }
 .tsheet-date::-webkit-date-and-time-value {
   text-align: left;
@@ -561,7 +564,7 @@
   top: 8px;
   bottom: 8px;
   width: 3px;
-  border-radius: 0 2px 2px 0;
+  border-radius: 0 var(--r-pill) var(--r-pill) 0;
   background: var(--tc);
   pointer-events: none;
 }
@@ -694,7 +697,7 @@
 .tlist-name {
   min-width: 0;
   font: 600 var(--fs-row) / var(--lh-row) var(--sans);
-  letter-spacing: -0.01em;
+  letter-spacing: 0;
   overflow-wrap: anywhere;
 }
 .tlist-head.is-none .tlist-name {
@@ -707,7 +710,7 @@
 .tlist-chev {
   flex: none;
   margin-left: auto;
-  color: var(--ink-faint, var(--ink-4));
+  color: var(--ink-2);
 }
 .tlist-new.pressable {
   display: flex;

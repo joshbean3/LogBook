@@ -66,7 +66,7 @@ export const TodoMark = ({ on, label, onToggle, disabled, round }: { on: boolean
       }}
     >
       <motion.span className={`tmark ${round ? 'round' : ''} ${on ? 'on' : ''}`} style={{ scale: pop }}>
-        <svg width={round ? 15 : 14} height={round ? 15 : 14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3.25} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <svg width={round ? 15 : 14} height={round ? 15 : 14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.25} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
           <motion.path d="M20 6 9 17l-5-5" initial={false} animate={{ pathLength: on ? 1 : 0, opacity: on ? 1 : 0 }} transition={reduce ? { duration: 0 } : on ? { pathLength: { duration: 0.16, ease: 'easeOut' }, opacity: { duration: 0.01 } } : { duration: 0.1 }} />
         </svg>
       </motion.span>

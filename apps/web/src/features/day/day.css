@@ -33,7 +33,7 @@
   margin: 0;
   padding: 0;
   border: 0;
-  border-radius: 6px;
+  border-radius: var(--r-icon);
   background: none;
   color: inherit;
   font: inherit;
@@ -65,8 +65,9 @@
   inset: -1000px;
 }
 .card-open:focus-visible {
-  outline: 2px solid var(--accent-text);
+  outline: 1.5px solid var(--focus-edge);
   outline-offset: 2px;
+  box-shadow: var(--focus-ring);
 }
 /* the card's other controls: siblings of the title's button, above its hit layer */
 .card-group :is(.hold-ring, .ss-ring, .hero-week, .hero-when, .mini-tl, .hero-share, .hero-share-slot, .hero-verb, .hero-next) {
@@ -141,9 +142,10 @@
 }
 .hero-eyebrow,
 .hero-aside {
-  font: 600 var(--fs-caps) / var(--lh-caps) var(--sans);
-  letter-spacing: 0.06em;
-  color: var(--ink-3);
+  /* caption style (guide 4.3): Inter Tight 600 caps, the one caps tracking, Dusk */
+  font: 600 var(--fs-caps) / var(--lh-caps) var(--stamp);
+  letter-spacing: var(--tr-caps);
+  color: var(--ink-2);
   white-space: nowrap;
 }
 .hero-eyebrow {
@@ -154,35 +156,31 @@
   overflow: hidden;
   text-overflow: ellipsis;
 }
-/* the stamp: one line, never broken mid-word (O4: "THRESHOL / D 6"); a long name ellipsizes */
+/* the session name (guide 4.2, 6.13): Fraunces 650 in title case, the person's words as the plan has them. One line, never
+   broken mid-word (O4); a long name ellipsizes. It follows the text size up to a limit (a11y-02), never past one line */
 .hero-stamp {
   display: block;
-  margin-top: 4px;
-  /* a display stamp: it follows the text size up to a limit (a11y-02), never past what one line of the card holds */
-  font: 800 clamp(28px, 1.75rem, 40px) / clamp(34px, 2.125rem, 48px) var(--stamp);
-  letter-spacing: -0.02em;
-  text-transform: uppercase;
+  margin-top: var(--sp-1);
+  font: 650 clamp(30px, 1.875rem, 40px) / clamp(34px, 2.125rem, 44px) var(--display);
+  letter-spacing: var(--tr-title);
   color: var(--ink);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  font-variant-numeric: tabular-nums;
 }
+/* the detail under it: Inter 15 500 Dusk ("Done.", "Floor met.") */
 .hero-line {
-  margin: 4px 0 0;
-  height: 1.75rem;
-  font: italic 420 var(--fs-sentence) / var(--lh-sentence) var(--serif);
+  margin: var(--sp-1) 0 0;
+  height: var(--lh-sub);
+  font: 500 var(--fs-sub) / var(--lh-sub) var(--sans);
   letter-spacing: 0;
-  color: var(--ink);
+  color: var(--ink-2);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 .hero.is-quiet .hero-stamp {
   color: var(--ink-2);
-}
-.hero.is-quiet .hero-line {
-  color: var(--ink-3);
 }
 /* the landed face's route: 358 × 120, edge to edge in the card, between the line and the deck */
 .hero-route {
@@ -191,7 +189,6 @@
   width: calc(100% + 32px);
   height: 120px;
   margin: 6px -16px 0;
-  filter: drop-shadow(0 0 10px rgba(15, 42, 68, 0.35));
 }
 /* the deck: 56 at least, the only zone whose content differs between faces */
 .hero-deck {
@@ -269,9 +266,11 @@
   min-height: 2rem;
   padding: 0 12px;
   border-radius: var(--r-pill);
-  background: rgba(15, 42, 68, 0.08);
+  /* a secondary pill (guide 6.2): Paper with the 1 px edge */
+  background: var(--surface);
+  box-shadow: inset 0 0 0 1px var(--edge);
   color: var(--ink);
-  font: 600 0.8125rem/1rem var(--sans);
+  font: 600 var(--fs-foot) / 1rem var(--sans);
   position: relative;
 }
 .hero-share.pressable::after {
@@ -313,13 +312,12 @@
   min-width: 0;
 }
 .hero-stat .caps {
-  font: 600 var(--fs-caps) / var(--lh-caps) var(--sans);
-  letter-spacing: 0.06em;
-  color: rgba(15, 42, 68, 0.62);
+  color: var(--ink-2);
 }
+/* a live number (guide 4.4): Inter 650, tabular */
 .hero-stat-num {
-  font: 800 var(--fs-row) / var(--lh-row) var(--stamp);
-  letter-spacing: -0.02em;
+  font: 650 var(--fs-row) / var(--lh-row) var(--sans);
+  font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
 .hero-share-slot {
@@ -351,7 +349,7 @@
 }
 .hero-next.pressable > svg {
   flex: none;
-  color: var(--ink-4);
+  color: var(--ink-2);
 }
 .hero-next-text {
   flex: 1;
@@ -376,7 +374,7 @@
 .hero-skel .skel {
   position: absolute;
   left: 16px;
-  border-radius: 6px;
+  border-radius: var(--r-pill);
 }
 .hero-skel-a {
   top: 16px;
@@ -394,7 +392,8 @@
   height: 40px;
 }
 
-/* ---------- the four-stop line (contracts §F): 44 tall, 2 px line, 8 px dots, the now dot by transform ---------- */
+/* ---------- the four-stop line (contracts §F, guide 6.13): 44 tall, a 1.5 px line in the session's data tone, 10 px Paper
+   stops on a 1.5 px Night Ink ring, the live node by transform ---------- */
 .mini-tl {
   appearance: none;
   border: 0;
@@ -432,26 +431,26 @@
   position: absolute;
   left: 0;
   right: 0;
-  top: 3px;
-  height: 2px;
+  top: 3.25px;
+  height: 1.5px;
   background: var(--line-strong);
 }
 .mini-tl-done {
-  background: var(--accent);
+  background: var(--tone, var(--deep-sky));
   transform-origin: 0 50%;
 }
 .mini-tl-stop {
   position: absolute;
-  top: 0;
-  width: 8px;
-  height: 8px;
-  margin-left: -4px;
+  top: -1px;
+  width: 10px;
+  height: 10px;
+  margin-left: -5px; /* brand-ok: geometry, centers the 10 px stop on its point (guide 6.13) */
   border-radius: 50%;
   background: var(--surface);
-  box-shadow: inset 0 0 0 1.5px var(--ink-3);
+  box-shadow: inset 0 0 0 1.5px var(--ink);
 }
 .mini-tl-stop.past {
-  background: var(--accent);
+  background: var(--tone, var(--deep-sky));
   box-shadow: none;
 }
 .mini-tl-nowtrack {
@@ -462,15 +461,19 @@
   height: 8px;
   pointer-events: none;
 }
+/* the live node (guide 3.5 job 5): 12 px Sunrise on a 2 px Paper keyline; Night Ink when it yields */
 .mini-tl-now {
   position: absolute;
-  left: -5px;
-  top: -1px;
-  width: 10px;
-  height: 10px;
+  left: -6px;
+  top: -2px;
+  width: 12px;
+  height: 12px;
   border-radius: 50%;
-  background: var(--accent-bright);
-  box-shadow: 0 0 0 3px rgba(242, 96, 12, 0.35);
+  background: var(--now);
+  box-shadow: 0 0 0 2px var(--now-keyline);
+}
+.mini-tl-now[data-now='ink'] {
+  background: var(--ink);
 }
 .hero.is-quiet .mini-tl-now {
   display: none;
@@ -499,12 +502,13 @@
   justify-items: end;
 }
 .mini-tl-time .caps {
-  font: 600 var(--tl-caps) / 1.182 var(--sans);
-  letter-spacing: 0.06em;
-  color: var(--ink-3);
+  font: 600 var(--tl-caps) / 1.182 var(--stamp);
+  letter-spacing: var(--tr-caps);
+  color: var(--ink-2);
 }
 .mini-tl-time .tnum {
   font: 600 var(--tl-num) / 1.385 var(--sans);
+  font-variant-numeric: tabular-nums;
   color: var(--ink);
 }
 .hero.is-quiet .mini-tl-time .tnum {
@@ -525,7 +529,8 @@
   top: 12px;
   display: flex;
   justify-content: space-between;
-  font: 600 0.8125rem/1rem var(--sans);
+  font: 600 var(--fs-foot) / 1rem var(--sans);
+  font-variant-numeric: tabular-nums;
   color: var(--ink-2);
 }
 
@@ -541,7 +546,7 @@
   background: none;
   display: grid;
   place-items: center;
-  color: var(--ink-3);
+  color: var(--ink);
   flex: none;
   touch-action: pan-y;
   -webkit-touch-callout: none;
@@ -562,8 +567,10 @@
 .hold-ring[data-size='40'] .hold-done {
   inset: 2px;
 }
+/* guide 6.13: the face Paper with a 1 px edge and a Night Ink check; done, a Sky face with the Night Ink check */
 .hold-face {
-  background: rgba(15, 42, 68, 0.04);
+  background: var(--surface);
+  box-shadow: inset 0 0 0 1px var(--line);
 }
 .hold-done {
   background: var(--accent);
@@ -580,20 +587,21 @@
   width: 44px;
   height: 44px;
 }
+/* a Haze track and a Deep Sky fill (4.43 on Haze; never Sky, 1.80) */
 .hold-track {
   fill: none;
-  stroke: var(--line-strong);
+  stroke: var(--haze);
   stroke-width: 3;
 }
 .hold-fill {
   fill: none;
-  stroke: var(--accent-bright);
+  stroke: var(--deep-sky);
   stroke-width: 3;
   stroke-linecap: round;
 }
 .hold-check {
   position: relative;
-  color: var(--ink-3);
+  color: var(--ink);
 }
 .hold-ring.ghost {
   display: block;
@@ -601,11 +609,12 @@
   height: 48px;
   margin: 4px;
   box-sizing: border-box;
-  border: 3px solid var(--line-strong);
+  border: 3px solid var(--haze);
 }
 .hold-ring:focus-visible {
-  outline: 2px solid var(--accent-text);
+  outline: 1.5px solid var(--focus-edge);
   outline-offset: -2px;
+  box-shadow: var(--focus-ring);
 }
 
 /* ---------- under the hero: the sentence, the nudge, This morning, the second session ---------- */
@@ -672,10 +681,10 @@
   min-width: 0;
   display: grid;
 }
+/* the session's name in a row: Inter 600 at the row size, as the plan has it (Inter Tight is for captions only) */
 .ss-stamp {
-  font: 800 var(--fs-row) / var(--lh-row) var(--stamp);
-  letter-spacing: -0.01em;
-  text-transform: uppercase;
+  font: 600 var(--fs-row) / var(--lh-row) var(--sans);
+  letter-spacing: 0;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -694,6 +703,7 @@
   display: block;
   min-width: 0;
   font: 400 var(--fs-sub) / var(--lh-sub) var(--sans);
+  font-variant-numeric: tabular-nums;
   color: var(--ink-3);
 }
 .ss-ring {
@@ -776,18 +786,17 @@
   border: var(--card-border);
   box-shadow: var(--shadow-1);
 }
-.plan-end.is-past {
-  border-color: rgba(47, 93, 133, 0.4);
-}
+
 .pe-text {
   flex: 1;
   min-width: 0;
   display: grid;
   gap: 2px;
 }
+/* guide 6.13: a Fraunces card title, one Inter 15 Dusk line, one secondary button */
 .pe-title {
   margin: 0;
-  font: 600 var(--fs-row) / var(--lh-row) var(--sans);
+  font: 600 var(--fs-head) / var(--lh-head) var(--display);
   color: var(--ink);
 }
 .pe-sub {
@@ -801,9 +810,10 @@
   min-height: 2rem;
   padding: 0 14px;
   border-radius: var(--r-pill);
-  background: var(--primary);
-  color: var(--primary-ink);
-  font: 600 0.8125rem/1rem var(--sans);
+  background: var(--surface);
+  box-shadow: inset 0 0 0 1px var(--edge);
+  color: var(--ink);
+  font: 600 var(--fs-foot) / 1rem var(--sans);
   position: relative;
 }
 .pe-next.pressable::after {
@@ -848,7 +858,8 @@
 .td-time {
   font-size: var(--fs-foot);
   line-height: var(--lh-foot);
-  color: var(--ink-3);
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-2);
 }
 .td-text {
   margin: 0;
@@ -882,17 +893,19 @@
   width: 32px;
   height: 32px;
   border-radius: var(--r-icon);
-  background: var(--columbia-wash);
-  color: var(--ink-2);
+  background: var(--haze);
+  color: var(--deep-sky);
 }
 .td-composer {
   position: relative;
   padding: 12px;
 }
+/* a field in a card (guide 6.14): Paper with the 1 px field edge, never a Cloud well */
 .td-composer .composer {
-  background: var(--surface-2);
+  background: var(--surface);
   border: 0;
   border-radius: var(--r-control);
+  box-shadow: inset 0 0 0 1px var(--field-edge);
 }
 
 /* ---------- the calendar sheet ---------- */
@@ -919,6 +932,7 @@
   color: var(--ink-3);
   padding: 4px 0;
 }
+/* a day cell (guide 6.13): 44 tall; the shown day a Sky disc with a Night Ink numeral, today a Night Ink ring (D14) */
 .cal-day {
   appearance: none;
   border: 0;
@@ -929,20 +943,35 @@
   place-items: center;
   align-content: center;
   gap: 3px;
-  border-radius: var(--r-md);
-  font-size: 0.9375rem;
+  border-radius: var(--r-control);
+  font-size: var(--fs-sub);
   font-variant-numeric: tabular-nums;
 }
+.cal-day > span {
+  display: grid;
+  place-items: center;
+  min-width: 2rem;
+  height: 2rem;
+  border-radius: var(--r-pill);
+}
 .cal-day.out {
-  color: var(--ink-4);
+  color: var(--ink-2);
 }
-.cal-day.is-today span {
-  color: var(--accent-text);
-  font-weight: 700;
+.cal-day.is-today > span {
+  font-weight: 650;
+  box-shadow: inset 0 0 0 1.5px var(--ink);
 }
-.cal-day.is-on {
-  background: var(--surface-3);
+.cal-day.is-on:not(.in-week) > span {
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-weight: 650;
+  box-shadow: none;
 }
+/* the week mode lights the whole week's row in Haze */
+.cal-day.in-week {
+  background: var(--haze);
+}
+/* the day's mark: done Deep Sky; floor (done at its minimum) a Deep Sky ring; missed a Pencil ring; planned faint */
 .cal-dot {
   width: 5px;
   height: 5px;
@@ -951,18 +980,21 @@
 }
 .cal-dot.k-done,
 .cal-dot.k-bonus {
-  background: var(--ok);
+  background: var(--deep-sky);
 }
 .cal-dot.k-floor {
-  background: var(--warn);
+  box-shadow: inset 0 0 0 1.5px var(--deep-sky);
 }
 .cal-dot.k-missed {
-  background: var(--ink-4);
+  box-shadow: inset 0 0 0 1.25px var(--pencil);
+}
+/* on the week's Haze row Pencil is 2.87: the missed ring steps to Dusk (guide 3.3) */
+.cal-day.in-week .cal-dot.k-missed {
+  box-shadow: inset 0 0 0 1.25px var(--ink-2);
 }
 .cal-dot.k-today,
 .cal-dot.k-planned {
-  background: var(--surface-3);
-  box-shadow: inset 0 0 0 1px var(--ink-3);
+  background: var(--dot-ahead);
 }
 
 /* ---------- close the day (§5): one card, fixed slots; content crossfades 150 ms inside them ---------- */
@@ -977,9 +1009,9 @@
 }
 .cd-eyebrow {
   height: 0.8125rem;
-  font: 600 var(--fs-caps) / var(--lh-caps) var(--sans);
-  letter-spacing: 0.06em;
-  color: var(--ink-3);
+  font: 600 var(--fs-caps) / var(--lh-caps) var(--stamp);
+  letter-spacing: var(--tr-caps);
+  color: var(--ink-2);
 }
 .cd-title-slot {
   position: relative;
@@ -1012,25 +1044,30 @@
 .cd-stamp + .cd-stamp {
   box-shadow: inset 1px 0 0 var(--line);
 }
+/* the labels in caption style, the numbers live (guide 6.13): Inter 650 tnum at the tile number's size, so the row keeps its
+   48 px (the guide's 44 px stat would make three numbers shout in one row) */
 .cd-stamp-k {
-  font: 500 var(--fs-foot) / var(--lh-foot) var(--sans);
-  color: var(--ink-3);
+  font: 600 var(--fs-caps) / var(--lh-foot) var(--stamp);
+  letter-spacing: var(--tr-caps);
+  text-transform: uppercase;
+  color: var(--ink-2);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 .cd-num {
-  /* a display numeral: three share a row, so it follows the text size to a limit */
-  font: 700 clamp(26px, 1.625rem, 34px) / clamp(30px, 1.875rem, 40px) var(--stamp);
-  letter-spacing: -0.02em;
+  /* a live numeral: three share a row, so it follows the text size to a limit */
+  font: 650 clamp(26px, 1.625rem, 34px) / clamp(30px, 1.875rem, 40px) var(--sans);
+  letter-spacing: var(--tr-hero);
+  font-variant-numeric: tabular-nums;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 .cd-num small {
-  font: 500 0.8125rem/1rem var(--sans);
+  font: 500 var(--fs-foot) / 1rem var(--sans);
   letter-spacing: 0;
-  color: var(--ink-3);
+  color: var(--ink-2);
 }
 /* nothing to stamp: one plain sentence in the stamps' place */
 .cd-line {
@@ -1066,15 +1103,15 @@
   min-width: 0;
 }
 .cd-run-stamp {
-  font: 800 var(--fs-row) / var(--lh-row) var(--stamp);
-  letter-spacing: -0.01em;
-  text-transform: uppercase;
+  font: 600 var(--fs-row) / var(--lh-row) var(--sans);
+  letter-spacing: 0;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 .cd-run-sub {
   font: 400 var(--fs-sub) / var(--lh-sub) var(--sans);
+  font-variant-numeric: tabular-nums;
   color: var(--ink-3);
 }
 /* the quote line's slot while its module loads (44, the line's own height) */
@@ -1112,9 +1149,17 @@
   min-width: 0;
 }
 .cd-composer .composer {
-  background: var(--surface-2);
+  background: var(--surface);
   border: 0;
   border-radius: var(--r-control);
+  box-shadow: inset 0 0 0 1px var(--field-edge);
+}
+/* Save at rest is the disabled primary (guide 6.2: Haze with Dusk words), not Sky at 40 percent. A local override until the
+   journal composer (stream 4) carries it itself */
+.cd-composer .save-pill.pressable:not(.is-ready) {
+  opacity: 1;
+  background: var(--haze);
+  color: var(--ink-2);
 }
 .cd-composer textarea.jtext {
   min-height: 3.75rem;
@@ -1137,7 +1182,8 @@
 }
 .cd-entry-time {
   font: 400 var(--fs-foot) / var(--lh-foot) var(--sans);
-  color: var(--ink-3);
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-2);
 }
 .cd-entry-text {
   margin: 0;
@@ -1201,21 +1247,22 @@
 }
 .cd-trow-chev {
   flex: none;
-  color: var(--ink-4);
+  color: var(--ink-2);
 }
+/* the word, as typed (Inter 600: never a caption face or Fraunces in a field), in a Paper field with its edge */
 .cd-word-in {
-  /* 12 capitals (RELENTLESSLY: 112 px) and its padding; the label beside it keeps its 160 px at 390 */
+  /* 12 letters (relentlessly) and its padding; the label beside it keeps its 160 px at 390 */
   flex: 0 1 7.75em;
   min-width: 6em;
   width: 7.75em;
   height: 2rem;
   border: 0;
-  border-radius: 8px;
+  border-radius: var(--r-control);
   padding: 0 6px;
-  background: var(--surface-2);
+  background: var(--surface);
+  box-shadow: inset 0 0 0 1px var(--field-edge);
   color: var(--ink);
-  font: 800 1rem/1.25rem var(--stamp);
-  text-transform: uppercase;
+  font: 600 var(--fs-body) / 1.25rem var(--sans);
   text-align: right;
   outline: none;
   user-select: text;
@@ -1236,10 +1283,9 @@
   gap: 6px;
 }
 .focus-word-in {
-  font-family: var(--stamp);
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 0.02em;
+  font-family: var(--sans);
+  font-weight: 600;
+  letter-spacing: 0;
 }
 .focus-quote-in {
   font: 400 var(--fs-row) / var(--lh-row) var(--sans);
@@ -1273,9 +1319,9 @@
   overflow: hidden;
 }
 .frh-eyebrow {
-  font: 600 var(--fs-caps) / var(--lh-caps) var(--sans);
-  letter-spacing: 0.06em;
-  color: var(--ink-3);
+  font: 600 var(--fs-caps) / var(--lh-caps) var(--stamp);
+  letter-spacing: var(--tr-caps);
+  color: var(--ink-2);
 }
 .frh-rows {
   display: grid;
@@ -1308,15 +1354,15 @@
   border-radius: var(--r-icon);
   display: grid;
   place-items: center;
-  background: var(--columbia-wash);
-  color: var(--ink-2);
+  background: var(--haze);
+  color: var(--deep-sky);
 }
 .frh-title {
   font: 500 var(--fs-row) / var(--lh-row) var(--sans);
   color: var(--ink);
 }
 .frh-chev {
-  color: var(--ink-4);
+  color: var(--ink-2);
 }
 
 /* ---------- the trailing slot (§2.4): avatar ⇄ Today pill, a 120 ms opacity crossfade on the commit frame ---------- */
@@ -1369,18 +1415,14 @@
 .day-habits {
   margin: var(--section) 0 0;
 }
-/* the orbs in one white card (shape system §3): the row scrolls inside it, to its edges */
+/* the tiles sit straight on the ground (guide 6.6, plan D9): the wrapper keeps its place in the page and loses its surface,
+   since a card holding cards is not allowed. The grid gains the card's 12 px each side */
 .day-habits-card {
-  overflow: hidden;
-  padding: 12px;
-  border-radius: var(--r-card);
-  background: var(--surface);
-  border: var(--card-border);
-  box-shadow: var(--shadow-1);
+  padding: 0;
 }
 .day-habits.is-skel {
   height: 128px;
-  border-radius: var(--r-group);
+  border-radius: var(--r-tile);
   background: var(--surface);
   opacity: 0.5;
 }
@@ -1396,37 +1438,32 @@
 .st-row .st-chip:only-child {
   flex: 1 1 0;
 }
+/* the status chip (plan 5.3, D27): the state is in its icon disc and its words. On the plan, the Deep Sky glyph; paused (ill,
+   hurt, resting, away), a Dusk glyph beside the word that says so (Pencil is 2.87 on the Haze disc, under the 3:1 a
+   meaningful mark needs: guide 3.3) */
 .st-chip-sick .ctx-ic,
-.st-chip-injured .ctx-ic {
-  background: var(--accent-soft);
-  color: var(--accent-text);
+.st-chip-injured .ctx-ic,
+.st-chip-rest .ctx-ic,
+.st-chip-travel .ctx-ic {
+  color: var(--ink-2);
 }
-.st-chip-sick .ctx-sub,
-.st-chip-injured .ctx-sub {
-  color: var(--accent-text);
-}
-.st-chip-training .ctx-ic {
-  background: var(--columbia);
-  color: var(--ink);
-}
+/* the status sheet's marks: on the plan Deep Sky, tapering a Deep Sky ring, paused Pencil (each beside its words) */
 .st-dot {
   flex: none;
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: var(--ink-2);
+  background: var(--deep-sky);
 }
 .st-dot.st-taper {
-  background: var(--columbia);
-  box-shadow: inset 0 0 0 1.5px var(--ink-2);
+  background: transparent;
+  box-shadow: inset 0 0 0 1.5px var(--deep-sky);
 }
 .st-dot.st-rest,
-.st-dot.st-travel {
-  background: var(--ink-4);
-}
+.st-dot.st-travel,
 .st-dot.st-sick,
 .st-dot.st-injured {
-  background: var(--accent);
+  background: var(--pencil);
 }
 .st-sheet {
   display: grid;
@@ -1455,7 +1492,7 @@
   border-top: 1px solid var(--line);
 }
 .st-kind.is-on {
-  background: var(--columbia-wash);
+  background: var(--cloud);
 }
 .st-kind-main {
   display: grid;
@@ -1486,11 +1523,12 @@
   position: relative;
   min-height: 2.25rem;
   padding: 0 14px;
+  /* a filter chip (guide 6.3): off Paper with the faint edge and Dusk words, on Sky with Night Ink 650 */
   border-radius: var(--r-pill);
   border: 1px solid var(--line-strong);
   background: var(--surface);
-  color: var(--ink);
-  font: 500 var(--fs-sub) / 1 var(--sans);
+  color: var(--ink-2);
+  font: 550 var(--fs-sub) / 1 var(--sans);
 }
 .st-len::after {
   /* 36 to look at, 44 to touch: the rows sit 8 apart, so the hit areas meet and never overlap */
@@ -1499,9 +1537,10 @@
   inset: -4px 0;
 }
 .st-len.is-on {
-  background: var(--primary);
-  border-color: var(--primary);
-  color: var(--primary-ink);
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-ink);
+  font-weight: 650;
 }
 .st-foot {
   margin: 0;
@@ -1556,15 +1595,16 @@
   height: 24px;
   left: calc(16px + 15px);
   width: 2px;
-  border-radius: 1px;
-  background: var(--columbia);
+  border-radius: var(--r-pill);
+  background: var(--haze);
 }
 .tl-time {
   align-self: start;
   padding-top: 2px;
   font-size: var(--fs-foot);
   line-height: var(--lh-foot);
-  color: var(--ink-3);
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-2);
   text-align: right;
   white-space: nowrap;
 }
@@ -1575,19 +1615,19 @@
   place-items: center;
   width: 32px;
   height: 32px;
+  /* an icon tile (guide 6.4, 6.13): Haze, the glyph in Deep Sky or in the session's data tone */
   border-radius: var(--r-icon);
-  background: var(--columbia-wash);
-  color: var(--ink-2);
+  background: var(--haze);
+  color: var(--deep-sky);
 }
-.tl-habit .tl-tile {
-  background: var(--accent-soft);
-  color: var(--accent-text);
+.tl-run .tl-tile {
+  color: var(--t-easy);
 }
-.tl-run .tl-tile,
-.tl-lift .tl-tile,
+.tl-lift .tl-tile {
+  color: var(--t-lift);
+}
 .tl-activity .tl-tile {
-  background: var(--ink);
-  color: #fff;
+  color: var(--t-cross);
 }
 .tl-main {
   display: grid;
@@ -1595,7 +1635,7 @@
   min-width: 0;
 }
 .tl-title {
-  font: 500 var(--fs-row) / var(--lh-row) var(--sans);
+  font: 600 var(--fs-row) / var(--lh-row) var(--sans);
   color: var(--ink);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1609,7 +1649,7 @@
 .tl-sub {
   font-size: var(--fs-foot);
   line-height: var(--lh-foot);
-  color: var(--ink-3);
+  color: var(--ink-2);
 }
 
 /* ---------- today's session on hold (Plan's Held.tsx): one white row over the hero ---------- */
@@ -1624,19 +1664,22 @@
   background: var(--surface);
   border: var(--card-border);
   box-shadow: var(--shadow-1);
+  /* held (guide 6.13): a 1.5 px Deep Sky dashed edge, drawn inside the row so it moves nothing */
+  outline: 1.5px dashed var(--deep-sky);
+  outline-offset: -1.5px;
   color: var(--ink);
   text-align: left;
 }
-/* the dot in a tinted tile: orange while ill or hurt, grey while resting */
+/* the dot in a Haze tile: Deep Sky while ill or hurt, Dusk while resting */
 .held-dot {
   flex: none;
   width: 32px;
   height: 32px;
   border-radius: var(--r-icon);
-  background: radial-gradient(circle, var(--accent) 0 4px, var(--accent-soft) 4.5px);
+  background: radial-gradient(circle, var(--deep-sky) 0 4px, var(--haze) 4.5px);
 }
 .held-rest .held-dot {
-  background: radial-gradient(circle, var(--ink-4) 0 4px, var(--columbia-wash) 4.5px);
+  background: radial-gradient(circle, var(--ink-2) 0 4px, var(--haze) 4.5px);
 }
 .held-note-text {
   flex: 1;
@@ -1663,56 +1706,36 @@
   margin-top: var(--section);
 }
 
-/* ---------- the hero as the page's centrepiece (HeroGauge): a warm wash, the day's words centred in the week's dial ---------- */
-:root .hero.aura:not(.is-tall) {
+/* ---------- the hero as the page's centerpiece (HeroGauge, guide 6.4 and 6.5): Paper, the one sunrise glow under it, the
+   day's words centered in the week's dial ---------- */
+.hero.aura:not(.is-tall) {
   /* as tall as the face in it (today-top-01): the eyebrow, the dial, the When switch and the deck, each only when it is
-     there. A fixed height per face cut the deck off whenever the content and the selector disagreed */
+     there. A fixed height per face cut the deck off whenever the content and the selector disagreed. The card's ground,
+     shadow and glow are the hero card's own (ui.css .aura): no wash of its own */
   height: auto;
-  background:
-    radial-gradient(90% 60% at 12% 0%, rgba(255, 190, 170, 0.55), rgba(255, 190, 170, 0) 70%),
-    radial-gradient(90% 60% at 92% 4%, rgba(255, 226, 140, 0.6), rgba(255, 226, 140, 0) 70%),
-    linear-gradient(180deg, #fff9f2 0%, #ffffff 62%);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.9),
-    0 0 0 1px rgba(15, 42, 68, 0.04),
-    0 2px 6px rgba(15, 42, 68, 0.05),
-    0 22px 44px -18px rgba(170, 110, 40, 0.28);
-}
-:root .hero.aura:not(.is-tall) .aura-glow {
-  display: none;
 }
 /* while the page loads (and a neighbour's shell): the card's usual box */
 :root .hero.aura.hero-skel {
   height: 330px;
 }
 .hero.aura:not(.is-tall) > .hero-face {
-  padding: 18px 18px 16px;
+  padding: var(--pad-hero) var(--pad-hero) var(--sp-4);
   align-items: stretch;
 }
 .hero.aura:not(.is-tall) .hero-eyebrow-row {
   justify-content: center;
   flex-wrap: wrap;
   row-gap: 0;
-  min-height: var(--lh-orb);
 }
-/* centred over the dial, it may take a second line at large text rather than run off the card */
+/* centered over the dial, it may take a second line at large text rather than run off the card */
 .hero.aura:not(.is-tall) .hero-eyebrow {
   flex: 0 1 auto;
   white-space: normal;
   text-align: center;
 }
-.hero.aura:not(.is-tall) .hero-eyebrow {
-  font-size: var(--fs-orb);
-  line-height: 1rem;
-  letter-spacing: 0.08em;
-  color: var(--ink-2);
-}
-.hero.aura:not(.is-tall) .hero-aside {
-  color: var(--ink-3);
-}
 .hero.aura:not(.is-tall) .hero-aside::before {
   content: '·';
-  margin-right: 8px;
+  margin-right: var(--sp-2);
 }
 
 /* the dial: 196 tall, and the words inside it in flow, so words that outgrow the bowl (large text) push the card taller
@@ -1732,46 +1755,95 @@
   transform: translateX(-50%);
   overflow: visible;
 }
+/* the end labels' box is the drawing's own (3 : 2, centered in the dial's box as the SVG draws it on a narrow phone) */
+.hg-ends {
+  position: absolute;
+  left: 50%;
+  top: 98px;
+  width: min(100%, 294px);
+  aspect-ratio: 3 / 2;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+/* the track: Haze, 16, round caps; no gradient, no shadow */
 .hg-track {
   fill: none;
+  stroke: var(--haze);
   stroke-width: 16;
   stroke-linecap: round;
-  filter: drop-shadow(0 1px 0 #fff);
 }
+/* ticks by the mile on the track's outer edge: minor 1 × 5 (decorative), major 1.5 × 10 */
 .hg-tick {
-  stroke: rgba(15, 42, 68, 0.16);
+  stroke: var(--tick);
   stroke-width: 1;
 }
 .hg-tick.is-major {
-  stroke: rgba(15, 42, 68, 0.28);
-  stroke-width: 1.3;
+  stroke: var(--tick-major);
+  stroke-width: 1.5;
 }
+/* the fill: Deep Sky, 9, from the 9 px start cap to the pointer (4.43 on Haze; Sky would be 1.80) */
 .hg-fill {
   fill: none;
+  stroke: var(--deep-sky);
   stroke-width: 9;
   stroke-linecap: round;
 }
 .hg-start {
-  fill: #fff;
-  stroke: #f6c879;
-  stroke-width: 2.5;
+  fill: var(--deep-sky);
 }
+/* the pointer, the now-mark: a 12 px Sunrise dot on a 3.5 px Paper keyline (the stroke is painted under the fill, so the
+   whole 3.5 shows outside the dot). It yields to Night Ink when the screen is over its budget */
 .hg-dot {
-  fill: #fff;
-  stroke: var(--accent);
-  stroke-width: 3.5;
-  filter: drop-shadow(0 2px 4px rgba(242, 101, 34, 0.45));
-  transform-box: fill-box;
-  transform-origin: center;
+  fill: var(--now);
+  stroke: var(--now-keyline);
+  stroke-width: 7;
+  paint-order: stroke;
 }
+.hg-dot[data-now='ink'] {
+  fill: var(--ink);
+}
+/* the ends: "0" and the plan, caption style, horizontal, on each end of the arc. Each hangs outboard from its end's center
+   (as the mockup draws them), so neither reaches over the bowl, where the session name sits on a small phone */
 .hg-end {
-  font: 600 clamp(11px, var(--fs-caps), 14px) var(--sans);
-  fill: var(--ink-4);
+  position: absolute;
+  top: 6.5%;
+  transform: translate(calc(-100% + 3px), -100%); /* brand-ok: geometry, the label's inner edge 3 px past the end's center */
+  /* a scale label: it follows the text size to 130% and holds, so it never reaches the eyebrow over the dial */
+  font: 600 clamp(11px, var(--fs-caps), 14px) / clamp(14px, var(--lh-caps), 18px) var(--stamp);
+  letter-spacing: var(--tr-caps);
+  text-transform: uppercase;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-2);
+  white-space: nowrap;
+}
+.hg-end + .hg-end {
+  transform: translate(-3px, -100%); /* brand-ok: geometry, as above */
+  /* a long plan at large text on a small phone slides back in, so it stays 4 px inside the card: the room right of the end
+     is 13% of the dial plus the card's padding */
+  transform: translate(min(-3px, calc(0.13 * min(100cqi - 2 * var(--pad-hero), 294px) + var(--pad-hero) - 4px - 100%)), -100%); /* brand-ok: geometry, as above */
+}
+/* first view of the day: the ticks draw in, 6 ms apart, the last no later than 240 ms (guide 6.5); never under Reduce Motion */
+.hg.is-first .hg-tick {
+  animation: hg-tick-in var(--dur-in) linear both;
+  animation-delay: min(calc(var(--i) * var(--tick-stagger)), 240ms);
+}
+@keyframes hg-tick-in {
+  from {
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hg.is-first .hg-tick {
+    animation: none;
+  }
 }
 .hg-in {
+  /* the bowl's chord where the words sit: the track's inner edge at the dial's center height (220 of its 300 units, on the
+     dial's 294 px or the card's width) less 8 px on each side (guide 6.5): 200 at full size, 166 on a 320 phone */
+  --chord: min(200px, calc(0.7333 * (100cqi - 2 * var(--pad-hero)) - 16px));
   position: relative;
-  margin: 0 34px;
-  padding-top: 26px;
+  margin: 0 var(--sp-8);
+  padding-top: var(--sp-5);
   display: grid;
   justify-items: center;
   text-align: center;
@@ -1781,150 +1853,27 @@
 }
 .hg.is-empty .hg-in {
   margin: 0;
-  padding: 28px 0 8px;
+  padding: var(--sp-6) 0 var(--sp-2);
 }
+/* the session name: Fraunces 650 40/42, title case (guide 6.5), capped at 44 so large text cannot push it past the bowl.
+   One line at that size; a name that does not fit steps to 30/34 (.is-long), and past that takes two balanced lines
+   (.is-wrap), measured in Hero.tsx (plan 2.3, D6) */
 .hg .hero-stamp {
   height: auto;
-  max-width: 100%;
-  margin: 0;
-  font: 800 clamp(44px, 2.75rem, 60px) / clamp(50px, 3.125rem, 68px) var(--stamp);
-  letter-spacing: -0.035em;
-  background: linear-gradient(180deg, #3b2b1d 0%, #0f2a44 100%);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
-}
-.hero.is-quiet .hg .hero-stamp {
-  background: none;
-  color: var(--ink-2);
-}
-.hg .hero-line {
-  height: auto;
-  max-width: 100%;
-  margin: 2px 0 0;
-  /* a line too long for the bowl (large text) takes a second line; it is never cut */
-  white-space: normal;
-  overflow: visible;
-  text-wrap: balance;
-  font: 500 var(--fs-sub) / var(--lh-sub) var(--sans);
-  font-variant-numeric: tabular-nums;
-  color: var(--ink-2);
-}
-.hero.is-quiet .hg .hero-line {
-  color: var(--ink-3);
-}
-/* a rest day says rest once (the stamp, no line); a day outside any plan has only its line, "Nothing planned" */
-.hg .hero-stamp:empty,
-.hg .hero-line:empty {
-  display: none;
-}
-.hero-week {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  max-width: 100%;
-  margin-top: 12px;
-  padding: 6px 10px 6px 12px;
-  border: 0;
-  border-radius: var(--r-pill);
-  background: rgba(255, 255, 255, 0.9);
-  box-shadow:
-    0 0 0 1px rgba(15, 42, 68, 0.06),
-    0 4px 12px -6px rgba(15, 42, 68, 0.25);
-  font: 500 var(--fs-foot) / var(--lh-foot) var(--sans);
-  color: var(--ink-2);
-  white-space: nowrap;
-}
-/* the card narrow for its text (a small phone, or large text): the runs go, as at 320, and past that the pill may take
-   two lines rather than run out of the dial */
-@container card (max-width: 17rem) {
-  .hero-week-runs {
-    display: none;
-  }
-}
-@container card (max-width: 13rem) {
-  .hero-week {
-    white-space: normal;
-    text-align: center;
-    border-radius: 18px;
-  }
-}
-.hero-week-runs {
-  color: var(--ink-3);
-}
-.hero-week-runs::before {
-  content: '·';
-  margin-right: 6px;
-}
-.hero-week svg {
-  flex: none;
-  color: var(--ink-4);
-}
-
-/* the deck becomes a soft card under the dial, like a status card: 26 under the dial, 12 under the When switch (the
-   spacing the fixed 330 and 372 cards had), at least 56 so the ring at the card's bottom right (56) always has its row, and
-   gone when it has nothing to say */
-.hero.aura:not(.is-tall) .hero-deck {
-  height: auto;
-  min-height: 56px;
-  margin-top: 26px;
-  padding: 0;
-}
-.hero.aura:not(.is-tall) .hero-when + .hero-deck {
-  margin-top: 12px;
-}
-.hero.aura:not(.is-tall) .hero-deck:empty {
-  display: none;
-}
-.hero.aura:not(.is-tall) .hero-deck:not(:empty)::before {
-  display: none;
-}
-.hero.aura:not(.is-tall) .hero-next {
-  min-height: 52px;
-  /* a card of its own here: centred in the deck, not pulled 8 left as the plain row is (today-top-14) */
-  margin: 0;
-  padding: 0 14px;
-  border-radius: 16px;
-  background: rgba(255, 255, 255, 0.82);
-  box-shadow:
-    0 0 0 1px rgba(15, 42, 68, 0.05),
-    0 8px 20px -12px rgba(170, 110, 40, 0.4);
-}
-@media (max-width: 359px) {
-  .hg-in {
-    margin-inline: 22px;
-  }
-  .hg .hero-stamp {
-    font-size: clamp(36px, 2.25rem, 48px);
-    line-height: clamp(42px, 2.625rem, 56px);
-  }
-  .hero-week-runs {
-    display: none;
-  }
-}
-.hg .hero-stamp.is-mid {
-  font-size: clamp(36px, 2.25rem, 48px);
-}
-.hg .hero-stamp.is-long {
-  font-size: clamp(28px, 1.75rem, 37px);
-}
-/*
- * The day's words stay inside the dial's chord at their row (today-top-11): about 200 px where the dial is full size, 172
- * on a narrow phone. A long name takes two lines at a smaller size (never cut mid-word); past two it ellipsizes.
- */
-.hg .hero-line {
-  max-width: min(100%, 200px);
-}
-/* the stamp's rows sit between the dial's two ends (its caps and the week's dot): narrower than the line's row. With larger
-   text the row widens with the stamp (5.6em holds a nine-letter word), so a word is never cut: "STRENG…" said nothing */
-.hg .hero-stamp {
-  max-width: min(100%, max(184px, 5.6em));
-  margin-inline: auto;
+  max-width: min(100%, var(--chord));
+  margin: 0 auto;
+  font: 650 clamp(30px, var(--fs-stamp), 44px) / clamp(32px, var(--lh-stamp), 46px) var(--display);
+  letter-spacing: var(--tr-title);
+  text-transform: none;
   text-align: center;
 }
-.hg .hero-stamp.is-long,
-.hg .hero-stamp.is-xlong {
-  max-width: min(100%, max(176px, 5.6em));
+.hg .hero-stamp.is-long {
+  /* the long size holds at 30 with larger text: a name that needed it has no room to grow in the bowl */
+  font-size: clamp(26px, 1.875rem, 30px);
+  line-height: clamp(30px, 2.125rem, 34px);
+}
+.hg .hero-stamp.is-wrap {
+  line-height: clamp(32px, 2rem, 32px);
   white-space: normal;
   text-wrap: balance;
   display: -webkit-box;
@@ -1932,43 +1881,131 @@
   -webkit-line-clamp: 2;
   line-clamp: 2;
 }
-.hg .hero-stamp.is-long {
-  line-height: clamp(32px, 2rem, 42px);
+.hero.is-quiet .hg .hero-stamp {
+  color: var(--ink-2);
 }
-.hg .hero-stamp.is-xlong {
-  font-size: clamp(22px, 1.375rem, 28px);
-  line-height: clamp(26px, 1.625rem, 34px);
+/* the detail: Inter 15 500 Dusk ("Floor 20 min"); a line too long for the bowl (large text) takes a second line, never cut.
+   It follows the text size to the readout's 22 px and holds, so at 200 percent it never outgrows the session name (30) */
+.hg .hero-line {
+  height: auto;
+  font-size: clamp(15px, var(--fs-sub), 22px);
+  line-height: clamp(20px, var(--lh-sub), 28px);
+  max-width: min(100%, var(--chord));
+  margin: 0;
+  white-space: normal;
+  overflow: visible;
+  text-wrap: balance;
+  font: 500 var(--fs-sub) / var(--lh-sub) var(--sans);
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-2);
+}
+/* a rest day says rest once (the stamp, no line); a day outside any plan has only its line, "Nothing planned" */
+.hg .hero-stamp:empty,
+.hg .hero-line:empty {
+  display: none;
+}
+/* the readout (required, guide 6.5): a Paper pill, Inter 17 Night Ink, tnum, a Deep Sky chevron. It opens the week, and
+   it sits inside the bowl clear of the track's inner edge (8 px at least, measured at 320, 390 and 440) */
+.hero-week {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  max-width: 100%;
+  margin-top: var(--sp-2);
+  padding: var(--sp-1) var(--sp-2) var(--sp-1) var(--sp-3);
+  border: 0;
+  border-radius: var(--r-pill);
+  background: var(--surface);
+  box-shadow: var(--shadow-pill);
+  min-height: 0;
+  /* it follows the text size to 130% and holds there, so it stays a pill inside the bowl at large text */
+  font: 500 clamp(17px, var(--fs-row), 22px) / clamp(22px, var(--lh-row), 28px) var(--sans);
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+  white-space: nowrap;
+}
+/* the card narrow for its text (large text): the pill may take two lines rather than run out of the dial */
+@container card (max-width: 13rem) {
+  .hero-week {
+    white-space: normal;
+    text-align: center;
+    border-radius: var(--r-tile);
+  }
+}
+.hero-week svg {
+  flex: none;
+  color: var(--deep-sky);
+}
+/* 30 drawn, 44 to touch */
+.hero-week::after {
+  content: '';
+  position: absolute;
+  inset: -7px 0; /* brand-ok: geometry, 7 + 30 + 7 = the 44 px hit (guide 5.1) */
+}
+
+/* the deck under the dial: 24 under the dial, 12 under the When switch, at least 56 so the ring at the card's bottom
+   right (56) always has its row, and gone when it has nothing to say */
+.hero.aura:not(.is-tall) .hero-deck {
+  height: auto;
+  min-height: 56px;
+  margin-top: var(--sp-6);
+  padding: 0;
+}
+.hero.aura:not(.is-tall) .hero-when + .hero-deck {
+  margin-top: var(--sp-3);
+}
+.hero.aura:not(.is-tall) .hero-deck:empty {
+  display: none;
+}
+.hero.aura:not(.is-tall) .hero-deck:not(:empty)::before {
+  display: none;
+}
+/* the rest face's next session: a row on Cloud inside the hero (a tile in a card, not a card in a card) */
+.hero.aura:not(.is-tall) .hero-next {
+  min-height: 52px;
+  /* centered in the deck, not pulled 8 left as the plain row is (today-top-14) */
+  margin: 0;
+  padding: 0 var(--sp-4);
+  border-radius: var(--r-tile);
+  background: var(--cloud);
+}
+/* two lines of name: the words start higher in the bowl, so the readout stays clear of the track */
+.hg-in:has(.is-wrap) {
+  padding-top: var(--sp-2);
+}
+@media (max-width: 359px) {
+  .hg-in {
+    margin-inline: var(--sp-6);
+    /* the bowl is 246 wide here: the words start 4 higher so the readout keeps its 8 px from the track */
+    padding-top: var(--sp-4);
+  }
+  /* and the name takes the guide's long size (30/34) from the start: at 40 it pushed the readout onto the track */
+  .hg .hero-stamp {
+    font-size: clamp(26px, 1.875rem, 30px);
+    line-height: clamp(30px, 2.125rem, 34px);
+  }
+  .hg-in:has(.is-wrap) {
+    padding-top: var(--sp-2);
+  }
+}
+/* at large text the words keep their room under the end labels, wrapped or not (the card grows instead) */
+:root[data-text-xl] .hg-in {
+  padding-top: var(--sp-5);
 }
 .hl-narrow {
   display: none;
 }
 @media (max-width: 359px) {
-  .hg .hero-line {
-    max-width: min(100%, 172px);
-  }
-  .hg .hero-stamp,
-  .hg .hero-stamp.is-long,
-  .hg .hero-stamp.is-xlong {
-    max-width: min(100%, max(156px, 5.6em));
-  }
   .hl-wide {
     display: none;
   }
   .hl-narrow {
     display: inline;
   }
-  .hg .hero-stamp.is-xlong {
-    font-size: clamp(20px, 1.25rem, 26px);
-  }
-  .hg .hero-stamp.is-mid {
-    font-size: clamp(30px, 1.875rem, 40px);
-  }
-  .hg .hero-stamp.is-long {
-    font-size: clamp(24px, 1.5rem, 30px);
-  }
 }
 
 /* ---------- when you train (WhenPill): Morning · Afternoon · No time under the dial ---------- */
+/* the segmented control (guide 6.3): a Cloud track, the Sky pill thumb with no shadow, Night Ink 650 on and Dusk 550 off */
 .hero-when {
   position: relative;
   z-index: 2;
@@ -1979,10 +2016,7 @@
   margin-top: 6px;
   padding: 3px;
   border-radius: var(--r-pill);
-  background: rgba(255, 255, 255, 0.7);
-  box-shadow:
-    inset 0 0 0 1px rgba(15, 42, 68, 0.06),
-    0 4px 12px -8px rgba(15, 42, 68, 0.3);
+  background: var(--cloud);
 }
 .hero-when-opt {
   display: inline-flex;
@@ -1994,18 +2028,17 @@
   border-radius: var(--r-pill);
   background: transparent;
   /* a segmented control is chrome: it follows the text size to 130% and holds there, so three options stay on one line */
-  font: 600 clamp(12px, 0.75rem, 15.6px) / 1 var(--sans);
-  color: var(--ink-3);
+  font: 550 clamp(12px, 0.75rem, 15.6px) / 1 var(--sans);
+  color: var(--ink-2);
   white-space: nowrap;
   transition:
-    background 180ms var(--ease-out),
-    color 180ms var(--ease-out),
-    box-shadow 180ms var(--ease-out);
+    background-color var(--dur-color) var(--ease-out),
+    color var(--dur-color) var(--ease-out);
 }
 .hero-when-opt.on {
-  background: var(--navy-pill, var(--ink));
-  color: #fff;
-  box-shadow: 0 4px 10px -4px rgba(15, 42, 68, 0.5);
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-weight: 650;
 }
 @media (max-width: 359px) {
   .hero-when-opt {
@@ -2030,8 +2063,8 @@
   gap: 6px;
   margin: 0;
   padding: 14px;
-  border-radius: 18px;
-  background: linear-gradient(180deg, #fff9f2 0%, #ffffff 100%);
+  border-radius: var(--r-tile);
+  background: var(--surface);
   box-shadow: var(--shadow-1);
   text-align: center;
 }
@@ -2040,13 +2073,13 @@
   gap: 2px;
 }
 .pm-line small {
-  font: 600 0.6875rem/0.875rem var(--sans);
-  letter-spacing: 0.04em;
+  font: 600 var(--fs-caps) / var(--lh-caps) var(--stamp);
+  letter-spacing: var(--tr-caps);
   text-transform: uppercase;
-  color: var(--ink-3);
+  color: var(--ink-2);
 }
 .pm-line b {
-  font: 700 var(--fs-row) / var(--lh-row) var(--stamp);
+  font: 650 var(--fs-row) / var(--lh-row) var(--sans);
   color: var(--ink);
   font-variant-numeric: tabular-nums;
 }
@@ -2062,13 +2095,13 @@
 .pm-default {
   flex-wrap: wrap;
 }
+/* the segmented control (guide 6.3): a Cloud track, the Sky thumb, Night Ink 650 on and Dusk 550 off */
 .pm-seg {
   display: flex;
   gap: 2px;
   padding: 3px;
   border-radius: var(--r-pill);
-  background: var(--well);
-  box-shadow: var(--well-shadow);
+  background: var(--cloud);
 }
 .pm-seg button {
   /* 44 to touch (today-top-22) */
@@ -2077,13 +2110,13 @@
   border: 0;
   border-radius: var(--r-pill);
   background: transparent;
-  font: 600 0.75rem/1 var(--sans);
-  color: var(--ink-3);
+  font: 550 clamp(12px, 0.75rem, 15.6px) / 1 var(--sans);
+  color: var(--ink-2);
 }
 .pm-seg button.on {
-  background: var(--surface);
-  color: var(--ink);
-  box-shadow: 0 2px 6px -2px rgba(15, 42, 68, 0.25);
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-weight: 650;
 }
 .pm-row > span {
   min-width: 0;

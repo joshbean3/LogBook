@@ -1,7 +1,7 @@
 /*
- * Plan your day (Today). After the planner and How We Feel: the goal as a card with a sun in its corner, then the day in
- * sections (Anytime, Morning, Afternoon, Evening) under pills in their colours, each to-do a card with its icon in a circle
- * and a round check on the right.
+ * Plan your day (Today, guide 6.13): one Paper card, the goal on its node, then the top three on a rail, the rest folded.
+ * The hero owns the screen's one warm light, so the goal has no sun of its own (plan 5.3); its state is its node and its
+ * words. A review owed sits over it as a row.
  */
 
 .pd {
@@ -14,7 +14,7 @@
   background: var(--surface);
   box-shadow: var(--shadow-1);
 }
-/* the section head: "Plan your day" and how many are done, grey at its baseline (the orange words when all are) */
+/* the section head: "Plan your day" and how many are done, Dusk at its baseline (Deep Sky words when all are) */
 .pd-count.is-all {
   color: var(--accent-text);
   font-weight: 600;
@@ -39,27 +39,7 @@
   border: var(--card-border);
   box-shadow: var(--shadow-1);
   text-align: left;
-  transition:
-    box-shadow 200ms var(--ease-out),
-    border-color 200ms var(--ease-out),
-    transform 200ms var(--ease-out);
-}
-.pd-goal-blob {
-  position: absolute;
-  z-index: -1;
-  right: -46px;
-  top: -54px;
-  width: 170px;
-  height: 170px;
-  border-radius: 50%;
-  background: var(--g-sun);
-  box-shadow: 0 0 60px rgba(255, 190, 40, 0.35);
-  transform-origin: center;
-  pointer-events: none;
-}
-.pd-goal.is-empty .pd-goal-blob {
-  transform: scale(0.55);
-  opacity: 0.85;
+  transition: transform var(--dur-fast) var(--ease-out);
 }
 .pd-goal-in {
   display: flex;
@@ -74,8 +54,7 @@
   text-align: left;
 }
 .pd-goal-caps {
-  color: var(--sun);
-  transition: color 300ms;
+  color: var(--ink-2);
 }
 .pd-goal-text {
   max-width: 88%;
@@ -89,39 +68,43 @@
   display: -webkit-box;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 4;
-  transition: color 300ms;
 }
+/* the prompt (guide 4.2 sentence): Fraunces italic 420 22/28. It takes two lines on a 390 phone (plan 2.3, the guide's own
+   size); balanced, so "count?" never sits alone on the second */
 .pd-goal-set {
-  max-width: 78%;
+  max-width: 100%;
   font: italic 420 var(--fs-sentence) / var(--lh-sentence) var(--serif);
   letter-spacing: 0;
   color: var(--ink);
+  text-wrap: balance;
 }
 /* a past day with no goal: one quiet line, nothing to press */
 .pd-goal-none {
   font: 400 var(--fs-sub) / var(--lh-sub) var(--sans);
-  color: var(--ink-3);
+  color: var(--ink-2);
 }
 .pd-goal.is-past .pd-goal-caps {
-  color: var(--ink-3);
+  color: var(--ink-2);
 }
 .pd-goal.is-past .pd-node {
   background: var(--surface-2);
   box-shadow: 0 0 0 4px var(--surface);
-  color: var(--ink-3);
+  color: var(--ink-2);
 }
+/* the screen's one primary (guide 6.2): Sky, Night Ink 650 words, the primary glow, 44 inline */
 .pd-goal-cta {
   justify-self: start;
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--sp-2);
   height: 44px;
-  margin-top: 8px;
-  padding: 0 18px;
+  margin-top: var(--sp-2);
+  padding: 0 var(--sp-5);
   border-radius: var(--r-pill);
   background: var(--primary);
+  box-shadow: var(--primary-glow);
   color: var(--primary-ink);
-  font-size: var(--fs-sub);
+  font-size: var(--fs-row);
   font-weight: 650;
 }
 .pd-goal-ring {
@@ -129,85 +112,44 @@
   flex: none;
   margin: -8px -8px 0 0;
 }
-.pd-goal .g-ring-track {
-  stroke: rgba(15, 42, 68, 0.22);
-}
-.pd-goal .g-ring-arc {
-  stroke: #fff;
-}
 .pd-goal-steps {
   display: flex;
   align-items: center;
   gap: 10px;
 }
+/* the steps done: a Deep Sky fill on a Haze track (the progress bar of guide 6.8), the count beside it */
 .pd-goal-bar {
   position: relative;
   flex: 1;
   height: 6px;
   overflow: hidden;
-  border-radius: 3px;
-  background: rgba(15, 42, 68, 0.1);
+  border-radius: var(--r-pill);
+  background: var(--haze);
 }
 .pd-goal-bar i {
   position: absolute;
   inset: 0;
   transform-origin: left center;
-  border-radius: 3px;
-  background: var(--sun);
-  box-shadow: 0 0 10px rgba(255, 200, 61, 0.6);
+  border-radius: var(--r-pill);
+  background: var(--deep-sky);
 }
 .pd-goal-count {
   color: var(--ink-2);
   font-size: var(--fs-foot);
   font-weight: 650;
-}
-/* done: the sun has filled the card; the words go dark on gold */
-.pd-goal.is-done {
-  border-color: transparent;
-  box-shadow: 0 14px 44px rgba(255, 180, 30, 0.35);
-}
-.pd-goal.is-done .pd-goal-caps,
-.pd-goal.is-done .pd-goal-text,
-.pd-goal.is-done .pd-goal-count,
-.pd-goal.is-done .pd-week,
-.pd-goal.is-done .pd-week .caps {
-  color: var(--sun-ink);
-}
-.pd-goal.is-done .pd-goal-bar {
-  background: rgba(0, 0, 0, 0.15);
-}
-.pd-goal.is-done .pd-goal-bar i {
-  background: var(--sun-ink);
-  box-shadow: none;
-}
-.pd-goal.is-done .pd-week {
-  border-top-color: rgba(0, 0, 0, 0.15);
-}
-.pd-goal.is-done .g-ring-track,
-.pd-goal.is-done .g-ring-arc {
-  stroke: var(--sun-ink);
-}
-.pd-goal.is-done .g-ring-hit.is-done .g-ring-arc {
-  fill: var(--sun-ink);
-}
-.pd-goal.is-done .g-ring-check {
-  stroke: var(--sun);
-}
-/* a step left open on a goal marked done: its ring in ink, which holds 3:1 on the gold (the grey does not) */
-.pd-goal.is-done .tmark.round:not(.on) {
-  border-color: var(--sun-ink);
+  font-variant-numeric: tabular-nums;
 }
 /* a to-do in the air can land here as a step */
+/* a to-do in the air can land here as a step: a Deep Sky edge, then a Sky ring over it (no glow) */
 .pd-goal.is-droppable {
   box-shadow:
-    inset 0 0 0 1.5px rgba(255, 200, 61, 0.6),
+    inset 0 0 0 1.5px var(--haze),
     var(--shadow-1);
 }
 .pd-goal.is-target {
-  border-color: var(--sun);
   box-shadow:
-    0 0 0 2px var(--sun),
-    0 0 36px rgba(255, 200, 61, 0.45);
+    inset 0 0 0 2px var(--deep-sky),
+    var(--shadow-1);
   transform: scale(1.015);
 }
 .pd-week {
@@ -220,24 +162,23 @@
   font-size: var(--fs-sub);
   line-height: var(--lh-sub);
   text-align: left;
-  transition: color 300ms;
 }
 .pd-week .caps {
   margin-right: 4px;
-  color: var(--mint);
+  color: var(--ink-2);
 }
+/* the week's goal: a Deep Sky ring, filled when it is done (no per-feature hue, no glow) */
 .pd-week-dot {
   flex: none;
   width: 8px;
   height: 8px;
   border-radius: 50%;
   background: transparent;
-  box-shadow: inset 0 0 0 1.5px var(--mint);
+  box-shadow: inset 0 0 0 1.5px var(--deep-sky);
   transform: translateY(-1px);
 }
 .pd-week-dot.is-done {
-  background: var(--mint);
-  box-shadow: 0 0 8px var(--mint);
+  background: var(--deep-sky);
 }
 .pd-week-text {
   overflow: hidden;
@@ -262,15 +203,15 @@
 }
 .pd-owed > svg {
   flex: none;
-  color: var(--ink-faint, var(--ink-4));
+  color: var(--ink-2);
 }
+/* something to answer: a Deep Sky dot (an ask, not a warning and not now) */
 .pd-owed-dot {
   flex: none;
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: var(--sun);
-  box-shadow: 0 0 10px var(--sun);
+  background: var(--deep-sky);
 }
 .pd-owed {
   padding-block: 10px;
@@ -283,7 +224,7 @@
   font: 600 var(--fs-sub) / var(--lh-sub) var(--sans);
 }
 .pd-owed-text .caps {
-  color: var(--ink-3);
+  color: var(--ink-2);
 }
 /* the goal itself, on one line */
 .pd-owed-goal {
@@ -295,7 +236,7 @@
   color: var(--ink);
 }
 .pd-owed-ask {
-  color: var(--ink-2);
+  color: var(--accent-text);
 }
 
 /* ---------- the to-dos: one list, the first three open ones in a highlighted box (the day's priorities) ---------- */
@@ -307,11 +248,10 @@
   background: var(--surface);
   border: var(--card-border);
   box-shadow: var(--shadow-1);
-  transition: box-shadow 200ms var(--ease-out);
 }
 .pd-focus.is-over {
   box-shadow:
-    0 0 0 2px var(--columbia),
+    0 0 0 2px var(--haze),
     var(--shadow-1);
 }
 .pd-focus-zone {
@@ -327,10 +267,7 @@
   z-index: 0;
   margin: 8px 8px 2px;
   border-radius: var(--r-tile);
-  background:
-    radial-gradient(120% 90% at 50% 120%, rgba(255, 140, 66, 0.1), transparent 60%),
-    var(--columbia-wash);
-  box-shadow: inset 0 0 0 1px rgba(15, 42, 68, 0.05);
+  background: var(--cloud);
   pointer-events: none;
 }
 .pd-zone > .pd-top-head {
@@ -343,19 +280,19 @@
 }
 .pd-top-title {
   font: 600 var(--fs-row) / var(--lh-row) var(--sans);
-  letter-spacing: -0.01em;
+  letter-spacing: 0;
   color: var(--ink);
 }
 .pd-top-meta {
   font: 400 var(--fs-foot) / var(--lh-foot) var(--sans);
-  color: var(--ink-3);
+  color: var(--ink-2);
 }
 .pd-zone > .pd-top-empty {
   z-index: 1;
   margin: 0;
   padding: 4px 24px 22px;
   font: 400 var(--fs-sub) / var(--lh-sub) var(--sans);
-  color: var(--ink-3);
+  color: var(--ink-2);
 }
 .pd-top-tip {
   display: block;
@@ -376,12 +313,13 @@
 .pd-zone > .pd-card.is-top::after {
   left: 52px;
   right: 16px;
-  background: rgba(15, 42, 68, 0.07);
+  background: var(--line);
 }
 .pd-zone > .pd-card.is-first::after {
   opacity: 0;
 }
-/* the number of a row: navy and filled for the three in front, outlined and grey after */
+/* the number of a row: a Haze disc with a Night Ink numeral for the three in front (12.64), outlined after, ringed once
+   done. Not Sky: on Today a Sky disc means done or the one primary, and the rows beside these are not done yet */
 .pd-rank {
   flex: none;
   display: grid;
@@ -389,13 +327,14 @@
   width: 28px;
   height: 28px;
   border-radius: 50%;
-  background: var(--primary);
-  color: var(--primary-ink);
+  background: var(--haze);
+  color: var(--ink);
   /* a numeral in a fixed circle: it grows with the text size only as far as the circle holds */
-  font: 700 clamp(14px, 0.875rem, 18px) / 1 var(--stamp);
+  font: 650 clamp(14px, 0.875rem, 18px) / 1 var(--sans);
+  font-variant-numeric: tabular-nums;
   transition:
-    background 220ms,
-    color 220ms;
+    background-color var(--dur-color),
+    color var(--dur-color);
 }
 .pd-card.is-done .pd-rank.is-blank {
   background: none;
@@ -404,12 +343,13 @@
 .pd-card.is-rest .pd-rank {
   background: transparent;
   box-shadow: inset 0 0 0 1.5px var(--line-strong);
-  color: var(--ink-3);
+  color: var(--ink-2);
 }
 .pd-card.is-done .pd-rank,
 .pd-card.is-checking .pd-rank {
-  background: var(--surface-3);
-  color: var(--ink-3);
+  background: var(--surface);
+  color: var(--ink-2);
+  box-shadow: inset 0 0 0 1.5px var(--line);
 }
 /* the rest: there, but quiet, so the eye stays on the box. Quiet by colour, never by fading the row: the words one step
    down in --ink-2 (still 4.5:1 and more), the number an outline */
@@ -417,7 +357,7 @@
   color: var(--ink-2);
 }
 .pd-card.is-rest .pd-rank {
-  box-shadow: inset 0 0 0 1.5px var(--ink-faint, var(--ink-4));
+  box-shadow: inset 0 0 0 1.5px var(--pencil);
 }
 /* done: small, grey, struck, out of the way at the foot */
 .pd-card.is-done.is-first:not(.is-top):not(.is-rest) {
@@ -428,7 +368,7 @@
 }
 /* the beat between the check and the row leaving: it greys where it stands */
 .pd-card.is-checking .pd-card-text {
-  color: var(--ink-3);
+  color: var(--ink-2);
 }
 /* the fold over the rest, and its label when open */
 .pd-zone > .pd-rest-toggle {
@@ -442,7 +382,7 @@
   border: 0;
   border-radius: var(--r-control);
   background: none;
-  color: var(--ink-3);
+  color: var(--ink-2);
   font: 500 var(--fs-sub) / var(--lh-sub) var(--sans);
   text-align: left;
 }
@@ -452,8 +392,8 @@
 .pd-rest-toggle svg {
   flex: none;
   margin-left: auto;
-  color: var(--ink-faint, var(--ink-4));
-  transition: transform 220ms var(--ease-out);
+  color: var(--ink-2);
+  transition: transform var(--dur-settle) var(--ease-out);
 }
 .pd-rest-toggle.is-open svg {
   transform: rotate(180deg);
@@ -468,7 +408,8 @@
   border-radius: var(--r-pill);
   background: var(--surface-2);
   color: var(--ink-2);
-  font: 700 clamp(13px, 0.8125rem, 17px) / 1 var(--stamp);
+  font: 650 clamp(13px, 0.8125rem, 17px) / 1 var(--sans);
+  font-variant-numeric: tabular-nums;
 }
 /* the names shorten; the done count beside them never does */
 .pd-rest-words {
@@ -482,7 +423,7 @@
   flex: none;
   margin-left: -4px;
   white-space: nowrap;
-  color: var(--ink-3);
+  color: var(--ink-2);
 }
 .pd-rest-toggle.is-done-only .pd-rest-done {
   margin-left: 0;
@@ -491,7 +432,7 @@
   z-index: 1;
   padding: 14px 24px 2px;
   font: 600 var(--fs-foot) / var(--lh-foot) var(--sans);
-  color: var(--ink-3);
+  color: var(--ink-2);
 }
 
 /* the goal's steps, checkable right on its card */
@@ -519,9 +460,9 @@
   overflow-wrap: anywhere;
 }
 .pd-goal-step.is-done .pd-goal-step-text {
-  color: var(--ink-3);
+  color: var(--ink-2);
   text-decoration: line-through;
-  text-decoration-color: var(--ink-faint, var(--ink-4));
+  text-decoration-color: var(--pencil);
 }
 
 /* the rows: a zone the drag measures (its cards' offsets), hairlines from the words */
@@ -563,10 +504,9 @@
   -webkit-user-select: none;
   -webkit-touch-callout: none;
   transition:
-    background-color 200ms,
-    box-shadow 200ms,
-    transform 250ms var(--ease-out),
-    opacity 250ms;
+    background-color var(--dur-color),
+    transform var(--dur-settle) var(--ease-out),
+    opacity var(--dur-settle);
 }
 .pd-card-in {
   display: flex;
@@ -581,15 +521,12 @@
   height: 32px;
   display: grid;
   place-items: center;
+  /* an icon tile in a row (guide 6.4): Haze with a Deep Sky glyph */
   border-radius: var(--r-icon);
-  background: color-mix(in srgb, var(--ic, var(--mint)) 16%, var(--surface));
-  font-size: 1.0625rem;
-  line-height: 1;
+  background: var(--haze);
+  color: var(--deep-sky);
 }
-.pd-ico.is-goal {
-  background: rgba(255, 200, 61, 0.2);
-}
-/* a list's colour: a slim bar at the row's leading edge */
+/* a list's color: a 3 px marker at the row's leading edge (user-picked colors are marks only, guide 6.13) */
 .pd-card.has-tc::before {
   content: '';
   position: absolute;
@@ -597,7 +534,7 @@
   top: 16px;
   bottom: 16px;
   width: 3px;
-  border-radius: 0 3px 3px 0;
+  border-radius: 0 var(--r-pill) var(--r-pill) 0;
   background: var(--tc);
 }
 .pd-card-name {
@@ -623,7 +560,7 @@
   color: var(--ink);
   font: 400 var(--fs-row) / var(--lh-row) var(--sans);
   overflow-wrap: anywhere;
-  transition: color 200ms;
+  transition: color var(--dur-color);
 }
 .pd-card-text .prio,
 .pd-card-meta .prio {
@@ -639,20 +576,17 @@
 }
 .pd-card-meta {
   overflow: hidden;
-  color: var(--ink-3);
+  color: var(--ink-2);
   font-size: var(--fs-foot);
   line-height: var(--lh-foot);
   white-space: nowrap;
   text-overflow: ellipsis;
 }
-.pd-card-meta.is-goal {
-  color: color-mix(in srgb, var(--sun) 50%, var(--ink-2));
-}
-/* done: the words step back to grey and are struck (--ink-3, 4.5:1 and more, no fading); the check stays lit at full strength */
+/* done (guide 6.13): the words in Dusk with a line-through (no fading); the check stays lit at full strength */
 .pd-card.is-done .pd-card-text {
-  color: var(--ink-3);
+  color: var(--ink-2);
   text-decoration: line-through;
-  text-decoration-color: var(--ink-faint, var(--ink-4));
+  text-decoration-color: var(--pencil);
 }
 /* the hold is up: the row rises off the card to meet the finger */
 .pd-card.is-armed {
@@ -664,8 +598,8 @@
 /* where the card in the air would land */
 .pd-card.is-hole {
   opacity: 1;
-  background: color-mix(in srgb, var(--mk) 8%, var(--surface));
-  box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--mk) 55%, transparent);
+  background: var(--cloud);
+  box-shadow: inset 0 0 0 1.5px var(--haze);
 }
 .pd-card.is-hole .pd-card-in {
   visibility: hidden;
@@ -683,16 +617,12 @@
   pointer-events: none;
   border-radius: var(--r-tile);
   background: var(--surface);
-  border-color: color-mix(in srgb, var(--gh, var(--sun)) 55%, transparent);
-  box-shadow:
-    0 24px 54px rgba(15, 42, 68, 0.21),
-    0 0 34px color-mix(in srgb, var(--gh, var(--sun)) 28%, transparent);
+  box-shadow: var(--shadow-2);
 }
 .pd-ghost.is-bin {
-  border-color: var(--bad);
   box-shadow:
     0 0 0 1.5px var(--bad),
-    0 22px 50px rgba(15, 42, 68, 0.21);
+    var(--shadow-2);
 }
 
 /* ---------- the docks (over the header while a card is in the air: the header is never a place to drop) ---------- */
@@ -743,19 +673,18 @@
   height: 50px;
   padding: 0 20px;
   border-radius: var(--r-pill);
-  background: rgba(255, 255, 255, 0.92);
-  -webkit-backdrop-filter: blur(14px);
-  backdrop-filter: blur(14px);
-  color: var(--ink-2);
+  /* floating chrome (guide 5.3): Paper with the float shadow and the 1 px edge */
+  background: var(--surface);
+  color: var(--ink);
   font-size: var(--fs-sub);
   font-weight: 600;
   box-shadow:
-    0 0 0 1px var(--line-strong),
-    0 12px 30px rgba(15, 42, 68, 0.18);
+    0 0 0 1px var(--edge),
+    var(--shadow-float);
   transition:
-    transform 180ms var(--ease-out),
-    background-color 180ms,
-    color 180ms;
+    transform var(--dur-fast) var(--ease-out),
+    background-color var(--dur-color),
+    color var(--dur-color);
 }
 .pd-dock.is-over {
   transform: scale(1.08);
@@ -764,10 +693,11 @@
 }
 .pd-dock.is-bin.is-over {
   background: var(--bad);
+  color: var(--white);
 }
 .pd-dock.is-goal.is-over {
-  background: var(--sun);
-  color: var(--sun-ink);
+  background: var(--primary);
+  color: var(--primary-ink);
 }
 
 /* ---------- the add row at a band's foot; the field takes its place ---------- */
@@ -780,7 +710,7 @@
   min-height: 52px;
   padding: 0 16px;
   border-radius: 0 0 var(--r-card) var(--r-card);
-  color: var(--ink-3);
+  color: var(--ink-2);
   font: 400 var(--fs-sub) / var(--lh-sub) var(--sans);
   text-align: left;
 }
@@ -796,7 +726,7 @@
   height: 32px;
   border-radius: var(--r-icon);
   border: 1.5px dashed var(--line-strong);
-  color: var(--ink-3);
+  color: var(--ink-2);
 }
 .pd-add-text {
   min-width: 0;
@@ -811,7 +741,7 @@
 }
 .pd-add.is-field .pd-add-ic {
   border-style: solid;
-  border-color: var(--ink-3);
+  border-color: var(--ink-2);
   color: var(--ink-2);
 }
 /* the field and what it read from the marks: beside the words, or under them when the field is narrow (see .tt-field) */
@@ -851,7 +781,7 @@
   gap: 4px;
 }
 .pd-all-in svg {
-  color: var(--ink-faint, var(--ink-4));
+  color: var(--ink-2);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -893,8 +823,8 @@
   position: absolute;
   z-index: 0;
   width: 2px;
-  border-radius: 1px;
-  background: linear-gradient(180deg, #f5b13d 0%, rgba(15, 42, 68, 0.35) 38%, rgba(15, 42, 68, 0.22) 100%);
+  border-radius: var(--r-pill);
+  background: var(--line-strong);
   opacity: 0;
   pointer-events: none;
   transition:
@@ -934,27 +864,29 @@
   height: 34px;
   margin-top: 2px;
   border-radius: 50%;
-  background: radial-gradient(circle at 38% 30%, #ffd36b, #f5a524 75%);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.6),
-    0 0 0 4px var(--surface),
-    0 6px 14px -4px rgba(245, 165, 36, 0.6);
-  color: #6b3d00;
+  /* the goal's node: a Haze disc with a Deep Sky glyph, on a Paper ring that cuts the rail; done, a flat Sky disc with
+     Night Ink (guide 6.13, plan 1.3) */
+  background: var(--haze);
+  box-shadow: 0 0 0 4px var(--surface);
+}
+/* a glyph on Haze (4.43, a graphic: passes 3:1), never words */
+.pd-node > svg {
+  color: var(--deep-sky);
 }
 .pd-goal.is-done .pd-node {
-  background: radial-gradient(circle at 38% 30%, #ffb27a, var(--accent) 75%);
-  color: #fff;
+  background: var(--accent);
+}
+.pd-goal.is-done .pd-node > svg {
+  color: var(--accent-ink);
+}
+.pd-goal.is-past .pd-node > svg {
+  color: var(--ink-2);
 }
 .pd-flow .pd-goal-text,
 .pd-flow .pd-goal-set {
   max-width: 100%;
   font-size: 1.375rem;
   line-height: 1.75rem;
-}
-.pd-flow .pd-goal-blob {
-  right: -70px;
-  top: -80px;
-  opacity: 0.75;
 }
 /* the steps, the step bar and the week's goal sit in the text column, under the goal's words */
 .pd-flow .pd-goal-list,
@@ -964,8 +896,8 @@
   margin-left: 48px;
 }
 .pd-flow .pd-goal-cta {
-  height: 40px;
-  margin-top: 6px;
+  height: 44px;
+  margin-top: var(--sp-2);
 }
 
 /* the priorities under the goal: no box of their own, the rail runs through their numbers */
@@ -976,16 +908,22 @@
 .pd-flow .pd-zone > .pd-top-head {
   padding: 10px 24px 4px 70px;
 }
+/* "Your top three": caption style (guide 4.3) */
 .pd-flow .pd-top-title {
-  font: 600 var(--fs-caps) / 1rem var(--sans);
-  letter-spacing: 0.08em;
+  font: 600 var(--fs-caps) / 1rem var(--stamp);
+  letter-spacing: var(--tr-caps);
   text-transform: uppercase;
-  color: var(--ink-3);
+  color: var(--ink-2);
 }
 .pd-flow .pd-rank {
   position: relative;
   z-index: 1;
   box-shadow: 0 0 0 4px var(--surface);
+}
+.pd-flow .pd-card:is(.is-done, .is-checking) .pd-rank:not(.is-blank) {
+  box-shadow:
+    inset 0 0 0 1.5px var(--line),
+    0 0 0 4px var(--surface);
 }
 .pd-flow .pd-zone > .pd-top-empty {
   padding-left: 70px;
