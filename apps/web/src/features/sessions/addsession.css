@@ -124,6 +124,11 @@
 .sa-foot > .btn.quiet {
   margin-top: calc(var(--sp-2) - var(--sp-3));
 }
+/* while the keyboard is up (a name being typed, a number) the sheet is short: the way to the full editor waits, so the
+   field, the line and Add share what is left */
+html.kb-open .sa-foot > .btn.quiet {
+  display: none;
+}
 /* a larger text size: the unit goes under the stepper, and the line may wrap rather than cut the day */
 html[data-text-xl] .sa-amount {
   grid-template-columns: minmax(0, 1fr);
