@@ -250,7 +250,7 @@ Only these. A pairing not in this table is not allowed.
 | Dusk | Linen | 6.36 | Body |
 | Dusk | Haze | 5.65 | Body (disabled button label) |
 | Deep Sky | Paper | 5.57 | Body: links |
-| Deep Sky | Cloud | 5.11 | Body |
+| Deep Sky | Cloud | 5.11 | Body; also Try again on the splash sky above its warm band (measured 4.86 to 5.11; the column rises to stay there, 9.2) |
 | Deep Sky | Linen | 4.99 | Body |
 | Deep Sky | Haze | 4.43 | Large text only; for body on Haze use `#085A8C` (5.76) |
 | Ember | Paper | 5.51 | Body |
@@ -720,7 +720,7 @@ Springs come from `apps/web/src/lib/motion.ts` (`springs.page`, `settle`, `sheet
   - **Its light warms as it climbs.** Three drawings of the one sphere, each fading in over the last: the blue Orb with no underlight, the sunrise state's pale light alone (350 to 950 ms), the sunrise state (800 to 1500 ms; 2.1). Blue fades to pale, then pale to warm, so no frame mixes blue with orange, which reads grey. The sky's colors come with it as one layer (300 to 1800 ms): poster sky blue from the top, the warm horizon band below, Cloud left between them for the words. The horizon glow grows from half its size (200 to 1700 ms), and the Orb's own halo with the sunrise state.
   - **The rings.** The five sun rings leave the Orb one by one, outermost first, each from the Orb's own edge to its radius, bright as it leaves and fading to its resting opacity. They are born 1000, 710, 470, 280 and 130 ms before the beat, so the gaps shorten.
   - **The beat, at 1395 ms.** The frame the whole disc has left the hill line (its lowest point 0.025 D above the crest's center). A bloom of light swells and fades over 900 ms; the wordmark arrives over 520 ms and the line 120 ms behind it (over 480 ms), each fading in and rising 10 px, so the words rest for about 450 ms before the exit.
-  - **Rest, then the app.** At 2450 ms the splash dissolves over the app in 350 ms, the words first. It leaves on time when the first screen has painted; a cap at 3.5 s stands in for a screen that never says so. If the app is waiting on the server with nothing saved, the sun rests and breathes (2.1 idle breath) until it arrives; after 4 s the words make room for "Still loading. Check your connection." and Try again, and the rings step back.
+  - **Rest, then the app.** At 2450 ms the splash dissolves over the app in 350 ms, the words first. It leaves on time when the first screen has painted; a cap at 3.5 s stands in for a screen that never says so. If the app is waiting on the server with nothing saved, the sun rests and breathes (2.1 idle breath) until it arrives; after 4 s "Still loading. Check your connection." and Try again join the words, the column rises clear of the Orb and above the warm horizon band as far as it can (64 pt from the top at most), so Try again reads on the Cloud, and the rings step back.
   - **A tap or a key** runs what is left 8 times faster and lets the app through.
   - **Once per session.** The same session opening the page again (a reload after sign out, a web view the system brought back) gets the final frame: a 300 ms fade in, then a 300 ms fade out as soon as the first screen is ready. No haptics.
   - Haptics: 9.5. Reduce Motion: 9.4.
@@ -729,7 +729,7 @@ Springs come from `apps/web/src/lib/motion.ts` (`springs.page`, `settle`, `sheet
 
 ### 9.3 What never moves
 
-Text blocks, cards on scroll, the palette, backgrounds after load, gauge scales and labels, the logo (except the splash rise). On the splash the wordmark and the line rise 10 px as they arrive, and the words move up once, only as far as they must, to make room for "Still loading" (9.2); nothing else there is text in motion.
+Text blocks, cards on scroll, the palette, backgrounds after load, gauge scales and labels, the logo (except the splash rise). On the splash the wordmark and the line rise 10 px as they arrive, and the words move up once, only as far as they must, to make room for "Still loading" and keep Try again above the warm band (9.2); nothing else there is text in motion.
 
 ### 9.4 Reduce Motion
 

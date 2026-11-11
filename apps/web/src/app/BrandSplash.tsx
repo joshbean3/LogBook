@@ -53,6 +53,12 @@ const RING_CLEAR = 16;
 const WAIT_CLEAR = 12;
 const HEAD_TOP_MIN = 64;
 /**
+ * Where the day's warm horizon band begins, as a share of the height (the 48 percent stop in --splash-day). While it says
+ * "Still loading", the column rises above it as far as it can, so Try again (Deep Sky) reads on the Cloud, not on the warm
+ * band and the halo, where it falls under 4.5:1 on a short phone (guide 3.2).
+ */
+const WARM_TOP = 0.48;
+/**
  * Set once the opening has played in this session (sessionStorage: a new launch of the app starts a new session). It says
  * nothing about an account, and it must outlive the sign-out wipe, which removes every `logbook.` key and reloads the
  * page (lib/account.ts): so, like that wipe's own mark, it is spelled with a hyphen and the sweep leaves it alone.
@@ -214,33 +220,37 @@ export const BrandSplash = () => {
     return () => clearTimeout(t);
   }, [leaving, out]);
 
-  // held a while: say so, with a way to try again
+  // held a while: say so, with a way to try again. Once said, it stays said until the splash is gone: when the hold lets go
+  // the splash dissolves as it stands, never bringing the rings back or moving the words down on its way out
   useEffect(() => {
-    if (!on || !held) {
+    if (!on) {
       setWaiting(false);
       return;
     }
+    if (!held) return;
     const t = setTimeout(() => setWaiting(true), Math.max(0, WAIT_MS - (performance.now() - t0.current)));
     return () => clearTimeout(t);
   }, [on, held]);
 
-  // "Still loading" and Try again join the words: at a large text size or on a short screen the column would reach the Orb,
-  // so it moves up by just what it needs (one settle, on transform); where even that is not enough, the line gives its
-  // place to the status
-  const says = on && waiting && !!held;
+  // "Still loading" and Try again join the words: on a short screen or at a large text size the column would reach the
+  // warm band or the Orb, so it moves up by just what it needs (one settle, on transform): clear of the Orb always, and
+  // above the warm band as far as it can rise. Where even that leaves it on the Orb, the line gives its place to the status
+  const says = on && waiting;
   const [lift, setLift] = useState(0);
   const [tight, setTight] = useState(false);
   useLayoutEffect(() => {
     const h = head.current;
-    if (!says || !h || !sun.current || !orb.current) {
+    if (!says || !h || !sun.current || !orb.current || !root.current) {
       setLift(0);
       setTight(false);
       return;
     }
-    const over = h.offsetTop + h.offsetHeight + WAIT_CLEAR - (sun.current.offsetTop - orb.current.offsetWidth / 2);
+    const bottom = h.offsetTop + h.offsetHeight;
+    const overOrb = bottom + WAIT_CLEAR - (sun.current.offsetTop - orb.current.offsetWidth / 2);
+    const overWarm = bottom - root.current.clientHeight * WARM_TOP;
     const most = Math.max(0, h.offsetTop - HEAD_TOP_MIN);
-    if (over > most && !tight) setTight(true);
-    setLift(Math.max(0, Math.min(over, most)));
+    if (overOrb > most && !tight) setTight(true);
+    setLift(Math.max(0, Math.min(Math.max(overOrb, overWarm), most)));
   }, [says, tight]);
 
   if (!on) return null;
