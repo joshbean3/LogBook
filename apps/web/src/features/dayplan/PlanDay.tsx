@@ -1,5 +1,5 @@
 import { fmtDate, GOAL_STEPS_MAX, periodOf, shiftDays, type Aim, type ISODate } from '@logbook/shared';
-import { ArrowRight, ChevronDown, ChevronRight, ListTodo, Moon, Plus, RotateCcw, Target, Trash2 } from 'lucide-react';
+import { ArrowRight, ChevronDown, CloudOff, ChevronRight, ListTodo, Moon, Plus, RotateCcw, Target, Trash2 } from 'lucide-react';
 import { animate, AnimatePresence, motion, useMotionValue, useSpring, type MotionValue } from 'motion/react';
 import { memo, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
@@ -10,6 +10,7 @@ import { springs, useReduced } from '@/lib/motion';
 import { useHoldDrag, type DragPoint } from '@/lib/useDrag';
 import { useContextMenu, type ContextMenuItem } from '@/ui/ContextMenu';
 import { SectionHeader } from '@/ui/layout';
+import { SectionEmpty } from '@/ui/primitives';
 import { Pressable } from '@/ui/Pressable';
 import { useSheet } from '@/ui/Sheet';
 import { useToast } from '@/ui/Toast';
@@ -318,13 +319,33 @@ export const PlanDay = memo(function PlanDay({ date, today, yesterday }: { date:
   const total = cards.length;
   const done = cards.filter((c) => c.done).length;
   const loaded = !!todos.data && !!goals.data;
+  const title = date === today ? 'Plan your day' : date > today ? 'Plan the day' : 'The plan';
+  // the goals or the to-dos could not be read: say so in one row with a way to try again, never a skeleton that never fills
+  if (!loaded && (todos.isError || goals.isError))
+    return (
+      <section className="pd" aria-label={title}>
+        <SectionHeader className="pd-head" title={title} />
+        <SectionEmpty
+          icon={<CloudOff size={18} aria-hidden="true" />}
+          title="Not loaded"
+          line="Check your connection."
+          action={{
+            label: 'Try again',
+            onPress: () => {
+              void todos.refetch();
+              void goals.refetch();
+            },
+          }}
+        />
+      </section>
+    );
   if (!loaded) return <section className="pd is-skel" aria-hidden="true" />;
 
   return (
     <section className={`pd ${drag ? 'is-dragging' : ''}`} aria-label="Plan your day">
       <SectionHeader
         className="pd-head"
-        title={date === today ? 'Plan your day' : date > today ? 'Plan the day' : 'The plan'}
+        title={title}
         meta={
           total ? (
             <span className={`pd-count ${done === total ? 'is-all' : ''}`} aria-label={`${done} of ${total} done`}>
