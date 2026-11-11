@@ -46,7 +46,7 @@ export const PrivacyPage = (): React.JSX.Element => {
       <PushedBar title="Privacy" />
       <section className="card s-hero" aria-label="The promise">
         <span className="s-hero-ic" aria-hidden="true">
-          <ShieldCheck size={20} strokeWidth={2} />
+          <ShieldCheck size={20} />
         </span>
         <p className="s-hero-line display">{PRIVACY_PROMISE}</p>
       </section>

@@ -181,7 +181,7 @@ const RebuildBar = ({ show, build = false, dirty = true, profile, before, nowMil
       {mounted ? (
         <motion.div
           ref={cardRef}
-          className="s-rebuild halo halo-upcoming"
+          className="s-rebuild"
           role="region"
           aria-label={build ? 'Build my plan' : 'Rebuild my plan'}
           aria-hidden={show ? undefined : true}
@@ -197,7 +197,7 @@ const RebuildBar = ({ show, build = false, dirty = true, profile, before, nowMil
           <p className="s-rebuild-sub">{err ?? (build ? (tpl ? `${tpl.name}. ${tpl.summary}` : 'Starts Monday.') : tpl ? `${tpl.name}. ${tpl.summary} Runs you’ve done stay.` : 'Starts Monday. Runs you’ve done stay.')}</p>
           {jump && !err ? (
             <p className="s-rebuild-warn" role="status">
-              <TriangleAlert size={16} strokeWidth={2.2} aria-hidden="true" />
+              <TriangleAlert size={16} aria-hidden="true" />
               <span>{jumpWords(jump)}</span>
             </p>
           ) : null}
@@ -276,7 +276,7 @@ const NameRow = () => {
         }}
       />
       {/* says the name is typed here, not a value to read like the email under it */}
-      <PencilLine size={16} strokeWidth={2} className="s-name-pen" aria-hidden="true" />
+      <PencilLine size={16} className="s-name-pen" aria-hidden="true" />
     </label>
   );
 };

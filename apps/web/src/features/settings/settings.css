@@ -1,23 +1,33 @@
-/* ---------- Settings (§8, shape system §6, reference 658-672): a pushed page of inset groups under small sans headers,
-   then action pills, then the version, centered. Every row pushes its section, or opens a sheet. ---------- */
+/* ---------- Settings (§8, shape system §6, reference 658-672; mockups/settings.png): a pushed page of inset groups under
+   Fraunces section titles, then action pills, then the wordmark, centered. Every row pushes its section, or opens a sheet.
+   The root page carries the dawn wash (plan D12, foundation.css); its subpages are flat Cloud. ---------- */
 .s-set {
   --swipe-bg: var(--bg);
 }
 
-/* a section: header 28 above, 12 to its container; an optional gray footnote under it */
+/* a section: 32 above, 12 to its container; an optional Dusk footnote under it */
 .s-sec {
   margin-top: var(--section);
   min-width: 0;
 }
 .s-set > .pushed-bar + .s-sec,
 .s-set > .pushed-bar + .card {
-  margin-top: 12px;
+  margin-top: var(--sp-3);
+}
+/* the section title at the guide's section size, Fraunces 600 26/32 (12.1, the mockup), capped as every section title is,
+   so at 200 percent it is never smaller than the rows under it */
+.s-sec > .lb-head.is-sm {
+  min-height: 32px;
+}
+.s-sec > .lb-head.is-sm .lb-title {
+  font-size: clamp(22px, var(--fs-section), 34px);
+  line-height: clamp(28px, var(--lh-section), 40px);
 }
 .s-card.card {
-  gap: 12px;
+  gap: var(--sp-3);
 }
 
-/* the inset groups: one white surface per group, rows 56 (64 with a second line), the row is the target */
+/* the inset groups: one Paper surface per group, rows 56 (64 with a second line), the row is the target */
 .s-group.group {
   border-radius: var(--r-tile);
 }
@@ -29,7 +39,7 @@
 }
 .s-group .lrow-title {
   font-weight: 400;
-  letter-spacing: -0.01em;
+  letter-spacing: 0;
 }
 .s-group .lrow-sub {
   font-size: var(--fs-sub);
@@ -41,9 +51,9 @@
 }
 .s-value {
   min-width: 0;
-  font-size: 1.0625rem;
-  line-height: 1.375rem;
-  color: var(--ink-3);
+  font-size: var(--fs-row);
+  line-height: var(--lh-row);
+  color: var(--ink-2);
   font-variant-numeric: tabular-nums;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -51,8 +61,8 @@
 }
 .s-chev {
   flex: none;
-  color: var(--ink-4);
-  margin-right: -4px;
+  color: var(--ink-2);
+  margin-right: calc(-1 * var(--sp-1));
 }
 .s-go.tone-bad .lrow-title,
 .s-go.tone-bad .s-value,
@@ -65,7 +75,7 @@
   overflow: visible;
 }
 .s-wrap {
-  padding-block: 11px;
+  padding-block: 11px; /* brand-ok: geometry, a two-line row stays 64 tall */
 }
 /* a drill row's line under its title wraps, to as many lines as it needs: at 320 and at large text sizes a clamp cut
    the end off a sentence ("We answer within…"). The row grows by its own height, nothing animates */
@@ -74,7 +84,7 @@
   overflow: visible;
 }
 .s-go.two {
-  padding-block: 11px;
+  padding-block: 11px; /* brand-ok: geometry, a two-line row stays 64 tall */
 }
 /* and its title wraps too rather than ending in an ellipsis (a large text size, a long email) */
 .s-group .s-go.two .lrow-title {
@@ -86,14 +96,14 @@
   color: var(--bad);
 }
 .s-email {
-  font-size: 0.9375rem;
+  font-size: var(--fs-sub);
 }
 
-/* the icon tile at a row's start (.icon-tile, shape.css); a quiet one for what is not there yet. Hairlines between rows
-   start where the words start, after the tile, never at the card's edge */
+/* the icon tile at a row's start (.icon-tile, shape.css: Haze, Deep Sky glyph); a quiet one for what is not there yet,
+   Cloud with a Dusk glyph. Hairlines between rows start where the words start, after the tile, never at the card's edge */
 .s-tile.is-muted {
-  background: var(--surface-2);
-  color: var(--ink-4);
+  background: var(--cloud);
+  color: var(--ink-2);
 }
 .s-group > * + * {
   position: relative;
@@ -104,7 +114,7 @@
   content: '';
   position: absolute;
   top: 0;
-  left: 16px;
+  left: var(--sp-4);
   right: 0;
   height: 1px;
   background: var(--line);
@@ -115,66 +125,60 @@
   left: 60px;
 }
 
-/* action pills: full-width white pills with centered words; the one that loses something in red on a pale red */
+/* action pills: full-width Paper pills with centered words; the one that loses something is the guide's destructive
+   button, Paper with Signal 600 words and its edge (6.2) */
 .s-pills {
   display: grid;
   gap: var(--gap);
   margin-top: var(--section);
 }
 .pill-row.s-pill {
-  font-weight: 500;
+  font-weight: 600;
   transition:
-    transform 120ms var(--ease-out),
-    background var(--dur-fast);
+    transform var(--dur-fast) var(--ease-out),
+    background-color var(--dur-fast) var(--ease-out);
 }
 .pill-row.s-pill[data-pressed]:not(:disabled) {
-  transform: scale(0.98);
+  transform: scale(0.97);
   background: var(--surface-2);
 }
 .pill-row.s-pill.is-danger {
-  background: var(--bad-soft);
-  box-shadow: none;
+  background: var(--surface);
+  box-shadow: inset 0 0 0 1px var(--edge);
   color: var(--bad);
 }
 .pill-row.s-pill:disabled {
-  color: var(--ink-4);
+  color: var(--ink-2);
 }
 
-/* the version, centered at the bottom under the wordmark */
+/* the colophon: the outlined wordmark alone, centered at the bottom (plan 6.8, guide 3.2) */
 .s-colophon {
-  margin: 36px 0 8px;
+  margin: var(--sp-8) 0 var(--sp-2);
   text-align: center;
   display: grid;
-  gap: 4px;
+  gap: var(--sp-1);
   justify-items: center;
 }
 .s-wordmark {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--sp-2);
   color: var(--ink);
-}
-.s-wordmark .display {
-  font-size: 1.625rem;
-  line-height: 2rem;
 }
 .s-version {
   font-size: var(--fs-foot);
   line-height: var(--lh-foot);
-  color: var(--ink-3);
+  color: var(--ink-2);
   font-variant-numeric: tabular-nums;
 }
 
-/* a page's promise (Privacy): a white card, an icon, one serif sentence on the halo */
+/* a page's promise (Privacy): a Paper card, a Haze disc with its Deep Sky glyph, one sentence in the sentence voice; no glow */
 .card.s-hero {
-  margin-top: 12px;
+  margin-top: var(--sp-3);
   grid-template-columns: 40px minmax(0, 1fr);
   align-items: center;
-  gap: 14px;
-  padding: 18px 16px;
-  background: var(--surface) var(--halo) no-repeat;
-  background-size: 100% 160%;
-  background-position: 50% 100%;
+  gap: var(--sp-4);
+  padding: var(--sp-5) var(--sp-4);
 }
 .s-hero-ic {
   display: grid;
@@ -182,14 +186,16 @@
   width: 40px;
   height: 40px;
   border-radius: 50%;
-  background: var(--columbia-wash);
-  color: var(--ink-2);
+  background: var(--haze);
+  color: var(--deep-sky);
 }
 .s-hero-line {
   margin: 0;
   font-size: var(--fs-sentence);
   line-height: var(--lh-sentence);
   color: var(--ink);
+  /* the wider face takes the promise to four lines at 390: never one word alone on the last */
+  text-wrap: pretty;
 }
 
 /* ---------- sub-pages ---------- */
@@ -197,11 +203,11 @@
   display: flex;
   justify-content: space-between;
   align-items: baseline;
-  gap: 12px;
-  font-size: 0.9375rem;
-  line-height: 1.25rem;
+  gap: var(--sp-3);
+  font-size: var(--fs-sub);
+  line-height: var(--lh-sub);
   font-weight: 600;
-  color: var(--ink-3);
+  color: var(--ink-2);
 }
 .s-label-value {
   color: var(--ink);
@@ -213,26 +219,28 @@
   overflow: hidden;
 }
 .s-note {
-  margin-top: 12px;
+  margin-top: var(--sp-3);
   font-size: var(--fs-foot);
   line-height: var(--lh-foot);
-  color: var(--ink-3);
+  color: var(--ink-2);
 }
 
 /* the rebuild offer (review 2 feel N3): the page's last block, sticky in the pushed page's scroller. The scroller runs
    under the ask bar and the tab bar, so the card's resting line is 12 px above that chrome (and above the keyboard when
    it is up), where its buttons can be tapped; scrolled to the end it sits after the page's last card. Never position:
-   fixed: inside the transformed layer that is absolute, and it scrolled with the page over the steppers. */
+   fixed: inside the transformed layer that is absolute, and it scrolled with the page over the steppers. A floating Paper
+   card with no glow (plan 5.3 asked for a Haze wash card; on Haze the Sky Rebuild button would lose its shape, 1.80:1, so
+   it stays Paper, the one primary reading as a button) */
 .s-rebuild {
   position: sticky;
   bottom: calc(12px + max(var(--chrome-h) + var(--safe-b), var(--kb, 0px)));
-  margin-top: 24px;
+  margin-top: var(--sp-6);
   z-index: 20;
   display: grid;
   /* the column is the card's width, never its widest button's: at 320 "Rebuild anyway" pushed every line past the edge */
   grid-template-columns: minmax(0, 1fr);
-  gap: 4px;
-  padding: 16px 16px 12px;
+  gap: var(--sp-1);
+  padding: var(--sp-4) var(--sp-4) var(--sp-3);
   border-radius: var(--r-card);
   border: var(--card-border);
   background: var(--surface);
@@ -244,32 +252,32 @@
   overscroll-behavior: contain;
 }
 .s-rebuild-title {
-  font-size: 1.0625rem;
-  line-height: 1.375rem;
+  font-size: var(--fs-row);
+  line-height: var(--lh-row);
   font-weight: 600;
 }
 .s-rebuild-sub {
-  font-size: 0.9375rem;
-  line-height: 1.25rem;
+  font-size: var(--fs-sub);
+  line-height: var(--lh-sub);
   color: var(--ink-2);
 }
-/* a jump of more than 30% in weekly miles: said on the card before Rebuild */
+/* a jump of more than 30% in weekly miles: a warning (guide 3.1), the glyph and words on warn soft, said before Rebuild */
 .s-rebuild-warn {
   display: flex;
   align-items: flex-start;
-  gap: 8px;
-  margin-top: 6px;
-  padding: 10px 12px;
+  gap: var(--sp-2);
+  margin-top: var(--sp-2);
+  padding: var(--sp-3);
   border-radius: var(--r-control);
-  background: var(--accent-soft);
+  background: var(--warn-soft);
   font-size: var(--fs-foot);
   line-height: var(--lh-foot);
-  color: var(--ink);
+  color: var(--warn-text);
 }
 .s-rebuild-warn svg {
   flex: none;
-  margin-top: 1px;
-  color: var(--accent-text);
+  margin-top: 1px; /* brand-ok: geometry, the glyph on the first line's center */
+  color: var(--warn-text);
 }
 .s-days-note {
   font-size: var(--fs-foot);
@@ -280,13 +288,13 @@
 .s-rebuild-actions {
   position: sticky;
   bottom: -12px;
-  margin: 8px -16px -12px;
-  padding: 8px 16px 12px;
+  margin: var(--sp-2) calc(-1 * var(--sp-4)) calc(-1 * var(--sp-3));
+  padding: var(--sp-2) var(--sp-4) var(--sp-3);
   background: var(--surface);
   display: flex;
   flex-wrap: wrap;
   justify-content: flex-end;
-  gap: 8px;
+  gap: var(--sp-2);
 }
 .s-rebuild-go {
   min-width: 112px;
@@ -302,7 +310,7 @@
   }
 }
 /* ---------- habits ---------- */
-/* the habits on Today: rows in one white card; the lifted row floats over it */
+/* the habits on Today: rows in one Paper card; the lifted row floats over it */
 .s-hlist {
   position: relative;
   border-radius: var(--r-tile);
@@ -315,7 +323,7 @@
   display: flex;
   align-items: center;
   height: 60px;
-  padding-inline: 16px 4px;
+  padding-inline: var(--sp-4) var(--sp-1);
   background: transparent;
   touch-action: auto;
   -webkit-touch-callout: none;
@@ -348,34 +356,34 @@
   height: 100%;
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: var(--sp-3);
   border: 0;
   background: none;
   color: var(--ink);
   font: inherit;
   text-align: left;
 }
+/* a habit's coin, as on Today (guide 6.6): a flat Paper disc on the decorative coin ring, its Inter initial in Night Ink */
 .s-horb {
   flex: none;
   width: 36px;
   height: 36px;
   border-radius: 50%;
-  border: 1.5px solid var(--line-strong);
-  background: var(--surface-2);
+  border: 1.5px solid var(--coin-ring);
+  background: var(--surface);
   display: grid;
   place-items: center;
   font: 600 var(--fs-row) / 1 var(--sans);
-  letter-spacing: 0;
-  color: var(--ink-2);
+  color: var(--ink);
 }
 .s-horb.big {
   width: 56px;
   height: 56px;
-  font-size: 1.375rem;
+  font-size: var(--fs-section);
 }
 .s-hname-text {
-  font-size: 1.0625rem;
-  line-height: 1.375rem;
+  font-size: var(--fs-row);
+  line-height: var(--lh-row);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -394,18 +402,18 @@
 }
 .s-ghost-orbs {
   display: flex;
-  gap: 12px;
+  gap: var(--sp-3);
 }
 .s-add {
   display: flex;
-  gap: 8px;
+  gap: var(--sp-2);
 }
 .s-add-in.in {
   flex: 1;
   height: 48px;
   border-radius: var(--r-control);
-  padding: 0 14px;
-  font-size: 1.0625rem;
+  padding: 0 var(--sp-4);
+  font-size: var(--fs-row);
 }
 .s-add-btn {
   appearance: none;
@@ -419,9 +427,10 @@
   display: grid;
   place-items: center;
 }
+/* not yet: Haze with a Dusk glyph (guide 6.2) */
 .s-add-btn:disabled {
-  background: var(--surface-3);
-  color: var(--ink-4);
+  background: var(--haze);
+  color: var(--ink-2);
 }
 .s-add-sec .s-note {
   margin: 0;
@@ -429,22 +438,22 @@
 .s-starters {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: var(--sp-2);
 }
 .s-starter {
   appearance: none;
   height: 44px;
-  padding: 0 14px;
+  padding: 0 var(--sp-4);
   border-radius: var(--r-pill);
   border: 1px dashed var(--line-strong);
   background: transparent;
-  color: var(--ink-2);
+  color: var(--accent-text);
   font: inherit;
-  font-size: 0.9375rem;
+  font-size: var(--fs-sub);
   font-weight: 600;
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 6px; /* brand-ok: geometry, the plus glyph beside its word */
 }
 .s-restore.btn.sm {
   flex: none;
@@ -453,16 +462,16 @@
 /* the habit sheet */
 .s-hsheet {
   display: grid;
-  gap: 8px;
-  padding-bottom: 8px;
+  gap: var(--sp-2);
+  padding-bottom: var(--sp-2);
 }
 .s-hname.in {
   height: 52px;
-  font-size: 1.0625rem;
-  padding: 0 14px;
+  font-size: var(--fs-row);
+  padding: 0 var(--sp-4);
 }
 .s-archive.btn {
-  margin-top: 12px;
+  margin-top: var(--sp-3);
   color: var(--ink-2);
 }
 
@@ -471,7 +480,7 @@
   margin: 0;
 }
 .s-signout-lede .s-signout-warn {
-  margin-top: 8px;
+  margin-top: var(--sp-2);
   color: var(--bad);
 }
 .s-signout-lede {
@@ -481,45 +490,47 @@
 /* ---------- delete account ---------- */
 .s-del {
   display: grid;
-  gap: 12px;
-  padding-bottom: 8px;
+  gap: var(--sp-3);
+  padding-bottom: var(--sp-2);
 }
 .s-del-lede {
   margin: 0;
-  padding: 16px;
+  padding: var(--sp-4);
   border-radius: var(--r-card);
   background: var(--surface);
   border: var(--card-border);
   box-shadow: var(--shadow-1);
   font-size: var(--fs-sub);
-  line-height: 1.375rem;
+  line-height: var(--lh-row);
   color: var(--ink);
 }
 .s-del-actions {
-  margin-top: 8px;
+  margin-top: var(--sp-2);
   display: grid;
-  gap: 4px;
+  gap: var(--sp-1);
 }
+/* the first step toward deleting: the destructive button, Paper with Signal words and its edge (guide 6.2) */
 .s-del-continue.btn {
-  border-color: transparent;
-  background: var(--bad-soft);
+  border-color: var(--edge);
+  background: var(--surface);
   box-shadow: none;
   height: 54px;
 }
+/* the confirm: a Signal fill with White words (6.45), in its sheet */
 .s-del-final.btn {
   height: 54px;
   background: var(--bad);
   border-color: var(--bad);
-  color: #fff;
-  font-size: 1.0625rem;
+  color: var(--white);
+  font-size: var(--fs-row);
 }
 .s-pw {
   position: relative;
 }
 .s-pw-in.in {
   height: 52px;
-  padding: 0 52px 0 14px;
-  font-size: 1.0625rem;
+  padding: 0 var(--sp-12) 0 var(--sp-4);
+  font-size: var(--fs-row);
 }
 .s-pw.bad .s-pw-in.in {
   border-color: var(--bad);
@@ -539,18 +550,18 @@
   border-radius: 50%;
 }
 .s-pw-err {
-  font-size: 0.9375rem;
-  line-height: 1.25rem;
+  font-size: var(--fs-sub);
+  line-height: var(--lh-sub);
   color: var(--bad);
 }
 
 /* heart-rate zones under the run source: the zones in ink, the explanation quiet, Sync at the right */
 .s-zones {
   align-items: flex-start;
-  padding-block: 12px;
+  padding-block: var(--sp-3);
 }
 .s-zones .lrow-main {
-  gap: 4px;
+  gap: var(--sp-1);
 }
 .s-zones-line {
   color: var(--ink-2);
@@ -577,26 +588,29 @@
   background: none;
   text-align: right;
   font: inherit;
-  font-size: 1.0625rem;
+  font-size: var(--fs-row);
   color: var(--ink-2);
 }
 .s-name-pen {
   flex: none;
-  margin-left: 8px;
-  color: var(--ink-3);
+  margin-left: var(--sp-2);
+  color: var(--ink-2);
 }
 .s-name-row:has(.s-name-in:focus) .s-name-pen {
-  color: var(--accent);
+  color: var(--deep-sky);
 }
 .s-name-in::placeholder {
-  color: var(--ink-4);
+  color: var(--ink-2);
 }
 .s-name-in:focus {
   outline: none;
   color: var(--ink);
 }
+/* the name typed in place: the row shows the focus pair, a Deep Sky edge and the Sky ring, inside its group */
 .s-name-row:has(.s-name-in:focus-visible) {
-  box-shadow: inset 0 -2px 0 var(--accent-bright);
+  box-shadow:
+    inset 0 0 0 1.5px var(--focus-edge),
+    inset 0 0 0 5px var(--accent-tint);
 }
 /* who is signed in (You, Account): a long address wraps anywhere rather than losing its end */
 .s-email-row .lrow-title,
@@ -610,10 +624,10 @@
   min-width: 0;
 }
 .s-email-row {
-  padding-block: 11px;
+  padding-block: 11px; /* brand-ok: geometry, a two-line row stays 64 tall */
 }
 .s-archived .lrow-title {
-  color: var(--ink-3);
+  color: var(--ink-2);
 }
 
 /* WP6 moves what a size change displaces itself (carry, FLIP on settle, docs/feel.md §10.1): the browser's scroll anchoring
@@ -633,7 +647,7 @@
   flex: 1 1 0;
 }
 .s-go.s-wrap-title {
-  padding-block: 11px;
+  padding-block: 11px; /* brand-ok: geometry, a two-line row stays 64 tall */
 }
 /* a one-line row keeps its whole title; the value on the right gives way and ellipsizes ("Run days" at 320 with a tile) */
 .s-group .s-go:not(.two) .lrow-main {
@@ -656,14 +670,14 @@
 
 /* the delete sheet: what happens to the copies, under the card, and the export's result between the buttons */
 .s-del-fine {
-  margin: 0 4px;
+  margin: 0 var(--sp-1);
   font-size: var(--fs-foot);
   line-height: var(--lh-foot);
-  color: var(--ink-3);
+  color: var(--ink-2);
 }
 .s-del-note {
   margin: 0;
-  padding: 2px 8px 6px;
+  padding: 2px var(--sp-2) var(--sp-2); /* brand-ok: geometry, the note between the two buttons */
   text-align: center;
   font-size: var(--fs-sub);
   line-height: var(--lh-sub);
@@ -675,18 +689,19 @@
 
 /* change password: three labeled fields, each with its eye */
 .s-pwform {
-  gap: 14px;
+  gap: var(--sp-4);
 }
+/* a field's label above it: Inter 15 600 Night Ink, 8 px to the field (guide 6.14) */
 .s-pw-field {
   display: grid;
-  gap: 6px;
+  gap: var(--sp-2);
 }
 .s-pw-label {
-  padding-inline: 4px;
+  padding-inline: var(--sp-1);
   font-size: var(--fs-sub);
   line-height: var(--lh-sub);
   font-weight: 600;
-  color: var(--ink-2);
+  color: var(--ink);
 }
 .s-pw-field .s-pw {
   display: block;
@@ -717,9 +732,9 @@
   .s-group > .s-go:has(.s-value) {
     display: grid;
     grid-template-columns: auto minmax(0, 1fr);
-    column-gap: 12px;
-    row-gap: 2px;
-    padding-block: 11px;
+    column-gap: var(--sp-3);
+    row-gap: 2px; /* brand-ok: geometry, the value hangs under its title */
+    padding-block: 11px; /* brand-ok: geometry, a two-line row stays 64 tall */
   }
   .s-group > .s-go:has(.s-value):not(.has-tile) {
     grid-template-columns: minmax(0, 1fr);
@@ -740,7 +755,7 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 8px;
+    gap: var(--sp-2);
     max-width: none;
   }
   .s-group > .s-go:has(.s-value) .s-value {

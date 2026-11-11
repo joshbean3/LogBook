@@ -1,6 +1,7 @@
 import { buildMorning, fmtDate, morningDayFor } from '@logbook/shared';
 import type * as React from 'react';
-import { BookOpenText, CalendarDays, ClipboardList, Database, FileText, Gauge, Heart, House, Info, LifeBuoy, Mail, RotateCcw, Route, ScrollText, Send, ShieldCheck, Sparkles, Sunrise, Timer, User, Vibrate } from 'lucide-react';
+import { BookOpenText, CalendarDays, ClipboardList, Database, FileText, Gauge, Heart, House, Info, LifeBuoy, Mail, RotateCcw, Route, ScrollText, Send, ShieldCheck, Sunrise, Timer, User, Vibrate } from 'lucide-react';
+import { FavoriteIcon, HabitIcon } from '@/ui/icons';
 import { useNavigate } from 'react-router';
 import { startReplay } from '@/features/onboarding/replay';
 import { useRef } from 'react';
@@ -103,7 +104,7 @@ export default function SettingsView(): React.JSX.Element {
       <SGroup title="Habits">
         {/* the count is the title and the names wrap under it, so no name is cut and "and 4 more" never hides */}
         <GoRow
-          icon={Sparkles}
+          icon={HabitIcon}
           title={habits.length ? `${habits.length} ${habits.length === 1 ? 'habit' : 'habits'}` : 'Add your first habit'}
           sub={habits.length ? habits.slice(0, 5).map((h) => h.name).join(', ') + (habits.length > 5 ? ` and ${habits.length - 5} more` : '') : 'Tiles you tap on Today.'}
           onPress={go('habits')}
@@ -132,7 +133,7 @@ export default function SettingsView(): React.JSX.Element {
         <HapticsRow icon={Vibrate} />
         <ReminderRows />
         {/* only once the App Store id exists; in the iPhone app the link goes to the App Store, never the review prompt */}
-        {rate ? <GoRow icon={Heart} title="Rate Orby" sub="Write a review on the App Store." href={isNative ? rate : undefined} onPress={() => void openExternal(rate)} /> : null}
+        {rate ? <GoRow icon={FavoriteIcon} title="Rate Orby" sub="Write a review on the App Store." href={isNative ? rate : undefined} onPress={() => void openExternal(rate)} /> : null}
         {isNative ? null : <GoRow icon={House} title="Home screen" sub="Full screen, and it opens offline." onPress={go('app')} />}
         <GoRow
           icon={RotateCcw}

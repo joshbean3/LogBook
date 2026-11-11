@@ -1,5 +1,6 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Activity, ChevronRight, CloudUpload, Database, Heart, HeartPulse, Moon, RefreshCw, ShieldCheck, TriangleAlert } from 'lucide-react';
+import { ChevronRight, CloudUpload, Database, Heart, HeartPulse, Moon, RefreshCw, ShieldCheck, TriangleAlert } from 'lucide-react';
+import { BrandIcon, type BrandIconComponent } from '@/ui/icons';
 import { HEALTH_HISTORY_DAYS, type HealthStatus } from '@logbook/shared';
 import { api } from '@/api/client';
 import { healthStatusKey, healthSyncNow, RECONNECT_WORDS, syncErrorWords, useHealthSync } from '@/lib/healthSync';
@@ -15,6 +16,9 @@ import { Button, Pressable, useSheet, useToast } from '@/ui';
 import { HEALTH_READS, HEALTH_READS_LINE, HEALTH_READS_SHORT, HEALTH_REVOKE_PATH, HEALTH_TRUST, importDoneWords, importWords, savedWords } from './healthCopy';
 import { rememberHealthDevice } from './healthDevice';
 import { SCard } from './parts';
+
+/** The set's check, bound like a Lucide glyph for the device card's rows. */
+const CheckIcon: BrandIconComponent = (props) => <BrandIcon name="check" {...props} />;
 import './appleHealth.css';
 
 /**
@@ -52,11 +56,11 @@ const deviceKey = ['health', 'device'] as const;
 const useHealthDevice = () => useQuery({ queryKey: deviceKey, queryFn: () => (Health ? Health.status() : Promise.resolve(null)), enabled: !!Health, staleTime: 5_000 });
 
 /** A row inside the device card: icon tile, words, value, chevron. */
-const CardRow = ({ icon: Icon, title, sub, value, onPress, tone }: { icon: typeof Moon; title: string; sub?: string; value?: string; onPress?: () => void; tone?: 'orange' }) => {
+const CardRow = ({ icon: Icon, title, sub, value, onPress, tone }: { icon: typeof Moon | BrandIconComponent; title: string; sub?: string; value?: string; onPress?: () => void; tone?: 'orange' }) => {
   const inner = (
     <>
       <span className={`ah-row-ic ${tone === 'orange' ? '' : 'is-navy'}`} aria-hidden="true">
-        <Icon size={16} strokeWidth={2.2} />
+        <Icon size={16} />
       </span>
       <span className="ah-row-text">
         <span className="ah-row-title">{title}</span>
@@ -119,7 +123,7 @@ export const AppleHealthGroup = (): React.JSX.Element => {
       <div className="ah-device">
         {/* a plain heart glyph, not a look-alike of Apple's app icon (copy-legal-27); Apple's own icon can go here once supplied */}
         <span className="ah-app" aria-hidden="true">
-          <Heart size={24} strokeWidth={2.2} />
+          <Heart size={24} />
         </span>
         <span className="ah-device-text">
           <span className="ah-device-name">Apple Health</span>
@@ -142,7 +146,7 @@ export const AppleHealthGroup = (): React.JSX.Element => {
       {s?.connected && saved ? <CardRow icon={Database} title="Saved to your Orby account" sub={saved.sub} value={saved.since ?? undefined} /> : null}
       {connectedHere && (device.data?.pending ?? 0) > 0 && sync.phase !== 'running' ? <CardRow icon={CloudUpload} title={`${device.data!.pending} upload${device.data!.pending === 1 ? '' : 's'} waiting`} sub="Saved on this phone. They send when Orby is back online." /> : null}
       {connectedHere && (device.data?.deadLetter ?? 0) > 0 ? <CardRow icon={TriangleAlert} tone="orange" title={`${device.data!.deadLetter} upload${device.data!.deadLetter === 1 ? '' : 's'} not saved`} sub="Orby couldn’t save them. The rest keep syncing." /> : null}
-      {!web && !unavailable && (connectedHere || (access.data && !access.data.needed)) ? <CardRow icon={Activity} title="Reading check" sub="Last night and your heart numbers, read live" onPress={openCheck} /> : null}
+      {!web && !unavailable && (connectedHere || (access.data && !access.data.needed)) ? <CardRow icon={CheckIcon} title="Reading check" sub="Last night and your heart numbers, read live" onPress={openCheck} /> : null}
       {/* offered whenever the account holds a connection, also when this phone (or the web) is not the one sending: the
           readings on the server are the person's to delete from anywhere */}
       {s?.connected ? (

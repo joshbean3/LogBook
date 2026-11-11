@@ -1,5 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { Activity, Check, CircleHelp, Gauge, RefreshCw } from 'lucide-react';
+import { Check, CircleHelp, Gauge, RefreshCw } from 'lucide-react';
+import { RunIcon } from '@/ui/icons';
 import type * as React from 'react';
 import { useEffect } from 'react';
 import { api } from '@/api/client';
@@ -42,7 +43,7 @@ const StepsPanel = ({ guide }: { guide: ConnectionGuide }): React.JSX.Element =>
       <ol className="cx-steps">
         {guide.steps.map((s, i) => (
           <li key={s}>
-            <span className="cx-n stamp" aria-hidden="true">
+            <span className="cx-n" aria-hidden="true">
               {i + 1}
             </span>
             <span>{s}</span>
@@ -67,7 +68,7 @@ const ChecklistPanel = ({ guide, lede }: { guide: ConnectionGuide; lede?: string
     <ul className="cx-check">
       {guide.checklist.map((c) => (
         <li key={c}>
-          <Check size={16} strokeWidth={2.6} aria-hidden="true" />
+          <Check size={16} aria-hidden="true" />
           <span>{c}</span>
         </li>
       ))}
@@ -164,7 +165,7 @@ export const StravaRootRows = ({ onPress }: { onPress: () => void }): React.JSX.
   return (
     <>
       <GoRow
-        icon={Activity}
+        icon={RunIcon}
         title="Strava"
         sub={
           strava?.connected && strava.error
@@ -205,17 +206,17 @@ export const StravaGroup = (): React.JSX.Element | null => {
   return (
     <SGroup title="Strava" foot={s?.connected ? 'A run can take a minute to arrive after Strava has it.' : 'Where your runs come from.'}>
       {s?.connected && s.error ? (
-        <GoRow icon={Activity} title="Stopped syncing" sub="Reconnect to pick up new runs." value="Fix" tone="bad" onPress={() => openGuide(stravaGuide(true), 'failed')} />
+        <GoRow icon={RunIcon} title="Stopped syncing" sub="Reconnect to pick up new runs." value="Fix" tone="bad" onPress={() => openGuide(stravaGuide(true), 'failed')} />
       ) : s?.connected ? (
         <>
           <Row
             className="s-wrap has-tile"
-            left={<Tile icon={Activity} />}
+            left={<Tile icon={RunIcon} />}
             title="Strava"
             sub={s.athleteName ? `As ${s.athleteName}` : 'Your runs land on Today.'}
             right={
               <span className="ds-ok">
-                <Check size={16} strokeWidth={2.6} aria-hidden="true" />
+                <Check size={16} aria-hidden="true" />
                 Connected
               </span>
             }
@@ -229,7 +230,7 @@ export const StravaGroup = (): React.JSX.Element | null => {
           />
         </>
       ) : (
-        <GoRow icon={Activity} title="Connect Strava" sub="Your runs land on Today a minute after they sync." onPress={() => openGuide(stravaGuide(false))} />
+        <GoRow icon={RunIcon} title="Connect Strava" sub="Your runs land on Today a minute after they sync." onPress={() => openGuide(stravaGuide(false))} />
       )}
       {s?.connected ? <GoRow className="s-how-row" icon={CircleHelp} title="How it connects" sub="The steps, and what to check if runs stop." onPress={() => openGuide(stravaGuide(true))} /> : null}
       <HrZonesRow zones={boot.data?.zones ?? null} connected={!!s?.connected} />
