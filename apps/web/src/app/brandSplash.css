@@ -385,6 +385,7 @@
   .brand-splash[data-leave],
   .brand-splash[data-leave] .bs-head {
     animation-duration: var(--bs-out) !important;
+    animation-timing-function: linear !important;
   }
 }
 

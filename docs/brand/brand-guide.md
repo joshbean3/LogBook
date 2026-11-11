@@ -733,7 +733,7 @@ Text blocks, cards on scroll, the palette, backgrounds after load, gauge scales 
 
 ### 9.4 Reduce Motion
 
-Every move becomes a 150 ms linear fade. The Orb holds its still frame. Gauge pointers jump. The splash shows its final frame: it crossfades in from the launch Cloud over 300 ms with the one `dawn` haptic, rests half a second and fades out in 150 ms; nothing in it moves. No parallax, no breath, no orbit.
+Every move becomes a 150 ms linear fade (`--dur-reduce`); the one longer fade is the splash's 300 ms crossfade in, below. The Orb holds its still frame. Gauge pointers jump. The splash shows its final frame: it crossfades in from the launch Cloud over 300 ms with the one `dawn` haptic, rests half a second and fades out in 150 ms; nothing in it moves. No parallax, no breath, no orbit.
 
 ### 9.5 Haptics
 

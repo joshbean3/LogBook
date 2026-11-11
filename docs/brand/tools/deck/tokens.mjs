@@ -248,7 +248,7 @@ add('motion', [
   ['--dur-dawn', '600ms', 'The dawn wash fades in on the first open after 4 a.m. local. Once a day.', null],
   ['--orb-breath', '4000ms', 'Idle Orb: scale 1 to 1.015 and back.', null],
   ['--orb-orbit', '1200ms', 'Thinking Orb: one turn of the Apricot arc.', null],
-  ['--dur-reduce', '150ms', 'Under Reduce Motion every move becomes this linear fade.', null],
+  ['--dur-reduce', '150ms', "Under Reduce Motion every move becomes this linear fade. The one longer fade is the splash's crossfade in (--dur-launch, 9.4).", null],
   ['--dur-ring', '600ms', 'The hold-to-complete ring fill.', '600ms'],
 ]);
 add('orb', [
