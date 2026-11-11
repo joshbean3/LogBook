@@ -146,6 +146,13 @@ export const buildSession = (id: string, date: string, today: string, d: AddDraf
   return { ...base, kind: 'lift', type: c ? c.type : 'Strength', title: c?.title ?? null, details: c?.details ?? null, miles: null, minutes: c?.minutes ?? null };
 };
 
+/**
+ * The same session for another try, after the server refused it: everything that was picked (the day, the done mark of a
+ * day already past), under a new id. The server wrote nothing under the refused id, and the id itself can be what it
+ * refused: one that is already someone else's answers 409 `id_taken`, and the app is to pick another.
+ */
+export const retryOf = (s: Session, id: string): Session => ({ ...s, id });
+
 /** A day in a sentence: today, tomorrow, yesterday, the weekday inside a week of today, else "Fri, Nov 27". */
 export const dayWords = (date: string, today: string): string => {
   if (date === today) return 'today';

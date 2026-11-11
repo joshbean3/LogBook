@@ -1,6 +1,6 @@
 import type { Session } from '@logbook/shared';
 import { describe, expect, it } from 'vitest';
-import { addedWords, buildSession, dayWords, defaultDay, liftChoices, milesFor, minutesFor, type AddHistory } from './addModel';
+import { addedWords, buildSession, dayWords, defaultDay, liftChoices, milesFor, minutesFor, retryOf, type AddHistory } from './addModel';
 
 // Wednesday, November 11, 2026: the week is Nov 9 to 15
 const TODAY = '2026-11-11';
@@ -146,5 +146,16 @@ describe('the words', () => {
     expect(addedWords(buildSession('p', '2026-11-09', TODAY, { kind: 'run', type: 'Long', miles: 8.5, minutes: null }), TODAY)).toBe('Long 8.5 added to Monday as done');
     expect(addedWords(buildSession('p', TODAY, TODAY, { kind: 'lift', choice: null, name: 'Strength A' }), TODAY)).toBe('Strength A added to today');
     expect(addedWords(buildSession('p', TODAY, TODAY, { kind: 'lift', choice: null, name: 'A very long name for a lift session indeed' }), TODAY)).toBe('Session added to today');
+  });
+});
+
+describe('trying again after the server refused the session', () => {
+  it('sends what was picked, the day and its done mark included, under a new id', () => {
+    const s = buildSession('pOld', '2026-11-09', TODAY, { kind: 'run', type: 'Long', miles: 8.5, minutes: null });
+    const again = retryOf(s, 'pNew');
+    expect(again).toEqual({ ...s, id: 'pNew' });
+    expect(again.mark).toBe('done');
+    // the refused session is left as it was: its Undo and its words still name it
+    expect(s.id).toBe('pOld');
   });
 });

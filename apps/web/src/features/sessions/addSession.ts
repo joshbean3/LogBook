@@ -1,11 +1,11 @@
 import { label, type Session } from '@logbook/shared';
 import { useQueryClient } from '@tanstack/react-query';
-import { useSessionMutations } from '@/api/queries';
+import { newSessionId, useSessionMutations } from '@/api/queries';
 import type { MonthBundle } from '@/api/types';
 import { haptics } from '@/lib/haptics';
 import { useToast } from '@/ui/Toast';
 import { beforeWeekChange, markArriving } from '../plan/weekLive';
-import { addedWords } from './addModel';
+import { addedWords, retryOf } from './addModel';
 
 /*
  * Adding a session, for the Add sheet and the full editor alike (AddSessionSheet.tsx, SessionEditor.tsx): when the write may
@@ -32,7 +32,8 @@ export const afterSheetLeft = (fn: () => void) => {
  * the week on screen reads where its rows are (`beforeWeekChange`), the row goes in at once and is lit as it lands
  * (`markArriving`), one `drop` haptic, and the toast carries Undo. Undo takes the session as it is by then (moved to
  * another day since, it leaves from there; deleted since, there is nothing to do). A refusal by the server takes the row
- * back and says one plain line with Try again, which sends the same session again: nothing that was picked is lost.
+ * back and says one plain line with Try again, which sends the same session again under a new id (addModel.ts's
+ * `retryOf`): nothing that was picked is lost.
  */
 export const useAddSession = () => {
   const { add, remove } = useSessionMutations();
@@ -60,7 +61,7 @@ export const useAddSession = () => {
         if (undone) return;
         haptics.error();
         const name = label(s);
-        toast(`Couldn’t add ${name.length > 24 ? 'that' : name}.`, { label: 'Try again', fn: () => commit(s, today) });
+        toast(`Couldn’t add ${name.length > 24 ? 'that' : name}.`, { label: 'Try again', fn: () => commit(retryOf(s, newSessionId()), today) });
       },
     );
     toast(addedWords(s, today), {
