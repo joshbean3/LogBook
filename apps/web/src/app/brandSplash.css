@@ -155,7 +155,7 @@
   position: absolute;
   left: var(--gutter);
   right: var(--gutter);
-  bottom: max(var(--sp-3), calc(var(--safe-b) + var(--sp-2)));
+  bottom: max(var(--sp-5), calc(var(--safe-b) + var(--sp-2)));
   margin: 0;
   text-align: center;
   font: 600 var(--fs-caps) / var(--lh-caps) var(--stamp);
