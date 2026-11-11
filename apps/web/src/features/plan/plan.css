@@ -442,7 +442,7 @@
 .mg-head,
 .mg-week {
   display: grid;
-  grid-template-columns: repeat(7, minmax(0, 1fr)) 52px;
+  grid-template-columns: repeat(7, minmax(0, 1fr)) 56px;
 }
 .mg-head {
   height: 32px;
@@ -468,6 +468,11 @@
 }
 .mg-week.is-now {
   background: var(--cloud);
+}
+/* a week with nothing in it: only its numerals' line */
+.mg-week.pressable.is-bare {
+  height: 40px;
+  min-height: 40px;
 }
 .mg-week[data-pressed][data-press='surface'] {
   background: var(--surface-2);
@@ -498,8 +503,10 @@
   color: var(--ink);
 }
 .mg-cell.is-out .mg-num,
-.mg-cell.is-out .mg-mi {
+.mg-cell.is-out .mg-mi,
+.mg-cell.is-pre .mg-num {
   color: var(--ink-2);
+  font-weight: 400;
 }
 .mg-mi {
   font: 500 var(--fs-orb) / 0.875rem var(--sans);
@@ -574,9 +581,13 @@
   min-width: 0;
 }
 .mg-wk b {
-  font: 650 var(--fs-row) / var(--lh-row) var(--sans);
+  font: 600 var(--fs-row) / var(--lh-row) var(--sans);
   font-variant-numeric: tabular-nums;
-  color: var(--ink);
+  color: var(--ink-2);
+  white-space: nowrap;
+}
+.mg-wk .mg-u {
+  font: 500 var(--fs-foot) / var(--lh-foot) var(--sans);
 }
 .mg-wk small {
   font: 500 var(--fs-orb) / 0.875rem var(--sans);

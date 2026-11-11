@@ -413,7 +413,9 @@ const SessionSheet = ({ date, id }: { date: string; id: string }) => {
   const lead = runs.length ? nums[0]! : nums.find((x) => x.k === 'Plan') ?? null;
   // the status word above the number says done or not; under it, what the number is: the plan (today-top-18). When the
   // status word is already "Planned", the number needs no second one
-  const hero = lead ? { ...lead, n: lead.n ?? (runs.length ? lead.k : /^planned$/i.test(word.trim()) ? '' : 'Planned') } : null;
+  // a session ahead says when under its number ("Tomorrow", "Friday"), so no line below repeats it (layout plan SS1, SS2)
+  const ahead = !runs.length && date > log.today ? (date === shiftDays(log.today, 1) ? 'Tomorrow' : fmtDate('dowLong', date)) : null;
+  const hero = lead ? { ...lead, n: lead.n ?? (runs.length ? lead.k : ahead ?? (/^planned$/i.test(word.trim()) ? '' : 'Planned')) } : null;
   const tiles = nums.filter((x) => x !== lead);
   const typeWord = s.type && !label(s).toLowerCase().includes(s.type.toLowerCase()) ? s.type : '';
   const skipped = s.mark === 'skip' || s.mark === 'sick';
@@ -471,7 +473,6 @@ const SessionSheet = ({ date, id }: { date: string; id: string }) => {
         </div>
       ) : null}
       {c.auto ? <p className="ss-foot-note">{st === 'floor' ? 'Floor held, from the run that came in.' : s.kind === 'lift' ? 'Done: the sets are logged.' : 'Done: matched to your run.'}</p> : null}
-      {!c.mark && !c.auto && s.kind !== 'rest' && date > log.today ? <p className="ss-foot-note">Planned for {date === shiftDays(log.today, 1) ? 'tomorrow' : fmtDate('dowLong', date)}. Mark it done on the day.</p> : null}
       {matched ? (
         // §6.3: after a matched run the group is Not feeling 100% (Share is the pill; Move and Edit are under the ⋯)
         date === log.today ? (
@@ -481,16 +482,16 @@ const SessionSheet = ({ date, id }: { date: string; id: string }) => {
         ) : null
       ) : (
         <div className="group ss-acts">
-          {c.mark ? <ActRow icon={<span className="ss-floor-glyph" />} title="Floor" sub={floorText ? `The minimum: ${floorText}` : 'The minimum still counts'} on={st === 'floor'} onPress={() => (st === 'floor' ? act.clear(s) : act.floor(s))} /> : null}
+          {/* the floor is a row on every session (SS3): live once it can be marked, said ahead of the day */}
+          {c.mark || (s.kind !== 'rest' && floorText) ? <ActRow icon={<span className="ss-floor-glyph" />} title="Floor" sub={floorText ? `The minimum: ${floorText}` : 'The minimum still counts'} on={st === 'floor'} disabled={!c.mark} className={c.mark ? '' : 'is-ahead'} label={c.mark ? undefined : `Floor. The minimum: ${floorText}. You can mark it on the day`} onPress={() => (st === 'floor' ? act.clear(s) : act.floor(s))} /> : null}
           {share && share.miles > 0 && pill?.label !== 'Share' ? <ActRow icon={<Share2 size={18} />} title="Share" onPress={() => act.share(share, true)} right={chev} /> : null}
           {c.skip || skipped ? <ActRow icon={<SkipForward size={18} />} title={skipped ? 'Put it back' : 'Skip'} sub={skipped ? 'Back on the plan' : 'The week still counts'} on={skipped} onPress={() => act.skip(s)} right={<span />} /> : null}
           <ActRow icon={<ArrowRightLeft size={18} />} title="Move" onPress={() => act.move(date, s, true)} right={chev} />
           <ActRow icon={<Pencil size={18} />} title="Edit" onPress={() => act.edit(date, s, true)} right={chev} />
-          {morning ? <ActRow icon={<AlarmClock size={18} />} title="Morning schedule" sub="Wake, the run, the routine, out the door" onPress={toMorning} right={chev} /> : null}
+          {morning ? <ActRow icon={<AlarmClock size={18} />} title="Morning schedule" sub="From waking to the door" onPress={toMorning} right={chev} /> : null}
         </div>
       )}
       {runs.length && evidence ? <SessionActual date={date} sess={s} runs={runs} log={log} prLap={recordLap(runs, records)} /> : null}
-      {s.kind !== 'rest' && floorText && !runs.length && !c.mark ? <p className="ss-foot-note">The floor: {floorText}. On a bad day it still counts.</p> : null}
       {pill ? (
         <div className="sheet-foot ss-foot">
           <Button variant={pill.primary ? 'primary' : 'soft'} block onClick={pill.fn}>
