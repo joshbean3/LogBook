@@ -666,12 +666,6 @@
   font: 500 var(--fs-sub) / var(--lh-sub) var(--sans);
   color: var(--ink-2);
 }
-/* the plan sheet's foot: the one Sky primary, then New plan and All plans side by side as secondaries */
-.pl-sum .sheet-foot .pl-sum-act {
-  flex: 1 1 0;
-  min-width: 0;
-}
-
 /* ---------- the plans list (Settings › Plans): one inset group, an icon tile before each plan ---------- */
 .pl-plans,
 .pl-detail {
@@ -750,98 +744,91 @@
   font: 500 var(--fs-sub) / var(--lh-sub) var(--sans);
   color: var(--ink-2);
 }
-/* a plan's sheet: the arc card, two tiles, the words, the one pill */
-.pl-detail-arc.card {
-  display: grid;
-  gap: 2px;
-}
-.pl-detail-arc .pl-arc {
-  margin-top: 12px;
-}
-/* ---------- the plan sheet's summary: the sentence and where it came from, what it is (rows), its goals (tiles) ---------- */
-.pl-sum-lead.card {
-  display: grid;
-  gap: 10px;
-}
-.pl-sum-text {
-  margin: 0;
-  font: 400 var(--fs-row) / 1.5rem var(--sans);
-  color: var(--ink);
-  text-wrap: pretty;
-}
-.pl-sum-from {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin: 0;
-  padding-top: 10px;
-  border-top: 1px solid var(--line);
-  font: 500 var(--fs-foot) / var(--lh-foot) var(--sans);
-  color: var(--ink-2);
-}
-.pl-sum-from svg {
-  flex: none;
-  color: var(--deep-sky);
-}
-.pl-sum .lb-head.pl-sum-head {
-  margin: 10px 2px -2px;
-}
-.pl-sum-rows.card {
-  display: grid;
-  padding-top: 4px;
-  padding-bottom: 4px;
-}
-.pl-sum-row {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 16px;
-  min-height: 44px;
-  padding: 11px 0;
-}
-.pl-sum-row + .pl-sum-row,
-.pl-sum-aim + .pl-sum-aim {
-  border-top: 1px solid var(--line);
-}
-.pl-sum-k {
-  flex: none;
+/* ---------- a plan's summary (PlanSummary.tsx): what the assistant reads, the outline, then the assistant ----------
+ * The sheet's title is the plan's name (Fraunces --fs-head), so the first group has no title of its own: an Inter lead
+ * line 8 above it (layout plan 2.4, F11). "The outline" is a list-page group (24 above, 8 below). */
+.pl-ps-lead {
+  margin: var(--sp-2) 0 var(--sp-2);
   font: 500 var(--fs-sub) / var(--lh-sub) var(--sans);
   color: var(--ink-2);
 }
-.pl-sum-v {
-  display: grid;
-  min-width: 0;
-  font: 600 var(--fs-sub) / var(--lh-sub) var(--sans);
+.pl-ps-facts .lrow-value {
   color: var(--ink);
-  text-align: right;
+}
+.pl-ps-from {
+  margin: var(--sp-2) var(--sp-4) 0;
+  font: 500 var(--fs-foot) / var(--lh-foot) var(--sans);
+  color: var(--ink-2);
+}
+.pl-ps-aims {
+  margin-top: var(--sp-3);
+}
+.pl-ps-chart.card {
+  display: grid;
+  margin-bottom: var(--sp-3);
+}
+.pl-ps-peak {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-1);
+  margin: 0 0 var(--sp-3);
+}
+.pl-ps-peak-n {
+  font: 650 var(--fs-value) / var(--lh-value) var(--sans);
+  letter-spacing: var(--tr-value);
+  color: var(--ink);
+}
+.pl-ps-peak-u {
+  font: 500 var(--fs-sub) / var(--lh-sub) var(--sans);
+  color: var(--ink-2);
+}
+/* this week's row: the Cloud wash today's day row has on Plan */
+.pl-ps-weeks .lrow.is-now {
+  background: var(--cloud);
+}
+.pl-ps-fold .lrow-title {
+  color: var(--accent-text);
+  font-weight: 600;
+}
+/* the assistant's heading: the Orb, then a list-page title; one Dusk line under it */
+.pl-ps-ask {
+  margin-top: var(--sp-6);
+}
+.pl-ps-ask-head {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+}
+.pl-ps-ask-title {
+  margin: 0;
+  font: 600 var(--fs-head) / var(--lh-head) var(--serif);
+  color: var(--ink);
+}
+.pl-ps-ask-line {
+  margin: var(--sp-2) 0 0;
+  font: 500 var(--fs-sub) / var(--lh-sub) var(--sans);
+  color: var(--ink-2);
   text-wrap: pretty;
 }
-.pl-sum-v small {
-  font: 500 var(--fs-foot) / var(--lh-foot) var(--sans);
-  color: var(--ink-2);
+.pl-ps-link {
+  position: relative;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: 600 var(--fs-sub) / var(--lh-sub) var(--sans);
+  color: var(--accent-text);
 }
-.pl-sum-tiles .tile-value {
-  overflow: hidden;
-  text-overflow: ellipsis;
+.pl-ps-link::after {
+  content: '';
+  position: absolute;
+  inset: 50% auto auto 50%;
+  width: max(100%, var(--hit));
+  height: var(--hit);
+  transform: translate(-50%, -50%);
 }
-.pl-sum-tsub {
-  font: 500 var(--fs-foot) / var(--lh-foot) var(--sans);
-  color: var(--ink-2);
-}
-/* the Goals tab's goals that name the plan: a target, the goal's words, its level */
-.pl-sum-aim {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  padding: 11px 0;
-}
-.pl-sum-aim svg {
-  flex: none;
-  margin-top: 1px;
-  color: var(--deep-sky);
-}
-.pl-sum-aim .pl-sum-v {
-  text-align: left;
+/* the conversation under the heading: the pane's thread starts 12 below it */
+.pl-ps-pane .as-thread {
+  padding-top: var(--sp-3);
 }
 .pl-detail-axis {
   display: flex;
@@ -850,11 +837,6 @@
   font: 500 var(--fs-foot) / var(--lh-foot) var(--sans);
   font-variant-numeric: tabular-nums;
   color: var(--ink-2);
-}
-/* the trash at the sheet's top right: the 40 px round Paper button (guide 6.2) with a Signal glyph, as destructive
-   items read */
-.icon-btn.pl-del {
-  color: var(--bad);
 }
 /* a destructive verb reads red, as every destructive item does, over the quiet variant's ink (feel review 3 #7) */
 .btn.danger-text,
