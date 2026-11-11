@@ -367,7 +367,7 @@ html[data-text-xl] .pd-owed-ask {
   background: var(--haze);
   color: var(--ink);
   /* a numeral in a fixed tile: it grows with the text size only as far as the tile holds */
-  font: 600 clamp(13px, var(--fs-foot), 17px) / 1 var(--sans);
+  font: 600 clamp(13px, 0.8125rem, 17px) / 1 var(--sans);
   font-variant-numeric: tabular-nums;
   transition:
     background-color var(--dur-color),

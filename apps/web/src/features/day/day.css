@@ -1905,6 +1905,7 @@
 }
 .hero-week.is-two .hw-runs {
   font: 500 clamp(15px, var(--fs-sub), 20px) / clamp(20px, var(--lh-sub), 26px) var(--sans);
+  font-variant-numeric: tabular-nums;
   color: var(--ink-2);
 }
 /* 30 drawn, 44 to touch */
