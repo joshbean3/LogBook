@@ -377,7 +377,7 @@ html[data-text-xl] .pd-owed-ask {
   background: none;
   box-shadow: none;
 }
-/* the rest: there, but quiet, so the eye stays on the three. Quiet by colour, never by fading the row: the words one step
+/* the rest: there, but quiet, so the eye stays on the three. Quiet by color, never by fading the row: the words one step
    down in Dusk (still 4.5:1 and more), the number an outline */
 .pd-card.is-rest .pd-rank {
   background: transparent;
