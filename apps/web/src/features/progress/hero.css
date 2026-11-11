@@ -243,9 +243,15 @@
   margin: var(--sp-2) 0 0;
   font: 500 var(--fs-sub) / var(--lh-sub) var(--sans);
   color: var(--ink-2);
+  transition: opacity var(--dur-out) var(--ease-out);
+}
+/* the chart has just been read: the words go, their room stays until the page is next shown (nothing moves under the finger) */
+.rb-hint.is-read {
+  opacity: 0;
 }
 @media (prefers-reduced-motion: reduce) {
-  .rb-bar {
+  .rb-bar,
+  .rb-hint {
     transition: none;
   }
   .rb-rise,

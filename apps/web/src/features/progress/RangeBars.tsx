@@ -61,7 +61,7 @@ const dome = (cx: number, w: number, top: number, base: number) => {
  * still. The rise is a CSS animation on each bar's own box (`transform-box: fill-box`, origin at its foot), so a bar grows
  * up from the horizon and never from its middle. Under Reduce Motion nothing moves.
  */
-export const RangeBars = ({ span, marks, label, words, format = String, hint, onScrub, onOpen, onRead }: { span: Pick<RangeSpan, 'range' | 'unit' | 'buckets'>; marks: BarMark[]; label: string; words: (i: number) => string; format?: (v: number) => string; hint?: string | null; onScrub: (i: number | null) => void; onOpen?: (i: number) => void; onRead?: () => void }) => {
+export const RangeBars = ({ span, marks, label, words, format = String, hint, hintRead, onScrub, onOpen, onRead }: { span: Pick<RangeSpan, 'range' | 'unit' | 'buckets'>; marks: BarMark[]; label: string; words: (i: number) => string; format?: (v: number) => string; /** The first-use line under the plot, while the chart has never been read. */ hint?: string | null; /** It has just been read: the line's words fade, its room stays. */ hintRead?: boolean; onScrub: (i: number | null) => void; onOpen?: (i: number) => void; onRead?: () => void }) => {
   const [wrapRef, width] = useWidth<HTMLDivElement>();
   const W = Math.max(220, width || 340);
   // the plot spans the card's inner width: 160 tall on a 320 pt phone, 180 from 375 up (guide 6.8)
@@ -231,7 +231,7 @@ export const RangeBars = ({ span, marks, label, words, format = String, hint, on
       </div>
       {/* for the eye and the finger: VoiceOver is told how a slider is moved by the slider */}
       {hint ? (
-        <p className="rb-hint" aria-hidden="true">
+        <p className={hintRead ? 'rb-hint is-read' : 'rb-hint'} aria-hidden="true">
           {hint}
         </p>
       ) : null}

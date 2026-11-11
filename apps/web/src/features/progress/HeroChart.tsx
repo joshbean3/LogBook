@@ -51,17 +51,20 @@ const hasRead = () => {
   }
 };
 /**
- * Whether the chart still says how it is read ("Drag across to see each week"), and the way to say it has been. The answer
- * is taken when the card mounts and again each time the page comes back on screen, never while it is up: the line does not
- * fold away, and move the range control, under a finger that has just read the chart.
+ * Whether the chart still says how it is read ("Drag across to see each week"), whether that has just been done, and the
+ * way to say so. The line's words fade the moment the chart is first read. Its room is given back only when the card
+ * mounts or the page next comes on screen, never while it is up: nothing folds away, and moves the range control, under a
+ * finger that has just read the chart.
  */
 const useScrubHint = () => {
   const shown = usePageShown();
   const [seen, setSeen] = useState(hasRead);
+  const [read, setRead] = useState(false);
   useEffect(() => {
     if (shown) setSeen(hasRead());
   }, [shown]);
   const done = useCallback(() => {
+    setRead(true);
     if (readThisSession) return;
     readThisSession = true;
     try {
@@ -70,7 +73,7 @@ const useScrubHint = () => {
       /* private mode: this session only */
     }
   }, []);
-  return [!seen, done] as const;
+  return { hint: !seen, read, done };
 };
 
 /** The empty card's ghost: the shape of the chart to come, domes rising on a horizon. Shapes only. */
@@ -133,7 +136,7 @@ export const HeroChart = ({ log, t, range, onRange, first, liftFirst = null, fir
   const [mode, setMode] = useMode();
   const [scrub, setScrub] = useState<number | null>(null);
   const [opened, setOpened] = useState<number | null>(null);
-  const [hint, hintDone] = useScrubHint();
+  const hint = useScrubHint();
   const openWeek = useOpenWeek(t);
   const snap = log.snap;
   const loaded = useCallback((m: string) => snap.loaded(m), [snap]);
@@ -279,10 +282,11 @@ export const HeroChart = ({ log, t, range, onRange, first, liftFirst = null, fir
         marks={marks}
         label={chartLabel}
         words={words}
-        hint={hint ? `Drag across to see each ${UNIT_WORD[unit]}` : null}
+        hint={hint.hint ? `Drag across to see each ${UNIT_WORD[unit]}` : null}
+        hintRead={hint.read}
         onScrub={setScrub}
         onOpen={openAt}
-        onRead={hintDone}
+        onRead={hint.done}
       />
       {gaps && failed && onRetry ? (
         <div className="ph-retry" role="alert">
