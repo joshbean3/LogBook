@@ -1,4 +1,4 @@
-import { Check, Plus, X } from 'lucide-react';
+import { Check, ChevronDown, ChevronLeft, ChevronRight, Plus, X } from 'lucide-react';
 import { animate, motion, useMotionValue, useReducedMotion } from 'motion/react';
 import { useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { fireHaptic, haptics, type HapticEvent } from '@/lib/haptics';
@@ -224,12 +224,22 @@ export const Ring = ({ value, size = 44, stroke = 4, color = 'var(--ok)', childr
   );
 };
 
+/** A segmented control's tone: the Sky thumb (guide 6.3), or the quiet Paper thumb with a 1 px edge (the iOS system look). */
+export type SegTone = 'sky' | 'quiet';
 /**
- * Two to four segments with one thumb (`--surface-3`) that slides to the chosen one on `springs.settle` (a transform; no
- * shared-layout flight, no haptic: §11.4, contracts §C.6). In the bar's 96 px trailing slot pass `className="in-bar"` (96 × 32, radius 9,
- * 13/600 labels, each half a 44 px hit).
+ * The tone of the four wayfinding and setting controls (Today's time of day, Plan's Week / Month, Progress's Running /
+ * Strength, Journal's Week / Month). Sky, as the guide says, until the owner answers the build plan's question Q1; then
+ * this one line flips them all. The range control stays Sky either way, and where two controls share a card or a screen
+ * the one that is not the range control passes `tone="quiet"` now (guide 6.3 amendment).
  */
-export function Segmented<T extends string>({ options, value, onChange, label, className = '', disabled }: { options: Array<[T, ReactNode]>; value: T; onChange: (v: T) => void; label: string; className?: string; disabled?: boolean }) {
+export const SEG_TONE_WAYFINDING: SegTone = 'sky';
+
+/**
+ * Two to five segments with one thumb that slides to the chosen one on `springs.settle` (a transform; no shared-layout
+ * flight, no haptic: §11.4, contracts §C.6). Labels Inter 15; 44 tall in a card or on the page. In the bar's trailing slot
+ * pass `className="in-bar"` (36 tall, each half a 44 px hit). `tone="quiet"` draws the Paper thumb (layout standard 6.7).
+ */
+export function Segmented<T extends string>({ options, value, onChange, label, className = '', disabled, tone = 'sky' }: { options: Array<[T, ReactNode]>; value: T; onChange: (v: T) => void; label: string; className?: string; disabled?: boolean; tone?: SegTone }) {
   const root = useRef<HTMLDivElement>(null);
   const thumb = useRef<HTMLSpanElement>(null);
   const x = useMotionValue(0);
@@ -264,7 +274,7 @@ export function Segmented<T extends string>({ options, value, onChange, label, c
     };
   }, [value, reduce, x]);
   return (
-    <div ref={root} className={`seg ${className}`.trim()} role="radiogroup" aria-label={label}>
+    <div ref={root} className={`seg ${tone === 'quiet' ? 'is-quiet' : ''} ${className}`.replace(/\s+/g, ' ').trim()} role="radiogroup" aria-label={label}>
       <motion.span ref={thumb} className="seg-thumb" style={{ x }} aria-hidden="true" />
       {options.map(([k, text]) => (
         <button
@@ -379,6 +389,167 @@ export const AuraStat = ({ label, value, unit, note, className = '' }: { label: 
 };
 /** Three stats in a row, divided by hairlines. */
 export const StatStrip = ({ children, className = '' }: { children: ReactNode; className?: string }) => <div className={`strip ${className}`}>{children}</div>;
+
+/**
+ * The status pill (Today, guide 6.13 and 6.14, layout standard 6.7): glass, 32 tall with a 44 hit, Inter 15 500 Night Ink,
+ * one line that never wraps. `dot` is the 6 px state dot (Deep Sky while training, Pencil while paused), `chevron` the 16
+ * px glyph after the words ('down' opens a sheet here, 'right' goes somewhere). `voiceLabel` is what VoiceOver says: the
+ * whole state, including what the words leave out (the plan's name, an end date the row had no room for).
+ */
+export const StatusPill = ({ label, dot, chevron, onPress, voiceLabel, className = '' }: { label: ReactNode; dot?: 'sky' | 'pencil'; chevron?: 'down' | 'right'; onPress?: () => void; voiceLabel?: string; className?: string }) => {
+  const press = usePress({ disabled: !onPress });
+  const inner = (
+    <>
+      {dot ? <span className={`status-pill-dot ${dot === 'pencil' ? 'is-pencil' : ''}`.trim()} aria-hidden="true" /> : null}
+      <span className="status-pill-label">{label}</span>
+      {chevron === 'down' ? <ChevronDown size={16} aria-hidden="true" /> : chevron === 'right' ? <ChevronRight size={16} aria-hidden="true" /> : null}
+    </>
+  );
+  if (!onPress)
+    return (
+      <span className={`status-pill ${className}`.trim()} role={voiceLabel ? 'img' : undefined} aria-label={voiceLabel}>
+        {inner}
+      </span>
+    );
+  return (
+    <button type="button" className={`status-pill ${className}`.trim()} onClick={onPress} aria-label={voiceLabel} {...press.handlers}>
+      {inner}
+    </button>
+  );
+};
+
+/** A direction glyph for a tile's context: a small triangle, so the direction never rests on color alone. */
+const Triangle = ({ dir }: { dir: 'up' | 'down' }) => (
+  <svg width={10} height={10} viewBox="0 0 10 10" aria-hidden="true">
+    <path d={dir === 'up' ? 'M5 1.5 9 8.5H1z' : 'M5 8.5 1 1.5h8z'} fill="currentColor" />
+  </svg>
+);
+
+/** A sparkline's path in a 100 x 32 box: min to max fills the height, 2 px in from each edge so the line is never cut. */
+export const sparkPath = (points: number[]): string => {
+  const lo = Math.min(...points);
+  const hi = Math.max(...points);
+  const span = hi - lo || 1;
+  const step = 100 / (points.length - 1);
+  return points.map((v, i) => `${i ? 'L' : 'M'}${(i * step).toFixed(2)} ${(30 - ((v - lo) / span) * 28).toFixed(2)}`).join(' ');
+};
+
+export interface StatTileProps {
+  /** The 18 px glyph before the label (Deep Sky). */
+  icon?: ReactNode;
+  /** The label: what the number is ("Resting heart rate"). */
+  label: string;
+  /** The value, in even figures; a `NoData` when there is none. */
+  value: ReactNode;
+  /** The unit after the value ("bpm", "%"), Inter 500 15 Dusk. */
+  unit?: ReactNode;
+  /** The context under the value: its window or what it is compared with ("30 days", "vs your normal"). */
+  context?: ReactNode;
+  /** A direction for the context's triangle. */
+  dir?: 'up' | 'down';
+  /** A reading worth a look: the context in Night Ink 600 with its triangle (never Deep Sky). */
+  hi?: boolean;
+  /** The sparkline's points, oldest first. Drawn only from 7 points up. */
+  spark?: number[];
+  /** The whole tile is the target and opens its detail; it then shows the 18 px chevron. */
+  onPress?: () => void;
+  /** VoiceOver's one line for the tile, when the value is a node; else it is read from the label, value, unit and context. */
+  read?: string;
+  className?: string;
+}
+
+/**
+ * A stat tile (layout standard 6.3): a label row (glyph and label, a chevron when it opens something), the value 8 below
+ * at --fs-value 26/32 with its unit 4 after, then one context line, then an optional 32 px sparkline. Trends and Health use
+ * this one tile; lay tiles in a `TileGrid` (one column above 150 percent text).
+ */
+export const StatTile = ({ icon, label, value, unit, context, dir, hi, spark, onPress, read, className = '' }: StatTileProps) => {
+  const line = read ?? readStat(label, value, unit, context);
+  const press = usePress({ disabled: !onPress });
+  const body = (
+    <>
+      <span className="tile-head" aria-hidden={line ? true : undefined}>
+        <span className="tile-label">
+          {icon}
+          {label}
+        </span>
+        {onPress ? <ChevronRight size={18} className="tile-chev" aria-hidden="true" /> : null}
+      </span>
+      <span className="tile-value" aria-hidden={line ? true : undefined}>
+        {value}
+        {unit ? <small>{unit}</small> : null}
+      </span>
+      {context ? (
+        <span className={`tile-context ${hi ? 'is-hi' : ''}`.trim()} aria-hidden={line ? true : undefined}>
+          {dir ? <Triangle dir={dir} /> : null}
+          {context}
+        </span>
+      ) : null}
+      {spark && spark.length >= 7 ? (
+        <svg className="tile-spark" viewBox="0 0 100 32" preserveAspectRatio="none" aria-hidden="true">
+          <path d={sparkPath(spark)} fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
+        </svg>
+      ) : null}
+    </>
+  );
+  if (onPress)
+    return (
+      <button type="button" className={`tile ${className}`.trim()} onClick={onPress} aria-label={line ?? undefined} {...press.handlers}>
+        {body}
+      </button>
+    );
+  return (
+    <div className={`tile ${className}`.trim()} role={line ? 'img' : undefined} aria-label={line ?? undefined}>
+      {body}
+    </div>
+  );
+};
+
+/**
+ * A section with nothing yet (layout standard 6.5): one 64 row in the section's group, a 32 px Haze icon tile, the title
+ * (Inter 600 17, "No trends yet"), one Dusk line that may take two lines, and an optional trailing quiet link. Never a
+ * second button for an action the screen already offers. For a whole screen or its hero, use `EmptyState`. `bare` drops
+ * the group so the row can sit inside a card that is already there.
+ */
+export const SectionEmpty = ({ icon, title, line, action, bare, className = '' }: { icon: ReactNode; title: ReactNode; line?: ReactNode; action?: { label: string; onPress: () => void; voiceLabel?: string }; bare?: boolean; className?: string }) => {
+  const row = (
+    <div className={`lrow two section-empty ${bare ? className : ''}`.replace(/\s+/g, ' ').trim()}>
+      <span className="icon-tile" aria-hidden="true">
+        {icon}
+      </span>
+      <div className="lrow-main">
+        <div className="lrow-title">{title}</div>
+        {line ? <div className="lrow-sub">{line}</div> : null}
+      </div>
+      {action ? (
+        <div className="lrow-right">
+          <Button variant="quiet" size="sm" onClick={action.onPress} aria-label={action.voiceLabel}>
+            {action.label}
+          </Button>
+        </div>
+      ) : null}
+    </div>
+  );
+  return bare ? row : <div className={`group ${className}`.trim()}>{row}</div>;
+};
+
+/** No data yet, said in a word (layout standard 4.6): "None yet" in Dusk at the size of where it sits. Never a bare dash. */
+export const NoData = ({ children = 'None yet', className = '' }: { children?: ReactNode; className?: string }) => <span className={`no-data ${className}`.trim()}>{children}</span>;
+
+/**
+ * Two chevrons that page (a week, a month; layout standard 6.6). In a section header or a card: two bare 44 icon buttons
+ * with Deep Sky 18 px chevrons, hit boxes touching. `inBar` (a pushed bar): two 40 px round Paper buttons, 12 apart.
+ */
+export const PagerButtons = ({ onPrev, onNext, prevLabel, nextLabel, prevDisabled, nextDisabled, inBar, className = '' }: { onPrev: () => void; onNext: () => void; prevLabel: string; nextLabel: string; prevDisabled?: boolean; nextDisabled?: boolean; inBar?: boolean; className?: string }) => (
+  <span className={`pager-btns ${inBar ? 'in-bar' : ''} ${className}`.replace(/\s+/g, ' ').trim()}>
+    <button type="button" aria-label={prevLabel} title={prevLabel} disabled={prevDisabled} onClick={onPrev}>
+      <ChevronLeft size={18} aria-hidden="true" />
+    </button>
+    <button type="button" aria-label={nextLabel} title={nextLabel} disabled={nextDisabled} onClick={onNext}>
+      <ChevronRight size={18} aria-hidden="true" />
+    </button>
+  </span>
+);
 
 export const CloseButton = ({ onClick }: { onClick: () => void }) => (
   <IconButton label="Close" onClick={onClick}>

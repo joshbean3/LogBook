@@ -45,6 +45,8 @@ import './styles/switch.css';
 
 // native first: its splash cap is armed before any other boot helper runs (gap-ios-23)
 void bootNative();
+// layout checks in development only (ui/devChecks.ts): a dynamic import behind the DEV flag, so a release bundle drops it
+if (import.meta.env.DEV) void import('./ui/devChecks').then((m) => m.startDevChecks());
 // crash reports (Contract 7): a window error, an unhandled rejection and a caught render error each send one small report
 setErrorSender((body) => api('/client-errors', { method: 'POST', json: body, timeoutMs: 10_000 }));
 startErrorReports();

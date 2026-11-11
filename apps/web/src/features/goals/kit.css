@@ -177,10 +177,10 @@ button.k-row:active {
 }
 
 /* ---------- the segmented control (guide 6.3): a Cloud pill track, the chosen segment a Sky pill with no shadow; the
-   labels Dusk 550 off and Night Ink 650 on carry the state (Sky on Cloud is a weak shape, so the words lead). 36 tall,
-   the header bar's size, each segment a 44 px target ---------- */
+   labels Dusk 550 off and Night Ink 650 on carry the state (Sky on Cloud is a weak shape, so the words lead). 44 tall and
+   Inter 15 (layout standard 6.7: 44 in a card or on the page, 36 only in a header bar) ---------- */
 .seg.k-seg {
-  height: 36px;
+  height: 44px;
   gap: 0;
   padding: 2px;
   border-radius: var(--r-pill);
@@ -191,18 +191,12 @@ button.k-row:active {
   min-width: 0;
   padding: 0 var(--sp-1);
   border-radius: var(--r-pill);
-  font: 550 var(--fs-foot) / 1.0625rem var(--sans);
+  font: 550 var(--fs-sub) / var(--lh-sub) var(--sans);
   color: var(--ink-2);
 }
 .seg.k-seg .seg-btn[aria-checked='true'] {
   font-weight: 650;
   color: var(--accent-ink);
-}
-/* each segment reaches 44 to the thumb */
-.seg.k-seg .seg-btn::after {
-  content: '';
-  position: absolute;
-  inset: -6px 0;
 }
 .seg.k-seg .seg-thumb {
   top: 2px;
@@ -255,7 +249,7 @@ button.k-row:active {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   justify-content: stretch;
-  gap: var(--sp-2);
+  gap: var(--sp-3);
 }
 .k-pin .btn.block {
   width: 100%;

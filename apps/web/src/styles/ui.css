@@ -935,7 +935,8 @@ textarea.in {
 .sheet-foot {
   display: flex;
   justify-content: space-between;
-  gap: 8px;
+  /* neighboring buttons 12 apart (layout standard 3.2) */
+  gap: var(--sp-3);
   flex-wrap: wrap;
   margin-top: 4px;
   /* the actions never scroll away */
