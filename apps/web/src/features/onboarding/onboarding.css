@@ -203,6 +203,17 @@
   gap: 0;
   min-width: 0;
 }
+/* two groups in one card (plan O5): a full-bleed hairline 16 above and below, and the second group's 22 title 8 over
+   its control (layout standard 3.3.3, C2) */
+.card.ob-card.ob-days-card > .rule {
+  margin-block: var(--sp-4);
+}
+.card.ob-card.ob-days-card > .card-title {
+  margin-bottom: var(--sp-2);
+}
+.ob-days-card .ob-miles {
+  margin-top: 0;
+}
 /* The pinned foot: it rests above the home indicator (and above the keyboard, which overlays the web view and reports its
    height as --kb), in the same place whether the step scrolls or not. Its fade never takes a tap: only the button and
    the tour's dots do, so an answer chip that shows through the fade can still be pressed. */
@@ -707,19 +718,20 @@
   color: var(--ink-2);
   font-variant-numeric: tabular-nums;
 }
-/* the verdict under the line: a plain Paper card, the line in the sentence voice */
-.card.ob-verdict {
-  gap: 0;
-}
-.ob-verdict-big {
-  font-size: var(--fs-sentence);
-  line-height: var(--lh-sentence);
-}
-.ob-verdict-sub {
-  margin-top: var(--sp-1);
+/* the morning's verdict, on the line above Next (plan O5): the door time in Night Ink 600, what it means in Dusk */
+.ob-later .ob-verdict {
+  display: block;
   font-size: var(--fs-sub);
   line-height: var(--lh-sub);
-  color: var(--ink-2);
+  text-wrap: balance;
+}
+.ob-verdict b {
+  font-weight: 600;
+  color: var(--ink);
+}
+/* the one-tap fix under the markers, inside their card */
+.ob-fix-row .ob-fix.ob-chip {
+  margin-top: 0;
 }
 
 /* ---------- habits: chips that become coins (flat discs with an Inter initial, never an Orb) ---------- */
@@ -733,13 +745,15 @@
 .ob-orbs {
   display: flex;
   gap: var(--sp-3);
-  min-height: 88px;
   align-items: flex-start;
   overflow: hidden;
 }
-.ob-orbs-ghost {
-  display: flex;
-  gap: var(--sp-3);
+/* the coins the picked chips become, under the chips (so a chip never moves under the finger), with a hairline over
+   them; nothing at all until one is picked (plan O6: no empty dashed placeholders) */
+.ob-orbs:not(:empty) {
+  margin: var(--sp-4) calc(-1 * var(--pad-card)) 0;
+  padding: var(--sp-4) var(--pad-card) 0;
+  border-top: 1px solid var(--line);
 }
 .ob-orb {
   display: grid;
@@ -756,11 +770,6 @@
   background: var(--surface);
   display: grid;
   place-items: center;
-}
-.ob-orb-ring.ghost {
-  border-style: dashed;
-  background: transparent;
-  opacity: 0.6;
 }
 .ob-orb-initial {
   font: 600 var(--fs-row) / 1 var(--sans);
@@ -878,22 +887,17 @@
   min-height: 11.5rem;
 }
 /* what the answers made: Today's hero card in size and place (358 wide, 184 tall or more), with its sunrise glow, so the
-   hand-off to Today's hero is one light; a caption over plain rows */
+   hand-off to Today's hero is one light; plain rows, no caption (plan O11) */
 .aura.ob-made {
   box-sizing: border-box;
   width: 100%;
   max-width: 358px;
   min-height: 11.5rem;
   margin: 0 auto;
-  padding: var(--sp-4) var(--sp-4) 0;
+  padding: var(--sp-2) var(--sp-4) 0;
   display: grid;
-  grid-template-rows: auto auto;
-  row-gap: var(--sp-1);
   align-content: start;
   overflow: hidden;
-}
-.ob-made-eyebrow {
-  color: var(--ink-2);
 }
 .ob-made-rows {
   list-style: none;
@@ -1000,10 +1004,10 @@
   line-height: var(--lh-sentence);
   color: var(--ink-2);
 }
-/* the first week: rows in one Paper card */
+/* the first week: rows in one Paper card, 12 under the summary card (cards 12 apart, layout standard 3.2) */
 .ob-week {
   list-style: none;
-  margin: var(--sp-4) 0 0;
+  margin: var(--sp-3) 0 0;
   padding: var(--sp-1) 0;
   display: grid;
   border-radius: var(--r-card);
@@ -1133,9 +1137,6 @@
     margin-top: var(--sp-4);
   }
 
-  .ob-week {
-    margin-top: var(--sp-5);
-  }
   .ob-wrow {
     min-height: 44px;
   }

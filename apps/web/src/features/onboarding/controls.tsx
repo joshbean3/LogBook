@@ -553,27 +553,6 @@ export const HabitPicker = ({ selected, custom, onChange }: { selected: string[]
   };
   return (
     <div className="ob-habits">
-      <div className="ob-orbs" aria-hidden="true">
-        <AnimatePresence initial={false}>
-          {selected.length ? (
-            selected.slice(0, 6).map((h) => (
-              <motion.span key={h} className="ob-orb" layout={!reduce} initial={reduce ? { opacity: 0 } : { opacity: 0, scale: 0.6 }} animate={{ opacity: 1, scale: 1 }} exit={reduce ? { opacity: 0 } : { opacity: 0, scale: 0.6 }} transition={reduce ? { duration: 0.15 } : springs.settle}>
-                <span className="ob-orb-ring">
-                  <span className="ob-orb-initial">{h.charAt(0).toUpperCase()}</span>
-                </span>
-                <span className="ob-orb-name">{h}</span>
-              </motion.span>
-            ))
-          ) : (
-            <motion.span key="ghost" className="ob-orbs-ghost" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-              {[0, 1, 2].map((i) => (
-                <span key={i} className="ob-orb-ring ghost" />
-              ))}
-            </motion.span>
-          )}
-        </AnimatePresence>
-        {selected.length > 6 ? <span className="ob-orb-more">+{selected.length - 6}</span> : null}
-      </div>
       <div className="ob-chips" role="group" aria-label="Starter habits">
         {all.map((h) => {
           const on = selected.includes(h);
@@ -600,6 +579,21 @@ export const HabitPicker = ({ selected, custom, onChange }: { selected: string[]
             Your own
           </Pressable>
         )}
+      </div>
+      {/* the picked chips as the coins they become on Today, under the chips so none moves under the finger; nothing
+          until one is picked (plan O6) */}
+      <div className="ob-orbs" aria-hidden="true">
+        <AnimatePresence initial={false}>
+          {selected.slice(0, 6).map((h) => (
+            <motion.span key={h} className="ob-orb" layout={!reduce} initial={reduce ? { opacity: 0 } : { opacity: 0, scale: 0.6 }} animate={{ opacity: 1, scale: 1 }} exit={reduce ? { opacity: 0 } : { opacity: 0, scale: 0.6 }} transition={reduce ? { duration: 0.15 } : springs.settle}>
+              <span className="ob-orb-ring">
+                <span className="ob-orb-initial">{h.charAt(0).toUpperCase()}</span>
+              </span>
+              <span className="ob-orb-name">{h}</span>
+            </motion.span>
+          ))}
+        </AnimatePresence>
+        {selected.length > 6 ? <span className="ob-orb-more">+{selected.length - 6}</span> : null}
       </div>
       {full ? (
         <p className="ob-hint ob-habits-limit" role="status">

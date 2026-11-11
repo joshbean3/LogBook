@@ -109,11 +109,10 @@
   /* sized in rem, and grows past it rather than cut a demo off mid-row (onboarding-12, onboarding-20) */
   min-height: 14.75rem;
   overflow: hidden;
-  border-radius: var(--r-card);
-  /* a small screen: the Cloud ground with its edge, the demo's cards on it */
-  background: var(--bg);
-  box-shadow: inset 0 0 0 1px var(--edge);
-  padding: 14px; /* brand-ok: geometry, the demos are laid out on this inset */
+  /* no frame (plan O10): the demo's cards sit on the step's own ground at the full width of the page, their edges on the
+     16 px gutter; the stage reaches 8 past it only so the cards' shadows are not cut */
+  margin-inline: calc(-1 * var(--sp-2));
+  padding: var(--sp-2);
   isolation: isolate;
 }
 .tf {
@@ -301,74 +300,92 @@
   color: var(--ink);
 }
 
-/* Today: habits */
-.th-head {
-  display: flex;
-  align-items: baseline;
-  gap: var(--sp-2);
-  margin: var(--sp-1) 2px var(--sp-5); /* brand-ok: geometry, the head over the coins */
-  font: 500 var(--fs-foot) / var(--lh-foot) var(--sans);
-  color: var(--ink-2);
-}
-.th-head b {
-  font: 600 var(--fs-head) / var(--lh-head) var(--serif);
-  color: var(--ink);
-}
-.th-head em {
-  margin-left: auto;
-  font-style: normal;
-  font-weight: 600;
-  color: var(--accent-text);
-}
-.th-row {
-  display: flex;
-  justify-content: space-between;
-}
-.th-orb-wrap {
+/* Today: habits, as two tiles of the real grid (habits.css .orbs.is-grid, guide 6.6): Paper tiles r 18 with the card
+   shadow, a 42 px coin, the name in Inter 600 at the tile size and this week's seven dots */
+.th-grid {
   display: grid;
-  justify-items: center;
-  gap: var(--sp-2);
-  width: 20%;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--gap-tile);
 }
-.th-orb-wrap small {
-  font: 500 var(--fs-caps) / var(--lh-caps) var(--sans);
-  color: var(--ink-2);
-  text-align: center;
-  white-space: nowrap;
+.th-tile {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  min-width: 0;
+  min-height: 60px;
+  padding: 9px var(--sp-3); /* brand-ok: geometry, plan D26: 9 + 42 + 9 keeps the 60 px tile, as on Today */
+  border-radius: var(--r-tile);
+  background: var(--surface);
+  box-shadow: var(--shadow-1);
+}
+.th-tile-text {
+  display: grid;
+  gap: 5px; /* brand-ok: geometry, the week's dots under the name, as on Today */
+  min-width: 0;
+}
+.th-tile-text b {
+  font: 600 var(--fs-tile) / var(--lh-tile) var(--sans);
+  color: var(--ink);
+  overflow-wrap: break-word;
+}
+.th-week {
+  display: flex;
+  gap: var(--gap-dot);
+}
+.th-week i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--dot-ahead);
+}
+.th-week i.is-o {
+  background: transparent;
+  box-shadow: inset 0 0 0 1.25px var(--pencil);
+}
+.th-week i.is-d {
+  background: var(--deep-sky);
+}
+.th-week i.is-day {
+  outline: 1.5px solid var(--ink);
+  outline-offset: 1.5px;
 }
 /* a habit coin (guide 6.6): a flat disc, the off ring decorative; lit, Sky with a Night Ink check; never a glossy ball */
 .th-orb {
+  flex: none;
   display: grid;
   place-items: center;
-  width: 46px;
-  height: 46px;
+  width: 42px;
+  height: 42px;
   border-radius: 50%;
   background: var(--surface);
-  box-shadow:
-    inset 0 0 0 1.5px var(--coin-ring),
-    var(--shadow-1);
+  box-shadow: inset 0 0 0 1.5px var(--coin-ring);
   font: 600 var(--fs-row) / 1 var(--sans);
   color: var(--ink);
   transition:
     background-color var(--dur-color) var(--ease-out),
     color var(--dur-color) var(--ease-out);
 }
-.th-orb.tis-lit {
+.th-orb.tis-lit,
+.th-tile.tis-lit .th-orb {
   background: var(--accent);
-  box-shadow: var(--shadow-1);
+  box-shadow: none;
   color: var(--accent-ink);
 }
-.th-orb.tis-add {
-  background: transparent;
-  box-shadow: inset 0 0 0 1.5px var(--field-edge);
-  border: 0;
-  color: var(--ink-2);
+@media (max-width: 359px) {
+  .th-tile {
+    gap: var(--sp-2);
+    padding: 9px var(--sp-2); /* brand-ok: geometry, plan D26 */
+  }
+  .th-orb {
+    width: 34px;
+    height: 34px;
+  }
 }
 /* the coin's menu (guide 6.14): Paper on the menu radius with the menu shadow */
 .th-menu {
   position: absolute;
-  left: 14px;
-  top: 128px;
+  left: var(--sp-2);
+  top: 76px;
   display: grid;
   width: 150px;
   padding: var(--sp-1) 0;

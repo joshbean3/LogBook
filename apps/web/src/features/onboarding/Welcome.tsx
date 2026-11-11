@@ -14,7 +14,7 @@ import { EDGE_PX, FLICK_V, LOCK_PX, lockAxis } from '@/lib/gesture';
 import { crossfade, fadeIn, springs } from '@/lib/motion';
 import { Pressable, useSheet } from '@/ui';
 import { DayLetters, GoalChips, HabitPicker, MilesDial, MorningTrack, RaceStrip } from './controls';
-import { AFTER_WORK_LEAD, afternoonLine, blockShape, buildSteps, HABIT_LIMIT, morningFix, raceWarning, DEFAULT_LEAVE, DEFAULT_MILES, DEFAULT_PROFILE, DEFAULT_WAKE, defaultRaceDay, firstWeek, fixLongRun, goalLong, hm, MILES_MAX, MILES_MIN, previewMorning, ROUTINE_CHIPS, routineFrom, routineNames, routineSettings, routineTotal, safeTemplate, verdictLine, type TrainingProfile } from './model';
+import { AFTER_WORK_LEAD, afternoonLine, blockShape, buildSteps, HABIT_LIMIT, morningFix, raceWarning, DEFAULT_LEAVE, DEFAULT_MILES, DEFAULT_PROFILE, DEFAULT_WAKE, defaultRaceDay, firstWeek, blockLine, fixLongRun, goalLong, hm, MILES_MAX, MILES_MIN, previewMorning, ROUTINE_CHIPS, routineFrom, routineNames, routineSettings, routineTotal, safeTemplate, verdictLine, type TrainingProfile } from './model';
 import { BlockPreview, BuildBeat, NudgeChoice, SetupBar } from './beats';
 import { endReplay, isReplaying } from './replay';
 import { useSaveOnboarding, type OnboardingPost } from './save';
@@ -346,7 +346,8 @@ function Flow({ uid }: { uid: string }) {
           title="What should Orby call you?"
           sub="Your first name is plenty. The assistant and your mornings use it."
           onNext={next}
-          nextLabel={d.name?.trim() ? 'Next' : 'Skip for now'}
+          // "Next" whenever the field holds a name, the account's own included (layout standard 6.6; plan O12)
+          nextLabel={(d.name ?? boot.data?.user.name ?? '').trim() ? 'Next' : 'Skip for now'}
           later="You can change it in Settings."
           extra={
             // the way out of setup for someone who signed up by mistake, or on someone else's phone (onboarding-09)
@@ -403,19 +404,18 @@ function Flow({ uid }: { uid: string }) {
     case 'days':
       body = (
         <Question title="Which days can you run?" sub="Tap a day to run on it. Hold a run day to make it the long run." onNext={next}>
-          <div className="card ob-card">
+          {/* one card (plan O5): the days, then under a hairline the miles with their own group title, then one line that
+              sums up the plan they make (the payoff shows the week itself) */}
+          <div className="card ob-card ob-days-card">
             <DayLetters hint={false} runDays={d.runDays} longRunDay={fixLongRun(d.runDays, d.longRunDay)} onChange={(runDays, longRunDay) => set({ runDays, longRunDay })} />
-          </div>
-          <div className="card ob-card ob-miles-card">
-            <p className="ob-q-label ob-miles-label">About how much do you run now?</p>
+            <hr className="rule" />
+            <h2 className="card-title ob-miles-label">How much do you run now?</h2>
             <MilesDial value={d.weeklyMiles} min={MILES_MIN} max={MILES_MAX} onChange={(v) => set({ weeklyMiles: v, milesTouched: true })} />
-            <p className="ob-hint">
-              {d.runDays.length} {d.runDays.length === 1 ? 'run' : 'runs'} a week.{' '}
-              {shape && shape.peak <= shape.from ? `Your plan holds about ${shape.peak} mi a week.` : `${d.goal && d.goal !== 'base' && d.goal !== 'none' ? `Your ${goalLong(d.goal).replace(/^Half/, 'half').replace(/^Marathon/, 'marathon')} plan` : 'Your plan'} builds from here, about 10% a week.`}
+            <p className="ob-hint" aria-live="polite">
+              {d.runDays.length} {d.runDays.length === 1 ? 'run' : 'runs'} a week. {shape ? blockLine(shape) : null}
             </p>
+            {tightNote}
           </div>
-          {tightNote ? <div className="card ob-card">{tightNote}</div> : null}
-          <BlockPreview shape={shape} compact />
         </Question>
       );
       break;
@@ -429,8 +429,19 @@ function Flow({ uid }: { uid: string }) {
       const fixAt = afternoon ? null : morningFix(d.wake, d.leave, st);
       const fix = fixAt ? { ...fixAt, text: fixAt.wake !== d.wake ? `Wake ${hm(fixAt.wake)}?` : `Leave ${hm(fixAt.leave)}?` } : null;
       body = (
-        <Question title="When does your day start?" sub="Drag the two markers. Orby plans your morning around them." onNext={next}>
-          {/* when they usually train: Today's training card starts from it (Morning, or Afternoon from the end of work) */}
+        <Question
+          title="When does your day start?"
+          sub="Drag the two markers. Orby plans your morning around them."
+          onNext={next}
+          // what the answers make, said once, on the line above Next (plan O5): in place of "You can change this later"
+          later={
+            <span className="ob-verdict" aria-live="polite">
+              <b>{afternoon ? afternoonLine(offWork) : `Out the door ${hm(pv.door)}.`}</b> {afternoon ? `Mornings: wake ${hm(d.wake)}, leave ${hm(d.leave)}.` : verdictLine(pv)}
+            </span>
+          }
+        >
+          {/* one card for when (plan O5): before or after work, then under a hairline the wake and leave markers, and the
+              one-tap fix when the morning is too tight */}
           <div className="card ob-card ob-when">
             <p className="ob-q-label">You usually train</p>
             <div className="ob-when-seg" role="radiogroup" aria-label="When you usually train">
@@ -456,51 +467,11 @@ function Flow({ uid }: { uid: string }) {
                 <Stepper value={offWork} onChange={(v) => set({ offWork: v })} step={15} min={11 * 60} max={21 * 60} format={(v) => hm(v)} parse={() => null} label="Work ends" inputProps={{ readOnly: true, tabIndex: -1, inputMode: 'numeric', autoComplete: 'off', size: 7 }} />
               </div>
             ) : null}
-          </div>
-          <div className="card ob-card ob-track-card">
+            <hr className="rule" />
             <MorningTrack wake={d.wake} leave={d.leave} settings={st} onChange={(wake, leave) => set({ wake, leave })} />
-          </div>
-          <div className="card ob-card">
-          <p className="ob-q-label ob-routine-label">
-            Before you leave <span className="ob-q-value">{routineTotal(routineFrom(chips))} min</span>
-          </p>
-          <div className="ob-chips ob-routine" role="group" aria-label="Before you leave">
-            {ROUTINE_CHIPS.map((c) => {
-              const on = chips.includes(c.id);
-              return (
-                <Pressable
-                  key={c.id}
-                  className={`ob-chip ${on ? 'on' : ''}`}
-                  aria-pressed={on}
-                  label={`${c.label}, ${c.mins} minutes`}
-                  onPress={() => {
-                    haptics.select();
-                    set({ routine: on ? chips.filter((x) => x !== c.id) : [...chips, c.id] });
-                  }}
-                >
-                  {on ? <Check size={16} aria-hidden="true" /> : null}
-                  {c.label}
-                </Pressable>
-              );
-            })}
-          </div>
-          </div>
-          <div className="card ob-card ob-verdict" aria-live="polite">
-            {afternoon ? (
-              // after work: the run is in the afternoon, so the verdict is about that, not a morning door time (onboarding-05)
-              <>
-                <p className="ob-verdict-big display">{afternoonLine(offWork)}</p>
-                <p className="ob-verdict-sub">Your mornings still follow these times: wake {hm(d.wake)}, out the door {hm(d.leave)}.</p>
-              </>
-            ) : (
-              <>
-                <p className="ob-verdict-big display">Out the door {hm(pv.door)}.</p>
-                <p className="ob-verdict-sub">{verdictLine(pv)}</p>
-              </>
-            )}
             <AnimatePresence initial={false}>
               {fix ? (
-                <motion.div key="fix" initial={reduce ? { opacity: 0 } : { opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, transition: { duration: 0.1 } }} transition={reduce ? fadeIn : springs.settle}>
+                <motion.div key="fix" className="ob-fix-row" initial={reduce ? { opacity: 0 } : { opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, transition: { duration: 0.1 } }} transition={reduce ? fadeIn : springs.settle}>
                   <Pressable
                     className="ob-chip ob-fix"
                     onPress={() => {
@@ -514,6 +485,32 @@ function Flow({ uid }: { uid: string }) {
                 </motion.div>
               ) : null}
             </AnimatePresence>
+          </div>
+          {/* the second group: what happens before you leave */}
+          <div className="card ob-card">
+            <p className="ob-q-label ob-routine-label">
+              Before you leave <span className="ob-q-value">{routineTotal(routineFrom(chips))} min</span>
+            </p>
+            <div className="ob-chips ob-routine" role="group" aria-label="Before you leave">
+              {ROUTINE_CHIPS.map((c) => {
+                const on = chips.includes(c.id);
+                return (
+                  <Pressable
+                    key={c.id}
+                    className={`ob-chip ${on ? 'on' : ''}`}
+                    aria-pressed={on}
+                    label={`${c.label}, ${c.mins} minutes`}
+                    onPress={() => {
+                      haptics.select();
+                      set({ routine: on ? chips.filter((x) => x !== c.id) : [...chips, c.id] });
+                    }}
+                  >
+                    {on ? <Check size={16} aria-hidden="true" /> : null}
+                    {c.label}
+                  </Pressable>
+                );
+              })}
+            </div>
           </div>
         </Question>
       );
@@ -611,7 +608,8 @@ function Flow({ uid }: { uid: string }) {
               <ChevronLeft size={26} aria-hidden="true" />
             </button>
           </span>
-          <SetupBar steps={QUESTIONS.length} index={qIndex} />
+          {/* the tour has its own dots over its button: one progress mark per view, so the bar steps aside there (plan O10) */}
+          {step === 'tour' ? <span aria-hidden="true" /> : <SetupBar steps={QUESTIONS.length} index={qIndex} />}
           {/* Skip only where it differs from the step's own button: the tour, which it skips whole (onboarding-17) */}
           <span className={`ob-slot end ${step === 'tour' ? '' : 'is-gone'}`} inert={step !== 'tour'}>
             <Pressable className="ob-skip" press="dim" onPress={step === 'tour' ? next : () => undefined}>
@@ -661,7 +659,7 @@ const stageVariants = (reduce: boolean) => ({
  * One question to a screen (inspiration §2.9, §2.24): the question is the title, the button stays grey until the answer is
  * valid, and every answer here can be changed later in Settings, so the foot says so (`later`).
  */
-function Question({ title, sub, children, onNext, nextDisabled, nextLabel = 'Next', later = 'You can change this later in Settings.', busy, extra }: { title: string; sub: string; children: React.ReactNode; onNext: () => void; nextDisabled?: boolean; nextLabel?: string; later?: string | null; /** the button is waiting (the phone's alert is up) */ busy?: boolean; /** one quiet action under the button */ extra?: React.ReactNode }) {
+function Question({ title, sub, children, onNext, nextDisabled, nextLabel = 'Next', later = 'You can change this later in Settings.', busy, extra }: { title: string; sub: string; children: React.ReactNode; onNext: () => void; nextDisabled?: boolean; nextLabel?: string; /** the line above Next: by default that the answer can change later; a step can say what its answers make instead */ later?: React.ReactNode; /** the button is waiting (the phone's alert is up) */ busy?: boolean; /** one quiet action under the button */ extra?: React.ReactNode }) {
   return (
     <div className="ob-step ob-question">
       {/* focus lands here on a step change (a11y-10) */}
@@ -697,8 +695,9 @@ type PayoffAction = 'connect';
  */
 function Made({ profile, weeks, wake, leave, habits, afternoon, offer }: { profile: TrainingProfile | null; weeks: number | null; wake: number; leave: number; habits: number; /** when work ends, for someone who runs after it */ afternoon?: number | null; offer?: React.ReactNode }) {
   return (
+    // no caption over the rows: they say what was set up themselves, and the headline above already has the screen's
+    // one caption line (plan O11)
     <section className="aura ob-made" aria-label="Set up for you">
-      <span className="caps ob-made-eyebrow">Set up for you</span>
       <ul className="ob-made-rows">
         <li className="ob-made-row">
           <span className="ob-made-ic" aria-hidden="true">
@@ -843,11 +842,9 @@ function Payoff({ draft, set, profile, start, today, onOpen, onChange }: { draft
     return (
       <div className="ob-step ob-payoff is-building">
         <BuildBeat steps={steps} ready={done} failed={reason} onDone={reveal} title={profile ? undefined : { writing: 'Setting up Today', done: 'Today is ready.' }} />
-        {/* the reason sits right above the buttons; the space is held from the start, so nothing moves when it shows (onboarding-08) */}
+        {/* the buttons' space is held from the start, so nothing moves when they show (onboarding-08); the reason is the
+            build's own, under its headline */}
         <div className={`ob-pay-foot ob-build-foot ${onboard.isError ? '' : 'is-idle'}`} aria-hidden={onboard.isError ? undefined : true} inert={!onboard.isError}>
-          <p className="ob-build-reason" role={onboard.isError ? 'alert' : undefined}>
-            {reason ?? 'Check your connection and try again.'}
-          </p>
           {onboard.isError ? (
             retry
           ) : (
