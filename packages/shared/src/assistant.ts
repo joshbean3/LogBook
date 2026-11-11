@@ -257,10 +257,20 @@ const zAskTurn = z
   })
   .transform((t) => (t.role === 'assistant' && t.text.length > ASK_LIMITS.assistantText ? { ...t, text: t.text.slice(0, ASK_LIMITS.assistantText) } : t));
 
+/**
+ * What kind of request an ask is. `chat` is the dock's open conversation; `plan_change` is a change to the plan whose
+ * summary is open (the server reads it from `screen.plan` when the kind is left out). A later mode, such as a plan
+ * researched in the style of a named coach, joins this list.
+ */
+export const ASK_KINDS = ['chat', 'plan_change'] as const;
+export type AskKind = (typeof ASK_KINDS)[number];
+
 export const zAssistantAsk = z
   .object({
     /** The day the owner was looking at when they asked (the page's date). */
     date: zDay,
+    /** The kind of request (ASK_KINDS); left out, the server works it out from the screen. */
+    kind: z.enum(ASK_KINDS).optional(),
     /** Where the conversation was opened from, unless the owner removed it. */
     screen: zAssistantScreen.optional(),
     turns: z

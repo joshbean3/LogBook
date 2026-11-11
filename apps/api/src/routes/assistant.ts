@@ -67,7 +67,7 @@ export const assistantRoutes = (db: DB) => {
     const release = beginAi(userId, 'assistant');
     const run = async (ctx?: JobContext) => {
       try {
-        return { ...(await ask(db, userId, body.turns, body.date, today, body.screen, ctx ?? {})), available: true as const };
+        return { ...(await ask(db, userId, body.turns, body.date, today, body.screen, { ...ctx, kind: body.kind })), available: true as const };
       } finally {
         release();
       }

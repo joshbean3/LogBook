@@ -1,5 +1,5 @@
 import Anthropic from '@anthropic-ai/sdk';
-import { TRAINING_STATUS_INFO, fmtDate, screenLabel, statusOn, type TrainingStatus, type Attachment, type AssistantScreen, mondayOf, monthOf, periodOf, shiftDays, zAssistantOp, type AssistantChange, type AssistantOp, type AssistantProposal, visibleReply, type AssistantLive, type AssistantPhase } from '@logbook/shared';
+import { TRAINING_STATUS_INFO, fmtDate, screenLabel, type AskKind, statusOn, type TrainingStatus, type Attachment, type AssistantScreen, mondayOf, monthOf, periodOf, shiftDays, zAssistantOp, type AssistantChange, type AssistantOp, type AssistantProposal, visibleReply, type AssistantLive, type AssistantPhase } from '@logbook/shared';
 import { and, asc, desc, eq, gte, inArray, isNull, lte, sql } from 'drizzle-orm';
 import { z } from 'zod';
 import type { DB } from '../db/index.js';
@@ -10,6 +10,7 @@ import { logAiUsage } from './aiLimits.js';
 import { withSafety } from './aiSafety.js';
 import { claudeClient, claudeModel, mapClaudeError, setClaudeClient } from './claude.js';
 import { assistantMayReadTraining, requireAiPermission } from './consent.js';
+import { readTrainingProfile } from './training.js';
 
 const MAX_ROUNDS = 6;
 /** A whole plan (eight weeks of runs, and the old plan's sessions removed) fits in one proposal. */
@@ -45,25 +46,72 @@ const sessionsBetween = (db: DB, userId: string, from: string, to: string) =>
  * here: they come from Strava, whose terms keep its data out of any AI model (the assistant sees only what the user
  * planned and marked themselves).
  */
-export const sessionLines = (db: DB, userId: string, from: string, to: string, today: string): string => {
-  const rows = sessionsBetween(db, userId, from, to);
-  if (!rows.length) return '(nothing planned)';
+export const sessionLines = (db: DB, userId: string, from: string, to: string, today: string, cap = Infinity): string => {
+  const all = sessionsBetween(db, userId, from, to);
+  if (!all.length) return '(nothing planned)';
+  // over the cap, the rows nearest today stay (a whole plan in view can run to hundreds); the rest are one line away
+  const away = (d: string) => Math.abs(Date.parse(d) - Date.parse(today));
+  const rows = all.length > cap ? [...all].sort((a, b) => away(a.date) - away(b.date)).slice(0, cap).sort((a, b) => (a.date === b.date ? a.position - b.position : a.date < b.date ? -1 : 1)) : all;
+  const more = all.length - rows.length;
   return rows
     .map((s) => {
       const state = s.mark ? `marked ${s.mark}` : s.date < today ? 'not marked' : s.date === today ? 'today' : 'ahead';
       return `- ${s.id} | ${s.date} ${dow(s.date)} | ${s.kind}: ${sessionName(s)}${s.miles ? ` (${s.miles} mi)` : ''}${s.minutes ? ` (${s.minutes} min)` : ''} | ${state}${s.movedFrom ? ` | moved from ${s.movedFrom}` : ''}`;
     })
+    .concat(more > 0 ? [`(${more} more not listed: use get_sessions for them)`] : [])
     .join('\n');
 };
 
+type BlockRow = typeof planBlocks.$inferSelect;
+/** The most session lines one context carries (a proposal holds as many changes). */
+const MAX_CONTEXT_SESSIONS = MAX_CHANGES;
+
+/**
+ * The plan block whose summary the user is looking at (`screen.plan`), when it is theirs and not deleted. Another user's
+ * id, or one that is gone, reads as no block: nothing about it is sent.
+ */
+export const blockInView = (db: DB, userId: string, screen: AssistantScreen | undefined): BlockRow | null => {
+  if (screen?.tab !== 'plan' || !screen.plan) return null;
+  return db.select().from(planBlocks).where(and(eq(planBlocks.userId, userId), eq(planBlocks.id, screen.plan), isNull(planBlocks.deletedAt))).get() ?? null;
+};
+
+/** The request's kind: as sent, else a change to the plan in view when one is open, else the open chat. */
+export const kindOf = (kind: AskKind | undefined, screen: AssistantScreen | undefined): AskKind => kind ?? (screen?.tab === 'plan' && screen.plan ? 'plan_change' : 'chat');
+
 /** Where the user opened the conversation from, in a line Claude can read "this week" and "here" against. */
-export const screenLine = (screen: AssistantScreen | undefined): string | null => {
+export const screenLine = (screen: AssistantScreen | undefined, block?: BlockRow | null): string | null => {
   if (!screen) return null;
+  if (block) return `SCREEN: The user opened you from the summary of their plan ${block.name} (${block.start} to ${block.end}). Read "this plan", "it" and "the plan" against it.`;
   const extra = screen.tab === 'plan' && screen.week ? ` (${screen.week} to ${shiftDays(screen.week, 6)})` : screen.tab === 'today' && screen.date ? ` (${screen.date})` : '';
   return `SCREEN: The user opened you from ${screenLabel(screen)}${extra}. Read "this", "here" and "this week" against it.`;
 };
 
-export const contextFor = (db: DB, userId: string, today: string, date: string, screen?: AssistantScreen): string => {
+const GOAL_WORDS: Record<string, string> = { base: 'base building', '5k': '5K', '10k': '10K', half: 'half marathon', marathon: 'marathon' };
+const DAY_WORDS: Record<string, string> = { mon: 'Mon', tue: 'Tue', wed: 'Wed', thu: 'Thu', fri: 'Fri', sat: 'Sat', sun: 'Sun' };
+
+/**
+ * The plan in view, for a change asked from its summary: its name, dates and how it was made, its planned miles week by
+ * week (the shape the phases follow), and the training answers it was built from. Planned sessions only: never a synced
+ * activity (Strava's terms keep that data out of any AI model).
+ */
+const planInView = (db: DB, userId: string, b: BlockRow): string[] => {
+  const weeks: string[] = [];
+  const rows = sessionsBetween(db, userId, mondayOf(b.start), b.end);
+  for (let mon = mondayOf(b.start), i = 1; mon <= b.end; mon = shiftDays(mon, 7), i++) {
+    const end = shiftDays(mon, 6);
+    const miles = rows.filter((s) => s.kind === 'run' && s.date >= mon && s.date <= end).reduce((n, s) => n + (s.miles ?? 0), 0);
+    weeks.push(`week ${i} (${mon}): ${Math.round(miles * 10) / 10} mi`);
+  }
+  const p = readTrainingProfile(db, userId);
+  return [
+    `PLAN IN VIEW: ${b.name}, ${b.start} to ${b.end}${b.source ? ` (made by: ${b.source})` : ''}.${b.summary ? ` ${b.summary}` : ''}`,
+    `PLANNED MILES BY WEEK: ${weeks.join('; ') || 'none'}`,
+    ...(p ? [`TRAINING ANSWERS: goal ${GOAL_WORDS[p.goal] ?? p.goal}${p.raceDate ? `, race on ${p.raceDate}` : ''}; runs on ${p.runDays.map((d) => DAY_WORDS[d] ?? d).join(', ')}; long run on ${DAY_WORDS[p.longRunDay] ?? p.longRunDay}; about ${p.weeklyMiles} mi a week to start.`] : []),
+    'REQUEST: the user wants to change this plan. Work out every session the change touches inside it and propose them all at once. Keep sessions already marked; never move a session into the past.',
+  ];
+};
+
+export const contextFor = (db: DB, userId: string, today: string, date: string, screen?: AssistantScreen, askKind?: AskKind): string => {
   // the owner's choice on the privacy page: with it off, nothing from the training log goes to Claude
   if (!assistantMayReadTraining(db, userId))
     return [
@@ -71,8 +119,11 @@ export const contextFor = (db: DB, userId: string, today: string, date: string, 
       'TRAINING DATA: the user has turned off reading their training data (Settings, Privacy). You cannot see their plan, sessions, goals, to-dos or status. Answer in general terms, say so when an answer would need their data, and propose no changes.',
     ].join('\n');
   const mon = mondayOf(today);
-  const from = shiftDays(mon, -7);
-  const to = shiftDays(mon, 27);
+  // asked from a plan's summary: the plan in view, and the session window widened to hold all of it (one list, capped)
+  const inView = kindOf(askKind, screen) === 'plan_change' ? blockInView(db, userId, screen) : null;
+  const near = { from: shiftDays(mon, -7), to: shiftDays(mon, 27) };
+  const from = inView && inView.start < near.from ? inView.start : near.from;
+  const to = inView && inView.end > near.to ? inView.end : near.to;
   const blocks = db
     .select()
     .from(planBlocks)
@@ -99,16 +150,17 @@ export const contextFor = (db: DB, userId: string, today: string, date: string, 
   const prio = ['', 'P3', 'P2', 'P1'];
   const status = readSetting<TrainingStatus>(db, userId, 'status');
   const kind = statusOn(status, today);
-  const where = screenLine(screen);
+  const where = screenLine(screen, inView);
   return [
     `TODAY: ${today} (${fmtDate('long', today)}). The user is looking at ${date === today ? 'today' : `${date} (${fmtDate('long', date)})`}. Weeks run Monday to Sunday; this week starts ${mon}.`,
     ...(where ? [where] : []),
     `STATUS: ${kind === 'training' ? 'Training (on the plan as written)' : `${TRAINING_STATUS_INFO[kind].label} since ${status!.from}${status!.until ? `, until ${status!.until}` : ', until they change it'}. ${TRAINING_STATUS_INFO[kind].line} Respect it: do not push hard sessions while sick, injured or resting; suggest moving them instead.`}`,
     '',
     `PLAN BLOCKS: ${blocks.length ? blocks.map((b) => `${b.name} (${b.start} to ${b.end})`).join('; ') : 'none'}`,
+    ...(inView ? planInView(db, userId, inView) : []),
     '',
     `SESSIONS ${from} to ${to} (id | date | what | state):`,
-    sessionLines(db, userId, from, to, today),
+    sessionLines(db, userId, from, to, today, MAX_CONTEXT_SESSIONS),
     '',
     `OPEN TO-DOS (id | priority | when | list | text):`,
     open.length ? open.map((t) => `- ${t.id} | ${prio[t.priority] || 'none'} | ${t.bucket}${t.due ? ` ${t.due}` : ''} | ${t.groupId ? (listName.get(t.groupId) ?? '-') : '-'} | ${t.text}`).join('\n') : '(none)',
@@ -269,6 +321,8 @@ export interface AskResult {
 /** How an ask is watched while it runs: the signal that stops it, and where its progress goes (assistantJobs.ts). */
 export interface AskOptions {
   signal?: AbortSignal;
+  /** The request's kind (ASK_KINDS); left out, it is worked out from the screen. */
+  kind?: AskKind;
   progress?: (live: AssistantLive) => void;
 }
 
@@ -351,7 +405,9 @@ export const ask = async (db: DB, userId: string, turns: AskTurn[], date: string
   const history = turns.slice(-20);
   const last = history[history.length - 1]!;
   if (last.role !== 'user') throw new ApiError(422, 'That message could not be sent. Start a new chat and try again.', 'validation');
-  const messages = messagesFor(history, contextFor(db, userId, today, date, screen));
+  const messages = messagesFor(history, contextFor(db, userId, today, date, screen, opts.kind));
+  // a change asked from a plan's summary belongs to that plan: its proposal remembers the block (added sessions join it)
+  const planId = kindOf(opts.kind, screen) === 'plan_change' && mayRead ? (blockInView(db, userId, screen)?.id ?? null) : null;
 
   // live progress for the phone: what it is doing, the words so far (earlier rounds' and this one's), the reasoning summary
   const t0 = Date.now();
@@ -477,7 +533,7 @@ export const ask = async (db: DB, userId: string, turns: AskTurn[], date: string
           const changes: AssistantChange[] = p.data.changes.map((op) => ({ op, label: labelOp(db, userId, op, today), ...(op.why ? { reason: op.why } : {}) }));
           steps.push(`Drafted ${changes.length} change${changes.length === 1 ? '' : 's'}`);
           const id = uid('aa');
-          db.insert(assistantActions).values({ id, userId, ask: (last.text || (last.attachments?.length ? `[${last.attachments.map((f) => f.name).join(', ')}]` : '')).slice(0, 2000), summary: p.data.summary, ops: JSON.stringify(p.data.changes), labels: JSON.stringify(changes.map((c) => c.label)), undo: null, status: 'proposed', createdAt: nowISO(), appliedAt: null }).run();
+          db.insert(assistantActions).values({ id, userId, ask: (last.text || (last.attachments?.length ? `[${last.attachments.map((f) => f.name).join(', ')}]` : '')).slice(0, 2000), summary: p.data.summary, ops: JSON.stringify(p.data.changes), labels: JSON.stringify(changes.map((c) => c.label)), undo: planId ? JSON.stringify({ plan: planId } satisfies Pick<UndoRecord, 'plan'>) : null, status: 'proposed', createdAt: nowISO(), appliedAt: null }).run();
           return finish({ text: [earlier === said ? '' : earlier, said].filter(Boolean).join('\n\n') || said, proposal: { id, summary: p.data.summary, changes, status: 'proposed' }, replies });
         } catch (e) {
           results.push({ type: 'tool_result', tool_use_id: call.id, is_error: true, content: e instanceof Error ? e.message : 'A change did not check out.' });
@@ -500,6 +556,13 @@ interface UndoRecord {
   created: { sessions: string[]; todos: string[]; goals: string[] };
   /** The changes the owner removed before Apply (by index). Kept here so the log shows them, with no new column. */
   skipped?: number[];
+  /**
+   * The plan block a change was asked for from its summary. Written with the proposal (this column holds nothing else
+   * until Apply), so Apply can put added sessions in that block. No new column.
+   */
+  plan?: string;
+  /** The plan blocks Apply marked as revised by the assistant, with the source each had, for Undo. */
+  blocks?: Array<{ id: string; source: string | null }>;
 }
 
 export const proposalOf = (row: typeof assistantActions.$inferSelect): AssistantProposal => {
@@ -533,10 +596,17 @@ export const applyAction = (db: DB, userId: string, id: string, today: string, s
   if (skipped.some((i) => i >= all.length)) throw new ApiError(422, 'Those changes could not be read. Close the card and ask again.', 'validation');
   if (skipped.length >= all.length) throw new ApiError(422, 'Nothing left to apply. Put a change back, or tap Not now.', 'validation');
   const ops = all.filter((_, i) => !skipped.includes(i));
-  const undo: UndoRecord = { sessions: [], todos: [], goals: [], created: { sessions: [], todos: [], goals: [] }, ...(skipped.length ? { skipped } : {}) };
+  const planId = row.undo ? ((JSON.parse(row.undo) as Partial<UndoRecord>).plan ?? null) : null;
+  const plan = planId ? (db.select().from(planBlocks).where(and(eq(planBlocks.userId, userId), eq(planBlocks.id, planId), isNull(planBlocks.deletedAt))).get() ?? null) : null;
+  const undo: UndoRecord = { sessions: [], todos: [], goals: [], created: { sessions: [], todos: [], goals: [] }, ...(skipped.length ? { skipped } : {}), ...(plan ? { plan: plan.id } : {}) };
+  /** The blocks whose sessions this change touched: each is marked revised by the assistant (its `source`). */
+  const touched = new Set<string>();
   const months = new Set<string>();
   const now = nowISO();
-  const keepSession = (s: SessionRow) => undo.sessions.some((x) => x.id === s.id) || undo.sessions.push({ ...s });
+  const keepSession = (s: SessionRow) => {
+    if (s.blockId) touched.add(s.blockId);
+    return undo.sessions.some((x) => x.id === s.id) || undo.sessions.push({ ...s });
+  };
   const keepTodo = (t: TodoRow) => undo.todos.some((x) => x.id === t.id) || undo.todos.push({ ...t });
   const keepGoal = (g: GoalRow) => undo.goals.some((x) => x.id === g.id) || undo.goals.push({ ...g });
   const nextPos = (date: string) => (db.select({ m: sql<number>`coalesce(max(${trainingSessions.position}), -1)` }).from(trainingSessions).where(and(eq(trainingSessions.userId, userId), eq(trainingSessions.date, date))).get()?.m ?? -1) + 1;
@@ -571,8 +641,11 @@ export const applyAction = (db: DB, userId: string, id: string, today: string, s
           case 'add_session': {
             const sid = uid('p');
             months.add(monthOf(op.date));
+            // a session added inside the plan it was asked for joins that plan (deleting the plan takes it too)
+            const blockId = plan && op.date >= plan.start && op.date <= plan.end ? plan.id : null;
+            if (blockId) touched.add(blockId);
             db.insert(trainingSessions)
-              .values({ id: sid, userId, date: op.date, position: nextPos(op.date), kind: op.kind, type: op.type ?? null, title: op.title || null, details: op.details || null, miles: op.kind === 'run' && op.miles ? Math.round(op.miles * 10) / 10 : null, minutes: op.minutes || null, blockId: null, movedFrom: null, mark: null, deletedAt: null, createdAt: now, updatedAt: now })
+              .values({ id: sid, userId, date: op.date, position: nextPos(op.date), kind: op.kind, type: op.type ?? null, title: op.title || null, details: op.details || null, miles: op.kind === 'run' && op.miles ? Math.round(op.miles * 10) / 10 : null, minutes: op.minutes || null, blockId, movedFrom: null, mark: null, deletedAt: null, createdAt: now, updatedAt: now })
               .run();
             undo.created.sessions.push(sid);
             break;
@@ -650,6 +723,13 @@ export const applyAction = (db: DB, userId: string, id: string, today: string, s
           }
         }
       }
+      // the plan's `source` says the assistant has revised it (the summary's "Revised by the assistant"); Undo puts it back
+      for (const bid of touched) {
+        const b = db.select({ source: planBlocks.source }).from(planBlocks).where(and(eq(planBlocks.userId, userId), eq(planBlocks.id, bid))).get();
+        if (!b || b.source === 'revise') continue;
+        (undo.blocks ??= []).push({ id: bid, source: b.source });
+        db.update(planBlocks).set({ source: 'revise' }).where(and(eq(planBlocks.userId, userId), eq(planBlocks.id, bid))).run();
+      }
       db.update(assistantActions).set({ status: 'applied', undo: JSON.stringify(undo), appliedAt: now }).where(eq(assistantActions.id, id)).run();
     });
   } catch (e) {
@@ -692,6 +772,7 @@ export const undoAction = (db: DB, userId: string, id: string, today: string) =>
       for (const g of db.select().from(goals).where(inArray(goals.id, u.created.goals)).all()) db.insert(goalEvents).values({ id: uid('ge'), userId, goalId: g.id, level: g.level, period: g.period, kind: 'cleared', text: g.text, at: now }).run();
       db.update(goals).set({ deletedAt: now }).where(and(eq(goals.userId, userId), inArray(goals.id, u.created.goals))).run();
     }
+    for (const b of u.blocks ?? []) db.update(planBlocks).set({ source: b.source }).where(and(eq(planBlocks.userId, userId), eq(planBlocks.id, b.id))).run();
     db.update(assistantActions).set({ status: 'undone' }).where(eq(assistantActions.id, id)).run();
   });
   return { proposal: proposalOf(actionOf(db, userId, id)), months: [...months].sort() };
