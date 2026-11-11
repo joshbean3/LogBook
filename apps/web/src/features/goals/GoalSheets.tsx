@@ -408,16 +408,19 @@ export const useOpenGoal = () => {
   const sheet = useSheet();
   const today = useToday();
   const goals = useGoals();
+  const access = useReviewAccess();
   return (level: GoalLevel, period: string, opts: { edit?: boolean } = {}) => {
     const g = goalOf(goals.data, level, period);
     const eyebrow = periodCaps(level, period, today);
     if (g && !opts.edit) sheet.open({ eyebrow, title: `${LEVEL[level].label} goal`, body: <GoalDetail id={g.id} />, action: <ClearButton id={g.id} />, detents: ['medium', 'large'], detent: 'medium' });
     else if (g) sheet.open({ eyebrow, title: 'Edit goal', ...editorPanel({ level, period, initial: g.text }), sticky: true });
     // a new goal: set it myself (the editor, pushed) or ask the assistant for one. The title stays short enough to fit at
-    // 320; the question itself is the serif line in the body
+    // 320; the question itself is the serif line in the body. With no assistant there is one way only, so the editor opens
+    // at once, the question over its field (layout plan 2.2 G10)
     else {
       const title = `${LEVEL[level].label} goal`;
-      sheet.open({ eyebrow, title, body: <NewGoalChoice level={level} period={period} onMine={() => sheet.push({ eyebrow, title, ...editorPanel({ level, period, closeOnSave: true }), sticky: true })} /> });
+      if (access === 'none') sheet.open({ eyebrow, title, ...editorPanel({ level, period, closeOnSave: true }), sticky: true });
+      else sheet.open({ eyebrow, title, body: <NewGoalChoice level={level} period={period} onMine={() => sheet.push({ eyebrow, title, ...editorPanel({ level, period, closeOnSave: true }), sticky: true })} /> });
     }
   };
 };

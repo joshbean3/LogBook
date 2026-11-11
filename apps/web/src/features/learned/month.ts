@@ -1,18 +1,28 @@
 import { addMonths, shiftDays, type Learning } from '@logbook/shared';
 
+export interface MonthDay {
+  date: string;
+  items: Learning[];
+}
+
 /**
- * A month's page as a grid of its days (docs/inspiration.md §6 Learned): every day from the last (or today, in the month
- * that is running) back to the 1st, each with its learnings in the order they were written, an empty day keeping its slot.
+ * A month's page (layout plan 2.3 LM1): only the days with something kept, newest first, each with its learnings in the
+ * order they were written; empty days are left out (the date gutter shows the jump). The one exception is a day in the last
+ * week (`fillFrom` to today) with nothing in it: it stays, as the way to fill that day in. A month still to come has none.
  */
-export const monthGrid = (month: string, today: string, rows: readonly Learning[]): Array<{ date: string; items: Learning[] }> => {
+export const monthDays = (month: string, today: string, rows: readonly Learning[], fillFrom: string = today): MonthDay[] => {
   const first = `${month}-01`;
   if (first > today) return [];
   const last = shiftDays(addMonths(first, 1), -1);
   const end = last < today ? last : today;
   const by = new Map<string, Learning[]>();
   for (const r of rows) if (r.date.startsWith(`${month}-`)) by.set(r.date, [...(by.get(r.date) ?? []), r]);
-  const out: Array<{ date: string; items: Learning[] }> = [];
-  for (let d = end; d >= first; d = shiftDays(d, -1)) out.push({ date: d, items: (by.get(d) ?? []).sort((a, b) => (a.createdAt < b.createdAt ? -1 : a.createdAt > b.createdAt ? 1 : 0)) });
+  const out: MonthDay[] = [];
+  for (let d = end; d >= first; d = shiftDays(d, -1)) {
+    const items = by.get(d);
+    if (items) out.push({ date: d, items: items.sort((a, b) => (a.createdAt < b.createdAt ? -1 : a.createdAt > b.createdAt ? 1 : 0)) });
+    else if (d >= fillFrom) out.push({ date: d, items: [] });
+  }
   return out;
 };
 

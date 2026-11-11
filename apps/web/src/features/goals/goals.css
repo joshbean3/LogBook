@@ -341,9 +341,6 @@
 .page.g-page {
   min-height: 100%;
 }
-.g-page > .nb-gap {
-  height: var(--gap);
-}
 /* ---------- today's goal, the hero: a warm card, the gauge, the words, the steps to check, the next move ---------- */
 /* the screen's hero card (guide 6.4): Paper, padding 20, one soft shadow. Its warm light is the Apricot sun while it asks
    (.gh-sun); it carries no sunrise glow of its own, so the screen keeps one warm light (plan D29). Kept or not, the card
@@ -380,33 +377,11 @@
   text-transform: uppercase;
   color: var(--now-text);
 }
-.gh-date {
-  flex: 1;
-  min-width: 0;
-  font: 500 var(--fs-foot) / var(--lh-foot) var(--sans);
+/* the time left ("18 h left") or the answer, after "TODAY", in the same caption (Dusk): one caption, no tag, so the card
+   keeps to three sizes (layout standard 4.4, 8.10); even figures, they tick */
+.gh-when {
   color: var(--ink-3);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.gh-date::before {
-  content: '·';
-  margin-right: 8px;
-}
-/* the time left ("7 h left") or the answer: a Paper pill with an edge, Dusk words, even figures (they tick) */
-.gh-chip,
-.gl-chip {
-  flex: none;
-  display: inline-flex;
-  align-items: center;
-  height: 24px;
-  padding: 0 var(--sp-3);
-  border-radius: var(--r-pill);
-  background: var(--surface);
-  box-shadow: inset 0 0 0 1px var(--edge);
-  font: 600 var(--fs-tag) / 1 var(--sans);
   font-variant-numeric: tabular-nums;
-  color: var(--ink-2);
   white-space: nowrap;
 }
 
@@ -612,34 +587,35 @@
 /* unset: the whole card asks */
 .gh.is-empty {
   justify-items: stretch;
-  gap: 10px;
+  gap: var(--sp-3);
 }
-/* the sun rising behind the question: Apricot light, flat, no halo (guide 3.1, 5.3); the card's only warm light */
+/* the sun rising in the card's lower corner, behind nothing: Apricot light, flat, no halo (guide 3.1, 5.3); the card's
+   only warm light. It sits down and right of the words and the button, so nothing written overlaps it */
 .gh-sun {
   position: absolute;
   z-index: -1;
-  right: -40px;
-  top: -48px;
-  width: 150px;
-  height: 150px;
+  right: -48px;
+  bottom: -72px;
+  width: 140px;
+  height: 140px;
   border-radius: 50%;
   background: radial-gradient(circle at 40% 40%, var(--horizon-2), var(--apricot) 72%);
 }
 .gh-ask {
-  max-width: 82%;
-  margin-top: 10px;
+  margin-top: var(--sp-1);
   font: italic 420 var(--fs-sentence) / var(--lh-sentence) var(--serif);
   letter-spacing: 0;
   color: var(--ink);
   text-wrap: balance;
 }
-/* the screen's one primary (guide 6.2): Sky, Night Ink 650 words (7.03), the primary glow; it presses with the card */
+/* the screen's one primary (guide 6.2): Sky, Night Ink 650 words (7.03), the primary glow, 44 inline; it presses with the
+   card */
 .gh-cta {
   justify-self: start;
   display: inline-flex;
   align-items: center;
   gap: var(--sp-2);
-  height: 46px;
+  min-height: var(--hit);
   margin-top: var(--sp-1);
   padding: 0 var(--sp-6) 0 var(--sp-5);
   border-radius: var(--r-pill);
@@ -649,369 +625,125 @@
   box-shadow: var(--primary-glow);
 }
 
-/* ---------- the week, the month, the year: a card each with its ring ---------- */
-/* a card (guide 6.4): Paper, r 24, one soft shadow; the 84 px floor keeps its height with the guide's 16 px padding */
-.gl-card.pressable {
-  display: flex;
-  align-items: center;
-  gap: var(--sp-4);
-  width: 100%;
-  min-width: 0;
-  min-height: 84px;
-  padding: var(--sp-4) var(--sp-3) var(--sp-4) var(--sp-4);
-  border-radius: var(--r-card);
-  background: var(--surface);
-  border: var(--card-border);
-  box-shadow: var(--shadow-1);
-  color: var(--ink);
-  text-align: left;
-  transition: transform var(--dur-fast) var(--ease-out);
+/* ---------- the week, the month, the year: rows of one inset group (G1) ---------- */
+/* the trailing time left: Inter 500 15 Dusk, even figures, never cut (the goal under the title gives way first). An
+   answer says itself in words: Done in Night Ink, Partly in warning words (6.28), Missed in Dusk */
+.gl-end.k-row-end {
+  font-weight: 500;
 }
-.gl-ring {
-  position: relative;
-  flex: none;
-  width: 52px;
-  height: 52px;
-}
-.gl-ring-svg {
-  display: block;
-  width: 100%;
-  height: 100%;
-  overflow: visible;
-}
-/* one ring for every level (no per-level hue, guide 6.4): a Haze track, the Deep Sky arc (4.43 on Haze), no glow. Unset,
-   a dashed Deep Sky ring around a plus, the way a planned bar is drawn (guide 6.8) */
-.gl-ring-track,
-.gl-ring-arc {
-  fill: none;
-  stroke-width: 5;
-}
-.gl-ring-track {
-  stroke: var(--haze);
-}
-.gl-ring.is-empty .gl-ring-track {
-  stroke: var(--deep-sky);
-  stroke-width: 1.5;
-  stroke-dasharray: 3 3;
-}
-.gl-ring-arc {
-  stroke: var(--deep-sky);
-  stroke-linecap: round;
-}
-.gl-ring-mid {
-  position: absolute;
-  inset: 0;
-  display: grid;
-  place-items: center;
-  color: var(--deep-sky);
-}
-.gl-ring.is-partly .gl-ring-mid,
-.gl-ring.is-missed .gl-ring-mid {
-  color: var(--ink-2);
-}
-.gl-ring-num {
-  font: 600 var(--fs-foot) / 1 var(--sans);
-  font-variant-numeric: tabular-nums;
+.gl-end.is-done {
   color: var(--ink);
 }
-.gl-ring-dot {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: var(--deep-sky);
-}
-.gl-main {
-  flex: 1;
-  min-width: 0;
-  display: grid;
-  gap: 5px;
-}
-.gl-head {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-width: 0;
-}
-.gl-caps {
-  flex: 1;
-  min-width: 0;
-  color: var(--ink-2);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.gl-chip {
-  height: 22px;
-  padding: 0 var(--sp-2);
-}
-/* the answer: Done on Haze in Night Ink (12.64), Partly in warning words on its soft ground, Missed in Dusk on Cloud */
-.gl-chip.is-done {
-  background: var(--haze);
-  box-shadow: none;
-  color: var(--ink);
-}
-.gl-chip.is-partly {
-  background: var(--warn-soft);
-  box-shadow: none;
+.gl-end.is-partly {
   color: var(--warn-text);
 }
-.gl-chip.is-missed {
-  background: var(--cloud);
-  box-shadow: none;
-}
-.gl-text {
-  font: italic 420 var(--fs-sentence-sm) / var(--lh-row) var(--serif);
-  letter-spacing: 0;
-  color: var(--ink);
-  text-wrap: pretty;
-  overflow-wrap: anywhere;
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-  overflow: hidden;
-}
-.gl-card.is-missed .gl-text,
-.gl-card.is-partly .gl-text {
-  color: var(--ink-2);
-}
-.gl-set {
-  font: italic 420 var(--fs-sentence-sm) / var(--lh-row) var(--serif);
-  letter-spacing: 0;
-  color: var(--ink-3);
-}
-.gl-chev {
-  flex: none;
-  color: var(--ink-2);
-}
-/* the narrowest phones: a smaller ring so the period and its chip keep their words */
-@media (max-width: 359px) {
-  .gl-card.pressable {
-    gap: var(--sp-3);
-    padding-left: var(--sp-3);
-  }
-  .gl-ring {
-    width: 44px;
-    height: 44px;
-  }
-  .gh,
-  .gh.pressable {
-    padding-inline: var(--sp-4);
-  }
-}
 
-/* ---------- ahead: tomorrow's goal and next week's, two small chips in a row over the list ---------- */
+/* ---------- ahead: tomorrow's goal and next week's, two context chips in a row over the hero (G8, F9) ---------- */
 .ga-row {
   display: grid;
-  /* two across; at large text sizes (a chip narrower than 7.5rem) they stack so each title stays whole */
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 7.5rem), 1fr));
-  gap: var(--sp-2);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--sp-3);
   min-width: 0;
 }
-/* a chip (guide 6.3): Paper, r 18, one soft shadow, the same icon disc as every chip and no per-feature hue */
+html[data-text-xl] .ga-row {
+  grid-template-columns: minmax(0, 1fr);
+}
 .ga-chip.pressable {
-  display: grid;
-  align-content: center;
-  gap: var(--sp-1);
+  width: 100%;
   min-width: 0;
-  min-height: 60px;
-  padding: var(--sp-2) var(--sp-3);
-  border-radius: var(--r-chip);
-  background: var(--surface);
-  border: var(--card-border);
-  box-shadow: var(--shadow-1);
-  color: var(--ink);
-  text-align: left;
   transition: transform var(--dur-fast) var(--ease-out);
+  container: ga-chip / inline-size;
 }
-.ga-top {
-  display: flex;
-  align-items: center;
-  gap: var(--sp-2);
-  min-width: 0;
-}
-/* the icon disc: a Haze circle (under 28 px a tile is a circle, guide 5.2) with a Deep Sky glyph */
-.ga-ic {
-  flex: none;
-  display: grid;
-  place-items: center;
-  width: 22px;
-  height: 22px;
-  border-radius: 50%;
-  background: var(--haze);
-  color: var(--deep-sky);
-}
-.ga-title {
-  flex: 1;
-  min-width: 0;
-  font: 600 var(--fs-sub) / var(--lh-sub) var(--sans);
-  color: var(--ink);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.ga-chev {
-  margin-right: -2px;
-}
-.ga-line {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--sp-2);
-  min-width: 0;
-  min-height: 22px;
-}
-.ga-goal,
-.ga-none {
-  min-width: 0;
-  font: 400 var(--fs-foot) / var(--lh-foot) var(--sans);
-  color: var(--ink-2);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.ga-none {
-  color: var(--ink-3);
-}
-/* the action: "+ Set" as a quiet Deep Sky link, not a pill (guide 6.3): the screen keeps its one Sky primary. The whole
-   chip is its target */
-.ga-pill {
-  flex: none;
-  display: inline-flex;
-  align-items: center;
-  gap: var(--sp-1);
-  min-height: 22px;
-  color: var(--accent-text);
-  font: 600 var(--fs-sub) / var(--lh-sub) var(--sans);
+/* the title stays whole: a chip whose content box is narrower than the disc and its gap (52) plus the longest name
+   ("Next week", about 5.3rem) lets the disc go, as narrow phones do. 8.5rem is 136 at the default size, so the disc shows
+   from 375 up (content 140 at 375, 147 at 390, 172 at 440), and 184 at 135 percent, where only a wider chip keeps it */
+@container ga-chip (max-width: 8.5rem) {
+  .ga-chip .ctx-ic {
+    display: none;
+  }
 }
 
-/* ---------- the four numbers: goals kept per level ---------- */
-.g-scores {
-  display: grid;
-  gap: var(--sp-3);
-}
+/* ---------- the four numbers: goals kept per level (G4) ----------
+ * Under "History · Goals kept": four columns, each its label (Inter 500 15 Dusk), the value (Inter 650 26/32, even figures,
+ * the card's one big number size) and its span (Inter 500 13 Dusk). No markers. Behind, the span line says so in warning
+ * words; nothing answered yet reads "None yet" at the span's size, on the value's line. */
 .g-scores-row {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--sp-2);
   margin: 0;
   padding: 0;
   list-style: none;
 }
 .g-sc {
   display: grid;
-  gap: 2px;
+  gap: var(--sp-1);
   min-width: 0;
-  padding: 0 6px;
-}
-.g-sc:first-child {
-  padding-left: 0;
-}
-.g-sc + .g-sc {
-  border-left: 1px solid var(--line);
 }
 .g-sc-lv {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  font: 600 var(--fs-foot) / var(--lh-foot) var(--sans);
-  color: var(--ink-2);
+  font: 500 var(--fs-sub) / var(--lh-sub) var(--sans);
+  color: var(--ink-3);
 }
-/* each level's 3 px marker: Deep Sky, one color for all four (no per-level hue); behind the span before, Marigold, with
-   the number and the words under it in warning text (a warning is a mark plus words, guide 3.1) */
-.g-sc-lv i {
-  flex: none;
-  width: 3px;
-  height: 11px;
-  border-radius: var(--r-pill);
-  background: var(--deep-sky);
-}
-.g-sc.is-behind .g-sc-lv i {
-  background: var(--warn);
-}
-/* goals kept: a count that changes, Inter 650 with even figures, never a stamp face. At the row size (17) in the old
-   32 px line: with the gauge's 44 the screen keeps to five Inter sizes (guide 4.5) */
 .g-sc-num {
-  font: 650 var(--fs-row) / var(--lh-section) var(--sans);
-  letter-spacing: 0;
+  font: 650 var(--fs-value) / var(--lh-value) var(--sans);
+  letter-spacing: var(--tr-value);
   font-variant-numeric: tabular-nums;
   color: var(--ink);
+  white-space: nowrap;
 }
 .g-sc-num small {
   font: 500 var(--fs-sub) / 1 var(--sans);
   letter-spacing: 0;
-  color: var(--ink-2);
+  color: var(--ink-3);
 }
-.g-sc.is-none .g-sc-num {
-  color: var(--ink-2);
-}
-.g-sc.is-behind .g-sc-num {
-  color: var(--warn-text);
-}
-.g-sc-why {
-  font: 600 var(--fs-caps) / var(--lh-caps) var(--sans);
-  color: var(--warn-text);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+.g-sc-num .no-data {
+  font: 500 var(--fs-foot) / var(--lh-value) var(--sans);
 }
 .g-sc-span {
-  font: 400 var(--fs-caps) / var(--lh-caps) var(--sans);
+  font: 500 var(--fs-foot) / var(--lh-foot) var(--sans);
   color: var(--ink-3);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+.g-sc-span.is-why {
+  color: var(--warn-text);
 }
 
-/* the stale nudge */
-.g-nudge {
-  display: grid;
-  gap: 6px;
+/* ---------- the review owed and the carry-over: rows of one card under the hero (G2) ----------
+ * The shared row template: the goal as the title, where it came from under it, and the row's one action as a quiet Deep
+ * Sky word at the trailing edge (5.57 on Paper). The whole row is the target. On Today the same rows sit in Plan your day */
+.g-follow-row.pressable {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  text-align: left;
 }
-/* "To review": the label in Dusk like every card label, its glyph Deep Sky (a glyph needs 3:1; Sky is 2.26) */
-.g-nudge-label > svg {
-  color: var(--deep-sky);
+/* the goal is the row's content: it may take two lines before it ends in an ellipsis, so it reads at 320 beside the
+   action */
+.g-follow-row .k-row-title {
+  white-space: normal;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
 }
-.g-nudge-title {
-  margin: 0;
-  font: 600 var(--fs-row) / var(--lh-row) var(--sans);
-  color: var(--ink);
-}
-.g-nudge-list {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-  display: grid;
-  gap: 2px;
-  font: 400 var(--fs-sub) / var(--lh-sub) var(--sans);
-  color: var(--ink-2);
-}
-.g-nudge-list li {
-  display: flex;
-  align-items: baseline;
-  gap: 8px;
-  min-width: 0;
-}
-.g-nudge-text {
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.g-nudge-when {
+.g-follow-act {
   flex: none;
-  color: var(--ink-3);
-  font-size: var(--fs-foot);
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--hit);
+  font: 600 var(--fs-row) / var(--lh-row) var(--sans);
+  color: var(--accent-text);
   white-space: nowrap;
 }
-.g-nudge-more {
-  color: var(--ink-3);
+/* "Later" and "Not now" in a review sheet: the quiet level, 8 under the button above it (layout standard 6.6) */
+.gs-later.btn {
+  justify-self: center;
+  align-self: center;
 }
-/* "Review it" is a secondary (Paper, an edge): "Set today's goal" above is the screen's one primary (guide 6.2) */
-.g-nudge-btn.btn {
-  justify-self: start;
-  min-height: 44px;
-  margin-top: var(--sp-2);
-  padding: 0 var(--sp-5);
+.k-pin .btn + .gs-later.btn {
+  margin-top: calc(var(--sp-2) - var(--gap));
 }
 
 /* steps on a card: rows split by hairlines, the mark lined up under the words */
@@ -1450,7 +1182,6 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .gl-card,
   .ga-chip,
   .gh,
   .gh-step-text,
@@ -1493,6 +1224,14 @@
   min-height: 56px;
   padding: 10px 16px;
 }
+/* the tab on its way: its own shape, 12 between the parts and a section's 32 above the Further out header */
+.g-skel {
+  display: grid;
+  gap: var(--gap);
+}
+.g-skel-head {
+  margin-top: calc(var(--section) - var(--gap));
+}
 /* goals that did not load */
 .g-error {
   display: grid;
@@ -1514,117 +1253,52 @@
 }
 
 @media (max-width: 359px) {
-  /* 320: the Next week title stays whole, and the sun clears the headline */
-  .ga-top {
-    gap: 4px;
-  }
-  .ga-chev {
-    display: none;
-  }
+  /* 320: the sun sits further into its corner, clear of the button */
   .gh-sun {
-    right: -64px;
-    top: -70px;
+    right: -80px;
+    bottom: -76px;
   }
-}
-
-/* ---------- carry over yesterday's unfinished goal (CarryOver.tsx): one quiet row under an empty day goal ---------- */
-.carry.pressable {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  box-sizing: border-box;
-  width: 100%;
-  max-width: 100%;
-  min-width: 0;
-  min-height: 44px;
-  padding: 6px 4px;
-  text-align: left;
-}
-/* the carry-over glyph in Dusk: Apricot is light, never a glyph (2.0 on Cloud, guide 3.1); the words carry the row */
-.carry-icon {
-  flex: none;
-  color: var(--ink-2);
-}
-.carry-words {
-  flex: 1 1 auto;
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-  overflow: hidden;
-}
-.carry-lead {
-  font-size: var(--fs-foot);
-  line-height: var(--lh-foot);
-  color: var(--ink-2);
-}
-.carry-goal {
-  display: block;
-  max-width: 100%;
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-  font-size: var(--fs-row);
-  line-height: var(--lh-row);
-  font-weight: 600;
-  color: var(--ink);
-}
-/* on Today it sits inside the Plan your day card, lined up with the goal's words (past the rail's node) */
-.pd-flow > .carry.pd-carry {
-  position: relative;
-  z-index: 1;
-  padding: 0 16px 10px 70px;
-  margin-top: -6px;
-}
-/* on Goals it follows the Today card */
-.carry.gh-carry {
-  margin-top: 4px;
-  padding-inline: 8px;
 }
 
 /* ---------- Larger Text (above 150 percent, html[data-text-xl]): nothing clips, rows grow (guide 11) ---------- */
-/* the question takes the card's width (the sun sits behind it: Night Ink on Apricot is 9.42) */
-html[data-text-xl] .gh-ask {
-  max-width: none;
+/* the words and the button fill the card at this size, so the sun steps out rather than sit under them */
+html[data-text-xl] .gh-sun {
+  display: none;
 }
-/* the card's head (TODAY, the date, the time chip) wraps rather than cutting the date to "·…" */
-html[data-text-xl] .gh-head {
-  flex-wrap: wrap;
-  row-gap: var(--sp-1);
-}
-html[data-text-xl] .gh-date {
-  flex: 1 1 auto;
-  white-space: normal;
-}
-/* the primary grows with its words (two lines at 320) instead of spilling out of its 46 px pill */
+/* the primary grows with its words (two lines at 320) instead of spilling out of its 44 px pill */
 html[data-text-xl] .gh-cta {
   height: auto;
-  min-height: 46px;
   padding-block: var(--sp-2);
   line-height: var(--lh-row);
-}
-/* a level card's period and its chip take two lines rather than cutting the period to "NO…"; the goal's words get two
-   more lines before they ellipsize */
-html[data-text-xl] .gl-head {
-  flex-wrap: wrap;
-  row-gap: var(--sp-1);
-}
-html[data-text-xl] .gl-caps {
-  flex-basis: 100%;
-  white-space: normal;
-}
-html[data-text-xl] .gl-text {
-  -webkit-line-clamp: 4;
 }
 /* the four counts of History go two by two, so each level's words fit */
 html[data-text-xl] .g-scores-row {
   grid-template-columns: repeat(2, minmax(0, 1fr));
   row-gap: var(--sp-3);
 }
-html[data-text-xl] .g-sc:nth-child(odd) {
-  padding-left: 0;
-  border-left: 0;
+/* rows at this size: the words get the row's width. The icon tile steps out, the period, the goal and its line wrap
+   whole, and the time left (or the row's action) moves to its own line under them instead of squeezing the words */
+html[data-text-xl] :is(.gl-row, .g-follow-row) {
+  flex-wrap: wrap;
+  row-gap: var(--sp-1);
 }
-html[data-text-xl] .g-sc-span,
-html[data-text-xl] .g-sc-why {
+html[data-text-xl] :is(.gl-row, .g-follow-row) > .icon-tile {
+  display: none;
+}
+html[data-text-xl] :is(.gl-row, .g-follow-row) .k-row-main {
+  flex: 1 1 0;
+}
+html[data-text-xl] :is(.gl-row, .g-follow-row) .k-row-title,
+html[data-text-xl] :is(.gl-row, .g-follow-row) .k-row-sub {
   white-space: normal;
+  overflow-wrap: break-word;
+}
+html[data-text-xl] .gl-end.k-row-end,
+html[data-text-xl] .g-follow-act {
+  order: 3;
+  flex: 1 0 100%;
+  white-space: normal;
+}
+html[data-text-xl] :is(.gl-list, .g-follow) {
+  --k-sep: var(--sp-4);
 }

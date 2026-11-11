@@ -17,13 +17,6 @@ import { useLearnedMutations } from './queries';
 export const byTime = (a: Learning, b: Learning) => (a.createdAt < b.createdAt ? -1 : a.createdAt > b.createdAt ? 1 : 0);
 export const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
 
-/** "12 days in a row · 48 things learned"; a run under two days is not a headline. */
-export const statsWords = (s: { days: number; streak: number; total: number }) => {
-  const things = plural(s.total, 'thing') + ' learned';
-  if (s.streak >= 2) return `${s.streak} days in a row · ${things}`;
-  return s.days > 1 ? `${things} over ${s.days} days` : things;
-};
-
 /**
  * A field that grows with its words and never scrolls inside itself. `foot`: while the field has focus and grows, that
  * element (the field with its Save) is kept above the keyboard, not just the field.
@@ -84,7 +77,7 @@ export const Composer = ({ today, quiet }: { today: string; quiet?: boolean }) =
         className="ln-field"
         rows={rows}
         maxLength={LEARNING_MAX}
-        placeholder={quiet ? 'Add another' : 'One thing, in a sentence or two'}
+        placeholder={quiet ? 'Add another' : 'Like: Strides after easy runs keep my legs quick.'}
         aria-label={quiet ? 'Add another thing you learned today' : 'What you learned today'}
         value={text}
         onPaste={(e) => setCut(pasteCut(e))}

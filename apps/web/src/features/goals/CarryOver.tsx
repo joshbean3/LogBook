@@ -1,36 +1,26 @@
-import { shiftDays, type Aim, type ISODate } from '@logbook/shared';
+import type { Aim, ISODate } from '@logbook/shared';
 import { CornerDownRight } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useGoalMutations, useGoals } from '@/api/queries';
 import { haptics } from '@/lib/haptics';
 import { Pressable } from '@/ui/Pressable';
 import { useToast } from '@/ui/Toast';
-import { goalOf } from './model';
+import { goalOf, STATUS_WORD } from './model';
+import { carryable } from './follow';
 import './goals.css';
 
-/** Yesterday's day goal when it was set and not hit (open, partly or missed), so it can be carried over to today. */
-export const unfinishedYesterday = (goals: readonly Aim[] | undefined, today: ISODate): Aim | null => {
-  const y = goalOf(goals, 'day', shiftDays(today, -1));
-  return y && y.status !== 'done' ? y : null;
-};
-
 /**
- * One tap to make yesterday's unfinished goal today's: the same words, the same why, and its steps as they stood (a step
- * already checked stays checked). Shown only while today has no goal. Yesterday's goal is left as it was. An Undo takes
- * today's copy away again.
+ * Make a goal today's: the same words, the same why, and its steps as they stood (a step already checked stays checked).
+ * The goal it came from is left as it was. An Undo takes today's copy away again.
  */
-export const CarryOver = ({ today, className = '' }: { today: ISODate; className?: string }) => {
-  const goals = useGoals();
+export const useCarry = (today: ISODate) => {
   const { set, clear } = useGoalMutations();
   const toast = useToast();
   const qc = useQueryClient();
-  if (goalOf(goals.data, 'day', today)) return null;
-  const from = unfinishedYesterday(goals.data, today);
-  if (!from) return null;
-  const carry = () => {
+  return (from: Aim) => {
     haptics.toggle();
     set.mutate({ level: 'day', period: today, text: from.text, why: from.why ?? null, steps: from.steps.map((s) => ({ ...s })) });
-    toast('Carried over from yesterday', {
+    toast('Carried over to today', {
       label: 'Undo',
       fn: () => {
         // the copy may still carry its provisional id; whichever it has now is the one to take away
@@ -39,12 +29,30 @@ export const CarryOver = ({ today, className = '' }: { today: ISODate; className
       },
     });
   };
+};
+
+/**
+ * The carry-over as a row (the same template as `ReviewRow`, so the two read alike on Goals and in Today's Plan your day):
+ * the goal as the title, how yesterday went under it, and a quiet "Carry over" at the trailing edge. The whole row is the
+ * one target. Shown only while `carryable` finds a goal.
+ */
+export const CarryOver = ({ today, className = '' }: { today: ISODate; className?: string }) => {
+  const goals = useGoals();
+  const carry = useCarry(today);
+  const from = carryable(goals.data, today);
+  if (!from) return null;
+  const how = `Yesterday’s goal · ${STATUS_WORD[from.status]}`;
   return (
-    <Pressable className={`carry ${className}`.trim()} press="dim" onPress={carry} label={`Carry over yesterday’s goal: ${from.text}`}>
-      <CornerDownRight size={18} aria-hidden="true" className="carry-icon" />
-      <span className="carry-words" aria-hidden="true">
-        <span className="carry-lead">Carry over yesterday’s</span>
-        <span className="carry-goal">{from.text}</span>
+    <Pressable className={`k-row two g-follow-row carry ${className}`.trim()} press="surface" onPress={() => carry(from)} label={`${from.text}. ${how}. Carry over to today`}>
+      <span className="icon-tile" aria-hidden="true">
+        <CornerDownRight size={18} />
+      </span>
+      <span className="k-row-main" aria-hidden="true">
+        <span className="k-row-title">{from.text}</span>
+        <span className="k-row-sub">{how}</span>
+      </span>
+      <span className="g-follow-act" aria-hidden="true">
+        Carry over
       </span>
     </Pressable>
   );

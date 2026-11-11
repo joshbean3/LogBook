@@ -134,7 +134,8 @@ export const useLearnedMutations = (today: string) => {
       const newDay = !hasDay(item.date);
       patchList(qc, item, (rows, first) => (first ? [item, ...rows.filter((x) => x.id !== item.id)] : rows.filter((x) => x.id !== item.id)));
       patchMonths(qc, item, 1, newDay);
-      patchStats(qc, (s) => ({ total: s.total + 1, days: s.days + (newDay ? 1 : 0), streak: s.streak }));
+      // today's only one coming back lengthens the run again, as a first save does (the streak's bulb and count agree)
+      patchStats(qc, (s) => ({ total: s.total + 1, days: s.days + (newDay ? 1 : 0), streak: newDay && item.date === today ? s.streak + 1 : s.streak }));
       await write(`/learnings/${item.id}/restore`, 'POST', undefined, [learnedKeys.all]);
       settle();
     },
@@ -147,7 +148,8 @@ export const useLearnedMutations = (today: string) => {
       const lastOfDay = !hasDay(item.date, item.id);
       patchList(qc, item, (rows) => rows.filter((x) => x.id !== item.id));
       patchMonths(qc, item, -1, lastOfDay);
-      patchStats(qc, (s) => ({ total: Math.max(0, s.total - 1), days: Math.max(0, s.days - (lastOfDay ? 1 : 0)), streak: s.streak }));
+      // today's last one going takes today out of the run at once (the server's count follows at the refetch)
+      patchStats(qc, (s) => ({ total: Math.max(0, s.total - 1), days: Math.max(0, s.days - (lastOfDay ? 1 : 0)), streak: lastOfDay && item.date === today ? Math.max(0, s.streak - 1) : s.streak }));
       await write(`/learnings/${item.id}`, 'DELETE', undefined, [learnedKeys.all]);
       settle();
     },
