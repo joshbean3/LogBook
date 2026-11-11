@@ -23,7 +23,7 @@ Each test makes its own account (an address at example.com), so they run side by
 6. Sign out; every `logbook.` key but `logbook.hasAccount` is gone; the next person to sign up sees nothing of the last one, and the assistant's History is empty.
 7. The assistant's permission step: Not now sends nothing, the step shows again, Allow stores the choice.
 8. Forgot password, the reset link from the mail, the new password works and the old one does not. With no mail provider set the API logs the mail; the test reads the link from the API's output (`E2E_API_LOG`, set for you when Playwright starts the servers).
-9. The opening: the sunrise plays on a cold open and a tap runs it out; the same tab opening again gets the quiet fade; left alone it gives way when its 2.8 seconds are up; Reduce Motion gets a fade.
+9. The opening: the sunrise plays on a cold open and a tap runs it out; the same tab opening again gets the quiet fade, and so does the reload after signing out; left alone it gives way when its 2.8 seconds are up; Reduce Motion gets a fade.
 
 A test that only waits for the page to look right would miss a change the server never got, so every write waits for the server's answer (`savedBy`) before the test reloads.
 
