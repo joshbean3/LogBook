@@ -9,8 +9,8 @@ describe('deep links', () => {
     ['logbook://settings', '/settings'],
     ['logbook://settings/privacy', '/settings/privacy'],
     ['logbook://today/2026-11-10/morning', '/today/2026-11-10/morning'],
-    ['logbook://journal/reads', '/journal/reads'],
-    // an old address that the table redirects to a real page
+    // old addresses that the table redirects to a real page
+    ['logbook://journal/reads', '/settings/reads'],
     ['logbook://trends', '/progress'],
   ])('%s opens %s', (url, path) => {
     expect(deepLinkPath(url)).toBe(path);

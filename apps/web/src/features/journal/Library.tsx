@@ -116,7 +116,7 @@ const QuoteRow = ({ q, open, onWrite }: { q: Quote; open: (q: Quote) => void; on
   );
 };
 
-/** The way to Reads: one touchable card that says what is waiting, and pushes /journal/reads over the mounted Journal. */
+/** The way to Reads: one touchable card that says what is waiting, and opens the saved links under Settings (/settings/reads). */
 const ReadsRow = () => {
   const nav = useNav();
   const today = useToday();
@@ -127,7 +127,7 @@ const ReadsRow = () => {
   const sub = [unread ? `${unread} unread` : null, p ? `Today: ${linkTitle(p.title, p.url)}` : null].filter(Boolean).join(' · ') || 'Save links to come back to';
   return (
     <div className="k-rows has-icons lib-reads">
-      <Pressable className="k-row two reads-row" press="surface" onPress={() => nav.push('/journal/reads')} label={`Reads. ${unread ? `${unread} unread. ` : ''}${p ? `Today’s pick: ${linkTitle(p.title, p.url)}` : ''}`}>
+      <Pressable className="k-row two reads-row" press="surface" onPress={() => nav.go('/settings/reads')} label={`Reads. ${unread ? `${unread} unread. ` : ''}${p ? `Today’s pick: ${linkTitle(p.title, p.url)}` : ''}`}>
         <span className="icon-tile" aria-hidden="true">
           <BookMarked size={17} />
         </span>

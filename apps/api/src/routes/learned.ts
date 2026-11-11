@@ -82,7 +82,7 @@ export const echoesOf = (rows: readonly Learning[], today: string): LearningEcho
 
 /**
  * What I learned: one line or a few each day. `GET /learnings` pages newest first; `GET /learnings/stats` counts the days,
- * the streak and the whole; writes are the journal's (soft delete, restore). A new learning's day defaults to the
+ * the streak and the whole, and lists which of the last seven days have one; writes are the journal's (soft delete, restore). A new learning's day defaults to the
  * request's local day and is never later than it.
  */
 export const learnedRoutes = (db: DB) => {
@@ -154,7 +154,10 @@ export const learnedRoutes = (db: DB) => {
       .orderBy(desc(learnings.date))
       .all()
       .map((x) => x.date);
-    const out: LearningStats = { days: days.length, streak: streakOf(days, today), total };
+    // the last seven days (six ago to today) that have a learning, oldest first: Learned's bulbs (layout plan C-3)
+    const weekAgo = shiftDays(today, -6);
+    const recent = days.filter((d) => d >= weekAgo).reverse();
+    const out: LearningStats = { days: days.length, streak: streakOf(days, today), total, recent };
     return c.json(out);
   });
 

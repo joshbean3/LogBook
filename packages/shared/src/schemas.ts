@@ -209,6 +209,11 @@ export interface LearningStats {
   days: number;
   streak: number;
   total: number;
+  /**
+   * The days from six days ago to today that have a learning, oldest first: the streak tracker's seven bulbs. Optional
+   * because a stats answer cached on the device by an older build has none: read it as `recent ?? []` until the refetch.
+   */
+  recent?: string[];
 }
 /** `GET /learnings/echoes`: "From your archive", one learning from about a year ago, one from about a month ago, one at random (kept for the day). */
 export interface LearningEchoes {

@@ -434,7 +434,7 @@ const NavRows = () => {
         ['/plan', 'Plan (tab)'],
         ['/progress', 'Progress (tab)'],
         ['/journal', 'Journal (tab)'],
-        ['/journal/reads', 'Reads (pushed, Journal stays lit)'],
+        ['/settings/reads', 'Saved links (pushed under Settings, Today stays lit)'],
         ['/trends', '/trends redirects to Progress'],
         ['/morning', '/morning redirects to Today'],
       ].map(([to, label]) => (
