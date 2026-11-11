@@ -12,7 +12,9 @@ import { resetRecallMemory } from '../services/recall.js';
 import { fakeClaude, grantAll, makeApp, signUp, type Account, type App } from '../test/helpers.js';
 
 /**
- * Three promises checked against what the Claude client actually receives, for every call site in the server:
+ * Three promises checked against what the Claude client actually receives, for every call site in the server (the
+ * assistant, the plan builder in its four modes, the goal review, Remember when, the daily pick, and the plan builder's
+ * assistant):
  * 1. nothing from Strava (activities, heart rate zones, the Strava account) is ever in a request;
  * 2. the shared safety rules are in the system text of every request;
  * 3. nothing from the server's environment describes a person in a prompt.
@@ -82,8 +84,10 @@ const runEveryCallSite = async () => {
     (await me.call('POST', '/api/goals/refine', { level: 'week', period: mondayOf(T), text: 'run more' })).status,
     (await me.call('GET', '/api/journal/recall')).status,
     (await me.call('GET', '/api/reads/pick')).status,
+    // the plan builder's assistant, with the builder's settings as the app sends them
+    (await me.call('POST', '/api/plans/template/assist', { kind: 'shape', words: '4 runs a week, long run Sunday', settings: { goal: 'half', weeks: 12, runDays: ['tue', 'thu', 'sat', 'sun'], longRunDay: 'sun', weeklyMiles: 20, peakMiles: null, startDate: shiftDays(T, 5), raceDate: shiftDays(T, 88) } })).status,
   ];
-  expect(statuses).toEqual([200, 200, 200, 200, 200, 200, 200, 200]);
+  expect(statuses).toEqual([200, 200, 200, 200, 200, 200, 200, 200, 200]);
 };
 
 beforeEach(async () => {
@@ -106,9 +110,9 @@ beforeEach(async () => {
 afterEach(() => claude.restore());
 
 describe('every Claude call site', () => {
-  it('is exercised here: one request each from the assistant, the four plan modes, the goal review, Remember when and the daily pick', async () => {
+  it('is exercised here: one request each from the assistant, the four plan modes, the goal review, Remember when, the daily pick and the plan builder’s assistant', async () => {
     await runEveryCallSite();
-    expect(claude.calls.map((c) => c.api)).toEqual(['beta.messages.stream', 'messages.stream', 'messages.stream', 'messages.stream', 'messages.stream', 'messages.create', 'messages.create', 'messages.stream']);
+    expect(claude.calls.map((c) => c.api)).toEqual(['beta.messages.stream', 'messages.stream', 'messages.stream', 'messages.stream', 'messages.stream', 'messages.create', 'messages.create', 'messages.stream', 'messages.create']);
   }, 20_000);
 
   it('never carries a value from activities, hr_zones or strava_accounts', async () => {
@@ -127,7 +131,7 @@ describe('every Claude call site', () => {
     expect(SAFETY_BLOCK).toContain(AI_IDENTITY_RULE);
     expect(AI_IDENTITY_RULE).toBe('Say truthfully that you are an AI when asked.');
     for (const need of ['Do not diagnose', 'medication', 'train through pain', '988', 'emergency services', 'role play', 'not a doctor']) expect(SAFETY_BLOCK).toContain(need);
-    expect(claude.calls).toHaveLength(8);
+    expect(claude.calls).toHaveLength(9);
     for (const c of claude.calls) {
       const system = claude.systemOf(c);
       expect(system, `${c.api} has no safety block`).toContain(SAFETY_BLOCK);
@@ -190,7 +194,7 @@ describe('the source', () => {
       const n = (read(f).match(/messages\s*\.\s*(create|stream)\(/g) ?? []).length;
       if (n) sites[path.relative(src, f).split(path.sep).join('/')] = n;
     }
-    expect(sites).toEqual({ 'services/assistant.ts': 1, 'services/claude.ts': 2, 'services/reads.ts': 1, 'services/recall.ts': 1 });
+    expect(sites).toEqual({ 'services/assistant.ts': 1, 'services/claude.ts': 2, 'services/planAssist.ts': 1, 'services/reads.ts': 1, 'services/recall.ts': 1 });
   });
 
   it('names no person, no model and no athlete context anywhere in the server code or its example env', () => {
