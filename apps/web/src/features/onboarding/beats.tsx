@@ -105,7 +105,7 @@ export const BuildBeat = ({ steps, ready, failed, onDone, title }: { steps: stri
         {steps.slice(0, shown).map((s, i) => (
           <motion.li key={s} initial={reduce ? { opacity: 0 } : { opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={reduce ? { duration: 0.15 } : springs.settle}>
             <motion.span className="obx-tick" initial={reduce ? false : { scale: 0.4 }} animate={{ scale: 1 }} transition={springs.complete}>
-              <Check size={14} strokeWidth={3} aria-hidden="true" />
+              <Check size={14} aria-hidden="true" />
             </motion.span>
             <span className={i === shown - 1 && !all ? 'is-live' : ''}>{s}</span>
           </motion.li>
@@ -136,8 +136,8 @@ export const NudgeChoice = ({ on, at, onChange }: { on: boolean; at: number; onC
         <span className="obx-lock-time">{hm(at)}</span>
         <motion.div className="obx-note" animate={on ? { opacity: 1, y: 0, scale: 1 } : { opacity: 0.35, y: reduce ? 0 : 6, scale: reduce ? 1 : 0.97 }} transition={reduce ? { duration: 0.15 } : springs.settle}>
           <span className="obx-note-app">
-            <i />
-            ORBY
+            <img className="obx-note-icon" src={`${import.meta.env.BASE_URL}icons/apple-touch-icon.png`} alt="" width={16} height={16} draggable={false} />
+            Orby
             <small>now</small>
           </span>
           <b>Set today’s goal</b>
@@ -147,7 +147,7 @@ export const NudgeChoice = ({ on, at, onChange }: { on: boolean; at: number; onC
       <div className="card obx-choice" role="radiogroup" aria-label="Morning nudge">
         <Pressable className={`obx-opt ${on ? 'on' : ''}`} role="radio" aria-checked={on} onPress={() => pick(true)}>
           <span className="obx-opt-ic">
-            <BellRing size={18} strokeWidth={2.2} aria-hidden="true" />
+            <BellRing size={18} aria-hidden="true" />
           </span>
           <span className="obx-opt-text">
             <b>Nudge me at {hm(at)}</b>
@@ -157,7 +157,7 @@ export const NudgeChoice = ({ on, at, onChange }: { on: boolean; at: number; onC
         </Pressable>
         <Pressable className={`obx-opt ${!on ? 'on' : ''}`} role="radio" aria-checked={!on} onPress={() => pick(false)}>
           <span className="obx-opt-ic">
-            <BellOff size={18} strokeWidth={2.2} aria-hidden="true" />
+            <BellOff size={18} aria-hidden="true" />
           </span>
           <span className="obx-opt-text">
             <b>No nudges</b>

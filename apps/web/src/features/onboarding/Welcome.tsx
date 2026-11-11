@@ -1,5 +1,5 @@
 import { fmtDate, mondayOf, shiftDays, today as todayISO, weekdayOf, type Goal, type ISODate, type Weekday } from '@logbook/shared';
-import { Activity, CalendarDays, Check, ChevronLeft, ChevronRight, Clock, Sparkles, Sun, TriangleAlert } from 'lucide-react';
+import { Check, ChevronLeft, ChevronRight, Clock, TriangleAlert } from 'lucide-react';
 import { animate, AnimatePresence, motion, useMotionValue, useReducedMotion, useTransform } from 'motion/react';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
@@ -21,6 +21,7 @@ import { useSaveOnboarding, type OnboardingPost } from './save';
 import { nudgeNext, questionsFor, type Step } from './steps';
 import { DEFAULT_AFTERNOON, setAfternoon, setTrainWhenDefault } from '@/features/day/trainWhen';
 import { Stepper } from '@/ui/primitives';
+import { BrandIcon, HabitIcon, PlanIcon, RunIcon } from '@/ui/icons';
 import { Tour } from './tour/Tour';
 import { enableReminders, remindersSupported } from '@/features/goals/reminders';
 import { useToast } from '@/ui';
@@ -321,7 +322,7 @@ function Flow({ uid }: { uid: string }) {
   const tightNote = tight ? (
     <div className="ob-warn" role="status">
       <p className="ob-warn-text">
-        <TriangleAlert size={16} strokeWidth={2.2} aria-hidden="true" />
+        <TriangleAlert size={16} aria-hidden="true" />
         <span>{tight.text}</span>
       </p>
       <Pressable
@@ -477,7 +478,7 @@ function Flow({ uid }: { uid: string }) {
                     set({ routine: on ? chips.filter((x) => x !== c.id) : [...chips, c.id] });
                   }}
                 >
-                  {on ? <Check size={16} strokeWidth={2.6} aria-hidden="true" /> : null}
+                  {on ? <Check size={16} aria-hidden="true" /> : null}
                   {c.label}
                 </Pressable>
               );
@@ -507,7 +508,7 @@ function Flow({ uid }: { uid: string }) {
                       set({ wake: fix.wake, leave: fix.leave });
                     }}
                   >
-                    <Clock size={16} strokeWidth={2.4} aria-hidden="true" />
+                    <Clock size={16} aria-hidden="true" />
                     {fix.text}
                   </Pressable>
                 </motion.div>
@@ -607,7 +608,7 @@ function Flow({ uid }: { uid: string }) {
               the slot's, so each keeps its own press (review 3 code N8) */}
           <span className={`ob-slot ${canBack ? '' : 'is-gone'}`} inert={!canBack}>
             <button type="button" className="icon-btn ob-back" aria-label="Back" onClick={canBack ? back : undefined}>
-              <ChevronLeft size={26} strokeWidth={2.2} aria-hidden="true" />
+              <ChevronLeft size={26} aria-hidden="true" />
             </button>
           </span>
           <SetupBar steps={QUESTIONS.length} index={qIndex} />
@@ -696,26 +697,25 @@ type PayoffAction = 'connect';
  */
 function Made({ profile, weeks, wake, leave, habits, afternoon, offer }: { profile: TrainingProfile | null; weeks: number | null; wake: number; leave: number; habits: number; /** when work ends, for someone who runs after it */ afternoon?: number | null; offer?: React.ReactNode }) {
   return (
-    <section className="aura halo-upcoming ob-made" aria-label="Set up for you">
-      <span className="aura-glow" aria-hidden="true" />
+    <section className="aura ob-made" aria-label="Set up for you">
       <span className="caps ob-made-eyebrow">Set up for you</span>
       <ul className="ob-made-rows">
         <li className="ob-made-row">
           <span className="ob-made-ic" aria-hidden="true">
-            <CalendarDays size={18} />
+            <PlanIcon size={18} />
           </span>
           <span className="ob-made-title">{!profile ? 'No running plan for now' : profile.goal === 'base' ? 'Just running' : `${goalLong(profile.goal)} plan`}</span>
           {profile && weeks ? <span className="ob-made-value">{weeks} {weeks === 1 ? 'week' : 'weeks'}</span> : null}
         </li>
         <li className="ob-made-row">
           <span className="ob-made-ic" aria-hidden="true">
-            <Sun size={18} />
+            <BrandIcon name="wake" size={18} />
           </span>
           <span className="ob-made-title">{afternoon != null ? `Runs after work, about ${hm(afternoon + AFTER_WORK_LEAD)}` : `Wake ${hm(wake)}, leave ${hm(leave)}`}</span>
         </li>
         <li className="ob-made-row">
           <span className="ob-made-ic" aria-hidden="true">
-            <Sparkles size={18} />
+            <HabitIcon size={18} />
           </span>
           <span className="ob-made-title">{habits ? `${habits} ${habits === 1 ? 'habit' : 'habits'} on Today` : 'No habits yet. Add them on Today.'}</span>
         </li>
@@ -806,7 +806,7 @@ function Payoff({ draft, set, profile, start, today, onOpen, onChange }: { draft
     STRAVA_BUILT && !replay && !!profile && !!b?.features.strava && !b.strava.connected ? (
       <Pressable className="ob-made-row" press="surface" onPress={() => open('connect')}>
         <span className="ob-made-ic" aria-hidden="true">
-          <Activity size={18} />
+          <RunIcon size={18} />
         </span>
         <span className="ob-made-title">Connect Strava</span>
         <ChevronRight size={16} className="ob-made-chev" aria-hidden="true" />
@@ -898,7 +898,7 @@ function Payoff({ draft, set, profile, start, today, onOpen, onChange }: { draft
                 </span>
                 <span className="ob-wtone" aria-hidden="true" />
                 <span className="ob-wname">
-                  {s ? <span className="stamp">{day.label}</span> : <span className="ob-wrest">Rest</span>}
+                  {s ? <span className="ob-wsess">{day.label}</span> : <span className="ob-wrest">Rest</span>}
                   {long && !/^long/i.test(day.label) ? <span className="caps ob-wlong">Long</span> : null}
                 </span>
                 {s ? (
@@ -918,13 +918,13 @@ function Payoff({ draft, set, profile, start, today, onOpen, onChange }: { draft
             <span className="ob-err">Couldn’t save your plan. {reason}</span>
           ) : replay ? (
             <>
-              <Check size={16} strokeWidth={2.6} aria-hidden="true" className="ob-ok" />
+              <Check size={16} aria-hidden="true" className="ob-ok" />
               Preview only. Your plan and habits weren’t changed.
             </>
           ) : !profile ? (
             done ? (
               <>
-                <Check size={16} strokeWidth={2.6} aria-hidden="true" className="ob-ok" />
+                <Check size={16} aria-hidden="true" className="ob-ok" />
                 Saved. Add a running plan any time from Plan.
               </>
             ) : (
@@ -932,7 +932,7 @@ function Payoff({ draft, set, profile, start, today, onOpen, onChange }: { draft
             )
           ) : done ? (
             <>
-              <Check size={16} strokeWidth={2.6} aria-hidden="true" className="ob-ok" />
+              <Check size={16} aria-hidden="true" className="ob-ok" />
               {week.miles} mi over {week.runs} {week.runs === 1 ? 'run' : 'runs'} in your first seven days. Saved to your plan.
             </>
           ) : (

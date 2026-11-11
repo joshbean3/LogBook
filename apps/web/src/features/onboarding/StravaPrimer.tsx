@@ -8,8 +8,8 @@ import { Pressable } from '@/ui/Pressable';
 import './stravaPrimer.css';
 
 /**
- * "See your runs land here": the Strava primer (experience §5.8 step 6, research §6 step 4). A sample run in Night style
- * draws itself, then one blue Connect Strava and a guilt-free Later.
+ * "See your runs land here": the Strava primer (experience §5.8 step 6, research §6 step 4). A sample run on a Cloud
+ * card draws itself in Deep Sky, then the one Sky Connect Strava and a guilt-free Later.
  *
  * For the Today team:
  *   const primer = useStravaPrimer();
@@ -92,29 +92,29 @@ export const StravaPrimer = ({ onLater, onConnect, variant = 'card', className =
   };
   return (
     <section className={`sp sp-${variant} ${className}`} aria-label="Connect Strava">
-      <motion.div className="sp-sample halo halo-done" aria-hidden="true" initial={reduce ? false : { opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={reduce ? fadeIn : springs.page}>
+      <motion.div className="sp-sample" aria-hidden="true" initial={reduce ? false : { opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={reduce ? fadeIn : springs.page}>
         <div className="sp-sample-top">
           <span className="caps">Sample · Morning run</span>
         </div>
         <svg className="sp-route" viewBox="0 0 324 170" fill="none">
-          <motion.path d={ROUTE} stroke="var(--ink)" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" initial={reduce ? false : { pathLength: 0 }} animate={{ pathLength: 1 }} transition={{ duration: 1.1, ease, delay: reduce ? 0 : 0.2 }} />
+          <motion.path d={ROUTE} stroke="var(--deep-sky)" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" initial={reduce ? false : { pathLength: 0 }} animate={{ pathLength: 1 }} transition={{ duration: 1.1, ease, delay: reduce ? 0 : 0.2 }} />
         </svg>
         <div className="sp-stamps">
           <span>
             <span className="caps">Distance</span>
-            <span className="stamp">
+            <span className="sp-num">
               4.02<small>mi</small>
             </span>
           </span>
           <span>
             <span className="caps">Pace</span>
-            <span className="stamp">
+            <span className="sp-num">
               8:51<small>/mi</small>
             </span>
           </span>
           <span>
             <span className="caps">Time</span>
-            <span className="stamp">35:36</span>
+            <span className="sp-num">35:36</span>
           </span>
         </div>
       </motion.div>

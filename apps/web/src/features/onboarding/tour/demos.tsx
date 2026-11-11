@@ -1,4 +1,5 @@
-import { ArrowRight, Check, Plus, Sparkles } from 'lucide-react';
+import { ArrowRight, Check, Plus } from 'lucide-react';
+import { Disc } from '@/ui/Disc';
 import { Orb } from '@/ui/Orb';
 import { AnimatePresence, motion } from 'motion/react';
 import { springs } from '@/lib/motion';
@@ -40,7 +41,7 @@ export const TodosDemo = ({ running, still }: DemoProps) => {
               {rows.map((r, i) => (
                 <motion.li key={r.id} layout={!still} initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, x: 24 }} transition={springs.settle} className={r.id === 'a' && checked ? 'tis-done' : ''}>
                   <span className="tour-todo-mark" data-spot={i === 0 ? 'mark0' : undefined}>
-                    {r.id === 'a' && checked ? <Check size={12} strokeWidth={3.2} /> : null}
+                    {r.id === 'a' && checked ? <Check size={12} /> : null}
                   </span>
                   <span className="tour-todo-rank">{i + 1}</span>
                   {r.t}
@@ -51,7 +52,7 @@ export const TodosDemo = ({ running, still }: DemoProps) => {
         </div>
         <p className="tour-todo-fold">{gone ? '+1 Then Pay rent' : '+2 Then Groceries, Pay rent'}</p>
         <p className="tour-todo-add" data-spot="add">
-          <Plus size={15} strokeWidth={2.4} />
+          <Plus size={15} />
           {typing || still || b >= 8 ? <span className="tour-todo-typed">{typed}<i className="tcaret" /></span> : 'Add a to-do'}
         </p>
         <Finger spot={at(b, 1, 4) ? 'mark0' : at(b, 5, 8) ? 'add' : null} down={b === 2 || b === 6} />
@@ -80,14 +81,14 @@ export const HabitsDemo = ({ running, still }: DemoProps) => {
           {HAB.map((h, i) => (
             <span key={h} className="th-orb-wrap">
               <motion.span className={`th-orb ${lit[i] ? 'tis-lit' : ''}`} data-spot={`orb${i}`} animate={lit[i] && !still ? { scale: [1, 1.12, 1] } : { scale: 1 }} transition={{ duration: 0.36 }}>
-                {lit[i] ? <Check size={18} strokeWidth={3} /> : <span>{h[0]}</span>}
+                {lit[i] ? <Check size={18} /> : <span>{h[0]}</span>}
               </motion.span>
               <small>{h}</small>
             </span>
           ))}
           <span className="th-orb-wrap">
             <span className="th-orb tis-add">
-              <Plus size={18} strokeWidth={2.4} />
+              <Plus size={18} />
             </span>
             <small>Add</small>
           </span>
@@ -131,7 +132,7 @@ export const GoalsDemo = ({ running, still }: DemoProps) => {
               </span>
               <span className={`tg-step ${stepDone ? 'tis-done' : ''}`}>
                 <span className="tour-todo-mark" data-spot="step">
-                  {stepDone ? <Check size={12} strokeWidth={3.2} /> : null}
+                  {stepDone ? <Check size={12} /> : null}
                 </span>
                 Outline
               </span>
@@ -167,7 +168,7 @@ export const GoalsDemo = ({ running, still }: DemoProps) => {
 };
 
 // ---------- Journal ----------
-/** The days of the month written so far: each gets its orb. */
+/** The days of the month written so far: each gets its dot (a flat Disc in the journal's tones, never an Orb). */
 const WRITTEN = [true, true, false, true, true, true, false, true, true, true, true, false, true];
 const JOUR_BEATS = [900, 650, 260, 1900, 600, 260, 1400, 900] as const;
 export const JournalDemo = ({ running, still }: DemoProps) => {
@@ -210,14 +211,14 @@ export const JournalDemo = ({ running, still }: DemoProps) => {
             </>
           ) : (
             <span className="tj-write" data-spot="write">
-              <Plus size={16} strokeWidth={2.4} />
+              <Plus size={16} />
               Write today’s
             </span>
           )}
         </div>
         <Finger spot={at(b, 1, 3) ? 'write' : at(b, 4, 6) ? 'done' : null} down={b === 2 || b === 5} />
       </Stage>
-      <Steps items={['Tap today on the calendar', 'Write a line or two', 'Done, and the day gets its orb']} on={still ? -1 : b < 3 ? 0 : b < 6 ? 1 : 2} />
+      <Steps items={['Tap today on the calendar', 'Write a line or two', 'Done, and the day gets its dot']} on={still ? -1 : b < 3 ? 0 : b < 6 ? 1 : 2} />
     </>
   );
 };
@@ -336,7 +337,7 @@ export const ProgressDemo = ({ running, still }: DemoProps) => {
         </p>
         <div className="tq-chart">
           <svg viewBox="0 0 100 100" preserveAspectRatio="none">
-            <polyline points={pts} fill="none" stroke="currentColor" strokeWidth="2.2" vectorEffect="non-scaling-stroke" strokeLinejoin="round" strokeLinecap="round" />
+            <polyline points={pts} fill="none" stroke="currentColor" strokeWidth="2.5" vectorEffect="non-scaling-stroke" strokeLinejoin="round" strokeLinecap="round" />
           </svg>
           {MILES.map((m, k) => (
             <span key={k} className="tq-spot" style={{ left: `${(k / (MILES.length - 1)) * 100}%`, top: `${100 - (m / max) * 100}%` }} data-spot={`w${k}`} />
@@ -374,11 +375,11 @@ export const AskDemo = ({ running, still }: DemoProps) => {
               {reply ? (
                 <motion.div className="ta-reply" initial={still ? false : { opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={springs.settle}>
                   <span>
-                    Long 8 <ArrowRight size={13} strokeWidth={2.4} /> Saturday
+                    Long 8 <ArrowRight size={13} /> Saturday
                   </span>
                   {applied ? (
                     <b className="ta-applied">
-                      <Check size={14} strokeWidth={3} /> Applied <em>Undo</em>
+                      <Check size={14} /> Applied <em>Undo</em>
                     </b>
                   ) : (
                     <b className="ta-apply" data-spot="apply">
@@ -390,7 +391,7 @@ export const AskDemo = ({ running, still }: DemoProps) => {
             </motion.div>
           ) : (
             <motion.span key="bar" className="ta-bar" data-spot="bar" exit={{ opacity: 0 }}>
-              <Sparkles size={16} strokeWidth={2.2} />
+              <Disc size={16} tone="sky" />
               Ask or change anything
             </motion.span>
           )}

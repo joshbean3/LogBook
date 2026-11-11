@@ -1,5 +1,6 @@
-/* ---------- First run (shape system v2, reference 165, 171, 710): full screen on the page color, lit from the bottom;
-   one question to a screen, its answer in white cards, the navy pill pinned at the bottom. No tab bar. ---------- */
+/* ---------- First run (shape system v2, reference 165, 171, 710): full screen on Cloud; one question to a screen, its
+   answer in Paper cards, the one Sky primary pinned at the bottom. No tab bar, no glow on the questions: the screen's
+   one warm light is the payoff's hero card. ---------- */
 .ob {
   position: relative;
   isolation: isolate;
@@ -17,33 +18,14 @@
   container: page / inline-size;
   --page-pad: var(--gutter);
 }
+/* the layer the old halo lived on: kept as an element (the edge swipe copies it, the hand-off fades it), painted with the
+   plain Cloud ground. The payoff's warm light is its hero card's own sunrise glow (.aura), so the ground adds none */
 .ob-halo {
   position: fixed;
   inset: 0;
   z-index: -1;
-  background: var(--halo);
-  opacity: 0.45;
+  background: var(--bg);
   pointer-events: none;
-  transition: opacity var(--dur-color) var(--ease-out);
-}
-/* the promise: the light rises once, then holds still */
-.ob-halo.rise {
-  opacity: 0.9;
-  animation: ob-rise 1.1s var(--ease-out) both;
-}
-/* the payoff: full bloom */
-.ob-halo.bloom {
-  opacity: 1;
-}
-@keyframes ob-rise {
-  from {
-    opacity: 0;
-    transform: translateY(35%);
-  }
-  to {
-    opacity: 0.9;
-    transform: none;
-  }
 }
 
 /* ---------- top bar: back, progress dots, skip ---------- */
@@ -56,9 +38,9 @@
   display: grid;
   /* the end slot takes what "Skip tour" needs at any text size */
   grid-template-columns: minmax(64px, max-content) 1fr minmax(64px, max-content);
-  column-gap: 8px;
+  column-gap: var(--sp-2);
   align-items: center;
-  padding: calc(6px + var(--safe-t)) var(--gutter) 0;
+  padding: calc(6px + var(--safe-t)) var(--gutter) 0; /* brand-ok: geometry, centers the 40 px back button in the 54 px bar */
   height: calc(54px + var(--safe-t));
   background: var(--bg);
 }
@@ -84,7 +66,7 @@
   display: grid;
   place-items: center start;
   transition:
-    opacity 220ms var(--ease-out),
+    opacity var(--dur-color) var(--ease-out),
     visibility 0s linear 0s;
 }
 .ob-slot.end {
@@ -95,23 +77,22 @@
   visibility: hidden;
   pointer-events: none;
   transition:
-    opacity 220ms var(--ease-out),
-    visibility 0s linear 220ms;
+    opacity var(--dur-color) var(--ease-out),
+    visibility 0s linear var(--dur-color);
 }
 .ob-dots {
   display: flex;
   justify-content: center;
   align-items: center;
-  gap: 6px;
+  gap: 6px; /* brand-ok: geometry, the progress dashes' fixed rhythm */
 }
+/* where you are: the coin ring's grey ahead, Dusk behind, a Night Ink bar for this step (as the welcome pager) */
 .ob-dot {
   width: 6px;
   height: 6px;
-  border-radius: 3px;
-  background: var(--ink-4);
-  transition:
-    width 220ms var(--ease-out),
-    background var(--dur-color) var(--ease-out);
+  border-radius: var(--r-pill);
+  background: var(--coin-ring);
+  transition: background-color var(--dur-color) var(--ease-out);
 }
 .ob-dot.done {
   background: var(--ink-2);
@@ -126,14 +107,14 @@
   background: none;
   height: 44px;
   min-width: 44px;
-  margin-right: -12px;
-  padding: 0 12px;
+  margin-right: calc(-1 * var(--sp-3));
+  padding: 0 var(--sp-3);
   justify-self: end;
   white-space: nowrap;
   font: inherit;
-  font-size: 0.9375rem;
+  font-size: var(--fs-sub);
   font-weight: 600;
-  color: var(--ink-2);
+  color: var(--accent-text);
   border-radius: var(--r-pill);
 }
 
@@ -186,15 +167,15 @@
   max-width: 520px;
   margin-inline: auto;
   /* no bottom padding here: the foot carries the safe-area inset, so its resting and pinned places are the same */
-  padding: 16px var(--gutter) 0;
+  padding: var(--sp-4) var(--gutter) 0;
   min-width: 0;
 }
 /* a step with no pinned foot on screen (the plan being written) keeps the inset itself */
 .ob-step:not(:has(.ob-foot, .ob-pay-foot)) {
-  padding-bottom: calc(16px + var(--safe-b));
+  padding-bottom: calc(var(--sp-4) + var(--safe-b));
 }
 .ob-title {
-  margin-top: 8px;
+  margin-top: var(--sp-2);
   font-style: normal;
   font-weight: 600;
   font-size: var(--fs-section);
@@ -204,20 +185,20 @@
   overflow-wrap: break-word;
 }
 .ob-sub {
-  margin-top: 6px;
+  margin-top: var(--sp-2);
   font-size: var(--fs-sub);
   line-height: var(--lh-sub);
-  color: var(--ink-3);
+  color: var(--ink-2);
   max-width: 36ch;
 }
 .ob-body {
-  margin-top: 24px;
+  margin-top: var(--sp-6);
   display: flex;
   flex-direction: column;
   gap: var(--gap);
   min-width: 0;
 }
-/* an answer's white card */
+/* an answer's Paper card */
 .card.ob-card {
   gap: 0;
   min-width: 0;
@@ -227,14 +208,14 @@
    the tour's dots do, so an answer chip that shows through the fade can still be pressed. */
 .ob-foot {
   margin-top: auto;
-  padding-top: 24px;
+  padding-top: var(--sp-6);
   position: sticky;
   bottom: 0;
-  padding-bottom: calc(16px + max(var(--safe-b), var(--kb, 0px)));
+  padding-bottom: calc(var(--sp-4) + max(var(--safe-b), var(--kb, 0px)));
   /* edge to edge, so no card shadow shows beside it in the strip under the button */
   margin-inline: calc(-1 * var(--gutter));
   padding-inline: var(--gutter);
-  background: linear-gradient(to bottom, transparent, var(--bg) 24px);
+  background: linear-gradient(to bottom, transparent, var(--bg) var(--sp-6));
   pointer-events: none;
 }
 .ob-foot .btn,
@@ -243,42 +224,44 @@
   pointer-events: auto;
 }
 .ob-later {
-  margin-bottom: 12px;
+  margin-bottom: var(--sp-3);
   text-align: center;
   font-size: var(--fs-foot);
   line-height: var(--lh-foot);
-  color: var(--ink-3);
+  color: var(--ink-2);
 }
 .ob-cta.btn {
   height: 54px;
-  font-size: 1.0625rem;
+  font-size: var(--fs-row);
 }
+/* not yet: Haze with Dusk words, no glow (guide 6.2) */
 .ob-cta.btn:disabled {
-  background: var(--surface-3);
-  border-color: var(--surface-3);
-  color: var(--ink-4);
+  background: var(--haze);
+  border-color: var(--haze);
+  box-shadow: none;
+  color: var(--ink-2);
   opacity: 1;
 }
 .ob-q-label {
   display: flex;
   justify-content: space-between;
   align-items: baseline;
-  gap: 12px;
-  font-size: 1.0625rem;
-  line-height: 1.375rem;
+  gap: var(--sp-3);
+  font-size: var(--fs-row);
+  line-height: var(--lh-row);
   font-weight: 600;
   color: var(--ink);
 }
 .ob-q-value {
-  font-size: 0.9375rem;
+  font-size: var(--fs-sub);
   font-weight: 600;
   color: var(--ink-2);
 }
 .ob-hint {
-  margin-top: 14px;
-  font-size: 0.9375rem;
-  line-height: 1.25rem;
-  color: var(--ink-3);
+  margin-top: var(--sp-4);
+  font-size: var(--fs-sub);
+  line-height: var(--lh-sub);
+  color: var(--ink-2);
   text-align: center;
 }
 
@@ -307,7 +290,8 @@
   background: none;
 }
 
-/* ---------- goal: choice cards (icon, name, one line); the chosen one outlined in navy, with a check ---------- */
+/* ---------- goal: choice cards (icon, name, one line); the chosen one ringed in Deep Sky, its icon disc lit Sky with a
+   Night Ink glyph, and a check, so the choice never rests on color alone ---------- */
 .ob-goals {
   display: grid;
   gap: var(--gap);
@@ -317,31 +301,31 @@
   display: grid;
   grid-template-columns: 32px minmax(0, 1fr) 20px;
   align-items: center;
-  gap: 14px;
+  gap: var(--sp-4);
   min-height: 66px;
-  padding: 12px 16px;
+  padding: var(--sp-3) var(--sp-4);
   border-radius: var(--r-tile);
   border: 0;
   background: var(--surface);
-  box-shadow: var(--shadow-1), inset 0 0 0 1px rgba(15, 42, 68, 0.04);
+  box-shadow: var(--shadow-1);
   color: var(--ink);
   font: inherit;
   text-align: left;
   transition: box-shadow var(--dur-color) var(--ease-out);
 }
 .ob-goal.on {
-  box-shadow: var(--shadow-1), inset 0 0 0 2px var(--ink);
+  box-shadow: var(--shadow-1), inset 0 0 0 2px var(--deep-sky);
 }
 .ob-goal .ob-goal-ic {
-  background: var(--columbia-wash);
-  color: var(--ink-2);
+  background: var(--haze);
+  color: var(--deep-sky);
   transition:
-    background var(--dur-color) var(--ease-out),
+    background-color var(--dur-color) var(--ease-out),
     color var(--dur-color) var(--ease-out);
 }
 .ob-goal.on .ob-goal-ic {
-  background: var(--ink);
-  color: var(--primary-ink);
+  background: var(--accent);
+  color: var(--accent-ink);
 }
 .ob-goal-words {
   display: grid;
@@ -350,17 +334,16 @@
 }
 .ob-goal-text {
   font: 600 var(--fs-row) / var(--lh-row) var(--sans);
-  letter-spacing: -0.01em;
 }
 .ob-goal-line {
   font-size: var(--fs-foot);
   line-height: var(--lh-foot);
-  color: var(--ink-3);
+  color: var(--ink-2);
 }
 .ob-goal-check {
   display: grid;
   place-items: center;
-  color: var(--ink);
+  color: var(--deep-sky);
 }
 
 /* ---------- race day wheel ---------- */
@@ -373,7 +356,7 @@
   min-width: 0;
 }
 .ob-race-block > .ob-q-label {
-  margin-bottom: 12px;
+  margin-bottom: var(--sp-3);
 }
 .ob-race {
   position: relative;
@@ -387,7 +370,7 @@
   width: 76px;
   height: 88px;
   transform: translateX(-50%);
-  border-radius: 18px;
+  border-radius: var(--r-tile);
   border: 1.5px solid var(--line-strong);
   background: var(--surface);
   pointer-events: none;
@@ -395,24 +378,24 @@
 .ob-race-strip {
   position: relative;
   display: flex;
-  gap: 8px;
+  gap: var(--sp-2);
   height: 96px;
-  padding: 4px calc(50% - 38px);
+  padding: var(--sp-1) calc(50% - 38px);
   overflow-x: auto;
   overscroll-behavior-x: contain;
   scroll-snap-type: x mandatory;
   scrollbar-width: none;
-  -webkit-mask-image: linear-gradient(to right, transparent, #000 22%, #000 78%, transparent);
-  mask-image: linear-gradient(to right, transparent, #000 22%, #000 78%, transparent);
+  -webkit-mask-image: linear-gradient(to right, transparent, #000 22%, #000 78%, transparent); /* brand-ok: an alpha mask, not a color */
+  mask-image: linear-gradient(to right, transparent, #000 22%, #000 78%, transparent); /* brand-ok: an alpha mask, not a color */
   outline: none;
 }
 .ob-race-strip::-webkit-scrollbar {
   display: none;
 }
-/* the wheel has the keyboard: the centre ring shows it, plainly (a11y-15) */
+/* the wheel has the keyboard: the center ring shows it with the focus pair (a11y-15) */
 .ob-race:has(.ob-race-strip:focus-visible) .ob-race-ring {
-  border-color: var(--ink);
-  box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--ink-2);
+  border-color: var(--focus-edge);
+  box-shadow: var(--focus-ring);
 }
 .ob-race-day {
   appearance: none;
@@ -423,10 +406,10 @@
   display: grid;
   align-content: center;
   justify-items: center;
-  gap: 2px;
+  gap: 2px; /* brand-ok: geometry, three lines in the 88 px day */
   border: 0;
   background: none;
-  color: var(--ink-3);
+  color: var(--ink-2);
   font: inherit;
   transition: color var(--dur-color) var(--ease-out);
 }
@@ -436,21 +419,28 @@
 .ob-race-day.on {
   color: var(--ink);
 }
+/* every number that changes is Inter with even figures (guide 4.4) */
+.ob-num {
+  font-family: var(--sans);
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0;
+}
 .ob-race-num {
-  font-size: 1.75rem;
-  line-height: 2rem;
+  font-size: var(--fs-section);
+  line-height: var(--lh-section);
 }
 .ob-race-none {
-  font-family: var(--display);
+  font-family: var(--serif);
   font-style: italic;
   font-weight: 420;
   font-size: var(--fs-sentence);
-  line-height: 2rem;
+  line-height: var(--lh-section);
 }
 .ob-race-wk {
-  font-size: 0.75rem;
-  line-height: 1rem;
-  color: var(--ink-3);
+  font-size: var(--fs-orb);
+  line-height: var(--lh-orb);
+  color: var(--ink-2);
 }
 
 /* ---------- run days: seven letters inside the 16 px gutter (review feel F12); each cell is at least 44 px wide, so at
@@ -461,7 +451,7 @@
 }
 @media (max-width: 359px) {
   .ob-days {
-    margin-inline: calc(-1 * var(--page-pad, 16px) + 4px);
+    margin-inline: calc(-1 * var(--page-pad, 16px) + var(--sp-1));
   }
   .ob-days .ob-day-disc {
     width: 36px;
@@ -472,12 +462,12 @@
   appearance: none;
   border: 0;
   background: none;
-  padding: 4px 0 0;
+  padding: var(--sp-1) 0 0;
   min-height: 72px;
   display: grid;
   justify-items: center;
   align-content: start;
-  gap: 6px;
+  gap: 6px; /* brand-ok: geometry, the LONG caption under its disc inside the 72 px cell */
   font: inherit;
   color: var(--ink-2);
   -webkit-touch-callout: none;
@@ -492,59 +482,56 @@
   background: var(--surface);
   display: grid;
   place-items: center;
-  font-size: 1.0625rem;
+  font-size: var(--fs-row);
   font-weight: 600;
   transition:
-    background 160ms var(--ease-out),
-    color 160ms var(--ease-out),
-    border-color 160ms var(--ease-out),
-    box-shadow 320ms var(--ease-out);
+    background-color var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out);
 }
+/* a run day: the Sky disc with a Night Ink letter (the selected-day look, guide 3.1) */
 .ob-day.on .ob-day-disc {
-  background: var(--ink);
-  border-color: var(--ink);
-  color: var(--bg);
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-ink);
+  font-weight: 650;
 }
+/* the long run: a ring in the long tone, 3 px in all so it never reaches the next day (onboarding-20); no glow */
 .ob-day.long .ob-day-disc {
-  /* a 3px ring in all, so it never reaches the next day (onboarding-20) */
   box-shadow:
     0 0 0 1.5px var(--bg),
-    0 0 0 3px var(--accent-bright),
-    0 0 16px rgba(242, 96, 12, 0.6);
+    0 0 0 3px var(--t-long);
 }
 .ob-day-cap {
-  min-height: 0.875rem;
-  font-size: 0.6875rem;
-  line-height: 0.875rem;
-  font-weight: 600;
-  letter-spacing: 0.12em;
+  min-height: var(--lh-caps);
+  font: 600 var(--fs-caps) / var(--lh-caps) var(--stamp);
+  letter-spacing: var(--tr-caps);
   text-transform: uppercase;
   color: var(--accent-text);
 }
 .ob-long-hint {
-  margin-top: 4px;
+  margin-top: var(--sp-1);
   font-size: var(--fs-foot);
   line-height: var(--lh-foot);
-  color: var(--ink-3);
+  color: var(--ink-2);
   text-align: center;
 }
 .ob-long {
-  margin-top: 12px;
+  margin-top: var(--sp-3);
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   justify-content: center;
-  gap: 4px 8px;
-  font-size: 0.9375rem;
-  line-height: 1.25rem;
-  color: var(--ink-3);
+  gap: var(--sp-1) var(--sp-2);
+  font-size: var(--fs-sub);
+  line-height: var(--lh-sub);
+  color: var(--ink-2);
 }
 .ob-long-btn {
   appearance: none;
   height: 44px;
-  padding: 0 16px;
+  padding: 0 var(--sp-4);
   border-radius: var(--r-pill);
-  border: 1px solid var(--line-strong);
+  border: 1px solid var(--edge);
   background: var(--surface);
   color: var(--ink);
   font: inherit;
@@ -556,18 +543,18 @@
   margin-top: 0;
 }
 .ob-miles {
-  margin-top: 16px;
+  margin-top: var(--sp-4);
   display: grid;
   grid-template-columns: 56px minmax(0, 1fr) 56px;
   align-items: center;
-  gap: 12px;
+  gap: var(--sp-3);
 }
 .ob-miles-btn {
   appearance: none;
   width: 56px;
   height: 56px;
   border-radius: 50%;
-  border: 1px solid var(--line-strong);
+  border: 1px solid var(--edge);
   background: var(--surface);
   color: var(--ink);
   display: grid;
@@ -587,26 +574,26 @@
   user-select: none;
   -webkit-user-select: none;
   border-radius: var(--r-md);
-  padding: 4px 0;
+  padding: var(--sp-1) 0;
 }
-.ob-miles-num:focus-visible {
-  outline: 2px solid var(--accent-bright);
-}
+/* the big number: a hero stat that changes, Inter 650 with even figures (guide 4.2) */
 .ob-miles-val {
-  font-size: 2.75rem;
-  line-height: 2.75rem;
+  font-size: var(--fs-stat-live);
+  line-height: 1;
+  letter-spacing: var(--tr-hero);
 }
 .ob-miles-unit {
-  font-size: 0.9375rem;
-  line-height: 1.25rem;
-  color: var(--ink-3);
+  font-size: var(--fs-sub);
+  line-height: var(--lh-sub);
+  font-weight: 500;
+  color: var(--ink-2);
 }
 
 /* ---------- the morning: two markers on a line ---------- */
 .ob-track-wrap {
   position: relative;
-  margin-top: 8px;
-  padding-inline: 14px;
+  margin-top: var(--sp-2);
+  padding-inline: 14px; /* brand-ok: geometry, half the 28 px marker so it never leaves the card */
 }
 .ob-track-labels {
   position: relative;
@@ -624,9 +611,10 @@
   gap: 2px;
   transition: color var(--dur-color) var(--ease-out);
 }
-.ob-track-label .stamp {
-  font-size: 1.375rem;
-  line-height: 1.5rem;
+.ob-track-v {
+  font-size: var(--fs-row);
+  line-height: var(--lh-row);
+  color: var(--ink);
 }
 .ob-track-label.on .caps {
   color: var(--accent-text);
@@ -650,18 +638,17 @@
   right: 0;
   top: calc(50% - 2px);
   height: 4px;
-  border-radius: 2px;
-  background: var(--surface-3);
+  border-radius: var(--r-pill);
+  background: var(--haze);
 }
+/* the morning's blocks on the line: the run in its tone, the rest in Pencil and Dusk (marks, not words); they follow the
+   markers frame by frame, so they never animate */
 .ob-seg {
   position: absolute;
   top: calc(50% - 4px);
   height: 8px;
-  border-radius: 4px;
-  background: rgba(15, 42, 68, 0.35);
-  transition:
-    left 120ms var(--ease-out),
-    width 120ms var(--ease-out);
+  border-radius: var(--r-pill);
+  background: var(--pencil);
 }
 .ob-seg.run {
   background: var(--tone);
@@ -678,11 +665,9 @@
   margin: -14px 0 0 -14px;
   border-radius: 50%;
   background: var(--ink);
-  border: 3px solid var(--bg);
+  border: 3px solid var(--surface);
   box-shadow: 0 0 0 1.5px var(--ink-2);
-  transition:
-    transform 120ms var(--ease-out),
-    box-shadow var(--dur-color) var(--ease-out);
+  transition: transform var(--dur-fast) var(--ease-out);
   touch-action: none;
   outline: none;
 }
@@ -692,49 +677,46 @@
   inset: -11px;
   border-radius: 50%;
 }
+/* held: a touch larger, ringed in Deep Sky; no glow */
 .ob-marker.on {
   transform: scale(1.15);
-  box-shadow:
-    0 0 0 1.5px var(--accent-bright),
-    0 0 20px rgba(242, 96, 12, 0.8);
+  box-shadow: 0 0 0 1.5px var(--deep-sky);
 }
 .ob-marker:focus-visible {
   box-shadow:
-    0 0 0 1.5px var(--ink),
-    0 0 0 5px var(--accent-bright);
+    0 0 0 1.5px var(--focus-edge),
+    var(--focus-ring);
 }
 .ob-hours {
   position: relative;
   height: 20px;
-  margin-top: 4px;
+  margin-top: var(--sp-1);
 }
 .ob-hours span {
   position: absolute;
   transform: translateX(-50%);
-  font-size: 0.6875rem;
-  line-height: 0.875rem;
+  font-size: var(--fs-caps);
+  line-height: var(--lh-caps);
   font-weight: 600;
-  color: var(--ink-3);
+  color: var(--ink-2);
   font-variant-numeric: tabular-nums;
 }
+/* the verdict under the line: a plain Paper card, the line in the sentence voice */
 .card.ob-verdict {
   gap: 0;
-  background: var(--surface) var(--halo) no-repeat;
-  background-size: 100% 150%;
-  background-position: 50% 100%;
 }
 .ob-verdict-big {
   font-size: var(--fs-sentence);
   line-height: var(--lh-sentence);
 }
 .ob-verdict-sub {
-  margin-top: 4px;
-  font-size: 0.9375rem;
-  line-height: 1.25rem;
-  color: var(--ink-3);
+  margin-top: var(--sp-1);
+  font-size: var(--fs-sub);
+  line-height: var(--lh-sub);
+  color: var(--ink-2);
 }
 
-/* ---------- habits: chips that become orbs ---------- */
+/* ---------- habits: chips that become coins (flat discs with an Inter initial, never an Orb) ---------- */
 /* the picker never widens its card: a long name or a 12th chip wraps or clips inside it */
 .ob-habits {
   min-width: 0;
@@ -744,19 +726,19 @@
 }
 .ob-orbs {
   display: flex;
-  gap: 12px;
+  gap: var(--sp-3);
   min-height: 88px;
   align-items: flex-start;
   overflow: hidden;
 }
 .ob-orbs-ghost {
   display: flex;
-  gap: 12px;
+  gap: var(--sp-3);
 }
 .ob-orb {
   display: grid;
   justify-items: center;
-  gap: 6px;
+  gap: var(--sp-2);
   width: 60px;
   flex: none;
 }
@@ -764,8 +746,8 @@
   width: 56px;
   height: 56px;
   border-radius: 50%;
-  border: 1.5px solid var(--line-strong);
-  background: var(--surface-2);
+  border: 1.5px solid var(--coin-ring);
+  background: var(--surface);
   display: grid;
   place-items: center;
 }
@@ -776,13 +758,12 @@
 }
 .ob-orb-initial {
   font: 600 var(--fs-row) / 1 var(--sans);
-  letter-spacing: 0;
-  color: var(--ink-2);
+  color: var(--ink);
 }
 .ob-orb-name {
-  font-size: 0.6875rem;
-  line-height: 0.875rem;
-  color: var(--ink-3);
+  font-size: var(--fs-orb);
+  line-height: var(--lh-orb);
+  color: var(--ink-2);
   max-width: 60px;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -790,38 +771,38 @@
 }
 .ob-orb-more {
   align-self: center;
-  margin-top: -20px;
-  font-size: 0.9375rem;
+  margin-top: -20px; /* brand-ok: geometry, the count sits level with the coins, not their names */
+  font-size: var(--fs-sub);
   font-weight: 600;
-  color: var(--ink-3);
+  color: var(--ink-2);
 }
 .ob-chips {
-  margin-top: 16px;
+  margin-top: var(--sp-4);
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
+  gap: var(--sp-3);
 }
+/* a filter chip (guide 6.3): off Paper with its edge and Dusk words; on Sky with Night Ink 650 */
 .ob-chip {
   appearance: none;
   height: 40px;
-  padding: 0 16px;
+  padding: 0 var(--sp-4);
   border-radius: var(--r-pill);
-  border: 1px solid transparent;
-  background: var(--surface-2);
+  border: 1px solid var(--line-strong);
+  background: var(--surface);
   color: var(--ink-2);
   font: inherit;
-  font-size: 0.9375rem;
+  font-size: var(--fs-sub);
   font-weight: 600;
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 6px; /* brand-ok: geometry, the check glyph beside its word */
   white-space: nowrap;
   max-width: 100%;
   min-width: 0;
   transition:
-    background 160ms var(--ease-out),
-    color 160ms var(--ease-out),
-    border-color 160ms var(--ease-out);
+    background-color var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out);
 }
 /* a long habit name shortens with an ellipsis inside its chip; the card never grows wider than the screen (onboarding-02) */
 /* the check keeps its size beside a long name: only the words give way */
@@ -834,15 +815,16 @@
   text-overflow: ellipsis;
 }
 .ob-chip.on {
-  background: var(--ink);
-  border-color: var(--ink);
-  color: var(--bg);
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-ink);
+  font-weight: 650;
 }
 .ob-chip.add {
   border-style: dashed;
   border-color: var(--line-strong);
   background: transparent;
-  color: var(--ink-3);
+  color: var(--accent-text);
 }
 .ob-chip:disabled {
   opacity: 0.35;
@@ -854,14 +836,18 @@
   height: 44px;
   width: 200px;
   max-width: 100%;
-  padding: 0 16px;
+  padding: 0 var(--sp-4);
   border-radius: var(--r-pill);
-  border: 1px solid var(--ink-3);
+  border: 1px solid var(--field-edge);
   background: var(--surface);
   color: var(--ink);
   font: inherit;
-  font-size: 1.0625rem;
+  font-size: var(--fs-row);
   outline: none;
+}
+.ob-chip-in:focus {
+  border-color: var(--focus-edge);
+  box-shadow: var(--focus-ring);
 }
 
 /* ---------- the payoff ---------- */
@@ -872,40 +858,40 @@
 }
 .ob-pay-head {
   box-sizing: border-box;
-  height: calc(157px + var(--safe-t));
+  /* a floor, not a fixed height: at a large text size the words grow it rather than spill over the top */
+  min-height: calc(157px + var(--safe-t));
   flex: none;
   display: flex;
   flex-direction: column;
   justify-content: flex-end;
-  padding-bottom: 16px;
+  padding-bottom: var(--sp-4);
   min-width: 0;
 }
 .ob-pay-hero {
   flex: none;
   min-height: 11.5rem;
 }
-/* what the answers made: Today's hero card in size and place (358 wide, 184 tall or more), a caps eyebrow over plain rows */
+/* what the answers made: Today's hero card in size and place (358 wide, 184 tall or more), with its sunrise glow, so the
+   hand-off to Today's hero is one light; a caption over plain rows */
 .aura.ob-made {
   box-sizing: border-box;
   width: 100%;
   max-width: 358px;
   min-height: 11.5rem;
   margin: 0 auto;
-  padding: 16px 16px 0;
+  padding: var(--sp-4) var(--sp-4) 0;
   display: grid;
   grid-template-rows: auto auto;
-  row-gap: 4px;
+  row-gap: var(--sp-1);
   align-content: start;
   overflow: hidden;
 }
 .ob-made-eyebrow {
-  font: 600 0.6875rem / 0.8125rem var(--sans);
-  letter-spacing: 0.06em;
-  color: var(--ink-3);
+  color: var(--ink-2);
 }
 .ob-made-rows {
   list-style: none;
-  margin: 2px -16px 0;
+  margin: 0 calc(-1 * var(--sp-4)) 0;
   padding: 0;
   display: grid;
 }
@@ -916,9 +902,9 @@
   display: grid;
   grid-template-columns: 32px minmax(0, 1fr) auto;
   align-items: center;
-  gap: 12px;
+  gap: var(--sp-3);
   min-height: 48px;
-  padding: 6px 16px;
+  padding: var(--sp-1) var(--sp-4);
   width: 100%;
   text-align: left;
 }
@@ -937,8 +923,8 @@
   border-radius: var(--r-icon);
   display: grid;
   place-items: center;
-  background: var(--columbia-wash);
-  color: var(--ink-2);
+  background: var(--haze);
+  color: var(--deep-sky);
 }
 .ob-made-title {
   font: 500 var(--fs-row) / var(--lh-row) var(--sans);
@@ -946,12 +932,12 @@
   overflow-wrap: anywhere;
 }
 .ob-made-value {
-  font: 400 var(--fs-sub) / var(--lh-sub) var(--sans);
-  color: var(--ink-3);
+  font: 500 var(--fs-sub) / var(--lh-sub) var(--sans);
+  color: var(--ink-2);
   white-space: nowrap;
 }
 .ob-made-chev {
-  color: var(--ink-3);
+  color: var(--ink-2);
 }
 /* the hand-off layer: a still copy of the payoff over everything while Today mounts under it */
 .ob-handoff {
@@ -967,28 +953,29 @@
 .ob-pay-eyebrow {
   color: var(--ink-2);
 }
+/* the session tomorrow, at the screen-title size: "Tomorrow: Easy 5.5." whole on one line at 390, two balanced lines on a
+   small phone, inside the same head (the hero size cut it to "Tomorrow: ...") */
 .ob-pay-title {
-  margin-top: 6px;
+  margin-top: var(--sp-1);
   font-style: normal;
   font-weight: 650;
-  font-size: var(--fs-hero);
-  line-height: var(--fs-hero);
+  font-size: clamp(30px, var(--fs-title), 44px);
+  line-height: clamp(34px, var(--lh-title), 48px);
   letter-spacing: var(--tr-title);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  text-wrap: balance;
+  overflow-wrap: break-word;
 }
 .ob-pay-door {
-  margin-top: 2px;
+  margin-top: 2px; /* brand-ok: geometry, the door line hangs under the title */
   font-size: var(--fs-sentence);
   line-height: var(--lh-sentence);
   color: var(--ink-2);
 }
-/* the first week: rows in one white card */
+/* the first week: rows in one Paper card */
 .ob-week {
   list-style: none;
-  margin: 16px 0 0;
-  padding: 4px 0;
+  margin: var(--sp-4) 0 0;
+  padding: var(--sp-1) 0;
   display: grid;
   border-radius: var(--r-card);
   background: var(--surface);
@@ -1001,15 +988,15 @@
   display: grid;
   grid-template-columns: max-content 3px minmax(0, 1fr) 28%;
   align-items: center;
-  gap: 12px;
+  gap: var(--sp-3);
   min-height: 44px;
-  padding-inline: 16px;
+  padding-inline: var(--sp-4);
 }
 .ob-wrow + .ob-wrow::before {
   content: '';
   position: absolute;
   top: 0;
-  left: 16px;
+  left: var(--sp-4);
   right: 0;
   height: 1px;
   background: var(--line);
@@ -1019,22 +1006,22 @@
   display: grid;
   grid-template-columns: 2.25rem 1.5rem;
   align-items: baseline;
-  gap: 6px;
+  gap: var(--sp-2);
 }
 .ob-wday .caps {
   white-space: nowrap;
 }
 .ob-wdate {
   text-align: right;
-  font-size: 0.9375rem;
-  font-weight: 600;
+  font-size: var(--fs-sub);
+  font-weight: 650;
   color: var(--ink-2);
   font-variant-numeric: tabular-nums;
 }
 .ob-wtone {
   width: 3px;
   height: 24px;
-  border-radius: 2px;
+  border-radius: var(--r-pill);
   background: var(--tone, transparent);
 }
 .ob-wrow.rest .ob-wtone {
@@ -1046,25 +1033,25 @@
   overflow: hidden;
   text-overflow: ellipsis;
 }
-/* the long-run day: marked, and its bar in full light */
+/* the long-run day: a Planned-style tag (Dusk words on Cloud, a pill), and its bar in full light */
 .ob-wlong {
-  margin-left: 8px;
-  padding: 2px 6px;
-  border-radius: 6px;
-  background: var(--surface-2);
+  margin-left: var(--sp-2);
+  padding: 2px var(--sp-2); /* brand-ok: geometry, a caption tag inside the 44 px row */
+  border-radius: var(--r-pill);
+  background: var(--cloud);
   color: var(--ink);
-  vertical-align: 2px;
+  vertical-align: 2px; /* brand-ok: geometry, level with the session's x-height */
 }
 .ob-wrow.is-long .ob-wday .caps {
   color: var(--ink);
 }
-.ob-wname .stamp {
-  font-size: 1.0625rem;
-  line-height: 1.375rem;
+.ob-wsess {
+  font: 600 var(--fs-row) / var(--lh-row) var(--sans);
+  color: var(--ink);
 }
 .ob-wrest {
-  font-size: 0.9375rem;
-  color: var(--ink-3);
+  font-size: var(--fs-sub);
+  color: var(--ink-2);
 }
 /* at a large text size on a narrow phone the session's name needs the room more than the bar does: the bar (a picture
    only) gives way, so "Long 8" stays whole (onboarding-12) */
@@ -1078,29 +1065,29 @@
 }
 .ob-wbar {
   height: 6px;
-  border-radius: 3px;
-  background: var(--surface-2);
+  border-radius: var(--r-pill);
+  background: var(--haze);
   overflow: hidden;
 }
 .ob-wbar-fill {
   display: block;
   height: 100%;
-  border-radius: 3px;
+  border-radius: var(--r-pill);
   background: var(--tone);
   transform-origin: left center;
 }
 .ob-pay-foot {
   margin-top: auto;
-  padding-top: 24px;
+  padding-top: var(--sp-6);
   display: grid;
-  gap: 12px;
+  gap: var(--sp-3);
 }
 .ob-pay-sum {
   display: flex;
   align-items: center;
-  gap: 6px;
-  font-size: 0.9375rem;
-  line-height: 1.25rem;
+  gap: var(--sp-2);
+  font-size: var(--fs-sub);
+  line-height: var(--lh-sub);
   color: var(--ink-2);
 }
 .ob-ok {
@@ -1111,24 +1098,18 @@
   color: var(--bad);
 }
 
-/* ---------- small screens: the titles step down, the space tightens ---------- */
+/* ---------- small screens: the space tightens (the titles hold their sizes and wrap) ---------- */
 @media (max-width: 359px) {
-  .ob-title,
-  .ob-promise-title,
-  .ob-pay-title {
-    font-size: 1.75rem;
-    line-height: 2.125rem;
-  }
   .ob-body {
-    margin-top: 18px;
+    margin-top: var(--sp-4);
   }
   .ob-goal {
     min-height: 60px;
-    padding-block: 10px;
+    padding-block: var(--sp-2);
   }
 
   .ob-week {
-    margin-top: 20px;
+    margin-top: var(--sp-5);
   }
   .ob-wrow {
     min-height: 44px;
@@ -1136,35 +1117,25 @@
 
 }
 @container page (max-width: 21rem) {
-  /* the week's mileage bars give the name column room for "EASY 4" and its LONG tag at 320 (it read "LO…") */
+  /* the week's mileage bars give the name column room for "Easy 4" and its LONG tag at 320 (it read "LO…") */
   .ob-wrow {
     grid-template-columns: max-content 3px minmax(0, 1fr) 20%;
-  }
-  .ob-title,
-  .ob-pay-title {
-    font-size: 1.75rem;
-    line-height: 2.125rem;
   }
 }
 /* the payoff's verb stays in reach on a short screen */
 .ob-payoff .ob-pay-foot {
   position: sticky;
   bottom: 0;
-  padding-bottom: calc(16px + var(--safe-b));
+  padding-bottom: calc(var(--sp-4) + var(--safe-b));
   margin-inline: calc(-1 * var(--gutter));
   padding-inline: var(--gutter);
   pointer-events: none;
-  background: linear-gradient(to bottom, transparent, rgba(243, 248, 251, 0.96) 24px);
+  background: linear-gradient(to bottom, transparent, var(--bg) var(--sp-6));
 }
 @media (max-width: 359px) {
   .ob-day-disc {
     width: 38px;
     height: 38px;
-  }
-}
-@media (prefers-reduced-motion: reduce) {
-  .ob-halo.rise {
-    animation: none;
   }
 }
 
@@ -1173,21 +1144,21 @@
   margin-top: 0;
 }
 .ob-routine {
-  margin-top: 12px;
+  margin-top: var(--sp-3);
 }
 /* a race day too close for its distance: one plain line and the way out, inside the card it is about */
 .ob-warn {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   justify-items: start;
-  margin-top: 12px;
+  margin-top: var(--sp-3);
 }
 /* the way out wraps inside its card at a large text size instead of running past the edge */
 .ob-warn .ob-fix.ob-chip {
   max-width: 100%;
   height: auto;
   min-height: 40px;
-  padding-block: 8px;
+  padding-block: var(--sp-2);
   white-space: normal;
   text-align: left;
 }
@@ -1197,22 +1168,24 @@
 .ob-warn-text {
   display: grid;
   grid-template-columns: 16px minmax(0, 1fr);
-  gap: 8px;
+  gap: var(--sp-2);
   align-items: start;
   margin: 0;
   font-size: var(--fs-sub);
   line-height: var(--lh-sub);
   color: var(--ink);
 }
+/* a warning (guide 3.1): the Marigold mark always beside a glyph and words; the way out a Paper chip on a Marigold edge
+   with warn-text words (6.28) */
 .ob-warn-text svg {
-  margin-top: 2px;
-  color: var(--accent-text);
+  margin-top: 2px; /* brand-ok: geometry, the 16 px glyph on the first line's center */
+  color: var(--warn-text);
 }
 .ob-fix.ob-chip {
-  margin-top: 12px;
-  border-color: var(--accent);
-  color: var(--ink);
-  background: var(--accent-soft, var(--surface));
+  margin-top: var(--sp-3);
+  border-color: var(--warn);
+  color: var(--warn-text);
+  background: var(--surface);
 }
 
 /* the name step's one field, and "You usually train" on the morning step */
@@ -1223,11 +1196,11 @@
 .card.ob-card.ob-when {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  gap: 12px;
+  gap: var(--sp-3);
 }
 .ob-when-seg {
   display: flex;
-  gap: 8px;
+  gap: var(--sp-2);
 }
 .ob-when-seg .ob-chip {
   flex: 1 1 0;
@@ -1235,7 +1208,7 @@
   /* at a large text size the two choices wrap inside themselves rather than push the card wider */
   height: auto;
   min-height: 44px;
-  padding-block: 6px;
+  padding-block: var(--sp-1);
   white-space: normal;
   text-align: center;
 }
@@ -1243,7 +1216,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: var(--sp-3);
   font: 500 var(--fs-row) / var(--lh-row) var(--sans);
   color: var(--ink);
 }
@@ -1267,7 +1240,7 @@
   .ob-offwork {
     flex-direction: column;
     align-items: stretch;
-    gap: 8px;
+    gap: var(--sp-2);
   }
   .ob-offwork > :last-child {
     align-self: stretch;
@@ -1292,19 +1265,15 @@ html.kb-open .ob-later {
   font: inherit;
   display: flex;
   align-items: center;
-  margin: 4px auto 0;
+  margin: var(--sp-1) auto 0;
   pointer-events: auto;
   min-height: 44px;
-  padding: 0 16px;
+  padding: 0 var(--sp-4);
   font-size: var(--fs-sub);
   line-height: var(--lh-sub);
   font-weight: 600;
-  color: var(--ink-3);
+  color: var(--accent-text);
   border-radius: var(--r-pill);
-}
-.ob-signout:focus-visible {
-  outline: 2px solid var(--ink-2);
-  outline-offset: 2px;
 }
 /* focus moves to a step's heading when it changes (a11y-10); the heading is not a control */
 .ob-title:focus,

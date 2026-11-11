@@ -26,7 +26,7 @@ const goalCard = (g: Goal) => GOAL_CARD[g] ?? { Icon: Flag, line: '' };
 
 /**
  * What you are training for, as choice cards (inspiration §3, reference 165 and 171): an icon, the name and one line;
- * the chosen one gets a navy outline and a check. A radio group: arrows move the choice.
+ * the chosen one gets a Deep Sky ring, a lit icon disc and a check. A radio group: arrows move the choice.
  */
 /** The sixth choice on first run (onboarding-09): setup finishes with no running plan. */
 const NO_PLAN = { id: 'none' as const, label: 'No running plan for now', Icon: CircleSlash, line: 'Habits, goals and the journal. Add a plan any time.' };
@@ -68,7 +68,7 @@ export const GoalChips = ({ value, onChange, id = 'ob-goal', noneOn, onNone }: {
             onKeyDown={(e: React.KeyboardEvent) => onKey(e, i)}
           >
             <span className="icon-tile ob-goal-ic" aria-hidden="true">
-              <Icon size={18} strokeWidth={2.1} />
+              <Icon size={18} />
             </span>
             <span className="ob-goal-words">
               <span className="ob-goal-text">{g.label}</span>
@@ -76,7 +76,7 @@ export const GoalChips = ({ value, onChange, id = 'ob-goal', noneOn, onNone }: {
             </span>
             {/* the check fades onto the chosen card (opacity only, §10) */}
             <motion.span className="ob-goal-check" initial={false} animate={{ opacity: on ? 1 : 0 }} transition={reduce ? { duration: 0 } : crossfade} aria-hidden="true">
-              <Check size={18} strokeWidth={2.6} />
+              <Check size={18} />
             </motion.span>
           </Pressable>
         );
@@ -194,7 +194,7 @@ export const RaceStrip = ({ start, value, onChange }: { start: ISODate; value: I
               {d ? (
                 <>
                   <span className="caps" aria-hidden="true">{fmtDate('monthShort', d)}</span>
-                  <span className="stamp ob-race-num" aria-hidden="true">{Number(d.slice(8))}</span>
+                  <span className="ob-num ob-race-num" aria-hidden="true">{Number(d.slice(8))}</span>
                   <span className="ob-race-wk" aria-hidden="true">{weeksUntil(start, d)} wk</span>
                 </>
               ) : (
@@ -288,7 +288,7 @@ export interface DialProps {
   min: number;
   max: number;
   step?: number;
-  /** The stamped number. */
+  /** The big number. */
   format?: (v: number) => string;
   unit: string;
   /** VoiceOver: "18 miles a week". */
@@ -298,7 +298,7 @@ export interface DialProps {
   scrubPx?: number;
 }
 /**
- * One big stamped number between two round buttons. Drag across the number to scrub (a tick per step), hold a button to
+ * One big number between two round buttons. Drag across the number to scrub (a tick per step), hold a button to
  * run, or use the arrow keys on the number (Page keys take five steps).
  */
 export const Dial = ({ value, onChange, min, max, step = 1, format = String, unit, valueText, label, scrubPx = 14 }: DialProps) => {
@@ -373,7 +373,7 @@ export const Dial = ({ value, onChange, min, max, step = 1, format = String, uni
         onPointerUp={() => (scrub.current = null)}
         onPointerCancel={() => (scrub.current = null)}
       >
-        <span className="stamp ob-miles-val">{format(value)}</span>
+        <span className="ob-num ob-miles-val">{format(value)}</span>
         <span className="ob-miles-unit">{unit}</span>
       </div>
       <Pressable className="ob-miles-btn" label={`${label}: more`} disabled={value >= max} onPress={() => tap(step)} onPointerDown={() => startRepeat(step)} onPointerUp={stop} onPointerLeave={stop} onPointerCancel={stop}>
@@ -473,7 +473,7 @@ export const MorningTrack = ({ wake, leave, onChange, run = { type: 'Easy', mile
       <div className="ob-track-labels" aria-hidden="true">
         <span className={`ob-track-label ${active === 'wake' ? 'on' : ''}`} style={{ left: `clamp(0px, calc(${pct(wake)}% - 32px), calc(100% - 64px))` }}>
           <span className="caps">Wake</span>
-          <span className="stamp">{hm(wake)}</span>
+          <span className="ob-num ob-track-v">{hm(wake)}</span>
         </span>
       </div>
       <div ref={track} className="ob-track" onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp}>
@@ -508,7 +508,7 @@ export const MorningTrack = ({ wake, leave, onChange, run = { type: 'Easy', mile
       <div className="ob-track-labels below" aria-hidden="true">
         <span className={`ob-track-label ${active === 'leave' ? 'on' : ''}`} style={{ left: `clamp(0px, calc(${pct(leave)}% - 32px), calc(100% - 64px))` }}>
           <span className="caps">Leave</span>
-          <span className="stamp">{hm(leave)}</span>
+          <span className="ob-num ob-track-v">{hm(leave)}</span>
         </span>
       </div>
       <div className="ob-hours" aria-hidden="true">
@@ -573,7 +573,7 @@ export const HabitPicker = ({ selected, custom, onChange }: { selected: string[]
           const on = selected.includes(h);
           return (
             <Pressable key={h} className={`ob-chip ${on ? 'on' : ''}`} aria-pressed={on} disabled={!on && full} onPress={() => toggle(h)}>
-              {on ? <Check size={16} strokeWidth={2.6} aria-hidden="true" /> : null}
+              {on ? <Check size={16} aria-hidden="true" /> : null}
               <span className="ob-chip-label">{h}</span>
             </Pressable>
           );
@@ -590,7 +590,7 @@ export const HabitPicker = ({ selected, custom, onChange }: { selected: string[]
           </form>
         ) : (
           <Pressable className="ob-chip add" disabled={full} onPress={() => setAdding(true)}>
-            <Plus size={16} strokeWidth={2.4} aria-hidden="true" />
+            <Plus size={16} aria-hidden="true" />
             Your own
           </Pressable>
         )}

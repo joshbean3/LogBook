@@ -1,4 +1,6 @@
-/* ---------- the tour (Tour.tsx, demos.tsx): one page per part of Logbook, each with a short looping demo ---------- */
+/* ---------- the tour (Tour.tsx, demos.tsx): one page per part of Orby, each with a short looping demo. The demos are
+   pictures of the real screens, so they wear the same brand: Paper cards, Sky for lit and chosen things, Deep Sky marks,
+   Night Ink words, the session tones on markers only ---------- */
 
 .tour {
   display: flex;
@@ -14,14 +16,14 @@
   grid-area: 1 / 1;
   display: grid;
   align-content: start;
-  gap: 14px;
+  gap: var(--sp-4);
   min-width: 0;
 }
 .tour-eyebrow {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  color: var(--accent-text, var(--accent));
+  gap: var(--sp-2);
+  color: var(--accent-text);
 }
 .tour-eyebrow svg {
   flex: none;
@@ -32,33 +34,33 @@
 .tour-title {
   margin: 0;
   font: 600 var(--fs-section) / var(--lh-section) var(--serif);
-  letter-spacing: 0;
   text-wrap: balance;
   color: var(--ink);
 }
 .tour-lede {
-  margin: -4px 0 0;
-  font: 400 var(--fs-sub) / 1.375rem var(--sans);
+  margin: calc(-1 * var(--sp-1)) 0 0;
+  font: 400 var(--fs-sub) / var(--lh-row) var(--sans);
   text-wrap: pretty;
-  color: var(--ink-3);
+  color: var(--ink-2);
 }
 
 /* the caption under a demo: the step being shown, like a subtitle, numbered */
 .tour-steps {
   display: grid;
-  gap: 6px;
-  margin: 2px 0 0;
+  gap: var(--sp-2);
+  margin: 2px 0 0; /* brand-ok: geometry, the steps hang just under the stage */
   padding: 0;
   list-style: none;
 }
 .tour-steps li {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: var(--sp-3);
   font: 500 var(--fs-sub) / var(--lh-sub) var(--sans);
-  color: var(--ink-3);
-  transition: color 220ms var(--ease-out);
+  color: var(--ink-2);
+  transition: color var(--dur-color) var(--ease-out);
 }
+/* the step number: a Cloud disc, Night Ink with White numerals for the step being shown (16.14) */
 .tour-steps li b {
   flex: none;
   display: grid;
@@ -66,43 +68,39 @@
   width: 22px;
   height: 22px;
   border-radius: 50%;
-  font: 700 0.75rem / 1 var(--sans);
-  background: var(--well);
-  box-shadow: var(--well-shadow);
-  color: var(--ink-3);
+  font: 650 var(--fs-orb) / 1 var(--sans);
+  font-variant-numeric: tabular-nums;
+  background: var(--cloud);
+  color: var(--ink-2);
   transition:
-    background 220ms var(--ease-out),
-    color 220ms var(--ease-out);
+    background-color var(--dur-color) var(--ease-out),
+    color var(--dur-color) var(--ease-out);
 }
 .tour-steps li.tis-on {
   color: var(--ink);
 }
 .tour-steps li.tis-on b {
   background: var(--ink);
-  box-shadow: none;
-  color: #fff;
+  color: var(--white);
 }
 
+/* where you are in the tour: the coin ring's grey, a Night Ink bar for this page (as the pager and the setup dashes) */
 .tour-dots {
   display: flex;
   justify-content: center;
-  gap: 6px;
-  margin-top: 4px;
+  gap: 6px; /* brand-ok: geometry, the dots' fixed rhythm */
+  margin-top: var(--sp-1);
 }
 .tour-dots span {
   width: 6px;
   height: 6px;
-  border-radius: 3px;
-  background: var(--ink-3);
-  opacity: 0.45;
-  transition:
-    width 220ms var(--ease-out),
-    opacity 220ms;
+  border-radius: var(--r-pill);
+  background: var(--coin-ring);
+  transition: background-color var(--dur-color) var(--ease-out);
 }
 .tour-dots span.tis-on {
   width: 18px;
   background: var(--ink);
-  opacity: 1;
 }
 
 /* ---------- the stage and the finger ---------- */
@@ -111,12 +109,11 @@
   /* sized in rem, and grows past it rather than cut a demo off mid-row (onboarding-12, onboarding-20) */
   min-height: 14.75rem;
   overflow: hidden;
-  border-radius: 24px;
+  border-radius: var(--r-card);
+  /* a small screen: the Cloud ground with its edge, the demo's cards on it */
   background: var(--bg);
-  box-shadow:
-    inset 0 0 0 1px rgba(15, 42, 68, 0.06),
-    var(--shadow-1);
-  padding: 14px;
+  box-shadow: inset 0 0 0 1px var(--edge);
+  padding: 14px; /* brand-ok: geometry, the demos are laid out on this inset */
   isolation: isolate;
 }
 .tf {
@@ -128,7 +125,7 @@
   transition:
     left 560ms cubic-bezier(0.45, 0, 0.2, 1),
     top 560ms cubic-bezier(0.45, 0, 0.2, 1),
-    opacity 200ms;
+    opacity var(--dur-color) var(--ease-out);
 }
 .tf i {
   position: absolute;
@@ -137,11 +134,12 @@
   width: 38px;
   height: 38px;
   border-radius: 50%;
-  background: radial-gradient(circle at 40% 35%, rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0.55) 60%);
+  /* the fingertip: a Paper glass disc with its edge and the floating shadow */
+  background: var(--glass);
   box-shadow:
-    0 0 0 1.5px rgba(15, 42, 68, 0.28),
-    0 8px 18px -6px rgba(15, 42, 68, 0.45);
-  transition: transform 160ms cubic-bezier(0.23, 1, 0.32, 1);
+    0 0 0 1.5px var(--line-strong),
+    var(--shadow-float);
+  transition: transform var(--dur-fast) var(--ease-out);
 }
 .tf.tis-off {
   opacity: 0;
@@ -157,19 +155,19 @@
   width: 48px;
   height: 48px;
   border-radius: 50%;
-  border: 2px solid rgba(47, 93, 133, 0.5);
-  animation: tf-ring 520ms ease-out forwards;
+  border: 2px solid var(--deep-sky);
+  animation: tf-ring var(--dur-sheet) var(--ease-out) forwards;
 }
 .tf.tis-hold i {
   transform: scale(0.82);
   box-shadow:
-    0 0 0 6px rgba(185, 217, 235, 0.65),
-    0 8px 18px -6px rgba(15, 42, 68, 0.45);
+    0 0 0 6px var(--accent-tint),
+    var(--shadow-float);
 }
 @keyframes tf-ring {
   from {
     transform: scale(0.6);
-    opacity: 1;
+    opacity: 0.5;
   }
   to {
     transform: scale(1.5);
@@ -185,7 +183,7 @@
 
 .tour-foot {
   display: grid;
-  gap: 14px;
+  gap: var(--sp-4);
 }
 .tcaret {
   display: inline-block;
@@ -193,7 +191,7 @@
   height: 1.05em;
   margin-left: 1px;
   vertical-align: -0.15em;
-  background: var(--accent);
+  background: var(--deep-sky);
   animation: tcaret 1s steps(1) infinite;
 }
 @keyframes tcaret {
@@ -216,10 +214,9 @@
 
 /* mini parts shared by the demos */
 .tstage .caps {
-  font-size: 0.6875rem;
-  line-height: 1rem;
-  color: var(--ink-3);
+  color: var(--ink-2);
 }
+/* a to-do's coin (as TodoMark): a field-edge ring, Sky with a Night Ink check when done */
 .tour-todo-mark {
   flex: none;
   display: grid;
@@ -227,30 +224,27 @@
   width: 20px;
   height: 20px;
   border-radius: 50%;
-  box-shadow: inset 0 0 0 1.8px var(--ink-4);
-  color: #fff;
-  transition:
-    background 160ms,
-    box-shadow 160ms;
+  box-shadow: inset 0 0 0 1.5px var(--field-edge);
+  color: var(--accent-ink);
+  transition: background-color var(--dur-fast) var(--ease-out);
 }
 
 /* Today: to-dos */
 .tour-todo-box {
-  padding: 10px 12px 6px;
-  border-radius: 18px;
+  padding: var(--sp-3) var(--sp-3) var(--sp-2);
+  border-radius: var(--r-tile);
   background: var(--surface);
   box-shadow: var(--shadow-1);
 }
 .tour-todo-head {
   display: flex;
   justify-content: space-between;
-  margin: 0 0 4px;
-  font: 400 var(--fs-foot) / var(--lh-foot) var(--sans);
-  color: var(--ink-3);
+  margin: 0 0 var(--sp-1);
+  font: 500 var(--fs-foot) / var(--lh-foot) var(--sans);
+  color: var(--ink-2);
 }
 .tour-todo-head b {
   font: 650 var(--fs-row) / var(--lh-row) var(--sans);
-  letter-spacing: 0;
   color: var(--ink);
 }
 .tour-todo-box ul {
@@ -262,7 +256,7 @@
 .tour-todo-box li {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: var(--sp-3);
   min-height: 36px;
   font: 500 var(--fs-sub) / var(--lh-sub) var(--sans);
   color: var(--ink);
@@ -272,34 +266,36 @@
 }
 .tour-todo-rank {
   width: 10px;
-  font: 700 0.75rem / 1 var(--stamp);
-  color: var(--ink-3);
+  font: 650 var(--fs-orb) / 1 var(--sans);
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-2);
 }
 .tour-todo-box li.tis-done {
-  color: var(--ink-3);
+  color: var(--ink-2);
   text-decoration: line-through;
 }
 .tour-todo-box li.tis-done .tour-todo-mark,
 .tg-step.tis-done .tour-todo-mark {
-  background: var(--ink-2);
+  background: var(--accent);
   box-shadow: none;
 }
 .tour-todo-fold {
-  margin: 10px 4px 0;
+  margin: var(--sp-3) var(--sp-1) 0;
   font: 500 var(--fs-foot) / var(--lh-foot) var(--sans);
-  color: var(--ink-3);
+  color: var(--ink-2);
 }
+/* the add row, drawn as the field it is: Paper with its edge (guide 6.14) */
 .tour-todo-add {
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin: 8px 0 0;
-  padding: 9px 12px;
-  border-radius: 14px;
-  background: var(--well);
-  box-shadow: var(--well-shadow);
+  gap: var(--sp-2);
+  margin: var(--sp-2) 0 0;
+  padding: var(--sp-2) var(--sp-3);
+  border-radius: var(--r-control);
+  background: var(--surface);
+  box-shadow: inset 0 0 0 1px var(--field-edge);
   font: 500 var(--fs-sub) / var(--lh-sub) var(--sans);
-  color: var(--ink-3);
+  color: var(--ink-2);
 }
 .tour-todo-typed {
   color: var(--ink);
@@ -309,21 +305,20 @@
 .th-head {
   display: flex;
   align-items: baseline;
-  gap: 8px;
-  margin: 4px 2px 18px;
-  font: 400 var(--fs-foot) / var(--lh-foot) var(--sans);
-  color: var(--ink-3);
+  gap: var(--sp-2);
+  margin: var(--sp-1) 2px var(--sp-5); /* brand-ok: geometry, the head over the coins */
+  font: 500 var(--fs-foot) / var(--lh-foot) var(--sans);
+  color: var(--ink-2);
 }
 .th-head b {
   font: 600 var(--fs-head) / var(--lh-head) var(--serif);
-  letter-spacing: 0;
   color: var(--ink);
 }
 .th-head em {
   margin-left: auto;
   font-style: normal;
   font-weight: 600;
-  color: var(--accent-text, var(--accent));
+  color: var(--accent-text);
 }
 .th-row {
   display: flex;
@@ -332,15 +327,16 @@
 .th-orb-wrap {
   display: grid;
   justify-items: center;
-  gap: 6px;
+  gap: var(--sp-2);
   width: 20%;
 }
 .th-orb-wrap small {
-  font: 500 0.6875rem / 0.875rem var(--sans);
-  color: var(--ink-3);
+  font: 500 var(--fs-caps) / var(--lh-caps) var(--sans);
+  color: var(--ink-2);
   text-align: center;
   white-space: nowrap;
 }
+/* a habit coin (guide 6.6): a flat disc, the off ring decorative; lit, Sky with a Night Ink check; never a glossy ball */
 .th-orb {
   display: grid;
   place-items: center;
@@ -349,42 +345,40 @@
   border-radius: 50%;
   background: var(--surface);
   box-shadow:
-    inset 0 0 0 2px var(--line),
+    inset 0 0 0 1.5px var(--coin-ring),
     var(--shadow-1);
   font: 600 var(--fs-row) / 1 var(--sans);
-  letter-spacing: 0;
-  color: var(--ink-3);
+  color: var(--ink);
   transition:
-    background 220ms,
-    color 220ms,
-    box-shadow 220ms;
+    background-color var(--dur-color) var(--ease-out),
+    color var(--dur-color) var(--ease-out);
 }
 .th-orb.tis-lit {
-  background: radial-gradient(circle at 40% 35%, #ff9a4d, var(--accent));
-  box-shadow: 0 6px 16px -4px rgba(242, 101, 34, 0.55);
-  color: #fff;
+  background: var(--accent);
+  box-shadow: var(--shadow-1);
+  color: var(--accent-ink);
 }
 .th-orb.tis-add {
   background: transparent;
-  box-shadow: inset 0 0 0 1.5px var(--ink-4);
+  box-shadow: inset 0 0 0 1.5px var(--field-edge);
   border: 0;
+  color: var(--ink-2);
 }
+/* the coin's menu (guide 6.14): Paper on the menu radius with the menu shadow */
 .th-menu {
   position: absolute;
   left: 14px;
   top: 128px;
   display: grid;
   width: 150px;
-  padding: 4px 0;
-  border-radius: 14px;
-  background: var(--glass);
-  -webkit-backdrop-filter: var(--glass-blur);
-  backdrop-filter: var(--glass-blur);
-  box-shadow: var(--shadow-float);
+  padding: var(--sp-1) 0;
+  border-radius: var(--r-menu);
+  background: var(--surface);
+  box-shadow: var(--shadow-2);
   transform-origin: top left;
 }
 .th-menu span {
-  padding: 7px 14px;
+  padding: var(--sp-2) var(--sp-4);
   font: 500 var(--fs-sub) / var(--lh-sub) var(--sans);
   color: var(--ink);
 }
@@ -399,15 +393,16 @@
 .tg-card {
   position: relative;
   display: grid;
-  gap: 8px;
+  gap: var(--sp-2);
   height: 100%;
-  padding: 16px;
+  padding: var(--sp-4);
   overflow: hidden;
-  border-radius: 18px;
+  border-radius: var(--r-tile);
   background: var(--surface);
   box-shadow: var(--shadow-1);
   align-content: start;
 }
+/* the Today card's sun, in Apricot as on Goals (guide 12.1): light, not a Sunrise mark */
 .tg-sun {
   position: absolute;
   right: -40px;
@@ -415,9 +410,9 @@
   width: 150px;
   height: 150px;
   border-radius: 50%;
-  background: radial-gradient(circle at 40% 40%, #ffe48a, #fbbf3a 70%);
+  background: var(--g-sun);
   opacity: 0.85;
-  transition: transform 600ms cubic-bezier(0.23, 1, 0.32, 1);
+  transition: transform var(--dur-ring) var(--ease-out);
 }
 .tg-card > :not(.tg-sun) {
   position: relative;
@@ -426,50 +421,55 @@
 .tg-goal {
   max-width: 78%;
   font: italic 420 var(--fs-sentence) / var(--lh-sentence) var(--serif);
-  letter-spacing: 0;
   color: var(--ink);
+}
+/* the demo's buttons are pictures of the real ones: the Sky primary with Night Ink words, without its glow, so they never
+   compete with the screen's own Next */
+.tg-cta,
+.tg-set,
+.tour-learn-save,
+.ta-apply {
+  padding: var(--sp-2) var(--sp-4);
+  border-radius: var(--r-pill);
+  background: var(--accent);
+  font: 650 var(--fs-sub) / var(--lh-sub) var(--sans);
+  color: var(--accent-ink);
 }
 .tg-cta {
   justify-self: start;
-  margin-top: 10px;
-  padding: 9px 16px;
-  border-radius: var(--r-pill);
-  background: var(--navy-pill, var(--ink));
-  box-shadow: var(--navy-glow);
-  font: 600 var(--fs-sub) / var(--lh-sub) var(--sans);
-  color: #fff;
+  margin-top: var(--sp-3);
 }
 .tg-bar {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--sp-2);
   max-width: 70%;
 }
 .tg-bar i {
   flex: 1;
   height: 6px;
-  border-radius: 3px;
+  border-radius: var(--r-pill);
   background:
-    linear-gradient(var(--ink-2), var(--ink-2)) left / var(--p, 0%) 100% no-repeat,
-    var(--well);
-  box-shadow: var(--well-shadow);
-  transition: background-size 500ms cubic-bezier(0.23, 1, 0.32, 1);
+    linear-gradient(var(--deep-sky), var(--deep-sky)) left / var(--p, 0%) 100% no-repeat,
+    var(--haze);
+  transition: background-size var(--dur-number) var(--ease-out);
 }
 .tg-bar em {
-  font: 600 var(--fs-foot) / 1 var(--sans);
+  font: 650 var(--fs-foot) / 1 var(--sans);
   font-style: normal;
-  color: var(--ink-3);
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-2);
 }
 .tg-step {
   display: flex;
   align-items: center;
-  gap: 10px;
-  margin-top: 6px;
+  gap: var(--sp-3);
+  margin-top: var(--sp-2);
   font: 500 var(--fs-sub) / var(--lh-sub) var(--sans);
   color: var(--ink);
 }
 .tg-step.tis-done {
-  color: var(--ink-3);
+  color: var(--ink-2);
   text-decoration: line-through;
 }
 .tg-sheet {
@@ -477,131 +477,124 @@
   inset: auto 0 0;
   z-index: 3;
   display: grid;
-  gap: 10px;
-  padding: 16px;
-  border-radius: 22px 22px 0 0;
+  gap: var(--sp-3);
+  padding: var(--sp-4);
+  border-radius: var(--r-card) var(--r-card) 0 0;
   background: var(--surface);
-  box-shadow: 0 -10px 30px -10px rgba(15, 42, 68, 0.3);
+  box-shadow: var(--shadow-sheet);
 }
 .tg-sheet-t {
   font: 650 var(--fs-row) / var(--lh-row) var(--sans);
-  letter-spacing: 0;
   color: var(--ink);
 }
+/* the demo's fields: Paper with the field edge (guide 6.14), Inter 17 */
 .tg-field,
 .tj-field,
 .tour-learn-field {
   min-height: 44px;
-  padding: 10px 12px;
-  border-radius: 14px;
-  background: var(--well);
-  box-shadow: var(--well-shadow);
+  padding: var(--sp-2) var(--sp-3);
+  border-radius: var(--r-control);
+  background: var(--surface);
+  box-shadow: inset 0 0 0 1px var(--field-edge);
   font: 400 var(--fs-row) / var(--lh-row) var(--sans);
-  letter-spacing: 0;
   color: var(--ink);
 }
 .tg-set,
 .tour-learn-save {
   justify-self: end;
-  padding: 8px 16px;
-  border-radius: var(--r-pill);
-  background: var(--navy-pill, var(--ink));
-  box-shadow: var(--navy-glow);
-  font: 600 var(--fs-sub) / var(--lh-sub) var(--sans);
-  color: #fff;
 }
 
 /* Journal */
 .tj-cal {
   display: grid;
-  gap: 8px;
-  padding: 12px;
-  border-radius: 18px;
+  gap: var(--sp-2);
+  padding: var(--sp-3);
+  border-radius: var(--r-tile);
   background: var(--surface);
   box-shadow: var(--shadow-1);
 }
 .tj-grid {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
-  gap: 5px;
+  gap: var(--sp-1);
 }
 .tj-cell {
   display: grid;
   place-items: center;
   aspect-ratio: 1;
   max-height: 30px;
-  border-radius: 8px;
-  background: var(--well);
+  border-radius: var(--r-control);
+  background: var(--cloud);
 }
+/* today in a calendar is a Night Ink ring (plan 1.3, D14), as the real Journal draws it */
 .tj-cell.tis-today {
-  box-shadow: inset 0 0 0 1.5px var(--accent);
+  box-shadow: inset 0 0 0 1.5px var(--ink);
   background: var(--surface);
 }
 .tj-day {
   display: grid;
-  gap: 8px;
-  margin-top: 10px;
+  gap: var(--sp-2);
+  margin-top: var(--sp-3);
   justify-items: center;
 }
+/* "Write today's entry": a secondary, Paper with its edge */
 .tj-write {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 9px 16px;
+  gap: var(--sp-2);
+  padding: var(--sp-2) var(--sp-4);
   border-radius: var(--r-pill);
-  box-shadow: inset 0 0 0 1.5px var(--ink-2);
-  font: 500 var(--fs-sub) / var(--lh-sub) var(--mono, monospace);
-  color: var(--ink-2);
+  background: var(--surface);
+  box-shadow: inset 0 0 0 1px var(--edge);
+  font: 600 var(--fs-sub) / var(--lh-sub) var(--sans);
+  color: var(--ink);
 }
 .tj-field {
   justify-self: stretch;
 }
 .tj-done {
   justify-self: end;
-  font: 600 var(--fs-sub) / var(--lh-sub) var(--mono, monospace);
-  color: var(--ink-2);
-  padding: 4px 8px;
+  font: 600 var(--fs-sub) / var(--lh-sub) var(--sans);
+  color: var(--accent-text);
+  padding: var(--sp-1) var(--sp-2);
 }
 .tj-memory {
-  margin: 6px 0 0;
+  margin: var(--sp-2) 0 0;
   font: italic 420 var(--fs-sentence-sm) / var(--lh-row) var(--serif);
-  letter-spacing: 0;
-  color: var(--ink);
+  color: var(--j-ink);
 }
 
 /* Learned */
 .tour-learn {
   display: grid;
   align-content: start;
-  gap: 12px;
+  gap: var(--sp-3);
 }
 .tour-learn-q {
   font: italic 420 var(--fs-sentence) / var(--lh-sentence) var(--serif);
-  letter-spacing: 0;
   color: var(--ink);
 }
 .tour-learn-field em {
   font-style: normal;
-  color: var(--ink-3);
+  color: var(--ink-2);
 }
 .tour-learn-saved {
   display: grid;
-  gap: 6px;
-  padding: 14px;
-  border-radius: 18px;
+  gap: var(--sp-2);
+  padding: var(--sp-4);
+  border-radius: var(--r-tile);
   background: var(--surface);
   box-shadow: var(--shadow-1);
 }
 .tour-learn-saved p {
   margin: 0;
   font: 400 var(--fs-row) / var(--lh-row) var(--sans);
-  letter-spacing: 0;
   color: var(--ink);
 }
 .tour-learn-another {
-  margin-top: 4px;
+  margin-top: var(--sp-1);
   font: 500 var(--fs-foot) / var(--lh-foot) var(--sans);
-  color: var(--ink-3);
+  color: var(--ink-2);
 }
 
 /* Plan */
@@ -609,76 +602,94 @@
   display: flex;
   align-items: baseline;
   justify-content: space-between;
-  margin: 2px 2px 12px;
+  margin: 2px 2px var(--sp-3); /* brand-ok: geometry, the head over the week */
   font: 500 var(--fs-foot) / var(--lh-foot) var(--sans);
-  color: var(--ink-3);
+  color: var(--ink-2);
 }
 .tour-line b {
   font: 600 var(--fs-head) / var(--lh-head) var(--serif);
-  letter-spacing: 0;
   color: var(--ink);
 }
 .tour-week {
   display: grid;
   grid-template-columns: repeat(7, minmax(0, 1fr));
-  gap: 4px;
+  gap: var(--sp-1);
 }
 .tour-day {
   display: grid;
   justify-items: center;
   align-content: start;
-  gap: 4px;
+  gap: var(--sp-1);
   min-height: 112px;
-  padding: 6px 2px;
-  border-radius: 12px;
+  padding: 6px 2px; /* brand-ok: geometry, seven days across the stage */
+  border-radius: var(--r-icon);
   background: var(--surface);
   box-shadow: var(--shadow-1);
-  transition:
-    background 160ms,
-    box-shadow 160ms;
+  transition: background-color var(--dur-fast) var(--ease-out);
 }
+/* the drop target while a run is carried, as Plan draws it: the Sky tint and a 2 px Deep Sky ring */
 .tour-day.tis-target {
-  background: var(--columbia-wash);
+  background: var(--accent-tint);
   box-shadow:
-    inset 0 0 0 1.5px var(--ink-2),
+    inset 0 0 0 2px var(--deep-sky),
     var(--shadow-1);
 }
 .tour-day small {
-  font: 600 0.6875rem / 1 var(--sans);
-  color: var(--ink-3);
+  font: 600 var(--fs-caps) / 1 var(--stamp);
+  letter-spacing: var(--tr-caps);
+  color: var(--ink-2);
 }
 .tour-date {
-  font: 700 0.9375rem / 1 var(--stamp);
+  font: 650 var(--fs-sub) / 1 var(--sans);
+  font-variant-numeric: tabular-nums;
   color: var(--ink);
 }
+/* a session in the week: a Cloud tile with Night Ink words and its tone as a 3 px marker across its top (guide 3.1: tones
+   are marks, never a surface; a session kind never takes orange). The name may take two lines in a seven-column day */
 .tour-pill {
-  margin-top: 6px;
-  padding: 5px 3px;
-  border-radius: 8px;
-  font: 700 0.6875rem / 0.8125rem var(--stamp);
+  --tone: var(--t-easy);
+  position: relative;
+  margin-top: var(--sp-2);
+  padding: var(--sp-2) 2px var(--sp-1); /* brand-ok: geometry, a name in a seven-column day */
+  border-radius: var(--r-icon);
+  background: var(--cloud);
+  font: 600 var(--fs-orb) / var(--lh-orb) var(--sans);
   text-align: center;
-  color: #fff;
+  color: var(--ink);
   white-space: normal;
 }
+.tour-pill::before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 3px; /* brand-ok: geometry, the tone marker inside the tile's top edge */
+  width: 16px;
+  height: 3px;
+  translate: -50% 0;
+  border-radius: var(--r-pill);
+  background: var(--tone);
+}
 .tour-pill.c-easy {
-  background: #3f9a63;
+  --tone: var(--t-easy);
 }
 .tour-pill.c-hard {
-  background: var(--accent);
+  --tone: var(--t-hard);
 }
 .tour-pill.c-long {
-  background: #2f5d85;
+  --tone: var(--t-long);
 }
+/* carried: Paper, lifted on the menu shadow, as Plan's drag pill */
 .tour-pill.tis-lifted {
   display: block;
   width: 44px;
-  box-shadow: 0 12px 20px -6px rgba(15, 42, 68, 0.5);
+  background: var(--surface);
+  box-shadow: var(--shadow-2);
   transform: scale(1.06);
 }
 .tour-rest {
-  margin-top: 8px;
-  font: 500 0.6875rem / 1 var(--sans);
-  color: var(--ink-3);
+  margin-top: var(--sp-2);
+  font: 500 var(--fs-orb) / 1 var(--sans);
+  color: var(--ink-2);
 }
 .tour-toast {
   position: absolute;
@@ -688,16 +699,18 @@
   width: max-content;
   margin-inline: auto !important;
   margin: 0;
-  padding: 8px 14px;
+  padding: var(--sp-2) var(--sp-4);
   border-radius: var(--r-pill);
   background: var(--ink);
   font: 500 var(--fs-foot) / var(--lh-foot) var(--sans);
-  color: #fff;
+  color: var(--white);
   white-space: nowrap;
 }
+/* the toast's action: Haze 600 on Night Ink (guide 5.4 toast) */
 .tour-toast b {
-  margin-left: 10px;
-  color: #b9d9eb;
+  margin-left: var(--sp-3);
+  font-weight: 600;
+  color: var(--haze);
 }
 
 /* Progress */
@@ -705,18 +718,20 @@
   display: flex;
   align-items: baseline;
   justify-content: space-between;
-  margin: 2px 2px 14px;
+  margin: 2px 2px var(--sp-4); /* brand-ok: geometry, the head over the chart */
 }
+/* the chart's headline number: Inter 650 with even figures, never Fraunces (guide 6.8) */
 .tq-head b {
-  font: 700 1.75rem / 1 var(--stamp);
+  font: 650 var(--fs-section) / 1 var(--sans);
   color: var(--ink);
   font-variant-numeric: tabular-nums;
 }
+/* the actual line in Deep Sky (guide 6.8) */
 .tq-chart {
   position: relative;
   height: 140px;
-  margin: 0 8px;
-  color: var(--ink-2);
+  margin: 0 var(--sp-2);
+  color: var(--deep-sky);
 }
 .tq-chart svg {
   position: absolute;
@@ -731,16 +746,17 @@
   height: 6px;
   margin: -3px 0 0 -3px;
   border-radius: 50%;
-  background: var(--ink-2);
+  background: var(--deep-sky);
 }
+/* the scrub rule: a Deep Sky guide line (plan 1.3), never a now-mark */
 .tq-rule {
   position: absolute;
   top: -6px;
   bottom: -6px;
   width: 1.5px;
   margin-left: -0.75px;
-  background: var(--accent);
-  transition: left 300ms cubic-bezier(0.23, 1, 0.32, 1);
+  background: var(--deep-sky);
+  transition: left var(--dur-settle) var(--ease-out);
 }
 
 /* the ask bar */
@@ -751,70 +767,62 @@
 .ta-bar {
   display: flex;
   align-items: center;
-  gap: 10px;
-  margin-bottom: 18px;
-  padding: 13px 16px;
+  gap: var(--sp-3);
+  margin-bottom: var(--sp-5);
+  padding: var(--sp-3) var(--sp-4);
   border-radius: var(--r-pill);
   background: var(--surface);
   box-shadow: var(--shadow-float);
   font: 500 var(--fs-sub) / var(--lh-sub) var(--sans);
-  color: var(--ink-3);
-}
-.ta-bar svg {
-  color: var(--accent);
+  color: var(--ink-2);
 }
 .ta-sheet {
   display: grid;
-  gap: 12px;
-  margin: 0 -14px -14px;
-  padding: 18px 16px 20px;
-  border-radius: 22px 22px 0 0;
+  gap: var(--sp-3);
+  margin: 0 -14px -14px; /* brand-ok: geometry, the sheet reaches the stage's edges past its 14 px inset */
+  padding: var(--sp-5) var(--sp-4);
+  border-radius: var(--r-card) var(--r-card) 0 0;
   background: var(--surface);
-  box-shadow: 0 -10px 30px -10px rgba(15, 42, 68, 0.3);
+  box-shadow: var(--shadow-sheet);
 }
 .ta-you {
   justify-self: end;
   max-width: 85%;
-  padding: 9px 14px;
-  border-radius: 18px 18px 4px 18px;
-  background: var(--columbia-wash);
+  padding: var(--sp-2) var(--sp-3);
+  border-radius: var(--r-tile);
+  background: var(--cloud);
   font: 500 var(--fs-sub) / var(--lh-sub) var(--sans);
   color: var(--ink);
 }
 .ta-reply {
   display: grid;
-  gap: 10px;
-  padding: 12px 14px;
-  border-radius: 16px;
+  gap: var(--sp-3);
+  padding: var(--sp-3);
+  border-radius: var(--r-tile);
   box-shadow: inset 0 0 0 1px var(--line);
 }
 .ta-reply > span {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  font: 700 var(--fs-sub) / var(--lh-sub) var(--stamp);
+  gap: var(--sp-2);
+  font: 600 var(--fs-sub) / var(--lh-sub) var(--sans);
   color: var(--ink);
 }
 .ta-apply {
   justify-self: start;
-  padding: 8px 14px;
-  border-radius: var(--r-pill);
-  background: var(--navy-pill, var(--ink));
-  box-shadow: var(--navy-glow);
-  font: 600 var(--fs-sub) / var(--lh-sub) var(--sans);
-  color: #fff;
 }
+/* done: a Deep Sky check and words (the ok tone), Undo beside it */
 .ta-applied {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--sp-2);
   font: 600 var(--fs-sub) / var(--lh-sub) var(--sans);
-  color: #3f9a63;
+  color: var(--ok);
 }
 .ta-applied em {
-  margin-left: 8px;
+  margin-left: var(--sp-2);
   font-style: normal;
-  color: var(--ink-3);
+  color: var(--accent-text);
 }
 .ta-behind {
   position: absolute;
@@ -822,14 +830,14 @@
   display: grid;
   grid-template-columns: auto 1fr;
   align-items: baseline;
-  gap: 4px 12px;
-  padding: 12px 14px;
-  border-radius: 18px;
+  gap: var(--sp-1) var(--sp-3);
+  padding: var(--sp-3);
+  border-radius: var(--r-tile);
   background: var(--surface);
   box-shadow: var(--shadow-1);
 }
 .ta-behind b {
-  font: 700 1.125rem / 1.5rem var(--stamp);
+  font: 650 var(--fs-row) / var(--lh-row) var(--sans);
   color: var(--ink);
 }
 .ta-sheet {
