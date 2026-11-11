@@ -1,6 +1,6 @@
 /*
  * Foundation-owned (layout plan C-5): the files stay here so no import path changes; streams use these and never copy them.
- * The shape kit Goals, Learned, Journal, Library and Reads share: a section with its header, the segmented control (the
+ * The shape kit Goals, Learned, Journal and Reads share: a section with its header, the segmented control (the
  * brand's Cloud track and Sky thumb), rows inside a card, the footnote, the sheet's trash, the sheet's section label. Built
  * from the tokens (docs/brand/brand-guide.md); shape.css holds the app-wide primitives (card, tiles, group, icon tile,
  * buttons).

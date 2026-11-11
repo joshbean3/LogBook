@@ -29,11 +29,11 @@ const YEARS_BACK = 5;
 const yearsBack = (date: string, k: number) => `${Number(date.slice(0, 4)) - k}${date.slice(4)}`;
 
 /**
- * The Journal segment under Remember when: the calendar (Week or Month, remembered on this device), the day card that
- * opens under it, then every entry. Tap a day to open it; today opens on its writer while it has no entry. `focusKey` (a
- * quote sent from the Library) opens today's writer; `openDay` (Remember when's words) opens that day.
+ * Journal under Remember when: the calendar (Week or Month, remembered on this device), the day card that opens under it,
+ * then every entry. Tap a day to open it; today opens on its writer while it has no entry. `openDay` (Remember when's
+ * words) opens that day.
  */
-export const JournalCalendarPane = ({ today, focusKey = 0, openDay = null }: { today: string; focusKey?: number; openDay?: { date: string; n: number } | null }) => {
+export const JournalCalendarPane = ({ today, openDay = null }: { today: string; openDay?: { date: string; n: number } | null }) => {
   useDraftOwner();
   const feed = useJournalFeed(true);
   const all = feed.entries;
@@ -67,9 +67,6 @@ export const JournalCalendarPane = ({ today, focusKey = 0, openDay = null }: { t
   // today opens on its writer only while nothing is written; with entries it opens to read, "Add another" under them
   const pick = (d: string) => show(d, d === today && !byDate.get(today)?.length);
 
-  useEffect(() => {
-    if (focusKey) show(today, true);
-  }, [focusKey]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (openDay) show(openDay.date);
   }, [openDay]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -188,7 +185,7 @@ const DayCard = ({ date, today, byDate, writeReq, onDay, onClose, onWriting }: {
     haptics.orb();
     setWriting(false);
   };
-  // the day's quote goes on top of the words with a blank line under it, and into the draft, as the Library's Write does
+  // the day's quote goes on top of the words with a blank line under it, and into the draft, as Close the day's quote line does
   const useQuote = (q: string) => {
     const next = text.trim() ? `${q}\n\n${text}` : `${q}\n\n`;
     edit(next);

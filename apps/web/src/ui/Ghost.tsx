@@ -56,7 +56,7 @@ export interface GhostRowsProps {
   rowHeight?: number;
   className?: string;
 }
-/** List rows, each two grey text bars (60% and 35%) with hairlines between: Journal entries, Library, Reads. */
+/** List rows, each two grey text bars (60% and 35%) with hairlines between: Journal entries, Reads. */
 export const GhostRows = ({ rows = 3, lead = 'none', rowHeight = 60, className = '' }: GhostRowsProps) => (
   <div className={`ghost ghost-rows ${className}`} aria-hidden="true">
     {Array.from({ length: rows }, (_, i) => (

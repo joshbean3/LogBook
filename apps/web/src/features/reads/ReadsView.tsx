@@ -231,7 +231,7 @@ type Tab = 'unread' | 'read';
 const LIST_TOP_MIN = 200;
 const FADE_MS = ((crossfade as { duration?: number }).duration ?? 0.15) * 1000;
 /**
- * Reads (docs/feel.md §8), the pushed page at `/journal/reads/:tab?` over the mounted Journal: the PushedBar, quick add on
+ * Saved links (Reads, docs/feel.md §8), the pushed page at `/settings/reads/:tab?` from Settings, Data: the PushedBar (titled as its Settings row), quick add on
  * top, today's pick, then the links on SwipeRow v2 (72 px reveal, 55 % / 600 px/s full). `Unread · Read` is page state,
  * mirrored into the top entry with `nav.replace` (so a reload comes back to it), and switching crossfades the list in
  * 150 ms. A row that leaves fades while the rows below FLIP up on `settle`; nothing animates height. Today's pick changing
@@ -357,7 +357,7 @@ export default function ReadsView() {
   );
   const bar = (
     <PushedBar
-        title="Reads"
+        title="Saved links"
         trailing={
           empty ? (
             <IconButton label={adding ? 'Close' : 'Add a link'} onClick={() => setAdding((v) => !v)}>

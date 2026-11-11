@@ -35,12 +35,6 @@ export interface Daily {
   pastCount: number;
 }
 
-export interface QuotePage {
-  total: number;
-  quotes: Quote[];
-  themes: readonly string[];
-}
-
 export interface AuthStatus {
   hasAccount: boolean;
   setupOpen: boolean;

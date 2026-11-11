@@ -18,7 +18,6 @@ describe('the route table', () => {
     ['/plan/month/2026-11-01', 'root', 'plan', '/plan/month/2026-11-01'],
     ['/progress', 'root', 'progress', '/progress'],
     ['/journal', 'root', 'journal', '/journal'],
-    ['/journal/library', 'root', 'journal', '/journal/library'],
   ])('%s is a %s of %s', (path, kind, tab, root) => {
     const m = matchRoute(path);
     expect(m.kind).toBe(kind);
@@ -36,10 +35,12 @@ describe('the route table', () => {
     expect(matchRoute('/learned/2026-09-14')).toMatchObject({ kind: 'redirect', redirect: '/learned' });
   });
 
-  it("Journal's two roots carry different params (the segment is page state, consumer review 1 #7)", () => {
+  it('Journal is one root: the removed Library and its old links land on Journal, with no segment', () => {
     expect(matchRoute('/journal').params).toEqual({});
-    expect(matchRoute('/journal/library').params).toEqual({ segment: 'library' });
-    expect(resolveRoute('/journal/quotes').params).toEqual({ segment: 'library' });
+    for (const old of ['/journal/library', '/journal/quotes', '/journal/favorites']) {
+      expect(matchRoute(old)).toMatchObject({ kind: 'redirect', redirect: '/journal' });
+      expect(resolveRoute(old)).toMatchObject({ kind: 'root', tab: 'journal', root: '/journal', params: {} });
+    }
   });
 
   it('pushed pages imply their stacks, every implied entry with idx −1', () => {
@@ -92,8 +93,9 @@ describe('the route table', () => {
     ['/reads/read', '/settings/reads/read'],
     ['/journal/reads', '/settings/reads'],
     ['/journal/reads/read', '/settings/reads/read'],
-    ['/journal/quotes', '/journal/library'],
-    ['/journal/favorites', '/journal/library'],
+    ['/journal/library', '/journal'],
+    ['/journal/quotes', '/journal'],
+    ['/journal/favorites', '/journal'],
     ['/plan/plans', '/settings/plans'],
     ['/settings/routine', '/settings'],
     ['/settings/banana', '/settings'],
