@@ -334,7 +334,7 @@ export const AssistBar = ({ assist }: { assist: BuilderAssistApi }) => {
                 <Orb size={28} state="still" />
               </span>
               <button type="button" className="pa-send" aria-label="Send" disabled={!ready} onClick={assist.send}>
-                <ArrowUp size={18} strokeWidth={2.6} aria-hidden="true" />
+                <ArrowUp size={18} strokeWidth={1.75} aria-hidden="true" />
               </button>
             </div>
           </div>
