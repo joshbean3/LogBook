@@ -159,7 +159,9 @@ textarea.ln-field {
   border: 1px solid var(--field-edge);
   background: var(--surface);
 }
-.ln-sheet .ln-sheet-field:focus {
+/* the sheet focuses the field as it opens, still read-only (is-reading): it takes the focus look only once a tap starts
+   editing, so the sheet does not open looking like it is already typing */
+.ln-sheet .ln-sheet-field:focus:not(.is-reading) {
   border-color: var(--focus-edge);
   box-shadow: 0 0 0 0.5px var(--focus-edge), var(--focus-ring);
 }
@@ -442,17 +444,27 @@ textarea.ln-field {
 .ln-gday.is-empty .ln-gday-num {
   color: var(--ink-2);
 }
-/* today in a list of days: a Night Ink ring around a Night Ink numeral (the shown day would be Sky, guide 6.13); the ring
-   centers on the numeral's column, so the numeral stays where the other days' numerals are */
+/* today in a list of days: a Night Ink ring around a Night Ink numeral (the shown day would be Sky, guide 6.13). The ring
+   is drawn around the numeral, outside the flow: the numeral and its weekday stay exactly where the other days' are. A
+   32 px circle at the default text size; with larger text it grows with the numeral (a pill when "10" is wider than
+   tall), so it never cuts through the figures */
 .ln-gday.is-today .ln-gday-num {
-  display: inline-grid;
-  place-items: center;
-  min-width: 32px;
-  height: 32px;
-  margin: calc(-1 * var(--sp-1)) 0 0 calc(-1 * var(--sp-2));
-  border-radius: 50%;
-  box-shadow: inset 0 0 0 1.5px var(--ink);
+  position: relative;
+  /* the ring reaches 5 px past the line at the default size: keep it off the weekday under it */
+  margin-bottom: var(--sp-1);
   color: var(--ink);
+}
+.ln-gday.is-today .ln-gday-num::before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: max(32px, var(--lh-row), calc(100% + 0.5em));
+  height: max(32px, var(--lh-row));
+  transform: translate(-50%, -50%);
+  border-radius: var(--r-pill);
+  box-shadow: inset 0 0 0 1.5px var(--ink);
+  pointer-events: none;
 }
 .ln-gday-items {
   display: grid;
