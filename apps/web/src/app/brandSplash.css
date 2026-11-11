@@ -122,7 +122,7 @@
   height: var(--s);
   border: 1.5px solid var(--white);
   border-radius: 50%;
-  background: radial-gradient(closest-side, rgba(255, 182, 128, 0) calc(100% - 14px), rgba(255, 182, 128, 0.42) calc(100% - 2px), rgba(255, 182, 128, 0));
+  background: var(--splash-ring);
   opacity: var(--o);
 }
 /* the Orb, --orb-splash across (96 to 120, full tier): its art box is 150/96 of the sphere and centered on it. At rest

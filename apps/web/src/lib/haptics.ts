@@ -8,8 +8,9 @@ import { isNative } from './native';
  *
  * Call the event, not the motor: `haptics.toggle()` when a to-do is checked, `haptics.lift()` when a long-press lifts
  * something. At most one per action, fired on the frame of the visual peak, never for a tap that only navigates or opens a
- * sheet. Inside the iOS app these map to @capacitor/haptics; on Android browsers to `navigator.vibrate`; iOS Safari has no
- * vibration API, so every meaning must also be carried visually.
+ * sheet. The one exception is the opening sunrise's timed phrase (`playHaptics`, guide 9.5): a tap on each sun ring and one
+ * beat as the sun clears the horizon, tied to what is on screen. Inside the iOS app these map to @capacitor/haptics; on
+ * Android browsers to `navigator.vibrate`; iOS Safari has no vibration API, so every meaning must also be carried visually.
  */
 
 export type HapticEvent = 'tick' | 'select' | 'toggle' | 'orb' | 'lift' | 'drop' | 'threshold' | 'success' | 'celebrate' | 'delete' | 'warning' | 'error' | 'rise' | 'dawn';

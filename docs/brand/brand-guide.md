@@ -61,7 +61,7 @@ The logo has two parts: the **Orb** (the mark) and the **wordmark** "Orby". The 
 
 ### 2.1 The Orb, the mark
 
-A glossy sky-blue sphere lit by a sunrise from below. It reads blue first. The top highlight stays cool white. A soft Apricot underlight sits on the lower hemisphere, as if the sun is just under the horizon. Subtle: it is light on a blue sphere, never a two-tone ball.
+A glossy sky-blue sphere lit by a sunrise from below. It reads blue first. The top highlight stays cool white. A soft Apricot underlight sits on the lower hemisphere, as if the sun is just under the horizon. Subtle: it is light on a blue sphere, never a two-tone ball. The one warmer drawing is the splash's sunrise state (below), where the Orb is the sun: still blue first, its warm light in the lower third.
 
 Sheet: `assets/orb-states.png` (idle, thinking and still; the sunrise state is `assets/logo-mark-sunrise-1024.png`). Files: `assets/logo-mark.svg` (and `-1024.png`), `logo-mark-glow.svg`, `logo-mark-thinking.svg`, `logo-mark-sunrise.svg`, `logo-mark-flat.svg`, `logo-mark-mono-ink.svg`. Generator: `tools/orb.mjs`.
 
@@ -193,7 +193,7 @@ The product is **Orby**. The Orb is the mark, so the name and the mark are one i
 
 ### 2.7 What never to do
 
-Sheet: `assets/logo-donts.png`. Never: stretch or squash; retype the name in another face; swap the O for the Orb; set the name in caps; recolor the Orb; make a two-tone ball; show two Orbs on one screen; put the logo on a busy or clashing ground; give the Orb a face; add drop shadows or bevels; grey or tint the wordmark; change the spacing; rotate or tilt; say "the Orby" or "Orby app"; box the logo or add rules around it.
+Sheet: `assets/logo-donts.png`. Never: stretch or squash; retype the name in another face; swap the O for the Orb; set the name in caps; recolor the Orb; make a two-tone ball (the splash's sunrise state, 2.1, is the one warmer drawing, and it stays blue first); show two Orbs on one screen; put the logo on a busy or clashing ground; give the Orb a face; add drop shadows or bevels; grey or tint the wordmark; change the spacing; rotate or tilt; say "the Orby" or "Orby app"; box the logo or add rules around it.
 
 ---
 
@@ -230,7 +230,7 @@ Support colors (refinements, each added for a contrast or role need):
 | Data tones | Lagoon `#117A74`, Deep Sky `#0A6CA6`, Plum `#7E3F8F`, Rose `#B23A5B`, Indigo `#4A4FB0`, Ochre `#7D6210`, Pencil `#7A8794` | Session kinds (easy, long, hard, fast, lift, cross, rest). Glyphs, lines and 3 px markers only; never a surface or a tinted card. Each is 5.0:1 or better on Paper except Pencil (marks only). Hard moved off orange so orange keeps one meaning. |
 | Brand art | Poster sky `#8DD0F5`, `#AEDDF8`, `#CFEBFA`; horizon `#F4E6D2`, `#FFD2AE`; hills `#8FCDEE`, `#4FA9DB`, `#0A6CA6` | Posters, heroes, the icon. Not app chrome. |
 | App washes | `--wash-bar` `#D0EAF8`, `--wash-strip` `#DAEEFA`, `--wash-strip-end` `#E2F2FB`, `--welcome-warm` `#FFF1E4`, `--entry-2` `#7FCBF3`, `--orb-arc` `#FF9F5A` | Sticky bars and strip, the welcome and splash grounds, journal two-entry disc, the thinking arc. Tokens only. |
-| Splash lights | `--splash-day`, `--splash-glow`, `--splash-halo`, `--splash-bloom` | The sunrise splash (9.2). `--splash-day` is the day's colors as one layer: poster sky `#8DD0F5` to `#AEDDF8` over the top 28 percent, and the horizon band `#F4E6D2` to `#FFD2AE` from 48 to 88 percent, with nothing between them. The other three are its soft lights: Apricot `#FFB680` radial falloffs (the bloom starts from `#FFF1E4`). Each is drawn once and only faded or scaled. Brand art, not app chrome. |
+| Splash lights | `--splash-day`, `--splash-glow`, `--splash-halo`, `--splash-bloom`, `--splash-ring` | The sunrise splash (9.2). `--splash-day` is the day's colors as one layer: poster sky `#8DD0F5` to `#AEDDF8` over the top 28 percent, and the horizon band `#F4E6D2` to `#FFD2AE` from 48 to 88 percent, with nothing between them. The other three are its soft lights: Apricot `#FFB680` radial falloffs (the bloom starts from `#FFF1E4`). `--splash-ring` is the soft Apricot band just inside each sun ring's white line (8.3). Each is drawn once and only faded or scaled. Brand art, not app chrome. |
 
 ### 3.2 Allowed text pairings
 
@@ -664,13 +664,13 @@ The Orb is the only glossy, 3D object in the system. Everything else is flat col
 
 ### 8.2 How it is lit
 
-Key light from above (the cool white specular at the top), warm fill from below (the Apricot sunrise underlight). Never lit from the side, never a hard drop shadow, never a reflection of a room.
+Key light from above (the cool white specular at the top), warm fill from below (the Apricot sunrise underlight). Never lit from the side, never a hard drop shadow, never a reflection of a room. The splash's sunrise state (2.1) adds one more, from behind and below: the limb glow, the sun's light wrapping the lower edge as it comes up.
 
 ### 8.3 The poster
 
 For brand surfaces (heroes, store art, share cards, the deck): flat bands of sky (`#8DD0F5` to `#AEDDF8` to `#CFEBFA`) meeting a warm horizon (`#F4E6D2` to `#FFD2AE`); rolling hills in three flat blues (`#8FCDEE`, `#4FA9DB`, `#0A6CA6`); concentric sun rings around the Orb in 1.5 px white at 70 percent stepping down 10 percent per ring; paper grain on top. Headlines in Fraunces 700, Night Ink (9.59 on poster sky). See `assets/hero-poster.png` and `assets/hero-landscape.png`.
 
-**Staging the Orb (one rule for every image):** the Orb's bottom clears the horizon (the crest of the first hill under it) by 0.1 D, where D is its diameter. The horizon glow, an Apricot ellipse centered on the horizon, carries the warmth. Nothing covers the Orb's lower hemisphere: no hill, no phone, no text, no stamp. Rings center on the Orb and never cross text; mask or drop a ring rather than run it through words. Applies to the cover, the app icon (2.5), the poster, the landscape hero and the splash (12.1).
+**Staging the Orb (one rule for every image):** the Orb's bottom clears the horizon (the crest of the first hill under it) by 0.1 D, where D is its diameter. The horizon glow, an Apricot ellipse centered on the horizon, carries the warmth (on the splash the Orb's sunrise state carries it too, 2.1). Nothing covers the Orb's lower hemisphere: no hill, no phone, no text, no stamp. Rings center on the Orb and never cross text; mask or drop a ring rather than run it through words. Applies to the cover, the app icon (2.5), the poster, the landscape hero and the splash (12.1).
 
 **The rings on the splash** are the poster's five (radii 0.66, 0.86, 1.06, 1.24 and 1.4 D; 70 percent stepping down 10 a ring). Each carries a soft Apricot band 12 px wide just inside its white line, so a ring leaving the Orb reads on the pale sky before the horizon has warmed. A ring that would come within 16 px of the words (a short screen, a large text size) is not drawn.
 
@@ -691,7 +691,7 @@ Discs, rings, domes, half-suns on a horizon, orbits. A done run is a half-sun on
 
 ### 9.1 Durations and easings
 
-Springs come from `apps/web/src/lib/motion.ts` (`springs.page`, `settle`, `sheet`, `number`, `complete` and the rest); CSS uses the `--dur-*` and `--ease-*` tokens (`--ease-out`, `--ease-sheet`, and `--ease-in-out` for light that comes up and settles).
+Springs come from `apps/web/src/lib/motion.ts` (`springs.page`, `settle`, `sheet`, `number`, `complete` and the rest); CSS uses the `--dur-*` and `--ease-*` tokens (`--ease-out`, `--ease-sheet`, and `--ease-in-out` for light that comes up and settles). One named exception: the sunrise splash's length and the easing of its climb are numbers in `apps/web/src/app/splashTimeline.ts` (`SPLASH_MS`, `RISE_EASE`), because its haptics and its beat are computed from the same figures; its styles read them from there as custom properties.
 
 | Move | Duration | Easing or spring |
 |---|---|---|
@@ -737,7 +737,7 @@ Every move becomes a 150 ms linear fade (`--dur-reduce`); the one longer fade is
 
 ### 9.5 Haptics
 
-From `lib/haptics.ts`: named events, at most one per action, fired on the visual peak frame. `tick` (words landing, selection, at most 1 per 100 ms), `select`, `toggle`, `orb` (a habit lit), `lift`, `drop`, `threshold`, `success`, `celebrate` (a milestone stamp), `delete`, `warning`, `error`. Never for a tap that only navigates. The Settings switch turns them all off.
+From `lib/haptics.ts`: named events, at most one per action, fired on the visual peak frame (the sunrise splash's phrase, below, is the one exception). `tick` (words landing, selection, at most 1 per 100 ms), `select`, `toggle`, `orb` (a habit lit), `lift`, `drop`, `threshold`, `success`, `celebrate` (a milestone stamp), `delete`, `warning`, `error`. Never for a tap that only navigates. The Settings switch turns them all off.
 
 **The sunrise splash** is the one phrase (9.2): `rise`, a light tap on the first frame of each sun ring (five at most, the gaps shortening from 290 to 150 ms), and `dawn`, one fuller beat on the frame the Orb clears the hill. Each is tied to something on screen: a ring that is not drawn is not felt. They are timed from the frame the animation really started; a tap that comes up more than 120 ms late (the main thread was busy starting the app) is dropped, never played out of time, and the beat may land up to 400 ms behind. None while the page is hidden, after a tap that skipped, or on the quiet opening.
 
@@ -858,7 +858,7 @@ Full list with old values in `tokens.css` comments. The headline moves:
 
 Run all of it. A change is not done until every line is true. Lines marked (runtime) need the app running: `node docs/brand/tools/audit.mjs <url>` checks them; a rule you could not run is reported as unverified, never as passed.
 
-- [ ] Every color, radius, spacing, duration and font comes from a token in `tokens.css`. `node apps/web/scripts/check-brand.mjs <changed files>` adds no findings.
+- [ ] Every color, radius, spacing, duration and font comes from a token in `tokens.css` (the one named exception: the sunrise splash's length and climb easing, 9.1). `node apps/web/scripts/check-brand.mjs <changed files>` adds no findings.
 - [ ] Every text and ground pairing is in 3.2. `pnpm test` passes (contrast and px-font checks). (runtime: the audit checks each text element against its effective ground)
 - [ ] No Sky text on light grounds, no white on Sky, no Sunrise text.
 - [ ] At most 3 Sunrise elements on the screen (3.5 priority), each with a Paper keyline of at least 2 px (the gauge pointer 3.5); no orange button, fill, selected state, series or session kind. (runtime)
@@ -871,7 +871,7 @@ Run all of it. A change is not done until every line is true. Lines marked (runt
 - [ ] Icons: 1.75 stroke, round caps, from the set or rule-abiding Lucide; no emoji; the Progress glyph is the set's.
 - [ ] Copy: Orby (capital O, no "the", no "app"), "the assistant", American spelling, no em dashes, no model names outside required disclosures, at most one exclamation mark, sentence case.
 - [ ] Tested at 200 percent text, with Reduce Motion and Increase Contrast on; targets 44 pt. (runtime)
-- [ ] Only transform and opacity animate, plus the named cases in 9.1; durations match section 9; haptics fire on the peak frame, at most one per action.
+- [ ] Only transform and opacity animate, plus the named cases in 9.1; durations match section 9; haptics fire on the peak frame, at most one per action (the splash's timed phrase is the one exception, 9.5).
 - [ ] Third-party marks (6.15) are unmodified and marked `brand-ok: third-party`.
 - [ ] The checks in section 8 of `docs/brand/layout-and-hierarchy.md` pass (squint test, 3-second test, focal point high, proximity, type counts, containers, say it once, targets).
 - [ ] Internal identifiers unchanged (repo, `@logbook/*`, `com.joshbean.logbook`, storage keys, `LogbookAPIHost`).

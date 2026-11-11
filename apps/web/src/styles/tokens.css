@@ -40,6 +40,7 @@
   --splash-glow: radial-gradient(closest-side, #ffb680 0, rgba(255, 182, 128, 0.82) 22%, rgba(255, 182, 128, 0.5) 42%, rgba(255, 182, 128, 0.2) 64%, rgba(255, 182, 128, 0.05) 84%, rgba(255, 182, 128, 0)); /* the horizon glow, centered on the crest under the Orb */
   --splash-halo: radial-gradient(closest-side, rgba(255, 182, 128, 0.5) 30%, rgba(255, 182, 128, 0.3) 52%, rgba(255, 182, 128, 0.1) 76%, rgba(255, 182, 128, 0)); /* the Orb's own light on the sky around it */
   --splash-bloom: radial-gradient(closest-side, #fff1e4 0, rgba(255, 214, 180, 0.8) 24%, rgba(255, 182, 128, 0.42) 46%, rgba(255, 182, 128, 0.14) 72%, rgba(255, 182, 128, 0)); /* one breath of light on the frame the Orb clears the crest */
+  --splash-ring: radial-gradient(closest-side, rgba(255, 182, 128, 0) calc(100% - 14px), rgba(255, 182, 128, 0.42) calc(100% - 2px), rgba(255, 182, 128, 0)); /* the soft Apricot band just inside each sun ring's white line, 12 px wide */
 
   /* ---------- grounds, ink and lines ---------- */
   --bg: #eaf5fc; /* Cloud */

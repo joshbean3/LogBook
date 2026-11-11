@@ -37,6 +37,7 @@ add('brand-art', [
   ['--splash-glow', 'radial-gradient(closest-side, #FFB680 0, rgba(255, 182, 128, 0.82) 22%, rgba(255, 182, 128, 0.5) 42%, rgba(255, 182, 128, 0.2) 64%, rgba(255, 182, 128, 0.05) 84%, rgba(255, 182, 128, 0))', 'Sunrise splash: the horizon glow, 680 x 340, centered on the crest under the Orb, at 85 percent.', null],
   ['--splash-halo', 'radial-gradient(closest-side, rgba(255, 182, 128, 0.5) 30%, rgba(255, 182, 128, 0.3) 52%, rgba(255, 182, 128, 0.1) 76%, rgba(255, 182, 128, 0))', "Sunrise splash: the Orb's own light on the sky around it, 3.2 D across.", null],
   ['--splash-bloom', 'radial-gradient(closest-side, #FFF1E4 0, rgba(255, 214, 180, 0.8) 24%, rgba(255, 182, 128, 0.42) 46%, rgba(255, 182, 128, 0.14) 72%, rgba(255, 182, 128, 0))', 'Sunrise splash: one breath of light on the frame the Orb clears the crest, 4 D across, to 90 percent and away.', null],
+  ['--splash-ring', 'radial-gradient(closest-side, rgba(255, 182, 128, 0) calc(100% - 14px), rgba(255, 182, 128, 0.42) calc(100% - 2px), rgba(255, 182, 128, 0))', "Sunrise splash: the soft Apricot band just inside each sun ring's white line, 12 px wide (8.3).", null],
 ]);
 add('surfaces-and-ink', [
   ['--bg', '#EAF5FC', 'App ground (Cloud).', '#f3f8fb'],
