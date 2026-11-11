@@ -101,8 +101,15 @@
   color: var(--ink-2);
   opacity: 1;
 }
-.pa-input:focus {
+/* the field never draws a ring of its own: a rectangle inside the card. The card shows focus, on its own radius */
+.pa-input:focus,
+.pa-input:focus-visible {
   outline: none;
+  box-shadow: none;
+}
+/* typed at from a keyboard (ui/focus.ts quiets the ring after a touch): the focus edge and ring of guide 6.14, on the card */
+.pa.is-open .pa-box:has(.pa-input:focus-visible:not([data-quiet-focus])) {
+  box-shadow: var(--shadow-1), inset 0 0 0 1.5px var(--focus-edge), var(--focus-ring);
 }
 .pa-tools {
   display: flex;

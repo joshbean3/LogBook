@@ -282,6 +282,22 @@ export type BuilderAssistApi = ReturnType<typeof useBuilderAssist>;
 export const AssistBar = ({ assist }: { assist: BuilderAssistApi }) => {
   const { mode, draft, said, failure, busy } = assist;
   const ready = draft.trim() !== '' && !busy;
+  // The field grows with its words. `field-sizing: content` (assist.css) does that where the engine has it. Where it
+  // does not (WebKit before it shipped), the height is set here, the way the assistant's own composer sets its own.
+  useLayoutEffect(() => {
+    const el = assist.field.current;
+    if (mode !== 'compose' || !el) return;
+    if (getComputedStyle(el).getPropertyValue('field-sizing') === 'content') return;
+    el.style.height = 'auto';
+    let h = el.scrollHeight;
+    if (!el.value) {
+      // an empty field is as tall as its hint: measured with the hint as its text, which is put back at once
+      el.value = el.placeholder;
+      h = el.scrollHeight;
+      el.value = '';
+    }
+    el.style.height = `${h}px`;
+  }, [draft, mode]); // eslint-disable-line react-hooks/exhaustive-deps
   return (
     <div className={`pa${mode === 'compose' ? ' is-open' : ''}${assist.orbAway ? ' is-away' : ''}`} data-pa>
       <div className="pa-box">
