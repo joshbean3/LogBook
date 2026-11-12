@@ -1,7 +1,6 @@
-import { useFitness } from '@/lib/prefs';
 import type * as React from 'react';
 import { fmtDate, LEARNING_MAX, shiftDays, type Learning } from '@logbook/shared';
-import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useTabScroller } from '@/app/NavController';
 import { revealField } from '@/lib/keyboard';
 import { Button } from '@/ui/primitives';
@@ -9,10 +8,9 @@ import { Pressable } from '@/ui/Pressable';
 import { useSheet } from '@/ui/Sheet';
 import { useToast } from '@/ui/Toast';
 import { KPin, KTrash } from '../goals/Kit';
-import { submitDraft, todayDraft } from './draft';
 import { useLearnedMutations } from './queries';
 
-/* The pieces the tab and a month's page share: the field, the edit sheet, a learning as words, days under month headings. */
+/* The pieces the tab and a month's page share: a growing field, the edit sheet, a line as words, days under month headings. */
 
 /** Oldest first within a day: the order they were written. */
 export const byTime = (a: Learning, b: Learning) => (a.createdAt < b.createdAt ? -1 : a.createdAt > b.createdAt ? 1 : 0);
@@ -20,9 +18,9 @@ export const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n ==
 
 /**
  * A field that grows with its words and never scrolls inside itself. `foot`: while the field has focus and grows, that
- * element (the field with its Save) is kept above the keyboard, not just the field.
+ * element (the field with its button) is kept above the keyboard, not just the field.
  */
-const useGrow = (ref: React.RefObject<HTMLTextAreaElement | null>, text: string, rows = 0, foot?: React.RefObject<HTMLElement | null>) => {
+export const useGrow = (ref: React.RefObject<HTMLTextAreaElement | null>, text: string, rows = 0, foot?: React.RefObject<HTMLElement | null>) => {
   const last = useRef(0);
   useLayoutEffect(() => {
     const el = ref.current;
@@ -48,64 +46,10 @@ export const Limit = ({ text, cut }: { text: string; cut: boolean }) =>
   ) : null;
 
 /** Whether a paste into `el` would run past the limit (the field then keeps only what fits). */
-const pasteCut = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+export const pasteCut = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
   const el = e.currentTarget;
   const pasted = e.clipboardData.getData('text').length;
   return el.value.length - (el.selectionEnd - el.selectionStart) + pasted > LEARNING_MAX;
-};
-
-/**
- * The words and Save. `hero`: the day's first, at the size of the prompt above it. `quiet`: "Add another", one line until
- * there are words, Save only then. ⌘/Ctrl+Enter saves. The field is kept above the keyboard on focus (`revealField`).
- * One field serves both: it stays mounted when the day's first learning lands, and its words live in `todayDraft`, so a
- * save the server rejects puts them back in the field whichever state the card is in by then.
- */
-export const Composer = ({ today, quiet }: { today: string; quiet?: boolean }) => {
-  // the example line is about a run only for a person who has Fitness on (lib/prefs.ts)
-  const fitness = useFitness();
-  const { add } = useLearnedMutations(today);
-  const toast = useToast();
-  const ref = useRef<HTMLTextAreaElement>(null);
-  const box = useRef<HTMLDivElement>(null);
-  const [cut, setCut] = useState(false);
-  const text = useSyncExternalStore(todayDraft.subscribe, todayDraft.get, todayDraft.get);
-  const rows = quiet ? 1 : 3;
-  useGrow(ref, text, rows, box);
-  const v = text.trim();
-  const save = () => submitDraft(todayDraft, (words) => add.mutateAsync({ date: today, text: words }), () => toast('Couldn’t save that. Your words are back in the field.'));
-  return (
-    <div ref={box} className={`ln-compose ${quiet ? 'is-quiet' : ''}`}>
-      <textarea
-        ref={ref}
-        className="ln-field"
-        rows={rows}
-        maxLength={LEARNING_MAX}
-        placeholder={quiet ? 'Add another' : fitness ? 'Like: Strides after easy runs keep my legs quick.' : 'Like: A short walk after lunch clears my head.'}
-        aria-label={quiet ? 'Add another thing you learned today' : 'What you learned today'}
-        value={text}
-        onPaste={(e) => setCut(pasteCut(e))}
-        onChange={(e) => {
-          if (e.target.value.length < LEARNING_MAX) setCut(false);
-          todayDraft.set(e.target.value);
-        }}
-        onFocus={(e) => revealField(e.currentTarget)}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
-            e.preventDefault();
-            save();
-          }
-        }}
-      />
-      <Limit text={text} cut={cut} />
-      {!quiet || v ? (
-        <div className="ln-compose-foot">
-          <Pressable as="button" className={`ln-save ${v ? 'is-ready' : ''}`} disabled={!v} onPress={save} label="Save">
-            Save
-          </Pressable>
-        </div>
-      ) : null}
-    </div>
-  );
 };
 
 /** What a sheet's close does with its words: save them, unless the learning was deleted. */
@@ -115,9 +59,10 @@ interface SheetGate {
 }
 
 /**
- * Behind a tap on a learning: its words to change, Save, and Delete (with Undo). It opens at the top and unfocused, so a
- * long entry reads from its first line; a tap on the words starts editing, the caret at the end. Closing the sheet any
- * way (Close, a flick, the scrim) keeps a change, as the rest of the app saves as you go.
+ * Behind a tap on a line (or on Edit): its words to change, Save, and Delete (with Undo). It opens at the top and
+ * unfocused, so a long entry reads from its first line; a tap on the words starts editing, the caret at the end. Closing
+ * the sheet any way (Close, a flick, the scrim) keeps a change, as the rest of the app saves as you go. For one of
+ * today's lines the foot also offers "Add another line": a day may hold more than one, and this is where the next starts.
  */
 const LearningSheet = ({ item, today, gate }: { item: Learning; today: string; gate: SheetGate }) => {
   const sheet = useSheet();
@@ -186,6 +131,20 @@ const LearningSheet = ({ item, today, gate }: { item: Learning; today: string; g
         <Button variant="primary" block onClick={save} disabled={!v || v === item.text}>
           Save
         </Button>
+        {item.date === today ? (
+          <Button
+            variant="quiet"
+            block
+            onClick={() => {
+              // a change in progress is kept first; then this sheet gives way to the empty field for today
+              keep();
+              latest.current = item.text;
+              sheet.open(addSpec(today, today));
+            }}
+          >
+            Add another line
+          </Button>
+        ) : null}
       </KPin>
     </div>
   );
@@ -285,7 +244,7 @@ export const useAddLearning = (today: string) => {
   return (date: string) => sheet.open(addSpec(date, today));
 };
 
-/** One learning as serif words; a tap opens it. `clamp`: at most six lines with a fade (the sheet has the rest). */
+/** One line as words; a tap opens it. `clamp`: at most six lines (the sheet has the rest). */
 export const Line = ({ item, onOpen, className = '', clamp }: { item: Learning; onOpen: (l: Learning) => void; className?: string; clamp?: boolean }) => (
   <Pressable as="button" className={`ln-line ${className}`} press="dim" onPress={() => onOpen(item)} label={`${item.text}. Edit`}>
     {clamp ? <span className="ln-line-clamp">{item.text}</span> : item.text}
@@ -310,7 +269,6 @@ export const groupByMonth = (rows: Learning[]): Month[] => {
   for (const m of months) for (const d of m.days) d.items.sort(byTime);
   return months;
 };
-
 
 /** A day's caption: Today, Yesterday, else the weekday and the date. */
 export const dayWords = (date: string, today: string) =>

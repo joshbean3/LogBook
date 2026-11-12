@@ -1,7 +1,7 @@
 /* ======================================================================================================================
-   What I learned (layout plan 2.3): the streak tracker on the ground, today's card (the hero, with the sunrise glow), From
-   your archive as rows of one inset group, then each year as a section whose months are rows of one inset group. A
-   month's page: "By day" with its count, then only the days with something kept, as date-gutter rows of one inset group.
+   What I learned (A2; guide 6.5a): the dusk poster (ui/poster) with this page's controls under its band, the months that
+   hold a line as rows of one inset group, From your archive as rows of one inset group. A month's page: "By day" with
+   its count, then only the days with something kept, as date-gutter rows of one inset group.
    ====================================================================================================================== */
 
 /* the page fills the scroller, so a short page (loading, an error) keeps its Cloud ground under it instead of showing the
@@ -10,189 +10,27 @@
   min-height: 100%;
 }
 
-/* ---------- the streak tracker: on the ground, no card, read in passing (owner request; L 6.8 as amended) ----------
- * Line one: the count (Inter 600 17, even figures, Night Ink) and its words (Inter 500 15 Dusk) on one baseline; whether
- * today is done at the trailing edge. Line two, 8 below: seven equal columns, a 22 px bulb (in a 24 px box that holds its
- * rays) over its day letter (caption style, 4 below). Lit: Apricot glass, a Night Ink outline and three short Night Ink
- * rays (shape plus color, guide 3.3: Apricot alone is light, not ink) over a small soft warm glow, the owner's "soft glow",
- * kept inside its own column at 320. Unlit: a Pencil outline (a mark, 3.6 on Cloud). Today unlit: a Night Ink outline.
- * Today's letter is Night Ink in a 1.5 px Night Ink ring, the app's today mark (guide 6.13). */
-.ln-streak {
+/* ---------- the poster's controls, before tonight's line (guide 6.5a): the field, started from the day, the caption of
+ * where its first words came from, and the one Sky button ---------- */
+.ln-entry {
   display: grid;
-  gap: var(--sp-2);
   min-width: 0;
 }
-.ln-streak-head {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--sp-1) var(--sp-3);
-  min-width: 0;
-  min-height: var(--lh-row);
-}
-.ln-streak-count {
-  font: 500 var(--fs-sub) / var(--lh-sub) var(--sans);
-  color: var(--ink-3);
-}
-.ln-streak-count b {
-  font: 600 var(--fs-row) / var(--lh-row) var(--sans);
-  font-variant-numeric: tabular-nums;
-  color: var(--ink);
-}
-/* at zero, a calm line: the secondary voice, nothing to count yet; on the row headline's line height so the bulbs keep
-   their place */
-.ln-streak-count.is-zero {
-  line-height: var(--lh-row);
-}
-.ln-streak-today {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--sp-1);
-  font: 500 var(--fs-sub) / var(--lh-sub) var(--sans);
-  color: var(--ink-3);
-  white-space: nowrap;
-}
-.ln-streak-today.is-done {
-  font-weight: 600;
-  color: var(--ink);
-}
-.ln-streak-today > svg {
-  flex: none;
-  align-self: center;
-  color: var(--deep-sky);
-}
-.ln-bulbs {
-  display: grid;
-  grid-template-columns: repeat(7, minmax(0, 1fr));
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-.ln-bulb {
-  display: grid;
-  justify-items: center;
-  gap: var(--sp-1);
-  min-width: 0;
-}
-.ln-bulb-glyph {
-  position: relative;
-  isolation: isolate;
-  display: grid;
-  place-items: center;
-  width: 24px;
-  height: 24px;
-  color: var(--ink-faint);
-}
-.ln-bulb-svg {
-  width: 24px;
-  height: 24px;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 1.75;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  overflow: visible;
-}
-/* the lit layer: shown only on a lit bulb */
-.ln-bulb:not(.is-lit) .ln-bulb-on,
-.ln-bulb:not(.is-lit) .ln-bulb-glow {
+/* the question, over the field while it has focus: with the keyboard up the poster's title is off the top, and the field
+   must never be without its label in view. Caption style, Dusk on Paper (5.65) */
+.ln-ask {
   display: none;
+  margin: 0 0 var(--sp-2);
 }
-.ln-bulb-glass {
-  fill: var(--sun);
-  stroke: none;
+.ln-entry:focus-within .ln-ask {
+  display: block;
 }
-.ln-bulb.is-today .ln-bulb-glyph,
-.ln-bulb.is-lit .ln-bulb-glyph {
-  color: var(--ink);
-}
-/* Reduce Motion: today's light fades in, 150 ms linear, in place of the pop (guide 9.4). The class is only set under
-   Reduce Motion, where base.css cuts every animation to 0.01 ms, so this one fade keeps its 150 ms */
-@media (prefers-reduced-motion: reduce) {
-  .ln-bulb.is-fading .ln-bulb-on,
-  .ln-bulb.is-fading .ln-bulb-glow {
-    animation: ln-bulb-in var(--dur-reduce) linear both;
-    animation-duration: var(--dur-reduce) !important;
-  }
-}
-@keyframes ln-bulb-in {
-  from {
-    opacity: 0;
-  }
-}
-/* the lit bulb's light: the Apricot glow, small and soft, behind the glass and inside the bulb's column */
-.ln-bulb-glow {
-  position: absolute;
-  z-index: -1;
-  inset: calc(-1 * var(--sp-2));
-  border-radius: 50%;
-  background: var(--glow-hero);
-  pointer-events: none;
-}
-.ln-bulb-day {
-  display: grid;
-  place-items: center;
-  /* 22 at the default size; it grows with the letter at larger text sizes so the ring never cuts it */
-  min-width: max(22px, calc(var(--lh-caps) + var(--sp-2)));
-  height: max(22px, calc(var(--lh-caps) + var(--sp-2)));
-  border-radius: var(--r-pill);
-  font: 600 var(--fs-caps) / var(--lh-caps) var(--stamp);
-  letter-spacing: var(--tr-caps);
-  text-transform: uppercase;
-  color: var(--ink-3);
-}
-/* the letter's tracking sits after it; the ring centers the letter, not the letter plus its tracking */
-.ln-bulb-day {
-  text-indent: var(--tr-caps);
-}
-.ln-bulb.is-today .ln-bulb-day {
-  color: var(--ink);
-  box-shadow: inset 0 0 0 1.5px var(--ink);
-}
-
-/* ---------- today's card, the hero (L1): padding 20, the glow; the prompt, one helper line, the field, Save ---------- */
-.ln-hero.card {
-  gap: 0;
-}
-.ln-hero-head {
-  display: grid;
-  gap: var(--sp-1);
-  margin-bottom: var(--sp-3);
-}
-/* the sentence voice (guide 4.2): Fraunces italic 420, Night Ink */
-.ln-prompt {
-  margin: 0;
-  font: italic 420 var(--fs-sentence) / var(--lh-sentence) var(--serif);
-  letter-spacing: 0;
-  color: var(--ink);
-  overflow-wrap: break-word;
-}
-/* the helper: one line, the secondary voice (Inter 500 15 Dusk) */
-.ln-hint {
-  margin: 0;
-  font: 500 var(--fs-sub) / var(--lh-sub) var(--sans);
-  color: var(--ink-3);
-}
-.ln-hero-caps {
-  margin-bottom: var(--sp-1);
-}
-.ln-today-list {
-  display: grid;
-}
-.ln-hero-skel {
-  display: grid;
-  gap: var(--sp-3);
-  align-content: start;
-  /* the empty hero's own height, so nothing jumps when it lands */
-  min-height: 206px;
-}
-
-/* ---------- the field: Inter 17 Night Ink with a Dusk placeholder, never Fraunces (guide 4.5) ---------- */
-.ln-compose {
+.ln-entry-field {
+  position: relative;
   display: grid;
   min-width: 0;
 }
+/* the base field: Inter 17 Night Ink, never Fraunces (guide 4.5); it grows with its words and never scrolls inside */
 .ln-field {
   display: block;
   width: 100%;
@@ -216,51 +54,146 @@
 textarea.ln-field {
   min-height: 44px;
 }
-/* the first field starts at three lines and grows with its words (L 2.5): no block of empty Paper */
-.ln-compose:not(.is-quiet) textarea.ln-field {
-  min-height: calc(3 * var(--lh-row) + var(--sp-2));
+/* the poster's field (guide 6.14): Cloud with a hairline edge, two lines tall at rest; focused, the Deep Sky edge and the
+   Sky ring. Its words and the resting caret below share one box: padding 12 / 16, Inter 17 on the body line */
+textarea.ln-entry-in,
+.ln-entry-ghost {
+  padding: var(--sp-3) var(--sp-4);
+  border: 1px solid transparent;
+  font: 400 var(--fs-row) / var(--lh-body) var(--sans);
+  letter-spacing: 0;
 }
-/* "Add another": a hairline above, one line; its placeholder is its only label, so it reads in Dusk */
-.ln-compose.is-quiet {
+textarea.ln-entry-in {
+  min-height: calc(2 * var(--lh-body) + 2 * var(--sp-3) + 2px);
+  border-radius: var(--r-control);
+  border-color: var(--field-edge);
+  background: var(--cloud);
+}
+textarea.ln-entry-in:focus {
+  border-color: var(--focus-edge);
+  box-shadow: 0 0 0 0.5px var(--focus-edge), var(--focus-ring);
+}
+/* the caret waiting after the starter while the field is at rest: a still Deep Sky bar (no blink: nothing loops). The
+   words under it are a copy of the field's, unseen, so the bar lands where typing will begin */
+.ln-entry-ghost {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+  overflow: hidden;
+}
+.ln-entry-ghost-words {
+  visibility: hidden;
+}
+.ln-caret {
+  display: inline-block;
+  width: 2px;
+  height: 1.3em;
+  margin-left: 3px;
+  vertical-align: -0.25em;
+  border-radius: 1px;
+  background: var(--deep-sky);
+}
+/* where the first words came from, and the button: one row; the caption gives way and wraps, the button keeps its words */
+.ln-entry-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--sp-2) var(--sp-3);
+  margin-top: var(--sp-3);
+}
+.ln-entry-note {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.ln-entry-note:empty {
+  display: none;
+}
+/* the screen's one primary: Sky with Night Ink words (7.03), 48 tall, the primary glow (guide 6.2) */
+.ln-finish.btn {
+  flex: none;
+  min-height: 48px;
+  padding: var(--sp-1) var(--sp-5);
+  font-size: var(--fs-row);
+  box-shadow: var(--primary-glow);
+}
+
+/* ---------- after: tonight's line as a quote in the saved style, Saved with the date, and Edit ---------- */
+.ln-kept {
+  display: grid;
+  min-width: 0;
+}
+/* just saved: the quote comes in as tonight's light does (opacity only) */
+.ln-kept.is-fresh {
+  animation: ln-kept-in var(--dur) var(--ease-out) both;
+}
+@keyframes ln-kept-in {
+  from {
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ln-kept.is-fresh {
+    animation: ln-kept-in var(--dur-reduce) linear both;
+  }
+}
+.ln-kept-lines {
+  display: grid;
+}
+/* the saved line: the sentence voice (guide 4.2), Fraunces italic 420, Night Ink on Paper */
+.ln-line.is-quote.pressable {
+  padding: var(--sp-1) 0;
+  border-radius: 0;
+  font: italic 420 var(--fs-sentence) / var(--lh-sentence) var(--serif);
+  text-wrap: pretty;
+  overflow-wrap: break-word;
+}
+.ln-line.is-quote + .ln-line.is-quote {
   margin-top: var(--sp-2);
+  padding-top: var(--sp-3);
   border-top: 1px solid var(--line);
 }
-.ln-compose.is-quiet .ln-field {
-  padding: var(--sp-3) 0 var(--sp-2);
-}
-/* Save is the card's button (L 6.6): 44, at the words' leading edge, 16 under the field */
-.ln-compose-foot {
+.ln-kept-foot {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  padding-top: var(--sp-4);
+  justify-content: space-between;
+  gap: 0 var(--sp-3);
+  margin-top: var(--sp-2);
 }
-.ln-compose.is-quiet .ln-compose-foot {
-  padding-top: var(--sp-2);
-}
-/* Save: the screen's one primary. At rest, before there are words, the disabled primary: Haze with Dusk words (5.65), no
-   glow; with words, Sky with Night Ink words (7.03) and the primary glow (guide 6.2) */
-.ln-save.pressable {
-  position: relative;
+/* Saved: a 24 px Deep Sky coin with a white check (shape plus color), then the words in Deep Sky on Paper (5.74) */
+.ln-kept-mark {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
   min-height: var(--hit);
-  padding: 0 var(--sp-5);
-  border: 0;
-  border-radius: var(--r-pill);
-  background: var(--surface-3);
-  color: var(--ink-2);
-  font: 650 var(--fs-row) / var(--lh-row) var(--sans);
-  transition:
-    background-color var(--dur-color) var(--ease-out),
-    color var(--dur-color) var(--ease-out);
+  font: 600 var(--fs-foot) / var(--lh-foot) var(--sans);
+  color: var(--ok);
 }
-/* the disabled look is the Haze fill and Dusk words, full strength: not the shared half-opacity of a disabled pressable,
-   which would take Dusk on Haze under 4.5:1 */
-.ln-save.pressable:disabled {
-  opacity: 1;
+.ln-kept-mark > i {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--deep-sky);
+  color: var(--white);
 }
-.ln-save.is-ready {
-  background: var(--primary);
-  color: var(--primary-ink);
-  box-shadow: var(--primary-glow);
+/* Edit: words, not a pill; 44 tall, its last letter on the card's text edge */
+.ln-kept-edit.btn {
+  margin-left: auto;
+  padding: 0 var(--sp-1);
+  margin-right: calc(-1 * var(--sp-1));
+}
+/* the poster's place while it loads */
+.ln-poster-skel {
+  display: grid;
+  gap: var(--sp-3);
+  align-content: start;
+  min-height: 420px;
 }
 
 /* ---------- a learning as words ---------- */
@@ -280,12 +213,6 @@ textarea.ln-field {
   overflow-wrap: anywhere;
   border-radius: var(--r-sm);
   cursor: pointer;
-}
-.ln-line.is-today.pressable {
-  border-radius: 0;
-}
-.ln-line.is-today + .ln-line.is-today {
-  border-top: 1px solid var(--line);
 }
 /* today's lines: six at most; the sheet has the rest */
 .ln-line-clamp {
@@ -441,38 +368,13 @@ textarea.ln-field {
   margin-top: var(--section);
 }
 
-/* ---------- the archive (L4): a year per section, its months as 64 rows of one inset group ---------- */
-/* the month's tile: 32 px, its short name in caption style, Dusk on Haze (5.65) */
-.ln-mtile.icon-tile {
-  font: 600 var(--fs-caps) / 1 var(--stamp);
-  /* the one caps tracking (guide 4.3); the indent balances the tracking after the last letter so the name stays centered */
-  letter-spacing: var(--tr-caps);
-  text-indent: var(--tr-caps);
-  text-transform: uppercase;
-  color: var(--ink-2);
-}
-.ln-mrow-top {
-  display: flex;
-  align-items: baseline;
-  gap: var(--sp-2);
-  min-width: 0;
-}
-.ln-mrow-name.k-row-title {
-  flex: none;
-}
-/* the running month's one marker: Ember words on Paper (5.51); it gives way first, the name stays whole */
-.ln-mrow-now {
-  flex: 0 1 auto;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  font: 600 var(--fs-foot) / var(--lh-foot) var(--sans);
-  color: var(--now-text);
-  white-space: nowrap;
+/* ---------- the archive under the poster: the months that hold a line, one 56 row each (book tile, month, count) ---------- */
+.ln-year.is-now {
+  margin-top: var(--gap);
 }
 .ln-mrow-meta {
-  font: 400 var(--fs-row) / var(--lh-row) var(--sans);
-  color: var(--ink-3);
+  font: 500 var(--fs-sub) / var(--lh-sub) var(--sans);
+  color: var(--ink-2);
 }
 
 /* ---------- search results: a month's days in one card ---------- */
@@ -566,21 +468,10 @@ textarea.ln-field {
   padding: 0 var(--sp-5);
 }
 
-@media (max-width: 359px) {
-  .ln-mrow-now {
-    display: none;
-  }
-}
-
 /* ---------- Larger Text (above 150 percent, html[data-text-xl]): nothing clips, rows grow (guide 11) ---------- */
-/* Save grows with its words instead of cutting them */
-html[data-text-xl] .ln-save.pressable {
-  padding-block: var(--sp-1);
-}
-/* the streak's two halves stack; the bulbs keep their seven columns, and the letters grow inside them */
-html[data-text-xl] .ln-streak-head {
-  flex-direction: column;
-  align-items: flex-start;
+/* the button takes the row to itself under its caption, and wraps its words before it would cut them */
+html[data-text-xl] .ln-finish.btn {
+  flex: 1 1 100%;
 }
 /* the date column at this size: the numeral and its weekday outgrow 40 px, so the column grows with them and today's ring
    grows with its numeral (a request to move this into DateGutter itself is with the merge owner) */
