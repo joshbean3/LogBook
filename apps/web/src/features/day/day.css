@@ -668,6 +668,8 @@
   flex: 1;
   min-width: 0;
   display: grid;
+  /* the track may shrink, so a long name is cut with its ellipsis inside the card, not drawn under the ring */
+  grid-template-columns: minmax(0, 1fr);
 }
 /* the session's name in a row: Inter 600 at the row size, as the plan has it (Inter Tight is for captions only) */
 .ss-stamp {

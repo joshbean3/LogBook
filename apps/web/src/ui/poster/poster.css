@@ -376,6 +376,8 @@
 .pth-text {
   flex: 1 1 auto;
   display: grid;
+  /* the track may shrink: one long word (a pasted link) breaks inside the row, never under the check or off the card */
+  grid-template-columns: minmax(0, 1fr);
   min-width: 0;
 }
 .pth-main > :not(.pth-text):not(.pth-chev) {
@@ -383,7 +385,7 @@
   min-width: 0;
 }
 .pth-title {
-  overflow-wrap: break-word;
+  overflow-wrap: anywhere;
 }
 .pth-tag,
 .pth-cap {
@@ -398,6 +400,7 @@
 .pth-sub {
   font: 500 var(--fs-sub) / var(--lh-sub) var(--sans);
   color: var(--ink-2);
+  overflow-wrap: anywhere;
 }
 .pth-chev {
   flex: none;
