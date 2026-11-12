@@ -4,11 +4,11 @@ import { mondayOf } from '@logbook/shared';
  * What a change made outside the week's own rows needs from the week on screen (the Add sheet and its Undo, which live in
  * the sheet and the toast). Two small things, with no imports from Plan, so the sheet can use them:
  *
- * - `beforeWeekChange(date)`: called right before a session is written to or taken from `date`. The live week group of
- *   that week reads where its rows are (its FLIP capture, flip.ts), so the rows the change moves slide to their new
- *   places instead of jumping. Nothing happens when that week is not on screen.
- * - `markArriving(id)` / `arrivingFor(id)`: the session that was just added. Its row is lit for a moment and brought into
- *   view when it mounts (Week.tsx), so the eye finds what was added.
+ * - `beforeWeekChange(date)`: called right before a session is written to or taken from `date`. A week on screen that
+ *   registered a capture (`onWeekChange`) hears it. The line of days registers none today (its stops do not slide), so
+ *   this is a no-op kept for the sheet's callers.
+ * - `markArriving(id)` / `arrivingFor(id)`: the session that was just added. Its stop is brought into view once the
+ *   sheet is on its way down (Week.tsx), so the eye finds what was added.
  */
 const captures = new Map<string, () => void>();
 
