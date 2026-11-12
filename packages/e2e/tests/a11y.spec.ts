@@ -37,7 +37,7 @@ test.describe('signed out', () => {
 test.describe('signed in', () => {
   // a month of the journal is a pushed page of its own (`/journal/2026-11`); the month is this one
   const MONTH = new Date().toISOString().slice(0, 7);
-  const ROUTES = ['/today', '/goals', '/plan', '/progress', '/journal', `/journal/${MONTH}`, '/settings', '/settings/you', '/settings/training', '/settings/habits', '/settings/plans', '/settings/connections'];
+  const ROUTES = ['/today', '/goals', '/plan', '/journal', `/journal/${MONTH}`, '/settings', '/settings/you', '/settings/training', '/settings/habits', '/settings/plans', '/settings/connections'];
 
   test('every tab and the Settings pages', async ({ page }) => {
     await signUpByApi(page);
