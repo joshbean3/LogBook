@@ -1,4 +1,5 @@
 import { counts, isSkipMark, num, sessionStatus, weekSummary, type ISODate, type Snapshot } from '@logbook/shared';
+import { crestY, HZ, markX, marksOf, MAX_MARKS, NEAR_CREST, sunAt } from '@/ui/poster/horizon';
 import type { Face } from './faces';
 
 /**
@@ -143,61 +144,8 @@ export const faceLead = (face: Pick<Face, 'lead' | 'runs'>): Pick<HeroInput, 'le
 
 // ---------- the drawing's geometry (spec 4.1, 4.2), in the 358 x 88 viewBox ----------
 
-/** The sun's way: its center at rest (x0, yH) and with the count met (x1, yTop). */
-export const HZ = { x0: 38, x1: 320, yH: 63, yTop: 22, W: 282, D: 41 } as const;
-type Pt = readonly [number, number];
-/** The near hill's crest (the horizon), as cubic Bézier segments [p0, c1, c2, p1]: `M 0 69 C 40 62 86 56 138 59 C 198 63 250 72 300 70 C 325 69 345 66 358 64`. */
-export const NEAR_CREST: readonly (readonly [Pt, Pt, Pt, Pt])[] = [
-  [[0, 69], [40, 62], [86, 56], [138, 59]],
-  [[138, 59], [198, 63], [250, 72], [300, 70]],
-  [[300, 70], [325, 69], [345, 66], [358, 64]],
-];
-/** The sun's center at fraction `f`: straight across, and up a parabola whose top is the full count. */
-export const sunAt = (f: number): [number, number] => [HZ.x0 + HZ.W * f, HZ.yTop + HZ.D * (1 - f) * (1 - f)];
-/** A mark's center x from its share. */
-export const markX = (share: number): number => HZ.x0 + HZ.W * share;
-const bez = (a: number, b: number, c: number, d: number, t: number) => {
-  const m = 1 - t;
-  return m * m * m * a + 3 * m * m * t * b + 3 * m * t * t * c + t * t * t * d;
-};
-/** The horizon's height at x (each segment's x rises with t, so t is found by halving). */
-export const crestY = (x: number): number => {
-  const seg = NEAR_CREST.find((s) => x <= s[3][0]) ?? NEAR_CREST[NEAR_CREST.length - 1]!;
-  const [p0, c1, c2, p1] = seg;
-  let lo = 0;
-  let hi = 1;
-  for (let i = 0; i < 40; i++) {
-    const t = (lo + hi) / 2;
-    if (bez(p0[0], c1[0], c2[0], p1[0], t) < x) lo = t;
-    else hi = t;
-  }
-  return bez(p0[1], c1[1], c2[1], p1[1], (lo + hi) / 2);
-};
-/** Marks past this many are not drawn: the band carries the count. */
-export const MAX_MARKS = 10;
-/** The first mark's center is never left of this (clear of the resting sun), and each next is this far right of the last. */
-const FIRST_X = 70;
-const MARK_GAP = 14;
-/** A lit mark this close to the sun's center (the sun's 15 and its 3.5 keyline, the mark's 4.5, and 2 to spare) is in the sun. */
-const IN_SUN = 25;
-
-/**
- * The marks of a count (spec 6.5): one per session (`max(planned, done)`), evenly spread along the way, then pushed right
- * where they would crowd: the first never left of 70, each next at least 14 past the one before. The first `done` are lit.
- * Evenly spread, the sun (at done over planned) always stands halfway between the last lit mark and the next open one.
- */
-const marksOf = (c: HeroCount, f: number): HeroMark[] => {
-  const n = Math.max(c.planned, c.done);
-  if (n > MAX_MARKS) return [];
-  const [sx, sy] = sunAt(f);
-  let last = FIRST_X - MARK_GAP;
-  return Array.from({ length: n }, (_, i) => {
-    const x = Math.max(markX((i + 0.5) / n), last + MARK_GAP);
-    last = x;
-    const lit = i < c.done;
-    return { share: (x - HZ.x0) / HZ.W, lit, inSun: lit && Math.hypot(x - sx, crestY(x) - sy) < IN_SUN };
-  });
-};
+// The geometry lives in `@/ui/poster/horizon` (the day poster draws the same landscape); re-exported so importers keep their path.
+export { crestY, HZ, markX, MAX_MARKS, NEAR_CREST, sunAt };
 
 // ---------- the words ----------
 

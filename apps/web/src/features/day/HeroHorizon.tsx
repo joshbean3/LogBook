@@ -7,7 +7,8 @@ import { useNowMark, usePageShown } from '@/ui/nowBudget';
 import { registerRunner } from '@/ui/orbPaint';
 import { Segmented } from '@/ui/primitives';
 import { Pressable } from '@/ui/Pressable';
-import { crestY, HZ, markX, NEAR_CREST, sunAt, VIEW_WORD, type HeroScene, type HeroView } from './heroWeek';
+import { closed, FAR, KEY, MARK_R, MIDDLE, NEAR, SKY, SUN_R, sunDx, sunDy, VB_H, VB_W, WAY } from '@/ui/poster/horizon';
+import { crestY, HZ, markX, sunAt, VIEW_WORD, type HeroScene, type HeroView } from './heroWeek';
 
 /**
  * Today's hero, the week horizon (the hero spec, docs/brand/hero.md; guide 6.5). The scene zone of the hero card: the
@@ -25,24 +26,6 @@ import { crestY, HZ, markX, NEAR_CREST, sunAt, VIEW_WORD, type HeroScene, type H
  */
 
 // ---------- the fixed drawing (spec 4.1, 4.2), in the 358 x 88 viewBox ----------
-type Pt = readonly [number, number];
-const crestPath = (segs: readonly (readonly [Pt, Pt, Pt, Pt])[]) => `M ${segs[0]![0].join(' ')} ` + segs.map(([, c1, c2, p1]) => `C ${c1.join(' ')} ${c2.join(' ')} ${p1.join(' ')}`).join(' ');
-const VB_W = 358;
-const VB_H = 88;
-const NEAR = crestPath(NEAR_CREST);
-const MIDDLE = 'M 0 81 C 60 82 120 80.5 180 77.5 C 235 75 300 76.5 358 80';
-const FAR = 'M 0 78 C 70 76 140 79 205 82.5 C 260 85.5 315 85 358 82.5';
-const closed = (crest: string) => `${crest} L ${VB_W} ${VB_H} L 0 ${VB_H} Z`;
-const SKY = `${NEAR} L ${VB_W} -90 L 0 -90 Z`;
-const SUN_R = 15;
-const KEY = 3.5;
-const MARK_R = 4.5;
-/** The way's dots: one every 7 along the parabola, never past 301 (clear of the sun's place). */
-const WAY = Array.from({ length: 40 }, (_, i) => {
-  const x = HZ.x0 + 7 * (i + 1);
-  const u = (x - HZ.x0) / HZ.W;
-  return { x, y: HZ.yTop + HZ.D * (1 - u) * (1 - u) };
-}).filter((d) => d.x <= 301);
 /** With nothing done, the sun rises from 18.5 under its resting place on the first view of the day. */
 const RISE = SUN_R + KEY;
 /** The first view of the day: everything is home by this, then the gate lifts (spec 9.1: all of it inside 850 ms). */
@@ -60,10 +43,6 @@ const useAfterSplash = (on: boolean) => {
   }, [gone]);
   return gone;
 };
-
-/** The sun's offset from its resting place (38, 63) at fraction f, as the group's translate. */
-const sunDx = (f: number) => HZ.W * f;
-const sunDy = (f: number) => HZ.D * (1 - f) * (1 - f) - HZ.D;
 
 const DayDefs = ({ id }: { id: string }) => (
   <defs>
