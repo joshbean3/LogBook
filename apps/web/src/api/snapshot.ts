@@ -1,5 +1,6 @@
 import { monthOf, today, type Activity, type HabitCheck, type JournalEntry, type LiftSet, type Session, type Snapshot } from '@logbook/shared';
 import { useMemo } from 'react';
+import { wholeMonth } from './monthShape';
 import type { MonthBundle } from './types';
 
 /** The shared status rules read the world through this; here it's built from whatever months are cached. */
@@ -16,12 +17,18 @@ export interface AppSnapshot extends Snapshot {
 }
 
 export const buildSnapshot = (bundles: Record<string, MonthBundle>, t = today(), easyPace: number | null = null): AppSnapshot => {
+  // every month is read through `wholeMonth` (monthShape.ts): one kept on the phone by an earlier build, or sent by an
+  // older server, may lack a list this build reads, and no reader here may throw for it
+  const month = (m: string): MonthBundle | undefined => {
+    const b = bundles[m];
+    return b ? wholeMonth(b) : undefined;
+  };
   const byDate = <T>(pick: (b: MonthBundle) => T[], dateOf: (x: T) => string) => {
     const cache = new Map<string, T[]>();
     return (d: string): T[] => {
       const hit = cache.get(d);
       if (hit) return hit;
-      const b = bundles[monthOf(d)];
+      const b = month(monthOf(d));
       const out = b ? pick(b).filter((x) => dateOf(x) === d) : [];
       cache.set(d, out);
       return out;
@@ -44,8 +51,8 @@ export const buildSnapshot = (bundles: Record<string, MonthBundle>, t = today(),
     isHabitDone: (d, id) => !!checksOn(d).find((c) => c.habitId === id)?.done,
     liftsOn,
     journalOn: (d) => [...journalOn(d)].sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1)),
-    coachOn: (d, key) => bundles[monthOf(d)]?.coach.find((c) => c.date === d && c.key === key)?.text ?? null,
-    morningOverride: (d) => bundles[monthOf(d)]?.morningDays[d] ?? null,
+    coachOn: (d, key) => month(monthOf(d))?.coach.find((c) => c.date === d && c.key === key)?.text ?? null,
+    morningOverride: (d) => month(monthOf(d))?.morningDays[d] ?? null,
     runsOn: (d) => activitiesOn(d).filter((a) => a.kind === 'run'),
   };
 };

@@ -6,6 +6,7 @@ import { STRAVA_BUILT } from '@/lib/features';
 import { STRAVA_GAP_MS } from '@/lib/gesture';
 import { BadShapeError, parseBootstrap } from './bootstrap';
 import { api, ApiError, LONG_TIMEOUT_MS, NetworkError } from './client';
+import { wholeMonth } from './monthShape';
 import { outbox, write } from './outbox';
 import type { Bootstrap, Daily, ExportBundle, MonthBundle, OnboardingAnswers, OnboardingResult, TemplateApplied } from './types';
 
@@ -42,7 +43,8 @@ export const fetchBootstrap = async (): Promise<Bootstrap> => {
 };
 export const useBootstrap = (opts: { enabled?: boolean } = {}) => useQuery({ queryKey: keys.bootstrap, queryFn: fetchBootstrap, staleTime: 60_000, enabled: opts.enabled ?? true });
 
-export const fetchMonth = (m: string) => api<MonthBundle>(`/months/${m}`);
+/** One month, made whole at the door (monthShape.ts): every reader may trust its lists and each session's fields. */
+export const fetchMonth = (m: string) => api<unknown>(`/months/${m}`).then(wholeMonth);
 export const useMonth = (m: string) => useQuery({ queryKey: keys.month(m), queryFn: () => fetchMonth(m), staleTime: 30_000 });
 
 const versions = new WeakMap<object, number>();
