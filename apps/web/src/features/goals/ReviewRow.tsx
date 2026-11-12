@@ -1,6 +1,6 @@
 import { awaitingReview, periodSpan, shiftDays, type Aim, type GoalStatus, type ISODate } from '@logbook/shared';
 import { CircleDashed } from 'lucide-react';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useGoals } from '@/api/queries';
 import { useToday } from '@/lib/useToday';
 import { Pressable } from '@/ui/Pressable';
@@ -9,7 +9,7 @@ import { useSheet } from '@/ui/Sheet';
 import { goalOf, periodCaps, STATUS_WORD } from './model';
 import { ReviewButtons } from './GoalSheets';
 import { useCarry } from './CarryOver';
-import { owedWords } from './follow';
+import { answerHeld, owedWords } from './follow';
 import { KPin } from './Kit';
 import './goals.css';
 
@@ -27,6 +27,13 @@ const ReviewSheet = ({ total }: { total: number }) => {
   const first = useRef(total);
   // the goal just answered Partly or Missed that today could take over, until it is carried or skipped
   const [offer, setOffer] = useState<{ goal: Aim; status: GoalStatus } | null>(null);
+  // when the goal now asked about came on screen: the answers stay in place as the next goal comes in under them, so an
+  // answer that lands at once (the second tap of a double tap) is not taken for a goal nobody has read (follow.ts)
+  const shownAt = useRef(0);
+  const asked = offer ? undefined : owed[0]?.id;
+  useEffect(() => {
+    shownAt.current = performance.now();
+  }, [asked]);
   if (offer)
     return (
       <div className="gsheet k-sheet">
@@ -79,7 +86,7 @@ const ReviewSheet = ({ total }: { total: number }) => {
         <p className="gs-sentence serif">{g.text}</p>
         {n ? <p className="k-foot">{k === n ? 'Every step was checked.' : `${k} of ${n} steps were checked.`}</p> : null}
       </section>
-      <ReviewButtons goal={g} onAnswer={(s) => (canCarry && (s === 'partly' || s === 'missed') ? setOffer({ goal: g, status: s }) : undefined)} />
+      <ReviewButtons goal={g} held={() => answerHeld(shownAt.current, performance.now())} onAnswer={(s) => (canCarry && (s === 'partly' || s === 'missed') ? setOffer({ goal: g, status: s }) : undefined)} />
       <KPin>
         <Button variant="quiet" className="gs-later" onClick={() => sheet.close()}>
           Later

@@ -268,9 +268,10 @@ export const StatusIcon = ({ status, size = 16 }: { status: GoalStatus; size?: n
   status === 'done' ? <Check size={size} strokeWidth={2.6} aria-hidden="true" /> : status === 'partly' ? <Minus size={size} strokeWidth={2.6} aria-hidden="true" /> : status === 'missed' ? <X size={size} strokeWidth={2.4} aria-hidden="true" /> : <CircleDashed size={size} strokeWidth={2} aria-hidden="true" />;
 
 /** The three answers to "did you hit it?" as one row of buttons; the chosen one is lit. */
-export const ReviewButtons = ({ goal, onAnswer }: { goal: Aim; onAnswer?: (s: GoalStatus) => void }) => {
+export const ReviewButtons = ({ goal, onAnswer, held }: { goal: Aim; onAnswer?: (s: GoalStatus) => void; /** True while a tap must not count (the review sheet, just after the next goal came in). */ held?: () => boolean }) => {
   const { review } = useGoalMutations();
   const answer = (s: GoalStatus) => {
+    if (held?.()) return;
     const next = goal.status === s ? 'open' : s;
     review.mutate({ id: goal.id, status: next });
     if (next === 'done') haptics.toggle();
@@ -395,6 +396,7 @@ const ClearGoal = ({ id, level, period }: { id: string; level: GoalLevel; period
   const qc = useQueryClient();
   const toast = useToast();
   const g = sheetGoal(goals.data, id, level, period);
+  const cleared = useRef(false);
   /** Undo: the words and steps come back with the PUT (which revives the row as open), then its answer and its note. */
   const restore = async (was: Aim) => {
     await set.mutateAsync({ level: was.level, period: was.period, text: was.text, original: was.original, why: was.why, steps: was.steps });
@@ -415,6 +417,10 @@ const ClearGoal = ({ id, level, period }: { id: string; level: GoalLevel; period
           className="block k-danger"
           block
           onClick={() => {
+            // once: a second press before the sheet has gone would clear a goal that is already cleared, and the
+            // refusal's toast would take the place of the one that offers Undo
+            if (cleared.current) return;
+            cleared.current = true;
             const was = g;
             haptics.delete();
             clear.mutate(g.id);
