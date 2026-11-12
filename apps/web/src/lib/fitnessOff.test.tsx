@@ -170,7 +170,8 @@ describe('Fitness off: no screen speaks of training', () => {
     // what remains is a whole page, in its order (on Today the day's own sections lead), and it names no training
     expect(off.replace(/<[^>]+>/g, ' ')).toMatch(screen[4]);
     expect(hits(off)).toEqual([]);
-  });
+    // a whole screen and everything it imports: the first one loads most of the app, so it gets room on a busy machine
+  }, 60_000);
 
   it('the assistant’s starters name no run and no plan, with access on or off, from every tab', async () => {
     const { startersFor } = await import('@/features/assistant/AssistantPane');

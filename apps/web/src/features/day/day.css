@@ -2429,6 +2429,11 @@
 .day-learned-chev {
   color: var(--ink-2);
 }
+/* the question is the row: at 320 it takes a second line, never an ellipsis */
+.day-learned .lrow-title {
+  white-space: normal;
+  overflow: visible;
+}
 /* every section is off: one calm line and the way to the switches */
 .day-none {
   display: grid;
