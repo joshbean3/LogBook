@@ -1,4 +1,4 @@
-import { useSyncExternalStore } from 'react';
+import { createContext, createElement, useContext, useSyncExternalStore, type ReactNode } from 'react';
 
 /**
  * Which day page is live (the pager's cur page), as a tiny store instead of a prop (risk 1): the pager makes neighbours
@@ -20,8 +20,18 @@ const subscribe = (f: () => void) => {
 export const getLiveDate = () => live;
 /** Hears every change of the live page (for a store that reads `getLiveDate` only while it needs to). */
 export const subscribeLive = subscribe;
-/** True while `date` is the pager's cur page. */
-export const useIsLive = (date: string) => useSyncExternalStore(subscribe, () => live === date, () => live === date);
+/**
+ * A card drawn outside Today's pager (the training card on Fitness) is always the live one: it has no neighbours, and
+ * which day Today is paged to is not its business. Inside this scope `useIsLive` answers true whatever the store says.
+ */
+const AlwaysLive = createContext(false);
+export const LiveScope = ({ children }: { children: ReactNode }) => createElement(AlwaysLive.Provider, { value: true }, children);
+/** True while `date` is the pager's cur page, or anywhere inside a `LiveScope`. */
+export const useIsLive = (date: string) => {
+  const always = useContext(AlwaysLive);
+  const cur = useSyncExternalStore(subscribe, () => live === date, () => live === date);
+  return always || cur;
+};
 
 /**
  * Whether the day pager is moving (a slide, a spring, a drag): DayView registers its handle's `moving`. The hero reads it at a

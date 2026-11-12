@@ -7,6 +7,7 @@ import { dayRange } from '@/ui/charts/range';
 import { faceOf } from '../day/faces';
 import { DayHero, OtherSessions, useMarkOverride } from '../day/Hero';
 import { HeroHorizon } from '../day/HeroHorizon';
+import { LiveScope } from '../day/live';
 import { setHeroView, useHeroView } from '../day/heroView';
 import { heroScene, heroWeek, type HeroLead, type HeroScene } from '../day/heroWeek';
 import { faceForWhen, useAfternoon, useTrainWhen, whenFace, type AfternoonSettings, type TrainWhen } from '../day/trainWhen';
@@ -35,12 +36,11 @@ const dayFace = (log: Log, date: ISODate, minutes: number, when: TrainWhen, pm: 
 
 /**
  * What stands round the card on Fitness. The card's parts ask features/day/live.ts whether their page is "live", and that
- * store is written by Today's day pager alone: with Today paged to another day, this card (today's, on another tab) reads
- * as a neighbour page and draws without its motion and its now mark. The card on Fitness is always the page on screen:
- * once live.ts has a scope that says so (a context `useIsLive` reads before the store), it is provided here. The test
- * beside this file fails until then (TrainingCard.test.tsx).
+ * store is written by Today's day pager alone: with Today paged to another day, this card (today's, on another tab) would
+ * read as a neighbour page and draw without its motion and its now mark. The card on Fitness is always the page on
+ * screen, so it stands in a LiveScope, where the answer is always yes.
  */
-export const CardScope = ({ children }: { children: React.ReactNode }): React.JSX.Element => <>{children}</>;
+export const CardScope = ({ children }: { children: React.ReactNode }): React.JSX.Element => <LiveScope>{children}</LiveScope>;
 
 export const TrainingCard = memo(function TrainingCard({ date, log: real }: { date: ISODate; log: Log }): React.JSX.Element {
   const { log, markNow } = useMarkOverride(real, date);
