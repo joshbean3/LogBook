@@ -32,7 +32,7 @@ import { haptics } from '@/lib/haptics';
 import { revealField } from '@/lib/keyboard';
 import { isNative } from '@/lib/native';
 import { useToday } from '@/lib/useToday';
-import { GoalsIcon, JournalIcon, LearnedIcon, PlanIcon, ProgressIcon, TodayIcon, type BrandIconComponent } from '@/ui/icons';
+import { FitnessIcon, GoalsIcon, JournalIcon, LearnedIcon, ProgressIcon, TodayIcon, type BrandIconComponent } from '@/ui/icons';
 import { useSheet } from '@/ui/Sheet';
 import { useToast } from '@/ui/Toast';
 import { ATTACHMENT_LIMITS, type AssistantFileShown } from '@logbook/shared';
@@ -70,7 +70,7 @@ const TurnFiles = ({ files }: { files: AssistantFileShown[] }) => (
 );
 
 /** The screen it was opened from, in the set's own tab glyphs (guide 7; plan 5.4: never a pulse for Progress). */
-const SCREEN_ICON: Record<AssistantScreen['tab'], BrandIconComponent> = { today: TodayIcon, plan: PlanIcon, progress: ProgressIcon, goals: GoalsIcon, learned: LearnedIcon, journal: JournalIcon };
+const SCREEN_ICON: Record<AssistantScreen['tab'], BrandIconComponent> = { today: TodayIcon, plan: FitnessIcon, progress: ProgressIcon, goals: GoalsIcon, learned: LearnedIcon, journal: JournalIcon };
 
 /** Ways to start an empty chat: two lines each (what, then the rest), as starter cards in phone chat apps read. */
 type Starter = { title: string; sub: string; send?: string; attach?: true };

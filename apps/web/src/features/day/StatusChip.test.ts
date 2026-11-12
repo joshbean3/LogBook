@@ -10,7 +10,7 @@ describe('Today’s status row (guide 6.13)', () => {
   it('ordinary training has no status pill: the plan pill stands alone, with the plan’s name', () => {
     const r = statusRow(null, [block()], WED, WED, true);
     expect(r.status).toBeNull();
-    expect(r.plan).toEqual({ name: 'Half marathon', phase: 'Week 3 of 12', said: 'Half marathon, Week 3 of 12. Open Plan' });
+    expect(r.plan).toEqual({ name: 'Half marathon', phase: 'Week 3 of 12', said: 'Half marathon, Week 3 of 12. Open Fitness' });
     expect(r.make).toBe(false);
   });
   it('never says "Day by day" or "On the plan"', () => {

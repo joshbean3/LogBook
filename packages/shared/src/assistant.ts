@@ -233,8 +233,8 @@ export const zAssistantScreen = z.object({
 });
 export type AssistantScreen = z.infer<typeof zAssistantScreen>;
 
-const TAB_NAME: Record<AssistantScreen['tab'], string> = { today: 'Today', plan: 'Plan', progress: 'Progress', goals: 'Goals', learned: 'Learned', journal: 'Journal' };
-/** The screen in words, as the chip shows it and the assistant reads it: "Plan, week of Nov 9", "Today, Sun Nov 8". */
+const TAB_NAME: Record<AssistantScreen['tab'], string> = { today: 'Today', plan: 'Fitness', progress: 'Progress', goals: 'Goals', learned: 'Learned', journal: 'Journal' };
+/** The screen in words, as the chip shows it and the assistant reads it: "Fitness, week of Nov 9", "Today, Sun Nov 8". */
 export const screenLabel = (s: AssistantScreen): string => {
   const name = TAB_NAME[s.tab];
   if (s.tab === 'plan' && s.plan) return 'Plan summary';

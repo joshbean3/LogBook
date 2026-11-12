@@ -12,7 +12,7 @@ describe('the line that says what changed', () => {
   it('reads the owner’s example the way the builder applied it', () => {
     const applied = applyPlanPatch(answers, { runsPerWeek: 4, longRunDay: 'sun', peakMiles: 35 }, T);
     expect(setLine(applied.changes)).toBe('Set 4 run days, long run Sunday, peak up to 35 mi.');
-    expect(assistSaid(applied, { ...none, cannot: ['lifts'] })).toEqual({ set: 'Set 4 run days, long run Sunday, peak up to 35 mi.', notes: ['This plan holds runs only. Add lifts on the Plan tab.'] });
+    expect(assistSaid(applied, { ...none, cannot: ['lifts'] })).toEqual({ set: 'Set 4 run days, long run Sunday, peak up to 35 mi.', notes: ['This plan holds runs only. Add lifts on the Fitness tab.'] });
   });
   it('names each kind of change in plain words', () => {
     const each: Array<[PlanChange, string]> = [
@@ -45,7 +45,7 @@ describe('the line that says what changed', () => {
     const same = applyPlanPatch(answers, { longRunDay: 'sat', weeklyMiles: 20 }, T);
     expect(assistSaid(same, none)).toEqual({ set: null, notes: [ALREADY_SET] });
     const cannot = applyPlanPatch(answers, {}, T);
-    expect(assistSaid(cannot, { ...none, cannot: ['lifts', 'paces'] })).toEqual({ set: null, notes: ['This plan holds runs only. Add lifts on the Plan tab.', 'Paces aren’t set here.'] });
+    expect(assistSaid(cannot, { ...none, cannot: ['lifts', 'paces'] })).toEqual({ set: null, notes: ['This plan holds runs only. Add lifts on the Fitness tab.', 'Paces aren’t set here.'] });
   });
   it('puts the assistant’s own sentence first, then what has no setting, then why a value moved; three at most, each once', () => {
     const applied = applyPlanPatch(answers, { weeksChange: 40, peakMiles: 5 }, T);

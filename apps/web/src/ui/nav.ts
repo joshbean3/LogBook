@@ -1,5 +1,6 @@
-import { GoalsIcon, JournalIcon, LearnedIcon, PlanIcon, ProgressIcon, TodayIcon, type BrandIconComponent } from './icons';
+import { GoalsIcon, JournalIcon, LearnedIcon, FitnessIcon, ProgressIcon, TodayIcon, type BrandIconComponent } from './icons';
 import { DEV_TOOLS } from '@/lib/features';
+import { fitnessOn, isFitnessPath } from '@/lib/prefs';
 
 /**
  * The navigation model (docs/feel.md §1, contracts §A.1): six tabs, the route table, and `matchRoute`, which turns a URL into
@@ -15,16 +16,22 @@ export interface TabDef {
   label: string;
   icon: BrandIconComponent;
 }
-/** Six, in this order (§1.1; Goals is the second tab, What I learned the third; habits live at the top of Today). Icons from the brand set (guide 6.1, 7): sun, rings, bulb, calendar, the rising line, the open book. */
+/**
+ * Six, in this order (§1.1; Goals is the second tab, What I learned the third; habits live at the top of Today). Icons from
+ * the brand set (guide 6.1, 7): sun, rings, bulb, the lift bar, the rising line, the open book. The fourth tab is Fitness
+ * (its id and routes keep the name `plan`); with Fitness switched off it is not drawn (`shownTabs`, lib/prefs.ts).
+ */
 export const TABS: readonly TabDef[] = [
   { id: 'today', root: '/today', label: 'Today', icon: TodayIcon },
   { id: 'goals', root: '/goals', label: 'Goals', icon: GoalsIcon },
   { id: 'learned', root: '/learned', label: 'Learned', icon: LearnedIcon },
-  { id: 'plan', root: '/plan', label: 'Plan', icon: PlanIcon },
+  { id: 'plan', root: '/plan', label: 'Fitness', icon: FitnessIcon },
   { id: 'progress', root: '/progress', label: 'Progress', icon: ProgressIcon },
   { id: 'journal', root: '/journal', label: 'Journal', icon: JournalIcon },
 ];
 export const tabDef = (id: TabId): TabDef => TABS.find((t) => t.id === id)!;
+/** The tabs the capsule draws: all six, or five with Fitness off. */
+export const shownTabs = (fitness: boolean): readonly TabDef[] => (fitness ? TABS : TABS.filter((t) => t.id !== 'plan'));
 
 export type RouteKind = 'root' | 'pushed' | 'full' | 'redirect';
 export interface RouteDef {
@@ -63,6 +70,8 @@ export const ROUTES: readonly RouteDef[] = [
   // a month of What I learned, from the tab's archive ('/learned/2026-11-01': the first of the month, like Plan's months)
   { pattern: '/learned/:month', owner: 'learned', kind: 'pushed', depth: 1, title: (p) => (p.month ? new Intl.DateTimeFormat('en-US', { month: 'long', year: 'numeric', timeZone: 'UTC' }).format(new Date(`${p.month}T12:00:00Z`)) : 'What I learned') },
   { pattern: '/plan', owner: 'plan', kind: 'root' },
+  // the tab's name in a link: the route keeps its old name
+  { pattern: '/fitness', owner: null, kind: 'redirect', to: '/plan' },
   // a morning's schedule, pushed over Plan from its morning card (today's when no date is given; never moves Plan's root)
   { pattern: '/plan/morning/:date?', owner: 'plan', kind: 'pushed', depth: 1, title: 'This morning' },
   { pattern: '/plan/week/:mon', owner: 'plan', kind: 'root' },
@@ -205,6 +214,8 @@ export const entryFor = (route: RouteDef, path: string, params: Record<string, s
  */
 export const matchRoute = (pathname: string): RouteMatch => {
   const path = clean(pathname);
+  // Fitness is switched off: its tab, its settings pages and its charts all lead to Today (lib/prefs.ts)
+  if (!fitnessOn() && isFitnessPath(path)) return { kind: 'redirect', tab: null, root: '/today', stack: [], params: {}, redirect: '/today' };
   for (const route of ROUTES) {
     const params = matchPattern(route.pattern, path);
     if (!params) continue;

@@ -922,7 +922,7 @@ function Payoff({ draft, set, profile, start, today, onOpen, onChange }: { draft
             done ? (
               <>
                 <Check size={16} aria-hidden="true" className="ob-ok" />
-                Saved. Add a running plan any time from Plan.
+                Saved. Add a running plan any time from Fitness.
               </>
             ) : (
               'Saving your answers…'

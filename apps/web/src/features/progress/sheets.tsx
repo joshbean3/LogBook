@@ -150,7 +150,7 @@ export const WeekSheet = ({ w, today, onGone }: { w: string; today: string; onGo
         </div>
       </div>
       <div className="list-edge pg-list">
-        <SheetRow lead={<CalendarDays size={18} className="pg-srow-icon" aria-hidden="true" />} title="Open this week in Plan" onPress={openInPlan} label="Open this week in Plan" />
+        <SheetRow lead={<CalendarDays size={18} className="pg-srow-icon" aria-hidden="true" />} title="Open this week in Fitness" onPress={openInPlan} label="Open this week in Fitness" />
       </div>
     </div>
   );

@@ -978,6 +978,14 @@ html.kb-open .sheet[data-tall][data-box='auto'] {
   min-height: 44px;
   min-width: 0;
 }
+/* no kind pills (Fitness is off): the strip is the letter and the numeral, and gives the pill's row back to the page */
+.nb-strip.is-plain {
+  grid-template-rows: 53px;
+  height: 54px;
+}
+.nb-strip.is-plain .nb-cell {
+  height: 53px;
+}
 .nb-letter {
   position: relative;
   /* caption style (guide 6.7, 4.3), Dusk; the strip's rows are fixed, so the letter grows inside its 13 px line only */

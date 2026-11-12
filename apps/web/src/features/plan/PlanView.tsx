@@ -636,7 +636,7 @@ export default function PlanView(): React.JSX.Element {
     <div ref={rootRef} className={`page-root plan-root plan-${view}`}>
       <NavBar
         caps={caps}
-        title={{ cur: 'Plan' }}
+        title={{ cur: 'Fitness' }}
         progress={handle.progress}
         wideTrailing
         trailing={<Segmented key="seg" className="in-bar" tone={SEG_TONE_WAYFINDING} label="Week or month" value={view} onChange={(v: View) => v !== live.current.st.view && show(v)} options={[['week', 'Week'], ['month', 'Month']]} />}
@@ -645,7 +645,7 @@ export default function PlanView(): React.JSX.Element {
           if (s.view === 'week' ? s.mon !== live.current.thisMon : s.first !== live.current.thisFirst) goHome();
         }}
         titleMenu={titleMenu}
-        titleLabel={atHome ? 'Plan' : view === 'week' ? 'Plan. Go to this week' : 'Plan. Go to this month'}
+        titleLabel={atHome ? 'Fitness' : view === 'week' ? 'Fitness. Go to this week' : 'Fitness. Go to this month'}
         titleRef={titleRef}
         gap={16}
       />

@@ -5,7 +5,7 @@ import { HEALTH_BUILT } from '@/lib/features';
 import { haptics } from '@/lib/haptics';
 import { springs } from '@/lib/motion';
 import { Pressable } from '@/ui';
-import { GoalsIcon, HabitIcon, JournalIcon, LearnedIcon, PlanIcon, ProgressIcon, TodayIcon } from '@/ui/icons';
+import { FitnessIcon, GoalsIcon, HabitIcon, JournalIcon, LearnedIcon, ProgressIcon, TodayIcon } from '@/ui/icons';
 import { AskDemo, GoalsDemo, HabitsDemo, JournalDemo, LearnedDemo, PlanDemo, ProgressDemo, TodosDemo, type DemoProps } from './demos';
 import './tour.css';
 
@@ -30,7 +30,7 @@ export const TOUR: readonly Page[] = [
   { key: 'goals', icon: GoalsIcon, where: 'Goals and Today', title: 'One goal a day.', lede: 'Set the one thing that would make today count, then break it into steps. Week, month and year goals live in Goals.', Demo: GoalsDemo },
   { key: 'journal', icon: JournalIcon, where: 'Journal', title: 'A calendar of days.', lede: 'Tap today to write a line or two. Every day you write gets its own dot, and old ones come back as Remember when.', Demo: JournalDemo },
   { key: 'learned', icon: LearnedIcon, where: 'Learned', title: 'One thing a day.', lede: 'What you learned, in a line. Kept by month, and some come back later when you need them.', Demo: LearnedDemo },
-  { key: 'plan', icon: PlanIcon, where: 'Plan', title: 'A week you can move.', lede: 'Your runs, day by day. Life happens: hold a run and drag it to another day.', Demo: PlanDemo },
+  { key: 'plan', icon: FitnessIcon, where: 'Fitness', title: 'A week you can move.', lede: 'Your runs, day by day. Life happens: hold a run and drag it to another day.', Demo: PlanDemo },
   { key: 'progress', icon: ProgressIcon, where: 'Progress', title: 'Weeks, as lines.', lede: HEALTH_BUILT ? 'Miles and pace, week by week. Connect Apple Health to add sleep, HRV and resting heart rate. Slide along any chart to read a week.' : 'Miles and pace, week by week. Slide along any chart to read a week.', Demo: ProgressDemo },
   { key: 'ask', icon: MessageCircle, where: 'Every tab', title: 'Ask, or change anything.', lede: 'The assistant answers questions and makes changes for you, and shows them to you first. It can be wrong, so check anything important.', Demo: AskDemo },
 ];

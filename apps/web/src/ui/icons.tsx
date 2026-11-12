@@ -132,6 +132,8 @@ export const TodayIcon = bound('today');
 export const GoalsIcon = bound('goals');
 export const LearnedIcon = bound('learned');
 export const PlanIcon = bound('plan');
+/** The Fitness tab's glyph, wherever the tab is named (the capsule, the assistant's screen chip, the tour). */
+export const FitnessIcon = bound('run');
 export const ProgressIcon = bound('progress');
 export const JournalIcon = bound('journal');
 export const RunIcon = bound('run');

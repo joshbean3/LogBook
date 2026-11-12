@@ -11,7 +11,7 @@ describe('the plan summary screen', () => {
     expect(screenLabel({ tab: 'plan', plan: 'blk_1', week: '2026-11-09' })).toBe('Plan summary');
   });
   it('keeps the week and month labels without a plan', () => {
-    expect(screenLabel({ tab: 'plan', week: '2026-11-09' })).toBe('Plan, week of Nov 9');
-    expect(screenLabel({ tab: 'plan', month: '2026-11' })).toBe('Plan, November 2026');
+    expect(screenLabel({ tab: 'plan', week: '2026-11-09' })).toBe('Fitness, week of Nov 9');
+    expect(screenLabel({ tab: 'plan', month: '2026-11' })).toBe('Fitness, November 2026');
   });
 });

@@ -185,7 +185,7 @@ export const statusRow = (status: TrainingStatus | null | undefined, blocks: Pla
   const blk = blockWords(blocks, date);
   return {
     status: w ? { kind, ...w, said: `Status: ${TRAINING_STATUS_INFO[kind].label}, ${w.end || 'until changed'}. Change` } : null,
-    plan: blk ? { name: blk.title, phase: blk.sub, said: `${blk.title}, ${blk.sub}. Open Plan` } : null,
+    plan: blk ? { name: blk.title, phase: blk.sub, said: `${blk.title}, ${blk.sub}. Open Fitness` } : null,
     make: !blk && canPlan,
   };
 };

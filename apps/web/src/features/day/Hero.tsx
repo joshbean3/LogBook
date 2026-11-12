@@ -479,7 +479,7 @@ const useMarkOverride = (real: Log, date: ISODate) => {
   return { log, markNow };
 };
 
-export const Hero = memo(function Hero({ date, log: real }: { date: ISODate; log: Log }) {
+export const Hero = memo(function Hero({ date, log: real, closeOnly }: { date: ISODate; log: Log; /** Fitness is off (lib/prefs.ts): no training card; the slot holds the evening's Close card and nothing else. */ closeOnly?: boolean }) {
   const { log, markNow } = useMarkOverride(real, date);
   // the clock's face changes wait for an interaction or idle (§5.3, useDeferred); a minute that keeps the face ticks at once
   const clock = useFaceMinutes();
@@ -494,6 +494,7 @@ export const Hero = memo(function Hero({ date, log: real }: { date: ISODate; log
   const { ph, face } = useMemo(() => whenFace(log, date, minutes, when, pm), [log, date, minutes, when, pm]);
   const evening = face.kind === 'evening';
   const openSession = useOpenSession(log);
+  if (closeOnly) return evening ? <EveningFace date={date} log={log} ph={ph} onOpen={() => undefined} markNow={markNow} /> : null;
   // the Close card is the one face that is not the 184 card: the two crossfade (150 ms) in the hero's slot
   return (
     <>
