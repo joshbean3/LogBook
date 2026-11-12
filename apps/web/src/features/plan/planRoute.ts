@@ -41,3 +41,14 @@ export const weekForMonth = (first: string, left: string, today: string): string
   if (touches) return left;
   return monthOf(first) === monthOf(today) ? mondayOf(today) : firstWeekOf(first);
 };
+
+/**
+ * Midnight passed while Fitness was open (the phone keeps the app alive overnight): a page that was on this week is on
+ * the new this week, and one on this month on the new this month. A page on any other week or month stays where it is.
+ * `was` and `now` are this week's Monday and this month's first before and after. The same object when nothing moves.
+ */
+export const followToday = <P extends { mon: string; first: string }>(place: P, was: { mon: string; first: string }, now: { mon: string; first: string }): P => {
+  const mon = place.mon === was.mon ? now.mon : place.mon;
+  const first = place.first === was.first ? now.first : place.first;
+  return mon === place.mon && first === place.first ? place : { ...place, mon, first };
+};

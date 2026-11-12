@@ -1,7 +1,7 @@
 import { addMonths } from '@logbook/shared';
 import { describe, expect, it } from 'vitest';
 import { monthCaption } from '@/ui/captions';
-import { firstWeekOf, fromParams, monthOfWeek, weekForMonth } from './planRoute';
+import { firstWeekOf, followToday, fromParams, monthOfWeek, weekForMonth } from './planRoute';
 
 const T = '2026-11-12'; // a Thursday; its week starts Mon Nov 9
 
@@ -55,5 +55,32 @@ describe('weekForMonth: the week the month goes back to', () => {
       const d = new Date(+mon.slice(0, 4), +mon.slice(5, 7) - 1, +mon.slice(8) + 7);
       mon = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
     }
+  });
+});
+
+describe('followToday: midnight passes with Fitness open', () => {
+  // Sunday night, this week on screen. On Monday the page still showed that week, now named "Last week", under the URL
+  // that means this week: the phone keeps the app alive overnight, so that is how Monday morning opened.
+  const sun = { mon: '2026-11-09', first: '2026-11-01' };
+  const monNext = { mon: '2026-11-16', first: '2026-11-01' };
+  it('a page that was on this week is on the new this week', () => {
+    expect(followToday({ mon: '2026-11-09', first: '2026-11-01' }, sun, monNext)).toEqual({ mon: '2026-11-16', first: '2026-11-01' });
+  });
+  it('a page that was on another week stays on it', () => {
+    expect(followToday({ mon: '2026-11-23', first: '2026-11-01' }, sun, monNext)).toEqual({ mon: '2026-11-23', first: '2026-11-01' });
+    expect(followToday({ mon: '2026-11-02', first: '2026-11-01' }, sun, monNext)).toEqual({ mon: '2026-11-02', first: '2026-11-01' });
+  });
+  it('the month follows the same way, on its own: the last night of a month, and of a year', () => {
+    const nov30 = { mon: '2026-11-30', first: '2026-11-01' };
+    const dec1 = { mon: '2026-11-30', first: '2026-12-01' };
+    expect(followToday({ mon: '2026-11-30', first: '2026-11-01' }, nov30, dec1)).toEqual({ mon: '2026-11-30', first: '2026-12-01' });
+    expect(followToday({ mon: '2026-11-30', first: '2026-10-01' }, nov30, dec1)).toEqual({ mon: '2026-11-30', first: '2026-10-01' });
+    const dec31 = { mon: '2026-12-28', first: '2026-12-01' };
+    const jan1 = { mon: '2026-12-28', first: '2027-01-01' };
+    expect(followToday({ mon: '2026-12-28', first: '2026-12-01' }, dec31, jan1)).toEqual({ mon: '2026-12-28', first: '2027-01-01' });
+  });
+  it('a day that changes nothing gives the same place back', () => {
+    const place = { mon: '2026-11-09', first: '2026-11-01' };
+    expect(followToday(place, sun, sun)).toBe(place);
   });
 });

@@ -33,6 +33,15 @@ const dayFace = (log: Log, date: ISODate, minutes: number, when: TrainWhen, pm: 
   return { ph, face: faceForWhen(faceOf(log, date, ph), when, pm, log.boot?.morningSettings?.run.pace) };
 };
 
+/**
+ * What stands round the card on Fitness. The card's parts ask features/day/live.ts whether their page is "live", and that
+ * store is written by Today's day pager alone: with Today paged to another day, this card (today's, on another tab) reads
+ * as a neighbour page and draws without its motion and its now mark. The card on Fitness is always the page on screen:
+ * once live.ts has a scope that says so (a context `useIsLive` reads before the store), it is provided here. The test
+ * beside this file fails until then (TrainingCard.test.tsx).
+ */
+export const CardScope = ({ children }: { children: React.ReactNode }): React.JSX.Element => <>{children}</>;
+
 export const TrainingCard = memo(function TrainingCard({ date, log: real }: { date: ISODate; log: Log }): React.JSX.Element {
   const { log, markNow } = useMarkOverride(real, date);
   const clock = useFaceMinutes();
@@ -46,9 +55,11 @@ export const TrainingCard = memo(function TrainingCard({ date, log: real }: { da
   const { ph, face } = useMemo(() => dayFace(log, date, minutes, when, pm), [log, date, minutes, when, pm]);
   return (
     <div className="pl-lead">
-      <DayHero date={date} log={log} ph={ph} face={face} minutes={minutes} markNow={markNow} />
-      {/* a second session today is its own compact card under the first, as on Today */}
-      <OtherSessions date={date} log={real} />
+      <CardScope>
+        <DayHero date={date} log={log} ph={ph} face={face} minutes={minutes} markNow={markNow} />
+        {/* a second session today is its own compact card under the first, as on Today */}
+        <OtherSessions date={date} log={real} />
+      </CardScope>
     </div>
   );
 });

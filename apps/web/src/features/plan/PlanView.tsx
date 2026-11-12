@@ -20,7 +20,7 @@ import { X } from 'lucide-react';
 import { Pressable } from '@/ui/Pressable';
 import { MonthPage } from './Month';
 import { markNavHintSeen, navHintSeen } from './navHint';
-import { fromParams, monthOfWeek, weekForMonth } from './planRoute';
+import { followToday, fromParams, monthOfWeek, weekForMonth } from './planRoute';
 import { PlanBlockCtx } from './PlanTop';
 import { WeekPage } from './Week';
 import './plan.css';
@@ -80,6 +80,19 @@ export default function PlanView(): React.JSX.Element {
   const dismissRef = useRef<() => void>(() => undefined);
   const weekPath = (m: string) => (m === live.current.thisMon ? '/plan' : `/plan/week/${m}`);
   const monthPath = (f: string) => `/plan/month/${f}`;
+  // midnight passed with the page open: a page that was on this week (this month) is on the new one, so the morning
+  // opens on today's card and not on "Last week" under the URL that means this week (planRoute.ts `followToday`)
+  const home = useRef({ mon: thisMon, first: thisFirst });
+  useEffect(() => {
+    const was = home.current;
+    if (was.mon === thisMon && was.first === thisFirst) return;
+    home.current = { mon: thisMon, first: thisFirst };
+    const s = live.current.st;
+    const next = followToday(s, was, home.current);
+    if (next !== s) setSt(next);
+    // the URL names the shown week by what it is today ("/plan" is this week)
+    nav.replace(next.view === 'week' ? weekPath(next.mon) : monthPath(next.first));
+  }, [thisMon, thisFirst]); // eslint-disable-line react-hooks/exhaustive-deps
   // a URL that named a date the pages cannot draw opened this week (planRoute.ts): the URL says so too
   useEffect(() => {
     if ((params.mon && params.mon !== mon) || (params.month && params.month !== first)) nav.replace(view === 'week' ? weekPath(mon) : monthPath(first));
