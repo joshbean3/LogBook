@@ -137,7 +137,7 @@ const pushedFor = (e: PushedEntry) => {
   // This morning: the day's from Today, today's from Habits (MorningView falls back to today without a `date` param)
   if (pattern === '/today/:date/morning' || pattern === '/plan/morning/:date?') return <MorningView />;
   if (pattern === '/goals/history') return <GoalHistory />;
-  if (pattern === '/learned/:month') return <LearnedMonth />;
+  if (pattern === '/learned/:month' || pattern === '/journal/:ym') return <LearnedMonth />;
   if (pattern === '/settings/:section' && e.params.section === 'plans') return <PlansPage />;
   if (pattern === '/settings/:section') return <SettingsSection />;
   if (pattern === '/settings') return <SettingsView />;

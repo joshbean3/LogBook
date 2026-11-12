@@ -97,6 +97,8 @@ export const ROUTES: readonly RouteDef[] = [
   { pattern: '/journal/favorites', owner: null, kind: 'redirect', to: '/journal' },
   { pattern: '/trends', owner: null, kind: 'redirect', to: '/progress' },
   { pattern: '/setup', owner: null, kind: 'redirect', to: '/signup' },
+  // TEMP (v-19 development; the lead drops this commit at merge): a month of the Journal
+  { pattern: '/journal/:ym', owner: 'journal', kind: 'pushed', depth: 1, title: 'Journal' },
   { pattern: '*', owner: null, kind: 'redirect', to: '/today' },
 ];
 
@@ -158,6 +160,7 @@ const VALID: Record<string, (v: string) => boolean> = {
   // a metric page exists only for the metrics Progress draws; Reads has its two lists (shell-23)
   id: (v) => Object.hasOwn(METRIC_TITLE, v),
   tab: (v) => v === 'read' || v === 'unread',
+  ym: (v) => /^\d{4}-(0[1-9]|1[0-2])$/.test(v),
 };
 const INVALID_TO: Record<string, string> = { '/learned': '/learned', '/today': '/today', '/settings': '/settings', '/plan': '/plan', '/morning': '/today', '/progress': '/progress', '/journal': '/journal', '/reads': '/settings' };
 
