@@ -51,8 +51,8 @@ describe('the preferences: one place that says what is on', () => {
 });
 
 describe('what Today shows', () => {
-  it('with Fitness on the training card leads, then Habits, Plan your day and the What I learned prompt', () => {
-    expect(todayParts(DEFAULT_PREFS)).toEqual(['fitness', 'habits', 'day', 'learned']);
+  it('with Fitness on the training card leads, then Plan your day, Habits and the What I learned prompt', () => {
+    expect(todayParts(DEFAULT_PREFS)).toEqual(['fitness', 'day', 'habits', 'learned']);
   });
   it('with Fitness off the day’s own content leads: Plan your day, then Habits, then the prompt', () => {
     expect(todayParts({ ...DEFAULT_PREFS, fitness: false })).toEqual(['day', 'habits', 'learned']);

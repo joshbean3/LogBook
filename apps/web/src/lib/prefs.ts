@@ -102,11 +102,12 @@ export const useFitness = (): boolean => useSyncExternalStore(subscribe, fitness
 /** What Today draws, in order. `fitness` is the training card and everything about training around it. */
 export type TodayPart = 'fitness' | TodaySection;
 /**
- * Today's order (layout standard 2.1). With Fitness on the training card leads, then Habits and Plan your day. With it
- * off the day's own content leads: Plan your day (the goal and the to-dos), then Habits. The What I learned prompt is last.
+ * Today's order (layout standard 2.1), one order in both modes: the training card (Fitness on), Plan your day (the goal
+ * and the to-dos), Habits, the What I learned prompt. With Fitness off the top card is simply not there, and Plan your day
+ * leads the page.
  */
 export const todayParts = (p: Prefs): TodayPart[] => {
-  const order: TodayPart[] = p.fitness ? ['fitness', 'habits', 'day', 'learned'] : ['day', 'habits', 'learned'];
+  const order: TodayPart[] = ['fitness', 'day', 'habits', 'learned'];
   return order.filter((k) => (k === 'fitness' ? p.fitness : p.today[k]));
 };
 export const useTodayParts = (): TodayPart[] => {

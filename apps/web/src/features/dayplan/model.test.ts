@@ -1,6 +1,6 @@
 import type { Todo } from '@logbook/shared';
 import { describe, expect, it } from 'vitest';
-import { cardsFor, focusGrid, focusOf, splitFocus, type Card } from './model';
+import { cardsFor, countWords, focusOf, leftWords, pathOf, splitFocus, type Card } from './model';
 
 const card = (id: string, done = false): Card => ({ ref: `todo:${id}`, kind: 'todo', todo: { id } as Todo, done });
 
@@ -20,41 +20,36 @@ describe('the day’s to-dos as one list', () => {
   });
 });
 
-describe('the focus list as grid rows', () => {
-  /** every grid row in use: the head, the empty line, each card, the fold and the fold-away row */
-  const rowsOf = (g: ReturnType<typeof focusGrid>) => [1, g.emptyRow, ...[...g.top, ...g.rest, ...g.done].map((s) => s.row), g.foldRow, g.hideRow].filter(Boolean);
-  const noShared = (g: ReturnType<typeof focusGrid>) => expect(new Set(rowsOf(g)).size).toBe(rowsOf(g).length);
-  it('with every to-do done, the empty line and the fold row sit on rows of their own', () => {
-    const g = focusGrid([card('a', true), card('b', true)], false, false);
-    expect(g.emptyRow).toBe(2);
-    expect(g.foldRow).toBe(3);
-    expect(g.boxEnd).toBe(3);
-    noShared(g);
-    const open = focusGrid([card('a', true), card('b', true)], true, false);
-    expect(open.done.map((s) => s.row)).toEqual([4, 5]);
-    expect(open.hideRow).toBe(6);
-    noShared(open);
+describe('the path through the day', () => {
+  it('shows the first three open to-dos and counts the rest behind All to-dos', () => {
+    const p = pathOf(focusOf([...['a', 'b', 'c', 'd', 'e'].map((x) => card(x)), card('z', true)]));
+    expect(p.open.map((c) => c.ref)).toEqual(['todo:a', 'todo:b', 'todo:c']);
+    expect(p.rest).toBe(2);
+    expect(p.done.map((c) => c.ref)).toEqual(['todo:z']);
+    expect([p.doneFolded, p.total, p.doneCount]).toEqual([0, 6, 1]);
   });
-  it('numbers the open rows in order and gives no part a shared row, folded or open', () => {
-    const list = focusOf([...['a', 'b', 'c', 'd', 'e'].map((x) => card(x)), card('z', true)]);
-    const folded = focusGrid(list, false, false);
-    expect(folded.top.map((s) => [s.row, s.rank])).toEqual([[2, 1], [3, 2], [4, 3]]);
-    expect(folded.emptyRow).toBe(0);
-    expect(folded.boxEnd).toBe(5);
-    expect(folded.foldRow).toBe(5);
-    expect(folded.rest).toEqual([]);
-    noShared(folded);
-    const open = focusGrid(list, true, false);
-    expect(open.rest.map((s) => [s.row, s.rank])).toEqual([[6, 4], [7, 5]]);
-    expect(open.done.map((s) => [s.row, s.rank])).toEqual([[8, undefined]]);
-    expect(open.hideRow).toBe(9);
-    noShared(open);
-    // a row in the air: everything shows, and nothing offers to fold it away
-    expect(focusGrid(list, true, true).hideRow).toBe(0);
+  it('folds more than two done to-dos into one stop', () => {
+    const p = pathOf(focusOf([card('a', true), card('b', true), card('c', true), card('d')]));
+    expect(p.done).toEqual([]);
+    expect(p.doneFolded).toBe(3);
+    expect(p.open.map((c) => c.ref)).toEqual(['todo:d']);
+    expect(pathOf([card('a', true), card('b', true)]).done).toHaveLength(2);
   });
-  it('an empty day has the empty line and nothing to fold', () => {
-    const g = focusGrid([], false, false);
-    expect([g.emptyRow, g.foldRow, g.hideRow]).toEqual([2, 0, 0]);
+  it('leaves the goal’s steps out, and an empty day is empty', () => {
+    const step = { ref: 'step:g:s', kind: 'step', done: false } as Card;
+    expect(pathOf([step]).total).toBe(0);
+    expect(pathOf([])).toEqual({ done: [], doneFolded: 0, open: [], rest: 0, total: 0, doneCount: 0 });
+  });
+  it('says the count the way the band reads it', () => {
+    expect(countWords(1, 3)).toBe('1 of 3 done');
+    expect(countWords(3, 3)).toBe('All 3 done');
+    expect(countWords(1, 1)).toBe('1 of 1 done');
+    expect(countWords(0, 0)).toBeNull();
+  });
+  it('says the time left in the day', () => {
+    expect(leftWords(10 * 60)).toBe('14 h left');
+    expect(leftWords(15 * 60)).toBe('9 h left');
+    expect(leftWords(23 * 60 + 20)).toBe('40 min left');
   });
 });
 
