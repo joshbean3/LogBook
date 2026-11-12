@@ -650,7 +650,7 @@ export default function PlanView(): React.JSX.Element {
           dismissHint();
           show(live.current.st.view === 'week' ? 'month' : 'week');
         }}
-        dateLabel={view === 'week' ? `${caps.cur}. Show the month` : `${caps.cur}. Back to the week`}
+        dateLabel={view === 'week' ? 'Show the month' : 'Back to the week'}
         onTitlePress={() => {
           const s = live.current.st;
           if (s.view === 'week' ? s.mon !== live.current.thisMon : s.first !== live.current.thisFirst) goHome();
