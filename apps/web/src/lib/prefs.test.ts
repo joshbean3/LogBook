@@ -7,7 +7,7 @@ import { FITNESS_METRICS, metricDef } from '@/features/progress/metrics';
 import { matchRoute, resolveRoute, shownTabs } from '@/ui/nav';
 import type { Bootstrap, MonthBundle } from '@/api/types';
 import { disclaimer } from './copy';
-import { DEFAULT_PREFS, fitnessOn, getPrefs, hasStoredPrefs, isFitnessPath, normalizePrefs, onPrefsChange, resetPrefsForTest, seedPrefs, setFitness, setTodaySection, todayParts } from './prefs';
+import { adoptStoredPrefs, DEFAULT_PREFS, fitnessOn, getPrefs, hasStoredPrefs, isFitnessPath, normalizePrefs, onPrefsChange, parseStoredPrefs, resetPrefsForTest, seedPrefs, setFitness, setTodaySection, todayParts } from './prefs';
 
 const WORDS = /\b(run|runs|running|ran|lift|lifts|mile|miles|mi|plan|plans|planned|training|workout|workouts|strava|fitness)\b/i;
 
@@ -47,6 +47,49 @@ describe('the preferences: one place that says what is on', () => {
     setFitness(true);
     seedPrefs({ fitness: false });
     expect(fitnessOn()).toBe(true);
+  });
+});
+
+describe('what is stored is read at the boundary (edge cases)', () => {
+  const OFF = { fitness: false, today: { habits: true, day: true, learned: true } };
+  it('nothing, an empty string, junk, null, a number, a string or a list is no device copy at all', () => {
+    for (const raw of [null, undefined, '', ' ', 'null', '42', '0', 'true', '"off"', '[]', '[{"fitness":false}]', '{"fitness":fal', 'x'.repeat(100_000)]) expect(parseStoredPrefs(raw)).toBeNull();
+  });
+  it('a record with wrong types, unknown keys or a newer shape defaults safely: Fitness on, every section on', () => {
+    expect(parseStoredPrefs('{}')).toEqual(DEFAULT_PREFS);
+    expect(parseStoredPrefs('{"fitness":"no","today":5}')).toEqual(DEFAULT_PREFS);
+    expect(parseStoredPrefs('{"fitness":0,"today":{"habits":"off","day":null,"learned":[]}}')).toEqual(DEFAULT_PREFS);
+    expect(parseStoredPrefs('{"version":3,"prefs":{"fitness":false},"sections":["habits"]}')).toEqual(DEFAULT_PREFS);
+    expect(parseStoredPrefs('{"fitness":false,"today":{"learned":false,"zzz":false},"theme":"x"}')).toEqual({ fitness: false, today: { habits: true, day: true, learned: false } });
+    expect(Object.keys(parseStoredPrefs('{"fitness":false,"extra":1}')!)).toEqual(['fitness', 'today']);
+  });
+  it('a stored value that is no record leaves the account free to seed this device', () => {
+    expect(parseStoredPrefs('null')).toBeNull();
+    seedPrefs(OFF);
+    expect(fitnessOn()).toBe(false);
+  });
+  it('another tab’s change is followed here, told to the screens, and not sent to the account a second time', () => {
+    const sent: unknown[] = [];
+    const off = onPrefsChange((next) => sent.push(next));
+    adoptStoredPrefs(JSON.stringify(OFF));
+    expect(getPrefs()).toEqual(OFF);
+    expect(hasStoredPrefs()).toBe(true);
+    expect(sent).toEqual([]);
+    // junk, or the key removed (the other tab signed out), changes nothing here
+    adoptStoredPrefs('nonsense');
+    adoptStoredPrefs(null);
+    expect(getPrefs()).toEqual(OFF);
+    off();
+  });
+  it('ten changes in a row end on the last one, each told once', () => {
+    let n = 0;
+    const off = onPrefsChange(() => n++);
+    for (let i = 0; i < 10; i++) setFitness(i % 2 === 1);
+    setFitness(true);
+    expect(fitnessOn()).toBe(true);
+    // the first call (on to on, nothing stored yet) writes the copy; then nine real changes; the last is no change
+    expect(n).toBe(10);
+    off();
   });
 });
 
