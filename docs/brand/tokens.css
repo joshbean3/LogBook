@@ -168,6 +168,10 @@
   --lh-section: 2rem;                                       
   --fs-stamp: 2.5rem;                                       /* Hero session name in the gauge. Fraunces 650, line 2.625rem, -0.015em; 1.875rem when longer than 12 characters. was 1.75rem (Inter Tight caps) */
   --lh-stamp: 2.625rem;                                     /* was 2.125rem */
+  --fs-poster: 2rem;                                        /* A poster card's title (apps/web/src/ui/poster). Fraunces 650, line 2.25rem, -0.015em, two lines allowed. */
+  --lh-poster: 2.25rem;
+  --fs-poster-goal: 1.875rem;                               /* The poster title when it is the person's own goal. Line 2.125rem. */
+  --lh-poster-goal: 2.125rem;
   --fs-stat: 2.75rem;                                       /* Static hero stat: a number that never changes after first paint. Fraunces 650, line 1, -0.02em (Fraunces has no tabular figures). */
   --fs-sentence: 1.375rem;                                  /* Sentence as a prompt or greeting. Fraunces italic 420, line 1.75rem. was 1.375rem (Instrument Serif) */
   --lh-sentence: 1.75rem;                                   /* was 1.75rem */

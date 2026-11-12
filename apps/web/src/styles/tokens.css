@@ -186,6 +186,8 @@
   --fs-stat: 2.75rem; /* static hero stat, Fraunces 650, line 1 */
   --fs-stat-live: 2.75rem; /* a hero stat that changes, Inter 650 tnum, line 1 */
   --fs-value: 1.625rem; --lh-value: 2rem; /* a stat in a tile or card that changes, Inter 650 tnum: the section-title size, no new size (layout standard C1) */
+  --fs-poster: 2rem; --lh-poster: 2.25rem; /* a poster card's title (ui/poster), Fraunces 650, two lines allowed */
+  --fs-poster-goal: 1.875rem; --lh-poster-goal: 2.125rem; /* the same title when it is the person's own goal */
   --fs-section: 1.625rem; --lh-section: 2rem; /* section title, Fraunces 600 */
   --fs-head: 1.375rem; --lh-head: 1.75rem; /* card and sheet title, Fraunces 600 */
   --fs-sentence: 1.375rem; --lh-sentence: 1.75rem; /* prompt or greeting, Fraunces italic 420 */

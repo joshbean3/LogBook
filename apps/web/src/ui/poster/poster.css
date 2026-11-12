@@ -1,0 +1,823 @@
+/*
+ * The poster kit (ui/poster): the poster card, its day scene, the path of stops, the far hills and the week's lights.
+ * Every value is a brand token or a size of the drawing. Only transform, opacity and color move, on token durations;
+ * Reduce Motion is honored at the end of each part.
+ */
+
+/* ---------- the poster card: words on the sky, a picture, one band, then Paper ---------- */
+.po {
+  display: block;
+  border: 1px solid var(--paper);
+  border-radius: var(--r-card);
+  background: var(--paper);
+  box-shadow: var(--shadow-1);
+  overflow: hidden;
+}
+.po.is-dusk {
+  border-color: transparent;
+}
+.po-top {
+  position: relative;
+  isolation: isolate;
+}
+.po.is-dusk .po-top {
+  /* under the sky's gradient, never seen: the ground a reading of the title's contrast finds */
+  background-color: var(--twilight);
+}
+.po-sky {
+  position: absolute;
+  inset: 0;
+  z-index: -2;
+  background: linear-gradient(180deg, var(--haze) 0, var(--cloud) 40%, var(--paper) 66%);
+}
+.po.is-dusk .po-sky {
+  background: linear-gradient(180deg, var(--night-ink) -30%, var(--twilight) 46%, var(--deep-sky) 100%);
+}
+.po-words {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  justify-items: start;
+  padding: var(--pad-hero) var(--pad-hero) var(--sp-1);
+  text-align: left;
+}
+.po.is-slim .po-words {
+  padding-bottom: 0;
+}
+/* the title: Fraunces 650, two lines allowed, never cut */
+.po-title {
+  margin: 0;
+  max-width: 100%;
+  font: 650 var(--fs-poster) / var(--lh-poster) var(--display);
+  letter-spacing: var(--tr-title);
+  color: var(--ink);
+  text-wrap: balance;
+  overflow-wrap: anywhere;
+}
+.po-title.is-goal {
+  font-size: var(--fs-poster-goal);
+  line-height: var(--lh-poster-goal);
+}
+.po.is-dusk .po-title {
+  color: var(--paper);
+}
+.po-meta {
+  margin: var(--sp-1) 0 0;
+  max-width: 100%;
+  font: 500 var(--fs-sub) / var(--lh-sub) var(--sans);
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-2);
+}
+.po-now {
+  font-weight: 600;
+  color: var(--now-text);
+}
+.po.is-dusk .po-meta,
+.po.is-dusk .po-now {
+  color: var(--haze);
+}
+
+/* the band: words on the far hill (White on Deep Sky; on Night Ink at dusk) */
+.po-band {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  width: 100%;
+  min-height: 60px;
+  margin: calc(-1 * var(--sp-2)) 0 0;
+  padding: 0 var(--pad-hero) 0 0;
+}
+.po-band::before {
+  content: '';
+  position: absolute;
+  inset: 6px 0 0; /* brand-ok: geometry, the ground starts under the hill's crest */
+  z-index: -1;
+  background: var(--deep-sky);
+}
+.po.is-dusk .po-band {
+  min-height: 52px;
+  margin-top: -1px;
+}
+.po.is-dusk .po-band::before {
+  inset: 0;
+  background: var(--night-ink);
+}
+.po-band > .po-read {
+  flex: 1 1 auto;
+  display: block;
+  min-width: 0;
+  padding: var(--sp-2) 0 var(--sp-3) var(--pad-hero);
+  border-radius: 0;
+  color: var(--white);
+  text-align: left;
+}
+/* the words' own ground is the band's color, so a reading of the text's ground finds it */
+.po-read-in {
+  display: grid;
+  justify-items: start;
+  min-width: 0;
+  background-color: var(--deep-sky);
+}
+.po.is-dusk .po-read-in {
+  background-color: var(--night-ink);
+}
+.po-label {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  max-width: 100%;
+  font: 600 var(--fs-caps) / var(--lh-caps) var(--stamp);
+  letter-spacing: var(--tr-caps);
+  text-transform: uppercase;
+}
+.po.is-dusk .po-label {
+  color: var(--haze);
+}
+.po-label > svg {
+  flex: none;
+}
+.po-said {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  column-gap: var(--sp-2);
+  font: 400 var(--fs-sub) / var(--lh-row) var(--sans);
+  font-variant-numeric: tabular-nums;
+}
+.po-words-b {
+  font: 650 var(--fs-row) / var(--lh-row) var(--sans);
+  text-wrap: pretty;
+}
+.po-band-end {
+  flex: none;
+  display: flex;
+  align-items: center;
+}
+/* under the band: the path edge to edge, then the controls on Paper */
+.po-path {
+  padding: 0 0 var(--sp-2);
+}
+.po-ctl {
+  padding: var(--sp-4) var(--pad-hero);
+}
+.po-path + .po-ctl {
+  padding-top: var(--sp-2);
+}
+/* a row of actions: the one Sky button first, the quiet one after */
+.po-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-2) var(--sp-3);
+}
+/* the quiet action is words, not a pill: no side padding to spend, so both fit one line beside a stop */
+.po-actions > .btn.quiet,
+.pth-end > .btn.quiet {
+  padding-right: var(--sp-1);
+  padding-left: var(--sp-1);
+  font-size: var(--fs-sub);
+}
+.pth-stop .po-actions {
+  column-gap: var(--sp-2);
+}
+.pth-stop .po-actions > .btn.primary {
+  padding-right: var(--sp-4);
+  padding-left: var(--sp-4);
+}
+
+/* ---------- the day scene: the training card's landscape ---------- */
+.po-scene {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+.po-scene.is-slim {
+  margin-top: calc(-1 * var(--sp-3));
+}
+.po-way {
+  fill: var(--tick-major);
+}
+.po-target {
+  fill: none;
+  stroke: var(--tick-major);
+  stroke-width: 1.5;
+  stroke-dasharray: 0.1 4.61; /* brand-ok: geometry, 20 dots round the place */
+  stroke-linecap: round;
+}
+.po-glow {
+  transition: opacity var(--dur-number) var(--ease-out);
+}
+.po-sun-g {
+  transition: transform var(--dur-number) var(--ease-out);
+}
+.po-ring {
+  fill: none;
+  stroke: var(--paper);
+  stroke-width: 2;
+  opacity: 0;
+  transform: scale(0.85);
+  transform-box: fill-box;
+  transform-origin: center;
+  transition: opacity var(--dur-out) var(--ease-out), transform var(--dur-out) var(--ease-out);
+}
+.po-ring.is-on {
+  opacity: 0.95;
+  transform: none;
+  transition-duration: var(--dur-complete);
+}
+.po-ring.is-outer.is-on {
+  opacity: 0.7;
+}
+.po-sun-key {
+  fill: var(--now-keyline);
+}
+/* the sun is Sunrise once the day has its goal; before that, and past the screen's now budget, Apricot */
+.po-sun {
+  fill: currentColor;
+  color: var(--now);
+  transition: color var(--dur-color) var(--ease-out);
+}
+.po-sun.is-quiet {
+  color: var(--apricot);
+}
+.po-hill-1 {
+  fill: var(--hill-1);
+}
+.po-hill-2 {
+  fill: var(--hill-2);
+}
+.po-hill-3 {
+  fill: var(--deep-sky);
+}
+.po-rim {
+  fill: none;
+  stroke: var(--paper);
+  stroke-width: 2;
+  vector-effect: non-scaling-stroke;
+}
+.po-mark-key {
+  fill: var(--paper);
+}
+.po-mark {
+  fill: var(--paper);
+  stroke: var(--deep-sky);
+  stroke-width: 1.5;
+  vector-effect: non-scaling-stroke;
+}
+.po-mark-disc {
+  fill: var(--deep-sky);
+  opacity: 0;
+  transition: opacity var(--dur-out) var(--ease-out);
+}
+.po-mark-disc.is-lit {
+  opacity: 1;
+  transition-duration: var(--dur-in);
+}
+@media (prefers-reduced-motion: reduce) {
+  .po-sun-g {
+    transition: none;
+  }
+  .po-glow,
+  .po-ring,
+  .po-mark-disc {
+    transition: opacity var(--dur-reduce) linear;
+  }
+}
+
+/* ---------- the path: one line of stops ---------- */
+.pth {
+  --pth-rail: 64px;
+  position: relative;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.pth-stop {
+  position: relative;
+  display: grid;
+  /* a control at the end never takes more than 45 percent: at a large text size its words wrap, not the stop's */
+  grid-template-columns: var(--pth-rail) minmax(0, 1fr) fit-content(45%);
+  align-items: center;
+  min-height: 48px;
+  color: var(--ink);
+}
+/* the line: into the stop from the row's top edge, out of it to the bottom edge. The node sits on the row's middle, so the
+   line is unbroken through rows of any height. The dots are laid from each row's edge, so they keep step across rows */
+.pth-stop::before,
+.pth-stop::after {
+  content: '';
+  position: absolute;
+  left: calc(var(--pth-rail) / 2 - 1px);
+  width: 2px;
+  pointer-events: none;
+}
+.pth-stop::before {
+  top: 0;
+  bottom: 50%;
+}
+.pth-stop::after {
+  top: 50%;
+  bottom: 0;
+}
+.pth-stop.in-solid::before,
+.pth-stop.out-solid::after {
+  background: var(--deep-sky);
+}
+.pth-stop.in-dots::before {
+  background: radial-gradient(circle, var(--tick-major) 0 1px, transparent 1.3px) 0 0 / 2px 7px repeat-y;
+}
+.pth-stop.out-dots::after {
+  background: radial-gradient(circle, var(--tick-major) 0 1px, transparent 1.3px) 0 100% / 2px 7px repeat-y;
+}
+.pth-node {
+  position: relative;
+  z-index: 1;
+  grid-area: 1 / 1;
+  justify-self: center;
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--paper);
+  box-shadow: inset 0 0 0 1.5px var(--field-edge);
+  color: var(--ink);
+  pointer-events: none;
+}
+/* the row: the node and the words are one target, at least 48 tall; a control at the end is its own */
+.pth-stop > .pth-main {
+  grid-area: 1 / 1 / 2 / 3;
+  align-self: stretch;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  min-width: 0;
+  min-height: 48px;
+  padding: var(--sp-2) 0 var(--sp-2) var(--pth-rail);
+  border-radius: 0;
+  font: 500 var(--fs-body) / var(--lh-body) var(--sans);
+  text-align: left;
+}
+.pth-stop:not(.has-end) > .pth-main {
+  grid-column: 1 / -1;
+  padding-right: var(--pad-hero);
+}
+.pth-end {
+  grid-area: 1 / 3;
+  display: flex;
+  align-items: center;
+  padding: 0 var(--pad-hero) 0 var(--sp-2);
+}
+.pth-text {
+  flex: 1 1 auto;
+  display: grid;
+  min-width: 0;
+}
+.pth-main > :not(.pth-text):not(.pth-chev) {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.pth-title {
+  overflow-wrap: break-word;
+}
+.pth-tag,
+.pth-cap {
+  font: 600 var(--fs-caps) / var(--lh-caps) var(--stamp);
+  letter-spacing: var(--tr-caps);
+  text-transform: uppercase;
+  color: var(--ink-2);
+}
+.pth-tag {
+  color: var(--now-text);
+}
+.pth-sub {
+  font: 500 var(--fs-sub) / var(--lh-sub) var(--sans);
+  color: var(--ink-2);
+}
+.pth-chev {
+  flex: none;
+  color: var(--ink-2);
+}
+/* done: the line behind you is solid, the check filled, the words struck */
+.pth-stop.is-done .pth-node {
+  background: var(--deep-sky);
+  box-shadow: 0 0 0 2px var(--paper);
+  color: var(--white);
+}
+.pth-title.is-struck {
+  color: var(--ink-2);
+  text-decoration: line-through;
+  text-decoration-color: var(--pencil);
+}
+/* next: the one lit stop */
+.pth-stop.is-next {
+  min-height: var(--row-h-2);
+}
+.pth-stop.is-hl {
+  background: var(--cloud);
+}
+/* a next stop that holds its own controls (the actions): room round the button */
+.pth-stop.is-next:not(.is-hl) {
+  min-height: 80px;
+}
+/* its controls may run nearer the card's edge than words do: the two actions stay on one line at 390 */
+.pth-stop.is-next:not(.is-hl) > .pth-main {
+  padding-right: var(--sp-2);
+}
+.pth-stop.is-next .pth-title {
+  font: 650 var(--fs-row) / var(--lh-row) var(--sans);
+}
+.pth-lit {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+}
+.pth-halo {
+  position: absolute;
+  inset: calc(-1 * var(--sp-5));
+  border-radius: 50%;
+  background: radial-gradient(closest-side, var(--apricot), color-mix(in srgb, var(--apricot) 0%, transparent));
+  opacity: 0.65;
+}
+.pth-disc {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: var(--paper);
+  box-shadow: inset 0 0 0 1.5px var(--ink);
+}
+.pth-light {
+  position: relative;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--now);
+  box-shadow: 0 0 0 2px var(--now-keyline);
+}
+.pth-lit[data-now='ink'] .pth-light {
+  background: var(--ink);
+}
+/* add: the end of the line */
+.pth-stop.is-add .pth-node {
+  border: 1.5px dashed var(--pencil);
+  box-shadow: none;
+}
+.pth-stop.is-add .pth-title {
+  color: var(--ink-2);
+}
+/* a day on the line (Fitness): a small Deep Sky ring, the name at the headline weight */
+.pth-stop.is-dot .pth-node {
+  width: 14px;
+  height: 14px;
+  border: 0;
+  box-shadow: inset 0 0 0 2px var(--deep-sky), 0 0 0 3px var(--paper);
+}
+.pth-stop.is-dot.is-done .pth-node {
+  background: var(--deep-sky);
+}
+.pth-stop.is-dot .pth-title {
+  font: 600 var(--fs-row) / var(--lh-row) var(--sans);
+}
+.pth-stop.is-dot.is-next .pth-node {
+  width: 24px;
+  height: 24px;
+  box-shadow: none;
+}
+/* the check at a stop's end: a 48 pt Paper coin */
+.pressable.pth-check {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: var(--paper);
+  box-shadow: inset 0 0 0 2px var(--haze), 0 0 0 1px var(--line), var(--shadow-float);
+  color: var(--ink);
+}
+.pressable.pth-check.is-on {
+  background: var(--deep-sky);
+  color: var(--white);
+}
+
+/* ---------- the far hills (Goals): three hills toward a pale sun ---------- */
+.fh {
+  --fh-rail: 64px;
+  position: relative;
+  display: block;
+  border-radius: var(--r-card);
+  background: var(--paper);
+  box-shadow: var(--shadow-1);
+  overflow: hidden;
+}
+/* the sky is 62 tall, and grows with its caption at a large text size so the way stays under the words */
+.fh-sky {
+  position: relative;
+  min-height: 62px;
+  padding: var(--sp-3) var(--pad-hero) 36px; /* brand-ok: geometry, the caption's line and this make the sky's 62 */
+  background: linear-gradient(180deg, var(--haze) 0, var(--cloud) 50%, var(--horizon-2) 100%);
+}
+.fh-title {
+  position: relative;
+  z-index: 1;
+  display: block;
+  font: 600 var(--fs-caps) / var(--lh-caps) var(--stamp);
+  letter-spacing: var(--tr-caps);
+  text-transform: uppercase;
+  color: var(--ink-2);
+}
+.fh-sun {
+  position: absolute;
+  bottom: 0;
+  right: calc(-1 * var(--sp-2));
+  width: 160px;
+  height: 62px;
+}
+.fh-sun-ring {
+  fill: none;
+  stroke: var(--paper);
+  stroke-width: 1.5;
+  stroke-opacity: 0.8;
+}
+.fh-sun-ring.is-outer {
+  stroke-opacity: 0.55;
+}
+.fh-sun-disc {
+  fill: var(--apricot);
+}
+/* the way from the hills up and over to the sun: it starts on the rail, and narrows with the card */
+.fh-way {
+  position: absolute;
+  bottom: 0;
+  left: calc(var(--fh-rail) / 2);
+  width: calc(100% - 150px);
+  height: 62px;
+}
+.fh-way path {
+  fill: none;
+  stroke: var(--tick-major);
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-dasharray: 0.1 7; /* brand-ok: geometry, the path's dots */
+  vector-effect: non-scaling-stroke;
+}
+.fh-crest {
+  position: absolute;
+  left: 0;
+  display: block;
+  width: 100%;
+  pointer-events: none;
+}
+.fh-crest path {
+  fill: var(--fh-bg, var(--deep-sky));
+}
+.fh-crest.is-far {
+  bottom: -1px;
+  height: 20px;
+}
+/* a hill: a block of its color that grows with its words; its crest is drawn over the hill above */
+.fh-hill {
+  position: relative;
+  background: var(--fh-bg);
+  color: var(--fh-ink);
+}
+.fh-hill.is-far {
+  --fh-bg: var(--deep-sky);
+  --fh-ink: var(--white);
+  --fh-dot: color-mix(in srgb, var(--paper) 90%, transparent);
+  padding-bottom: var(--sp-4);
+}
+.fh-hill.is-mid {
+  --fh-bg: var(--hill-2);
+  --fh-ink: var(--ink);
+  --fh-dot: color-mix(in srgb, var(--night-ink) 60%, transparent);
+  padding-bottom: var(--sp-3);
+}
+.fh-hill.is-near {
+  --fh-bg: var(--hill-1);
+  --fh-ink: var(--ink);
+  --fh-dot: color-mix(in srgb, var(--night-ink) 60%, transparent);
+  padding-bottom: var(--sp-1);
+}
+.fh-hill.is-mid > .fh-crest {
+  top: calc(-1 * var(--sp-4));
+  height: 18px;
+}
+.fh-hill.is-near > .fh-crest {
+  top: calc(-1 * var(--sp-3));
+  height: 14px;
+}
+/* the dotted way through the hills */
+.fh-hill::before {
+  content: '';
+  position: absolute;
+  z-index: 1;
+  top: calc(-1 * var(--sp-2));
+  bottom: 0;
+  left: calc(var(--fh-rail) / 2 - 1px);
+  width: 2px;
+  background: radial-gradient(circle, var(--fh-dot) 0 1px, transparent 1.3px) 0 0 / 2px 7px repeat-y;
+  pointer-events: none;
+}
+.fh-hill > .fh-row {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: var(--fh-rail) minmax(0, 1fr) auto auto;
+  align-items: center;
+  width: 100%;
+  min-height: 48px;
+  padding: var(--sp-1) var(--pad-card) var(--sp-1) 0;
+  border-radius: 0;
+  text-align: left;
+}
+.fh-hill.is-mid > .fh-row {
+  min-height: 52px;
+}
+.fh-hill.is-near > .fh-row {
+  min-height: 56px;
+}
+/* the mark on the way: a dotted ring (open), a Paper disc with a Twilight dot (set), or the Paper plus (the invitation) */
+.fh-node {
+  position: relative;
+  justify-self: center;
+  width: 16px;
+  height: 16px;
+  border: 2px dotted var(--fh-dot);
+  border-radius: 50%;
+  background: var(--fh-bg);
+  box-shadow: 0 0 0 4px var(--fh-bg);
+}
+.fh-node.is-set {
+  width: 20px;
+  height: 20px;
+  border: 0;
+  background: var(--paper);
+}
+.fh-node.is-set::after {
+  content: '';
+  position: absolute;
+  inset: 4px;
+  border-radius: 50%;
+  background: var(--twilight);
+}
+.fh-node.is-plus {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border: 0;
+  background: var(--paper);
+  color: var(--ink);
+}
+.fh-words {
+  display: grid;
+  gap: 1px;
+  min-width: 0;
+}
+.fh-cap {
+  font: 600 var(--fs-caps) / var(--lh-caps) var(--stamp);
+  letter-spacing: var(--tr-caps);
+  text-transform: uppercase;
+}
+.fh-goal {
+  font: 650 var(--fs-row) / var(--lh-row) var(--sans);
+  text-wrap: pretty;
+  overflow-wrap: anywhere;
+}
+.fh-value {
+  margin-left: var(--sp-2);
+  font: 500 var(--fs-sub) / var(--lh-sub) var(--sans);
+  font-variant-numeric: tabular-nums;
+}
+.fh-chev {
+  flex: none;
+  margin-left: var(--sp-1);
+}
+/* Larger Text (html[data-text-xl], app/dynamicType.ts): the value moves under the words, so the words keep the hill's width */
+:root[data-text-xl] .fh-hill > .fh-row {
+  grid-template-columns: var(--fh-rail) minmax(0, 1fr) auto;
+}
+:root[data-text-xl] .fh-node {
+  grid-area: 1 / 1 / 3 / 2;
+}
+:root[data-text-xl] .fh-words {
+  grid-area: 1 / 2;
+}
+:root[data-text-xl] .fh-value {
+  grid-area: 2 / 2;
+  margin-left: 0;
+}
+:root[data-text-xl] .fh-chev {
+  grid-area: 1 / 3 / 3 / 4;
+}
+
+/* ---------- the week's lights (What I learned): a dusk sky ---------- */
+.wl {
+  position: relative;
+  z-index: 1;
+  display: block;
+  width: 100%;
+  height: auto;
+  margin-top: calc(-1 * var(--sp-2));
+}
+.wl-star,
+.wl-wait {
+  fill: var(--paper);
+}
+.wl-way {
+  fill: var(--paper);
+  opacity: 0.55;
+}
+.wl-lamp {
+  fill: var(--apricot);
+}
+.wl-dim {
+  fill: none;
+  stroke: var(--haze);
+  stroke-opacity: 0.75;
+  stroke-width: 1.5;
+}
+.wl-ring {
+  fill: none;
+  stroke: var(--paper);
+  stroke-width: 1.5;
+  opacity: 0.75;
+}
+.wl-ring.is-outer {
+  opacity: 0.4;
+}
+.wl-letter {
+  font: 600 10px / 1 var(--stamp); /* px-ok: inside an SVG that scales with its viewBox */
+  letter-spacing: var(--tr-caps);
+  text-transform: uppercase;
+  fill: var(--haze);
+}
+.wl-letter.is-tonight {
+  fill: var(--white);
+}
+.wl-hill-1 {
+  fill: var(--twilight);
+}
+.wl-hill-2 {
+  fill: var(--night-ink);
+  opacity: 0.55;
+}
+.wl-hill-3 {
+  fill: var(--night-ink);
+}
+.wl-rim {
+  fill: none;
+  stroke: var(--apricot);
+  stroke-opacity: 0.7;
+  stroke-width: 1.5;
+}
+/* the save: tonight's light comes in, scales to 1.12 and back once, and its rings bloom, inner then outer */
+.wl-tonight.is-fresh {
+  animation: wl-in var(--dur-in) var(--ease-out) both;
+}
+.wl-tonight.is-fresh .wl-lamp,
+.wl-tonight.is-fresh .wl-ring {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+.wl-tonight.is-fresh .wl-lamp {
+  animation: wl-pop var(--dur-complete) var(--ease-out);
+}
+.wl-tonight.is-fresh .wl-ring {
+  animation: wl-bloom var(--dur-complete) var(--ease-out) both;
+}
+.wl-tonight.is-fresh .wl-ring.is-outer {
+  animation-delay: var(--dur-in);
+}
+@keyframes wl-in {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes wl-pop {
+  40% {
+    transform: scale(1.12);
+  }
+}
+@keyframes wl-bloom {
+  from {
+    opacity: 0;
+    transform: scale(0.85);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .wl-tonight.is-fresh {
+    animation: wl-in var(--dur-reduce) linear both;
+  }
+  .wl-tonight.is-fresh .wl-lamp,
+  .wl-tonight.is-fresh .wl-ring {
+    animation: none;
+  }
+}
