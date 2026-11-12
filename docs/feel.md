@@ -138,6 +138,8 @@ Agreements no one re-opens: four tabs; This morning pushed from the hero and the
 
 Four, in `ui/nav.ts` `TABS`:
 
+> Since this spec was written the tabs changed: they are now Today, Goals, Fitness (its id and routes keep `plan`), Progress and Journal. What I learned, for a while a tab of its own, is part of Journal: `/learned` and `/learned/:month` lead to `/journal` and `/journal/:month` (a month of the journal, pushed at depth 1). `ui/nav.ts` holds the tabs and the route table as they are; the rows below are the spec as it was written.
+
 | id | root | label | icon | selected |
 |---|---|---|---|---|
 | `today` | `/today` | Today | `Sun` | `fill="currentColor" stroke="none"` |
