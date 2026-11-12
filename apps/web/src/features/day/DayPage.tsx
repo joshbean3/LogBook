@@ -137,16 +137,17 @@ const NudgeSlot = ({ date, onMorning }: { date: ISODate; onMorning: (date: ISODa
 
 /**
  * Just after midnight, yesterday is still the day you mean to close (today-top-31): until 3 AM, if yesterday has no entry,
- * one quiet row opens yesterday's composer in a sheet. It sits with yesterday's other business inside Plan your day (layout
- * plan 2.1 T4), never above the hero. The date logic is untouched: Today is still the new day.
+ * one quiet row opens yesterday's composer in a sheet. It sits with yesterday's other business under the line in Plan your
+ * day's poster, never above the hero. The date logic is untouched: Today is still the new day.
  */
 const LATE_UNTIL = 3 * 60;
+/** Is "Close yesterday" owed: before 3 AM, with no entry for yesterday? The poster draws its row only while it is. */
+const closeYesterdayDue = (log: Log, now: number) => now < LATE_UNTIL && !log.snap.journalOn(shiftDays(log.today, -1)).length;
 const CloseYesterday = ({ log }: { log: Log }) => {
-  const now = useNowMinutes();
   const sheet = useSheet();
   const live = useIsLive(log.today);
   const yesterday = shiftDays(log.today, -1);
-  if (!live || now >= LATE_UNTIL || log.snap.journalOn(yesterday).length) return null;
+  if (!live) return null;
   const open = () =>
     sheet.open({
       eyebrow: fmtDate('long', yesterday),
@@ -295,8 +296,10 @@ const DayContent = memo(function DayContent({ date, onMorning }: { date: ISODate
   // what Today shows, and in what order (lib/prefs.ts): Fitness leads when it is on; with it off the day's own content does
   const parts = todayParts(usePrefs());
   const fitness = parts.includes('fitness');
+  const now = useNowMinutes();
   const habits = !parts.includes('habits') ? null : loaded ? <HabitsTop key="habits" date={date} log={log} /> : <section key="habits" className="habits day-habits is-skel" aria-hidden="true" />;
-  const day = parts.includes('day') && loaded ? <PlanDay key="day" date={date} today={today} yesterday={isToday ? <CloseYesterday log={log} /> : null} /> : null;
+  // Plan your day: the slim poster under the training card (no second sun); with Fitness off it leads the page, whole
+  const day = parts.includes('day') && loaded ? <PlanDay key="day" date={date} today={today} log={log} slim={fitness} yesterday={isToday && closeYesterdayDue(log, now) ? <CloseYesterday log={log} /> : null} /> : null;
   // nothing is switched on: one line and the way to the switches, and nothing else on the page
   if (!parts.length)
     return (
@@ -314,7 +317,8 @@ const DayContent = memo(function DayContent({ date, onMorning }: { date: ISODate
           Fitness off the slot holds the evening's Close card only, and the day's own sections lead */}
       {fitness ? !loaded ? <HeroSkeleton /> : bare ? <FirstRunSlot date={date} log={log} /> : <Hero date={date} log={log} /> : loaded ? <Hero date={date} log={log} closeOnly /> : null}
       <LiveExtras date={date} loaded={loaded} />
-      {fitness ? [habits, day] : [day, habits]}
+      {/* the day's first decision sits above the repeat taps: Plan your day, then Habits, in both modes (layout standard 2.1) */}
+      {[day, habits]}
       {parts.includes('learned') && loaded && isToday ? <LearnedPrompt today={today} /> : null}
       {fitness && STRAVA_BUILT && loaded && isToday && !bare && primer.show ? (
         <div className="strava-primer">

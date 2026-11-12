@@ -1,8 +1,8 @@
 /*
- * Plan your day (Today, layout plan 2.1 T3): one Paper card with one leading edge. Three groups of rows split by full-bleed
- * hairlines: the day's goal; yesterday's business (a review owed, Close yesterday), only while there is some; the to-dos
- * (the top three, Add a to-do, the fold, All to-dos). Every row: 16 in, a 32 px tile, the words 12 after it (60 in).
- * The hero owns the screen's one warm light, so the goal has no sun of its own; its state is its tile, its ring and words.
+ * Plan your day (Today, layout standard 2.1, brand guide 6.5a): the day's poster from the poster kit (ui/poster). The card,
+ * the band and the line of stops are the kit's; this file holds only what is Plan your day's own: the goal as a title you
+ * can tap, the field "Add a to-do" turns into, and the quiet rows under the line (a review owed, Close yesterday,
+ * tomorrow's goal in the evening).
  */
 
 .pd {
@@ -15,306 +15,94 @@
   background: var(--surface);
   box-shadow: var(--shadow-1);
 }
-/* the section head: "Plan your day" and how many are done, the section meta's Dusk even when all are (it is not a control) */
-/* the board: the goal card, then one card per band, 12 apart */
-.pd-board {
-  display: grid;
-  gap: var(--gap);
-  min-width: 0;
-}
 
-/* ---------- the card: one surface, three groups split by full-bleed hairlines (layout standard 3.2, 3.3.3) ---------- */
-.pd-flow {
-  position: relative;
-  isolation: isolate;
-  display: grid;
-  min-width: 0;
-  overflow: hidden;
-  border-radius: var(--r-card);
-  background: var(--surface);
-  border: var(--card-border);
-  box-shadow: var(--shadow-1);
-}
-.pd-flow > * + * {
-  border-top: 1px solid var(--line);
-}
-/* yesterday's group is drawn only while it has a row (its hairline goes with it) */
-.pd-yday:empty {
-  display: none;
-}
-
-/* ---------- the day's goal: the first group ---------- */
-/* the 32 px tile every row of the card leads with (guide 6.4): Haze with a Deep Sky glyph; done, a lit Sky coin with a
-   Night Ink glyph (guide 6.6); a day that is over, quiet */
-.pd-node {
-  flex: none;
-  display: grid;
-  place-items: center;
-  width: var(--tile-ic);
-  height: var(--tile-ic);
-  border-radius: var(--r-icon);
-  background: var(--haze);
-  color: var(--deep-sky);
-  transition: background-color var(--dur-color) var(--ease-out);
-}
-.pd-goal.is-done .pd-node {
-  border-radius: 50%;
-  background: var(--accent);
-  color: var(--accent-ink);
-}
-.pd-goal.is-past .pd-node {
-  background: var(--surface-2);
-  color: var(--ink-2);
-}
-.pd-goal {
-  position: relative;
-  display: grid;
-  min-width: 0;
-  padding: var(--sp-2) var(--sp-4);
-  text-align: left;
-  transition: background-color var(--dur-color) var(--ease-out);
-}
-/* the goal row: tile, the words 12 after it, the ring trailing; 64 tall with its subtitle */
-.pd-goal-in {
-  display: flex;
-  align-items: center;
-  gap: var(--sp-3);
-  min-height: calc(var(--row-h-2) - 2 * var(--sp-2));
-}
-.pd-goal-main {
-  flex: 1;
-  min-width: 0;
-  display: grid;
-  text-align: left;
-}
-/* the goal as the row's title: Inter 600 17, one line (the whole of it is one tap away, and in the label) */
-.pd-goal-text {
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-  font: 600 var(--fs-row) / var(--lh-row) var(--sans);
-  color: var(--ink);
-}
-.pd-goal-sub {
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-  font: 500 var(--fs-sub) / var(--lh-sub) var(--sans);
-  color: var(--ink-2);
-  font-variant-numeric: tabular-nums;
-}
-.pd-goal-ring {
-  position: relative;
-  flex: none;
-}
-/* unset: the tile, the prompt (Fraunces italic 17, Dusk) and the Sky button 16 under it */
-.pd-goal.is-empty {
-  grid-template-columns: auto minmax(0, 1fr);
-  align-items: start;
-  column-gap: var(--sp-3);
-  padding-block: var(--sp-4);
-}
-.pd-goal.is-empty .pd-goal-main {
-  padding-top: var(--sp-1);
-}
-.pd-goal-set {
-  font: italic 420 var(--fs-sentence-sm) / var(--lh-row) var(--serif);
-  letter-spacing: 0;
-  color: var(--ink-2);
-  text-wrap: balance;
-}
-/* the screen's one primary (guide 6.2): Sky, Night Ink 650 words, the primary glow, 44 inline */
-.pd-goal-cta {
-  justify-self: start;
-  display: inline-flex;
-  align-items: center;
-  gap: var(--sp-2);
-  height: var(--hit);
-  margin-top: var(--sp-4);
-  padding: 0 var(--sp-5);
-  border-radius: var(--r-pill);
-  background: var(--primary);
-  box-shadow: var(--primary-glow);
-  color: var(--primary-ink);
-  font: 650 var(--fs-row) / var(--lh-row) var(--sans);
-}
-/* a day that is over with no goal: one quiet row */
-.pd-goal.is-past {
-  display: flex;
-  align-items: center;
-  gap: var(--sp-3);
-  min-height: var(--row-h);
-}
-.pd-goal-none {
-  font: 400 var(--fs-row) / var(--lh-row) var(--sans);
-  color: var(--ink-2);
-}
-/* yesterday's goal carried over in one tap, a quiet line under the prompt, in the words' column. (Stream 2 turns CarryOver
-   into a kit row with its own tile and 16 px padding, which already starts its words at 60: this indent is not for it) */
-.pd-goalgrp > .carry.pd-carry:not(.k-row) {
-  margin-top: calc(-1 * var(--sp-2));
-  padding: 0 var(--sp-4) var(--sp-2) calc(var(--sp-4) + var(--tile-ic) + var(--sp-3));
-}
-/* a to-do in the air can land here as a step: a Haze edge, then a Deep Sky ring and a Cloud wash under it */
-.pd-goal.is-droppable {
-  box-shadow: inset 0 0 0 1.5px var(--haze);
-}
-.pd-goal.is-target {
-  background: var(--cloud);
-  box-shadow: inset 0 0 0 2px var(--deep-sky);
-}
-/* the goal's steps, under it, starting where its title starts; checkable in place */
-.pd-goal-list {
-  display: grid;
-  margin: 0 0 var(--sp-1);
-  padding: 0 0 0 calc(var(--tile-ic) + var(--sp-3) - 10px); /* brand-ok: geometry, the 44 px check's ring sits 10 inside its box */
-  list-style: none;
-}
-.pd-goal-step {
-  display: flex;
-  align-items: center;
-  gap: var(--sp-1);
+/* the goal is the poster's title, and a tap on it opens the goal's sheet (why, steps, done or not) */
+.pd-title.pressable {
+  display: block;
+  width: 100%;
   min-height: var(--hit);
-  font: 400 var(--fs-sub) / var(--lh-sub) var(--sans);
-  color: var(--ink);
-}
-.pd-goal-step .todo-mark,
-.pd-goal-step > button:first-child {
-  flex: none;
-}
-.pd-goal-step-text {
-  min-width: 0;
+  padding: 0;
+  border-radius: 0;
+  font: inherit;
+  letter-spacing: inherit;
+  color: inherit;
+  text-align: left;
   overflow-wrap: anywhere;
 }
-.pd-goal-step.is-done .pd-goal-step-text {
-  color: var(--ink-2);
-  text-decoration: line-through;
-  text-decoration-color: var(--pencil);
+/* the goal was just set: its words rise into the title, once */
+.pd-title.is-rising {
+  animation: pd-rise var(--dur) var(--ease-out) both;
 }
-/* the week's goal, one quiet line in the words' column */
-.pd-week {
-  display: flex;
-  align-items: center;
-  gap: var(--sp-2);
-  min-height: var(--hit);
-  padding-left: calc(var(--tile-ic) + var(--sp-3));
-  color: var(--ink-2);
-  font: 500 var(--fs-sub) / var(--lh-sub) var(--sans);
-  text-align: left;
-}
-/* the week's goal: a Deep Sky ring, filled when it is done (no per-feature hue, no glow) */
-.pd-week-dot {
-  flex: none;
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: transparent;
-  box-shadow: inset 0 0 0 1.5px var(--deep-sky);
-}
-.pd-week-dot.is-done {
-  background: var(--deep-sky);
-}
-.pd-week-text {
-  min-width: 0;
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-}
-
-/* ---------- yesterday's business: the review owed (ReviewRow) and Close yesterday, as rows ---------- */
-.pd-yday {
-  display: grid;
-}
-.pd-yday > * + * {
-  position: relative;
-}
-.pd-yday > * + *::after {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: calc(var(--sp-4) + var(--tile-ic) + var(--sp-3));
-  right: 0;
-  height: 1px;
-  background: var(--line);
-}
-/* the review owed: the goal as the title, whose goal under it, the quiet ask trailing (ReviewRow's markup, laid out as a
-   row of this card: its dot becomes the row's tile, its caps the subtitle) */
-.pd-yday > .pd-owed {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  align-items: center;
-  column-gap: var(--sp-3);
-  min-height: var(--row-h-2);
-  padding: var(--sp-2) var(--sp-4);
-  color: var(--ink);
-  text-align: left;
-}
-.pd-yday > .pd-owed > svg {
-  display: none;
-}
-.pd-owed-dot {
-  width: var(--tile-ic);
-  height: var(--tile-ic);
-  border-radius: var(--r-icon);
-  /* an ask, not a warning and not now: a Deep Sky dot on the Haze tile */
-  background:
-    radial-gradient(circle, var(--deep-sky) 0 4px, transparent 4.5px), /* brand-ok: geometry, an 8 px dot */
-    var(--haze);
-}
-.pd-owed-text {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  column-gap: var(--sp-3);
-  min-width: 0;
-}
-.pd-owed-goal {
-  grid-row: 1;
-  grid-column: 1;
-  min-width: 0;
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-  font: 600 var(--fs-row) / var(--lh-row) var(--sans);
-  color: var(--ink);
-}
-.pd-owed-text > .caps {
-  grid-row: 2;
-  grid-column: 1;
-  min-width: 0;
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-  font: 500 var(--fs-sub) / var(--lh-sub) var(--sans);
-  letter-spacing: 0;
-  text-transform: none;
-  color: var(--ink-2);
-}
-.pd-owed-ask {
-  grid-row: 1 / span 2;
-  grid-column: 2;
-  align-self: center;
-  font: 600 var(--fs-sub) / var(--lh-sub) var(--sans);
-  color: var(--accent-text);
-  white-space: nowrap;
-}
-/* a narrow phone: the ask takes its own line under whose goal it is, so the goal is not cut to two words */
-@media (max-width: 359px) {
-  .pd-owed-ask {
-    grid-row: 3;
-    grid-column: 1;
+@keyframes pd-rise {
+  from {
+    opacity: 0;
+    transform: translateY(var(--sp-3));
   }
 }
-html[data-text-xl] .pd-owed-ask {
-  grid-row: 3;
-  grid-column: 1;
+@keyframes pd-fade {
+  from {
+    opacity: 0;
+  }
 }
-/* Close yesterday: a quiet row, its words in the title's column */
+@media (prefers-reduced-motion: reduce) {
+  .pd-title.is-rising {
+    animation: pd-fade var(--dur-reduce) linear both;
+  }
+}
+
+/* a to-do's flag follows its words on the stop */
+.pd-path .pth-title > .prio-flag {
+  vertical-align: -2px; /* brand-ok: optical, the flag sits on the text's baseline */
+}
+
+/* ---------- Add a to-do: the last stop turns into the field ---------- */
+/* the field and what it read from the marks: beside the words, or under them when the field is narrow (see .tt-field) */
+.pd-add {
+  container-type: inline-size;
+  flex: 1 1 auto;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  column-gap: var(--sp-2);
+  min-width: 0;
+  /* when the browser itself scrolls the field into view, it keeps the same air the app's own reveal leaves */
+  scroll-margin: var(--sp-4) 0;
+}
+.pd-add-input {
+  flex: 1;
+  min-width: 0;
+  min-height: var(--hit);
+  scroll-margin: var(--sp-5) 0;
+  border: 0;
+  outline: none;
+  background: none;
+  color: var(--ink);
+  font: inherit;
+}
+.pd-add-input:focus-visible {
+  outline: none;
+  box-shadow: none;
+}
+
+/* ---------- under the line: yesterday's business and, in the evening, tomorrow's goal ---------- */
+.pd-poster > .po-path + .po-ctl,
+.pd-poster > .po-ctl {
+  padding: 0 0 var(--sp-2);
+}
+.pd-more {
+  display: grid;
+  border-top: 1px solid var(--line);
+}
+.pd-more > .k-row {
+  padding-right: var(--pad-hero);
+  padding-left: var(--pad-hero);
+}
 .pd-yrow.pressable {
   display: flex;
   align-items: center;
   gap: var(--sp-3);
   min-height: var(--row-h);
-  padding: 0 var(--sp-4) 0 calc(var(--sp-4) + var(--tile-ic) + var(--sp-3));
+  padding: var(--sp-2) var(--pad-hero);
   color: var(--accent-text);
   text-align: left;
 }
@@ -322,502 +110,8 @@ html[data-text-xl] .pd-owed-ask {
   flex: 1;
   min-width: 0;
   font: 600 var(--fs-row) / var(--lh-row) var(--sans);
+  overflow-wrap: anywhere;
 }
 .pd-yrow > svg {
   flex: none;
 }
-
-/* ---------- the to-dos: one list, the top three numbered, then Add a to-do, the fold, All to-dos ---------- */
-.pd-focus {
-  position: relative;
-  display: grid;
-  min-width: 0;
-}
-.pd-focus.is-over {
-  background: var(--cloud);
-}
-.pd-focus-zone {
-  grid-template-columns: minmax(0, 1fr);
-}
-.pd-focus-zone > * {
-  grid-column: 1;
-}
-/* the list's empty line, in the words' column */
-.pd-zone > .pd-top-empty {
-  z-index: 1;
-  margin: 0;
-  padding: var(--sp-4) var(--sp-4) var(--sp-3) calc(var(--sp-4) + var(--tile-ic) + var(--sp-3));
-  font: 400 var(--fs-sub) / var(--lh-sub) var(--sans);
-  color: var(--ink-2);
-}
-.pd-top-tip {
-  display: block;
-  margin-top: var(--sp-1);
-  font-size: var(--fs-foot);
-  line-height: var(--lh-foot);
-}
-/* the number of a row (layout plan 2.1 T3): the row's 32 px Haze tile with an Inter 600 15 numeral, even figures, for the
-   three in front; outlined after; blank once done. 15, not the plan's 13: the card keeps three sizes (17, 15 and the flags'
-   11; layout standard 4.4). Not Sky: on Today a Sky fill means done or the one primary */
-.pd-rank {
-  flex: none;
-  display: grid;
-  place-items: center;
-  width: var(--tile-ic);
-  height: var(--tile-ic);
-  border-radius: var(--r-icon);
-  background: var(--haze);
-  color: var(--ink);
-  /* a numeral in a fixed tile: it grows with the text size only as far as the tile holds */
-  font: 600 clamp(15px, var(--fs-sub), 17px) / 1 var(--sans);
-  font-variant-numeric: tabular-nums;
-  transition:
-    background-color var(--dur-color) var(--ease-out),
-    color var(--dur-color) var(--ease-out);
-}
-.pd-card.is-done .pd-rank.is-blank {
-  background: none;
-  box-shadow: none;
-}
-/* the rest: there, but quiet, so the eye stays on the three. Quiet by color, never by fading the row: the words one step
-   down in Dusk (still 4.5:1 and more), the number an outline */
-.pd-card.is-rest .pd-rank {
-  background: transparent;
-  box-shadow: inset 0 0 0 1.5px var(--pencil);
-  color: var(--ink-2);
-}
-.pd-card.is-rest .pd-card-text {
-  color: var(--ink-2);
-}
-.pd-card.is-done .pd-rank,
-.pd-card.is-checking .pd-rank {
-  background: var(--surface);
-  color: var(--ink-2);
-  box-shadow: inset 0 0 0 1.5px var(--line);
-}
-/* the beat between the check and the row leaving: it greys where it stands */
-.pd-card.is-checking .pd-card-text {
-  color: var(--ink-2);
-}
-/* the fold over the rest ("3 more · 2 done"), and its label when open: quiet Deep Sky actions in the words' column */
-.pd-zone > .pd-rest-toggle {
-  z-index: 1;
-  display: flex;
-  align-items: center;
-  gap: var(--sp-2);
-  min-height: var(--row-h);
-  padding: 0 var(--sp-4) 0 calc(var(--sp-4) + var(--tile-ic) + var(--sp-3));
-  border: 0;
-  background: none;
-  color: var(--accent-text);
-  font: 600 var(--fs-row) / var(--lh-row) var(--sans);
-  text-align: left;
-}
-.pd-zone > .pd-rest-toggle::after {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: calc(var(--sp-4) + var(--tile-ic) + var(--sp-3));
-  right: 0;
-  height: 1px;
-  background: var(--line);
-}
-/* the fold as the list's first row (everything done and folded): the group's own hairline is above it */
-.pd-zone > .pd-rest-toggle:first-child::after {
-  display: none;
-}
-.pd-zone > .pd-rest-toggle:active {
-  background: var(--surface-2);
-}
-.pd-rest-toggle svg {
-  flex: none;
-  transition: transform var(--dur-settle) var(--ease-out);
-}
-.pd-rest-toggle.is-open svg {
-  transform: rotate(180deg);
-}
-.pd-rest-words {
-  flex: 0 1 auto;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.pd-zone > .pd-rest-label {
-  z-index: 1;
-  padding: var(--sp-3) var(--sp-4) var(--sp-1) calc(var(--sp-4) + var(--tile-ic) + var(--sp-3));
-  font: 500 var(--fs-sub) / var(--lh-sub) var(--sans);
-  color: var(--ink-2);
-}
-/* All to-dos: the card's last row, a quiet Deep Sky action; what waits later on the trailing side, Dusk */
-.pd-all.pressable {
-  position: relative;
-  display: flex;
-  align-items: center;
-  gap: var(--sp-2);
-  min-height: var(--row-h);
-  padding: 0 var(--sp-4) 0 calc(var(--sp-4) + var(--tile-ic) + var(--sp-3));
-  color: var(--accent-text);
-  text-align: left;
-}
-.pd-all.pressable::after {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: calc(var(--sp-4) + var(--tile-ic) + var(--sp-3));
-  right: 0;
-  height: 1px;
-  background: var(--line);
-}
-.pd-all-text {
-  flex: none;
-  font: 600 var(--fs-row) / var(--lh-row) var(--sans);
-}
-.pd-all-more {
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-  text-align: right;
-  font: 500 var(--fs-sub) / var(--lh-sub) var(--sans);
-  color: var(--ink-2);
-}
-/* the chevron at the trailing edge, as on Close yesterday: the card's two link rows end in the same place */
-.pd-all.pressable > svg {
-  flex: none;
-  margin-left: auto;
-}
-
-/* the rows: a zone the drag measures (its cards' offsets), hairlines from the words */
-.pd-zone {
-  position: relative;
-  display: grid;
-  min-width: 0;
-}
-.pd-zone:empty {
-  display: none;
-}
-.pd-zone > * {
-  position: relative;
-}
-.pd-zone > .pd-card::after,
-.pd-add::after {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 60px;
-  right: 0;
-  height: 1px;
-  background: var(--line);
-  pointer-events: none;
-}
-/* the list's first row: the group's own hairline is above it */
-.pd-zone > .pd-card.is-top.is-first::after {
-  opacity: 0;
-}
-.pd-zone > .pd-card.is-hole::after,
-.pd-zone > .pd-card.is-hole + .pd-card::after,
-.pd-zone > .pd-card.is-armed::after,
-.pd-zone > .pd-card.is-armed + .pd-card::after {
-  opacity: 0;
-}
-/* ---------- a to-do as a row: the icon tile, the words, the round check ---------- */
-.pd-card {
-  position: relative;
-  border-radius: var(--r-control);
-  background: var(--surface);
-  touch-action: pan-y;
-  user-select: none;
-  -webkit-user-select: none;
-  -webkit-touch-callout: none;
-  transition:
-    background-color var(--dur-color) var(--ease-out),
-    transform var(--dur-settle) var(--ease-out),
-    opacity var(--dur-settle) var(--ease-out);
-}
-.pd-card-in {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  min-height: 56px;
-  padding: 6px 6px 6px 16px;
-}
-.pd-ico {
-  flex: none;
-  width: 32px;
-  height: 32px;
-  display: grid;
-  place-items: center;
-  /* an icon tile in a row (guide 6.4): Haze with a Deep Sky glyph */
-  border-radius: var(--r-icon);
-  background: var(--haze);
-  color: var(--deep-sky);
-}
-/* a list's color: a 3 px marker at the row's leading edge (user-picked colors are marks only, guide 6.13) */
-.pd-card.has-tc::before {
-  content: '';
-  position: absolute;
-  left: 0;
-  top: 16px;
-  bottom: 16px;
-  width: 3px;
-  border-radius: 0 var(--r-pill) var(--r-pill) 0;
-  background: var(--tc);
-}
-.pd-card-name {
-  flex: 1;
-  min-width: 0;
-  display: grid;
-  align-content: center;
-  gap: 1px;
-  min-height: 44px;
-  padding: 4px 0;
-  border: 0;
-  background: none;
-  color: inherit;
-  font: inherit;
-  text-align: left;
-}
-/* the words run on as one block, three lines at most on Today (the editor has them whole); the flag follows the last word */
-.pd-card-text {
-  overflow: hidden;
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 3;
-  color: var(--ink);
-  font: 400 var(--fs-row) / var(--lh-row) var(--sans);
-  overflow-wrap: anywhere;
-  transition: color var(--dur-color) var(--ease-out);
-}
-.pd-card-text .prio,
-.pd-card-meta .prio {
-  vertical-align: -1px;
-}
-/* the flag never starts a line by itself: it wraps with the last word */
-.pd-card-last {
-  white-space: nowrap;
-}
-/* words cut at the third line would take the flag with them: it moves to the line under them */
-.pd-card-meta .prio {
-  margin-right: 4px;
-}
-.pd-card-meta {
-  overflow: hidden;
-  color: var(--ink-2);
-  font-size: var(--fs-foot);
-  line-height: var(--lh-foot);
-  white-space: nowrap;
-  text-overflow: ellipsis;
-}
-/* done (guide 6.13): the words in Dusk with a line-through (no fading); the check stays lit at full strength */
-.pd-card.is-done .pd-card-text {
-  color: var(--ink-2);
-  text-decoration: line-through;
-  text-decoration-color: var(--pencil);
-}
-/* the hold is up: the row rises off the card to meet the finger */
-.pd-card.is-armed {
-  z-index: 2;
-  transform: scale(1.025);
-  border-radius: var(--r-tile);
-  box-shadow: var(--shadow-float);
-}
-/* where the card in the air would land */
-.pd-card.is-hole {
-  opacity: 1;
-  background: var(--cloud);
-  box-shadow: inset 0 0 0 1.5px var(--haze);
-}
-.pd-card.is-hole .pd-card-in {
-  visibility: hidden;
-}
-.pd-card.is-hole::before {
-  display: none;
-}
-
-/* the card in the air */
-.pd-ghost {
-  position: fixed;
-  left: 0;
-  top: 0;
-  z-index: 1000;
-  pointer-events: none;
-  border-radius: var(--r-tile);
-  background: var(--surface);
-  box-shadow: var(--shadow-2);
-}
-.pd-ghost.is-bin {
-  box-shadow:
-    0 0 0 1.5px var(--bad),
-    var(--shadow-2);
-}
-
-/* ---------- the docks (over the header while a card is in the air: the header is never a place to drop) ---------- */
-.pd-docks {
-  position: fixed;
-  left: 16px;
-  right: 16px;
-  top: calc(var(--safe-t) + 22px);
-  z-index: 999;
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 10px;
-  pointer-events: none;
-}
-/* the header's title is veiled while the docks are up, so their words are the only ones there */
-.pd-docks::before {
-  content: '';
-  /* placed from the docks' own box (they move on a transform as they come in, which would carry a fixed veil off) */
-  position: absolute;
-  z-index: -1;
-  top: calc(-1 * (var(--safe-t) + 22px));
-  left: -16px;
-  right: -16px;
-  /* the title's own band, no further: the week strip under it stays as it is */
-  height: calc(var(--safe-t) + 74px);
-  background: linear-gradient(180deg, var(--bg) 0%, var(--bg) 80%, transparent 100%);
-  pointer-events: none;
-}
-/* three docks (the goal can take a step): closer, so they hold one row on a 390 pt screen; at 320 the words alone */
-.pd-docks.is-three {
-  gap: 8px;
-}
-.pd-docks.is-three .pd-dock {
-  gap: 6px;
-  padding: 0 12px;
-  font-size: var(--fs-foot);
-}
-@media (max-width: 359px) {
-  .pd-docks.is-three .pd-dock svg {
-    display: none;
-  }
-}
-.pd-dock {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  height: 50px;
-  padding: 0 20px;
-  border-radius: var(--r-pill);
-  /* floating chrome (guide 5.3): Paper with the float shadow and the 1 px edge */
-  background: var(--surface);
-  color: var(--ink);
-  font-size: var(--fs-sub);
-  font-weight: 600;
-  box-shadow:
-    0 0 0 1px var(--edge),
-    var(--shadow-float);
-  transition:
-    transform var(--dur-fast) var(--ease-out),
-    background-color var(--dur-color) var(--ease-out),
-    color var(--dur-color) var(--ease-out);
-}
-.pd-dock.is-over {
-  transform: scale(1.08);
-  background: var(--primary);
-  color: var(--primary-ink);
-}
-.pd-dock.is-bin.is-over {
-  background: var(--bad);
-  color: var(--white);
-}
-.pd-dock.is-goal.is-over {
-  background: var(--primary);
-  color: var(--primary-ink);
-}
-
-/* ---------- Add a to-do, right under the top three (the card's one dashed slot); the field takes its place ---------- */
-.pd-add {
-  position: relative;
-  z-index: 1;
-  display: flex;
-  align-items: center;
-  gap: var(--sp-3);
-  width: 100%;
-  min-height: var(--row-h);
-  padding: 0 var(--sp-4);
-  color: var(--ink-2);
-  font: 400 var(--fs-row) / var(--lh-row) var(--sans);
-  text-align: left;
-}
-/* an empty band: the add row is the band's only row, no hairline under the head */
-.pd-zone:empty + .pd-add::after {
-  display: none;
-}
-.pd-add-ic {
-  flex: none;
-  display: grid;
-  place-items: center;
-  width: 32px;
-  height: 32px;
-  border-radius: var(--r-icon);
-  border: 1.5px dashed var(--line-strong);
-  color: var(--ink-2);
-}
-.pd-add-text {
-  min-width: 0;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.pd-add.is-field {
-  color: var(--ink-2);
-  /* when the browser itself scrolls the field into view, it keeps the same air the app's own reveal leaves */
-  scroll-margin: 16px 0;
-}
-.pd-add.is-field .pd-add-ic {
-  border-style: solid;
-  border-color: var(--ink-2);
-  color: var(--ink-2);
-}
-/* the field and what it read from the marks: beside the words, or under them when the field is narrow (see .tt-field) */
-.pd-add-main {
-  container-type: inline-size;
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  column-gap: 8px;
-}
-.pd-add-input:focus-visible {
-  outline: none;
-  box-shadow: none;
-}
-.pd-add-input {
-  flex: 1;
-  min-width: 0;
-  height: 40px;
-  scroll-margin: 22px 0;
-  border: 0;
-  outline: none;
-  background: none;
-  color: var(--ink);
-  font: inherit;
-  font-size: var(--fs-row);
-}
-@media (prefers-reduced-motion: reduce) {
-  .pd-goal,
-  .pd-card,
-  .pd-dock,
-  .pd-node {
-    transition: none;
-  }
-  .pd-card.is-armed,
-  .pd-goal.is-target,
-  .pd-dock.is-over {
-    transform: none;
-  }
-}
-
-/* kept in the layout, out of sight, while a card is in the air */
-.pd-hide {
-  visibility: hidden;
-}
-.pd-spacer {
-  display: block;
-  flex: none;
-}
-

@@ -118,32 +118,38 @@ export const splitFocus = (cards: Card[]) => {
   return { top: open.slice(0, TOP), rest: open.slice(TOP), done: cards.filter((c) => c.done) };
 };
 
-/** One row of the focus list in its grid: which part it is in, its grid row, and its number (open rows only). */
-export interface FocusSlot {
-  card: Card;
-  kind: 'top' | 'rest' | 'done';
-  row: number;
-  rank?: number;
-  first: boolean;
+/** How many done to-dos keep a stop of their own on the path; more than this fold into one "3 done" stop. */
+export const DONE_SHOWN = 2;
+
+/** The day's to-dos as the path draws them (Plan your day, the poster's line of stops). */
+export interface DayPath {
+  /** What got done, each a stop of its own (at most `DONE_SHOWN`); empty when they are folded. */
+  done: Card[];
+  /** How many done to-dos the one folded stop stands for; 0 when each has its own. */
+  doneFolded: number;
+  /** The open to-dos on the surface: the first three, in the order they matter. The first is the next move. */
+  open: Card[];
+  /** Open to-dos past the three: behind "All to-dos". */
+  rest: number;
+  total: number;
+  doneCount: number;
 }
 
 /**
- * The focus list as grid rows. Row 1 is the head. With priorities, they take the rows from 2; with none, the empty line
- * takes row 2. Then one row for the fold (or its "After these" label when open), then the rest and what got done when
- * they show, then the row that folds them away (never while a row is in the air). Every part has a row of its own, so
- * nothing shares one. A row that is not shown is 0.
+ * The path through a day's to-dos: what is behind you (two done stops at most, else one folded stop), the top three open
+ * ones, and how many more wait behind "All to-dos".
  */
-export const focusGrid = (cards: Card[], open: boolean, dragging: boolean) => {
-  const { top, rest, done } = splitFocus(cards);
-  const emptyRow = top.length ? 0 : 2;
-  let row = top.length ? 2 : 3;
-  const place = (list: Card[], kind: FocusSlot['kind']): FocusSlot[] => list.map((card, i) => ({ card, kind, row: row++, rank: kind === 'done' ? undefined : kind === 'top' ? i + 1 : top.length + i + 1, first: i === 0 }));
-  const topSlots = place(top, 'top');
-  const boxEnd = row;
-  const folded = rest.length + done.length;
-  const foldRow = folded ? row++ : 0;
-  const restSlots = open ? place(rest, 'rest') : [];
-  const doneSlots = open ? place(done, 'done') : [];
-  const hideRow = folded && open && !dragging ? row++ : 0;
-  return { top: topSlots, rest: restSlots, done: doneSlots, emptyRow, boxEnd, foldRow, hideRow, counts: { top: top.length, rest: rest.length, done: done.length } };
+export const pathOf = (cards: Card[]): DayPath => {
+  const { top, rest, done } = splitFocus(cards.filter((c) => c.kind === 'todo'));
+  const folded = done.length > DONE_SHOWN;
+  return { done: folded ? [] : done, doneFolded: folded ? done.length : 0, open: top, rest: rest.length, total: top.length + rest.length + done.length, doneCount: done.length };
+};
+
+/** The band's count: "1 of 3 done", "All 3 done" (one to-do says "1 of 1 done"). Nothing to count: null. */
+export const countWords = (done: number, total: number): string | null => (total <= 0 ? null : done >= total && total > 1 ? `All ${total} done` : `${Math.min(done, total)} of ${total} done`);
+
+/** The time left in a day, from minutes after midnight: "14 h left", "40 min left". */
+export const leftWords = (minutes: number): string => {
+  const left = Math.max(0, 1440 - minutes);
+  return left < 60 ? `${Math.max(1, Math.round(left))} min left` : `${Math.round(left / 60)} h left`;
 };
