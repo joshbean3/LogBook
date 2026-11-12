@@ -2,7 +2,12 @@ import { describe, expect, it } from 'vitest';
 import { bandWords, lastSeven, learnedWeek, lightsLabel, ordinal } from './week';
 
 const today = '2026-11-12'; // a Thursday
-const week = (...lit: string[]) => learnedWeek(today, new Set(lit));
+/** A line on each day named; name a day twice for two lines. */
+const week = (...days: string[]) => {
+  const lines = new Map<string, number>();
+  for (const d of days) lines.set(d, (lines.get(d) ?? 0) + 1);
+  return learnedWeek(today, lines);
+};
 
 describe('the week’s lights', () => {
   it('shows six days ago on the left to tonight on the right', () => {
@@ -19,6 +24,14 @@ describe('the week’s lights', () => {
     expect(week('2026-11-09', '2026-11-11', today)).toMatchObject({ before: 2, tonight: true, kept: 3 });
     // a day outside the seven is not in this week
     expect(week('2026-11-05').kept).toBe(0);
+  });
+
+  it('counts every line, and lights a day once however many lines it holds', () => {
+    const w = week('2026-11-09', '2026-11-09', '2026-11-11');
+    expect(w).toMatchObject({ before: 2, tonight: false, kept: 3 });
+    // three lines kept on two days: tonight's is still the third light
+    expect(bandWords(w, true)).toEqual({ label: 'This week · 3 lines kept', words: 'Tonight’s line lights the third' });
+    expect(bandWords(week('2026-11-09', '2026-11-11', today, today), true)).toEqual({ label: 'This week', words: '4 lines kept' });
   });
 
   it('says which light tonight’s line would be', () => {

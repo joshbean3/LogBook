@@ -141,7 +141,7 @@ Build:
 Build:
 
 - **The poster replaces the prompt card and the lightbulb tracker.** One card says the question, shows the week and takes the line. Why: the owner chose design A2; the tracker and the card were two things to read before one thing to do.
-- **Counts are lines kept, never days in a row.** A light is a day with a line (a second line on the same day adds no light); a missed day is an unlit light, not a broken chain. No streak word anywhere on the page or in its VoiceOver labels.
+- **Counts are lines kept, never days in a row.** A light is a day with a line; the band counts every line (a second line on the same day adds to the count, not a light); a missed day is an unlit light, not a broken chain. No streak word anywhere on the page or in its VoiceOver labels.
 - **The field is started from the day** (brand 6.5a) and its question stays in view while typing: the poster's title at rest, a caption over the field while it has focus. The field and its button stay above the keyboard together.
 - **Month rows are one inset group** 24 under the poster, with no year heading for this year; a month appears once it holds a line. An earlier year is a section under its name and count. There is no "No months yet" row: the poster is the empty state.
 - **One tap away:** Edit (or a tap on the quote) opens the line's sheet: change it, delete it (trash, with Undo), "Add another line" for today. Search all years is the magnifier at the end of the nav bar. A month's row opens its page, where an empty day in the last seven can still be filled in.

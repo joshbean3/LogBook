@@ -233,10 +233,13 @@ export default function LearnedView(): React.JSX.Element {
   const from = lastSeven(today)[0]!;
   const prevMonth = from.slice(0, 7) !== today.slice(0, 7) ? from.slice(0, 7) : null;
   const prev = useLearnings({ month: prevMonth }, !!prevMonth);
-  const lit = useMemo(() => {
-    const out = new Set<string>();
-    for (const l of rows) if (l.date >= from && l.date <= today) out.add(l.date);
-    for (const p of prev.data?.pages ?? []) for (const l of p.learnings) if (l.date >= from) out.add(l.date);
+  const lines = useMemo(() => {
+    const out = new Map<string, number>();
+    const count = (l: Learning) => {
+      if (l.date >= from && l.date <= today) out.set(l.date, (out.get(l.date) ?? 0) + 1);
+    };
+    rows.forEach(count);
+    for (const p of prev.data?.pages ?? []) p.learnings.forEach(count);
     return out;
   }, [rows, prev.data, from, today]);
   const s = stats.data;
@@ -296,7 +299,7 @@ export default function LearnedView(): React.JSX.Element {
       <NavBar caps={{ cur: dayCaption(today, today) }} title={{ cur: 'What I learned' }} gap={16} trailing={total > 0 && !searchOpen ? <SearchButton key="search" onPress={startSearch} /> : undefined} />
       {searching ? null : (
         <div className="k-stack">
-          {loading ? <LearnedPosterSkeleton /> : <LearnedPoster today={today} items={todays} lit={lit} total={total} onOpen={open} />}
+          {loading ? <LearnedPosterSkeleton /> : <LearnedPoster today={today} items={todays} lines={lines} total={total} onOpen={open} />}
           {failed ? <LoadError what="list" onRetry={retry} busy={list.isFetching || stats.isFetching || months.isFetching} /> : null}
         </div>
       )}

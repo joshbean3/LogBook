@@ -181,8 +181,8 @@ export interface LearnedPosterProps {
   today: string;
   /** Today's lines, in the order they were written. */
   items: Learning[];
-  /** The days with a line, at least across the last seven. */
-  lit: ReadonlySet<string>;
+  /** How many lines each day holds, at least across the last seven days. */
+  lines: ReadonlyMap<string, number>;
   /** Every line ever kept (the stats), for the first-line invitation. */
   total: number;
   onOpen: (l: Learning) => void;
@@ -193,18 +193,14 @@ export interface LearnedPosterProps {
  * week's seven lights with tonight's ring waiting, the band's count of lines kept and which light tonight's would be, then
  * the field and "Finish the line". After: tonight lights, "One more thing you know.", the band counts up, and the line is
  * a quote with Saved and Edit. The same poster stays mounted across the save, so the light comes in once (WeekLights) with
- * one success haptic; coming back later the same day it is simply lit. Counts are lines kept, never days in a row.
+ * one success haptic; coming back later the same day it is simply lit. Counts are lines kept (a light is a day with a
+ * line), never days in a row.
  */
-export const LearnedPoster = ({ today, items, lit, total, onOpen }: LearnedPosterProps): React.JSX.Element => {
+export const LearnedPoster = ({ today, items, lines, total, onOpen }: LearnedPosterProps): React.JSX.Element => {
   const starter = useStarter(today);
   const saved = items.length > 0;
   // today's light follows today's lines (the save lands in the list at once), the six before it the loaded days
-  const week = useMemo(() => {
-    const days = new Set(lit);
-    if (saved) days.add(today);
-    else days.delete(today);
-    return learnedWeek(today, days);
-  }, [lit, saved, today]);
+  const week = useMemo(() => learnedWeek(today, new Map(lines).set(today, items.length)), [lines, items.length, today]);
   // the save: tonight's line arrived while this poster was up
   const [prev, setPrev] = useState(saved);
   const [fresh, setFresh] = useState(false);

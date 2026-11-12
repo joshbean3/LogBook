@@ -10,6 +10,15 @@
   min-height: 100%;
 }
 
+/* the lights' letters are drawn with fill (the kit's); their color says the same, so a reading of the text's contrast
+   finds Haze and White on the dusk sky, not the page's ink */
+.ln-poster .wl-letter {
+  color: var(--haze);
+}
+.ln-poster .wl-letter.is-tonight {
+  color: var(--white);
+}
+
 /* ---------- the poster's controls, before tonight's line (guide 6.5a): the field, started from the day, the caption of
  * where its first words came from, and the one Sky button ---------- */
 .ln-entry {
@@ -92,7 +101,6 @@ textarea.ln-entry-in:focus {
   height: 1.3em;
   margin-left: 3px;
   vertical-align: -0.25em;
-  border-radius: 1px;
   background: var(--deep-sky);
 }
 /* where the first words came from, and the button: one row; the caption gives way and wraps, the button keeps its words */
