@@ -1,7 +1,9 @@
 import { CONSENT_VERSION, daysBetween, fmtDate, label, mondayOf, monthsBetween, num, parseISO, shiftDays, tone, type PlanBlock, type PlanDraft } from '@logbook/shared';
+import { errorWords } from './errorWords';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { FileText } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { oneAtATime } from './oneAtATime';
 import { useNav, useTab } from '@/app/NavController';
 import { api, ApiError, LONG_TIMEOUT_MS } from '@/api/client';
 import { keys, useMonths, useTemplateUndo, type PlanTemplateResult } from '@/api/queries';
@@ -73,12 +75,17 @@ const Preview = ({ draft, mode, onDone, onDiscard }: { draft: PlanDraft; mode: M
       sheet.close();
       if (tab === 'plan') nav.go(`/plan/week/${mondayOf(r.block.start)}`);
     },
-    onError: (e) => toast(e instanceof ApiError ? e.message : 'Couldn’t save the plan.'),
+    onError: (e) => toast(errorWords(e, 'Couldn’t save the plan. Try again.')),
   });
   const weeks: string[] = [];
   for (let mon = mondayOf(draft.start); mon <= draft.end; mon = shiftDays(mon, 7)) weeks.push(mon);
   const nWeeks = Math.ceil((daysBetween(draft.start, draft.end) + 1) / 7);
-  const send = (m: 'replace' | 'add') => replaced && !apply.isPending && apply.mutate({ mode: m, ids: replaced });
+  // one plan per press (oneAtATime.ts): `disabled` waits for a render, and two presses in one task would write it twice
+  const applyNow = useRef(apply.mutateAsync);
+  applyNow.current = apply.mutateAsync;
+  // the failure is said by the mutation's own onError: the lock only needs to know when it settled
+  const [applyOnce] = useState(() => oneAtATime((v: { mode: 'replace' | 'add'; ids: string[] }) => applyNow.current(v).catch(() => undefined)));
+  const send = (m: 'replace' | 'add') => replaced && !apply.isPending && applyOnce({ mode: m, ids: replaced });
   return (
     // one block in the sheet's body (as `.tp` is for the builder): the body's grid would shrink the week list to fit and
     // nothing could scroll (16 weeks in 170 px)
@@ -309,6 +316,10 @@ export const PlanBuilder = ({ log }: { log: Log }) => {
       setError(e instanceof Error ? e.message : 'Something interrupted the request. Try again.');
     },
   });
+  // one request per press: a second press in the same task would ask (and wait) twice
+  const buildNow = useRef(build.mutateAsync);
+  buildNow.current = build.mutateAsync;
+  const [buildOnce] = useState(() => oneAtATime(() => buildNow.current().catch(() => undefined)));
   if (draft)
     return (
       <Preview
@@ -394,7 +405,7 @@ export const PlanBuilder = ({ log }: { log: Log }) => {
               Stop
             </Button>
           ) : (
-            <Button variant="primary" onClick={() => build.mutate()}>
+            <Button variant="primary" onClick={() => buildOnce()}>
               {mode === 'revise' ? 'Draft' : 'Build'}
             </Button>
           )}
