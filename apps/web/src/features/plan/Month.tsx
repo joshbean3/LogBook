@@ -7,6 +7,7 @@ import { useLog, type Log } from '../log/useLog';
 import { dayMiles, weekMiles } from '../sessions/miles';
 import { LoadFail, useMonthsFailed } from './LoadFail';
 import { heroBlock } from './Blocks';
+import { PlanFoot } from './PlanTop';
 
 /**
  * The month (docs/feel.md §7.3): 7 columns × up to 6 rows of 56 px cells (day 13/18, miles 11/13, a 3 px tone bar), a `Wk`
@@ -187,6 +188,7 @@ export const MonthPage = memo(function MonthPage({ first, onWeek, onStep, onThis
             </div>
           </div>
         )}
+        <PlanFoot />
       </section>
     </div>
   );

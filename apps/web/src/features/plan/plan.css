@@ -32,14 +32,14 @@
 .pl-pane.is-off {
   visibility: hidden;
 }
-/* each page carries the gutter; the page's bottom padding is the plan row's, under the pager (plantop.css) */
+/* each page carries the gutter and the page's bottom padding (inside the cur page, so its min-height includes it) */
 .pl-wpage,
 .pl-mpage {
-  padding: 0 var(--gutter);
+  padding: 0 var(--gutter) calc(var(--sp-6) + max(var(--chrome-h) + var(--safe-b), var(--kb)));
   min-width: 0;
 }
 .pl-note {
-  padding: var(--sp-4) var(--gutter) 0;
+  padding: 0 var(--gutter) var(--sp-6);
 }
 
 /* ---------- the page's rhythm: the bar's gap, then the week (its card, the line of days 12 under it), the plan row ---------- */
@@ -64,6 +64,7 @@
   padding-block: var(--sp-1);
 }
 .pl-ahead.card {
+  display: block;
   margin-top: var(--sp-3);
   padding: 0;
   overflow: hidden;

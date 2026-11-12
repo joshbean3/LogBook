@@ -20,7 +20,7 @@ import { X } from 'lucide-react';
 import { Pressable } from '@/ui/Pressable';
 import { MonthPage } from './Month';
 import { markNavHintSeen, navHintSeen } from './navHint';
-import { PlanCard } from './PlanTop';
+import { PlanBlockCtx } from './PlanTop';
 import { WeekPage } from './Week';
 import './plan.css';
 
@@ -668,6 +668,8 @@ export default function PlanView(): React.JSX.Element {
           <X size={16} aria-hidden="true" />
         </Pressable>
       ) : null}
+      {/* each page ends with the plan row (PlanFoot reads the plan from here) */}
+      <PlanBlockCtx.Provider value={block}>
       <div className="pl-panes">
         <section ref={weekPane} className={`pl-pane pl-week-pane ${paneCls('week')}`} inert={hidden('week')} aria-hidden={hidden('week')} aria-label="Week">
           <Activity mode={mode('week')}>
@@ -684,13 +686,12 @@ export default function PlanView(): React.JSX.Element {
           </section>
         ) : null}
       </div>
+      </PlanBlockCtx.Provider>
       {strava?.error ? (
         <div className="pl-note">
           <Note kind="warn">{strava.error}</Note>
         </div>
       ) : null}
-      {/* the plan, a quiet row under the days: its name and where it stands, or the way to build one */}
-      <PlanCard block={block} />
     </div>
   );
 }

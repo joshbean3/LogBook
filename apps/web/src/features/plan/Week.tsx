@@ -12,6 +12,7 @@ import { defaultDay } from '../sessions/addModel';
 import { useOpenSession, useOpenUnplanned } from '../sessions/SessionCard';
 import { weekTitle } from './context';
 import { LoadFail, useMonthsFailed } from './LoadFail';
+import { PlanFoot } from './PlanTop';
 import { TrainingCard, WeekCard } from './TrainingCard';
 import { arrivingFor } from './weekLive';
 import { weekStops, type WeekStop } from './weekStops';
@@ -28,6 +29,7 @@ import { weekStops, type WeekStop } from './weekStops';
  *    nothing on it says so, and "Add a session" is then the lit stop.
  * 3. This week only: the days before today, folded into one row at the card's foot ("Earlier this week", "3 sessions").
  *    It opens them in place as stops with what happened (done, missed, skipped).
+ * 4. The plan row (PlanTop): "Build a plan", or the plan's name and where it stands.
  *
  * A week behind shows all its days as stops with their states. `still`: a neighbour page not yet live draws the same
  * stops with no handlers (PlanView makes it live once the pager rests).
@@ -149,6 +151,8 @@ export const WeekPage = memo(function WeekPage({ mon, onThisWeek, still }: { mon
             <DaysLine mon={mon} log={log} still={!!still} />
           </>
         )}
+        {/* the plan, a quiet row under the days: its name and where it stands, or the way to build one */}
+        <PlanFoot />
       </section>
     </div>
   );

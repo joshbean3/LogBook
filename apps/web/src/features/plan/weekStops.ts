@@ -26,7 +26,7 @@ export interface WeekStop {
   k: StatusKey;
   /** done: the session counts (done, at its floor, or a run off the plan). ahead: everything else. */
   state: Extract<StopState, 'done' | 'ahead'>;
-  /** "Tomorrow · Fri 13", "Sat 14", "Mon 9 · Done". Empty for a day's second stop. */
+  /** "Tomorrow · Fri 13", "Sat 14", "Mon 9 · Done". A day's second stop says only what happened ("Missed"), or nothing. */
   caption: string;
   title: string;
   sub: string;
@@ -88,7 +88,7 @@ const stopsOn = (log: Log, date: string): WeekStop[] => {
   const push = (session: Session | null, k: StatusKey, title: string, sub: string, key: string) => {
     const word = SETTLED[k] ?? '';
     const state = k === 'done' || k === 'bonus' || k === 'floor' ? 'done' : 'ahead';
-    const caption = out.length ? '' : `${lead}${dayWord(date)}${word ? ` · ${word}` : ''}`;
+    const caption = out.length ? word : `${lead}${dayWord(date)}${word ? ` · ${word}` : ''}`;
     out.push({ key, date, session, runs: session ? [] : runs, k, state, caption, title, sub, struck: k === 'missed' || k === 'skipped', said: `${title}${sub ? `. ${sub}` : ''}. ${word ? `${word}. ` : ''}${fmtDate('dowLong', date)}. Open` });
   };
   for (const s of training) {

@@ -5,8 +5,7 @@
 /* ---------- the plan row: one quiet row under the line of days, never the page's lead. An icon (a dashed plus with no
    plan), the plan's name, where it stands in Dusk, the chevron ---------- */
 .pt-plan-wrap {
-  margin: var(--sp-4) var(--gutter) 0;
-  padding-bottom: calc(var(--sp-6) + max(var(--chrome-h) + var(--safe-b), var(--kb)));
+  margin-top: var(--sp-3);
 }
 .pt-plan-wrap.is-wait {
   min-height: var(--row-h-2);

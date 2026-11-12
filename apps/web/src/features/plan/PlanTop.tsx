@@ -1,5 +1,6 @@
 import { CalendarDays, ChevronRight, ListChecks, Plus } from 'lucide-react';
 import type * as React from 'react';
+import { createContext, useContext } from 'react';
 import type { ContextMenuItem } from '@/ui/ContextMenu';
 import { Pressable } from '@/ui/Pressable';
 import { useSheet } from '@/ui/Sheet';
@@ -67,4 +68,15 @@ export const PlanCard = ({ block }: { block: PlanBlockProps }): React.JSX.Elemen
       </Pressable>
     </div>
   );
+};
+
+/**
+ * The plan row at the foot of every week and month page. It sits inside the page (a pager page is at least as tall as the
+ * screen, so a row under the pager would always be below the fold), and reads the plan from PlanView through this
+ * context, so the pages stay memoised by their date.
+ */
+export const PlanBlockCtx = createContext<PlanBlockProps | null>(null);
+export const PlanFoot = (): React.JSX.Element | null => {
+  const block = useContext(PlanBlockCtx);
+  return block ? <PlanCard block={block} /> : null;
 };
