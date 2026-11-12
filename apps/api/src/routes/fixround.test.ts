@@ -1,6 +1,6 @@
 import { shiftDays, today, type ExportV2 } from '@logbook/shared';
 import type Database from 'better-sqlite3';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { openDatabase, type DB } from '../db/index.js';
 import { env } from '../env.js';
 import { buildApp } from '../index.js';
@@ -142,6 +142,22 @@ describe('contract 2: DELETE /blocks/:id keeps history, POST /blocks/:id/restore
     const first = (live(id) as Array<{ id: string }>)[0]!.id;
     await call('DELETE', `/api/sessions/${first}`, undefined, cookie);
     await call('DELETE', `/api/blocks/${r.block.id}`, undefined, cookie);
+    await call('POST', `/api/blocks/${r.block.id}/restore`, undefined, cookie);
+    expect((live(id) as Array<{ id: string }>).map((s) => s.id)).not.toContain(first);
+    expect(live(id)).toHaveLength(r.block.sessionCount - 1);
+  });
+
+  it('the same holds when both deletes land in the same millisecond (a queue replaying after a flight)', async () => {
+    const { cookie, id } = await signUp('a@example.com');
+    const r = (await call('POST', '/api/plans/template', tpl(), cookie)).body;
+    const first = (live(id) as Array<{ id: string }>)[0]!.id;
+    vi.useFakeTimers({ toFake: ['Date'] });
+    try {
+      await call('DELETE', `/api/sessions/${first}`, undefined, cookie);
+      await call('DELETE', `/api/blocks/${r.block.id}`, undefined, cookie);
+    } finally {
+      vi.useRealTimers();
+    }
     await call('POST', `/api/blocks/${r.block.id}/restore`, undefined, cookie);
     expect((live(id) as Array<{ id: string }>).map((s) => s.id)).not.toContain(first);
     expect(live(id)).toHaveLength(r.block.sessionCount - 1);

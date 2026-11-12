@@ -186,7 +186,18 @@ export const undoTemplate = (db: DB, userId: string, input: { blockId: string; r
 export const deleteBlock = (db: DB, userId: string, blockId: string, today: ISODate) => {
   const b = db.select().from(planBlocks).where(and(eq(planBlocks.userId, userId), eq(planBlocks.id, blockId), isNull(planBlocks.deletedAt))).get();
   if (!b) return null;
-  const at = nowISO();
+  // the stamp is how the restore finds exactly these sessions again, so it is never one that a session of this block
+  // deleted on its own already carries (two deletes in the same millisecond: a queue replaying)
+  const used = new Set(
+    db
+      .select({ at: trainingSessions.deletedAt })
+      .from(trainingSessions)
+      .where(and(eq(trainingSessions.userId, userId), eq(trainingSessions.blockId, blockId), isNotNull(trainingSessions.deletedAt)))
+      .all()
+      .map((r) => r.at),
+  );
+  let at = nowISO();
+  while (used.has(at)) at = new Date(Date.parse(at) + 1).toISOString();
   const lo = b.start > today ? b.start : today;
   const rows = db
     .select()
