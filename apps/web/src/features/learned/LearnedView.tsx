@@ -12,7 +12,7 @@ import { KSection } from '../goals/Kit';
 import { byTime, Days, groupByMonth, LoadError, monthName, plural, useLoadMore, useOpenLearning } from './LearnedParts';
 import { LearnedPoster, LearnedPosterSkeleton } from './LearnedPoster';
 import { dropIfLanded, lineDay, todayDraft } from './draft';
-import { rowsOf, useLearningEchoes, useLearningMonths, useLearnings, useLearningStats } from './queries';
+import { rowsOf, useKeepQueued, useLearningEchoes, useLearningMonths, useLearnings, useLearningStats } from './queries';
 import { Echoes } from './LearnedEchoes';
 import { isStarterOnly } from './starter';
 import { lastSeven } from './week';
@@ -234,6 +234,7 @@ const usePageDay = (): string => {
 
 export default function LearnedView(): React.JSX.Element {
   const today = usePageDay();
+  useKeepQueued();
   const list = useLearnings({ month: today.slice(0, 7) });
   const months = useLearningMonths();
   const stats = useLearningStats();

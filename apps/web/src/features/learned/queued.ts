@@ -52,7 +52,8 @@ export const withQueued = (rows: readonly Learning[], queue: readonly QueuedWrit
     if (w.method === 'DELETE') gone.add(id);
     if (w.method === 'PATCH') {
       const text = textOf(w.json);
-      if (text) out = out.map((x) => (x.id === id ? { ...x, text, editedAt: w.createdAt } : x));
+      // a line that already has these words is left as it is (the same object: nothing to redraw)
+      if (text) out = out.map((x) => (x.id === id && x.text !== text ? { ...x, text, editedAt: w.createdAt } : x));
     }
   }
   return gone.size ? out.filter((x) => !gone.has(x.id)) : out;

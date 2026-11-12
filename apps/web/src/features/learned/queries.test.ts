@@ -35,7 +35,7 @@ vi.mock('@/api/outbox', () => ({
 vi.mock('@/lib/haptics', () => ({ haptics: new Proxy({}, { get: () => () => undefined }) }));
 vi.mock('@/ui/Toast', () => ({ useToast: () => () => undefined }));
 
-import { fetchLearnings, keptOn, learnedKeys, learnedWrites, monthsOf, pageOf, rowsOf, statsOf } from './queries';
+import { fetchLearnings, keepQueued, keptOn, learnedKeys, learnedWrites, monthsOf, pageOf, rowsOf, statsOf } from './queries';
 
 type Pages = InfiniteData<{ learnings: Learning[]; next: string | null }, string | null>;
 const T = '2026-11-12';
@@ -203,5 +203,19 @@ describe('Today’s row: is tonight’s line kept?', () => {
     // a line still waiting to sync: the server's days do not have it, the device does
     expect(keptOn(T, { days: 0, streak: 0, total: 0, recent: [] }, [line('tmp-a', T, 'One.')])).toBe(true);
     expect(keptOn(T, undefined, [])).toBe(false);
+  });
+});
+
+describe('the outbox loads after the list did (a cold start with a line still waiting)', () => {
+  it('puts the waiting line back on the lists already on the page, once', () => {
+    const qc = client([line('l1', '2026-11-10', 'Older.')]);
+    const waiting = [{ path: '/learnings', method: 'POST', json: { date: T, text: 'Written before the app was closed.' }, tmpId: 'tmp-a', createdAt: `${T}T21:00:00.000Z` }];
+    keepQueued(qc, waiting);
+    keepQueued(qc, waiting);
+    expect(shown(qc)).toEqual(['Written before the app was closed.', 'Older.']);
+    // nothing waiting: the lists are left exactly as they are
+    const before = qc.getQueryData(NOV);
+    keepQueued(qc, []);
+    expect(qc.getQueryData(NOV)).toBe(before);
   });
 });

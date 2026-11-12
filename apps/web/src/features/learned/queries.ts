@@ -1,11 +1,11 @@
 import { isISODate, shiftDays, type Learning, type LearningEchoes, type LearningMonth, type LearningPage, type LearningStats } from '@logbook/shared';
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient, type InfiniteData, type QueryClient } from '@tanstack/react-query';
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 import { api, ApiError } from '@/api/client';
 import { outbox, write } from '@/api/outbox';
 import { haptics } from '@/lib/haptics';
 import { useToast } from '@/ui/Toast';
-import { withQueued } from './queued';
+import { withQueued, type QueuedWrite } from './queued';
 
 /**
  * What I learned: the list (paged newest first) and the stats line. Every write lands in the cache first (a provisional id
@@ -161,6 +161,27 @@ const seedMonth = (qc: QueryClient, date: string) => {
   const st = qc.getQueryState<Pages>(key);
   if (st && st.data === undefined && st.status === 'error') qc.setQueryData<Pages>(key, { pages: [{ learnings: [], next: null }], pageParams: [null] });
 };
+/**
+ * Lay what is waiting in the outbox over the lists already on the page. For the one moment a fetch cannot cover: the app
+ * opens, a list is answered before the outbox has been read from the device, and a line written last time is still
+ * waiting in it. Lists with nothing to add or change are left as they are.
+ */
+export const keepQueued = (qc: QueryClient, queue: ReadonlyArray<QueuedWrite>) => {
+  if (!queue.length) return;
+  for (const [key, d] of qc.getQueriesData<Pages>({ queryKey: learnedKeys.lists })) {
+    if (!d || !Array.isArray(d.pages)) continue;
+    let changed = false;
+    const pages = d.pages.map((p, i) => {
+      const rows = Array.isArray(p?.learnings) ? p.learnings : [];
+      const next = withQueued(rows, queue, { fits: (l) => fits(key as ListKey, l), first: i === 0 });
+      if (next.length === rows.length && next.every((x, j) => x === rows[j])) return p;
+      changed = true;
+      return { ...p, learnings: next.sort(order) };
+    });
+    if (changed) qc.setQueryData<Pages>(key, { ...d, pages });
+  }
+};
+
 /** The archive's row for a learning's month, one more or one fewer (a month with none left goes). */
 const patchMonths = (qc: QueryClient, l: Learning, by: 1 | -1, newDay: boolean) =>
   qc.setQueryData<LearningMonth[]>(learnedKeys.months, (ms) => {
@@ -267,6 +288,15 @@ export const learnedWrites = (qc: QueryClient, today: string) => {
       }
     },
   };
+};
+
+/** While a screen of What I learned is up, the lists follow the outbox (`keepQueued`). */
+export const useKeepQueued = () => {
+  const qc = useQueryClient();
+  useEffect(() => {
+    const off = outbox.subscribe(() => keepQueued(qc, outbox.peek()));
+    return () => void off();
+  }, [qc]);
 };
 
 export const useLearnedMutations = (today: string) => {

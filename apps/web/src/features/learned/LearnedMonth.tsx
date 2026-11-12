@@ -11,7 +11,7 @@ import { DateGutter, PagerButtons, SectionEmpty } from '@/ui/primitives';
 import { Skeleton, SkeletonGroup } from '@/ui/Skeleton';
 import { FILL_DAYS, Line, LoadError, monthName, plural, useAddLearning, useOpenLearning } from './LearnedParts';
 import { monthDays, neighbours } from './month';
-import { rowsOf, useLearningMonths, useLearnings } from './queries';
+import { rowsOf, useKeepQueued, useLearningMonths, useLearnings } from './queries';
 import '../goals/kit.css';
 import './learned.css';
 
@@ -26,6 +26,7 @@ export default function LearnedMonth(): React.JSX.Element {
   const today = useToday();
   const params = useRouteParams();
   const [month, setMonth] = useState(() => (/^\d{4}-\d{2}-01$/.test(params.month ?? '') ? params.month!.slice(0, 7) : today.slice(0, 7)));
+  useKeepQueued();
   const list = useLearnings({ month });
   const months = useLearningMonths().data ?? [];
   const summary = months.find((m) => m.month === month);
@@ -79,7 +80,7 @@ export default function LearnedMonth(): React.JSX.Element {
             </div>
           ))}
         </SkeletonGroup>
-      ) : !started ? (
+      ) : !started && !rows.length ? (
         <section className="k-card ln-none">
           <p className="k-row-title">Not started yet</p>
           <p className="k-foot">{name} has not started yet.</p>
