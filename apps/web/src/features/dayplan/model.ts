@@ -75,12 +75,18 @@ export const leftWords = (minutes: number): string => {
  * A tap can land twice (a double tap, a slow second press). The first changes what is under the finger: the ticked
  * to-do becomes a done stop where it stood, "Set this goal" gives way to the to-dos, a done stop reopened lets the next
  * one move up. The second tap would then act on a stop the person never aimed at (un-tick what was just ticked, reopen a
- * second to-do, open an editor). For `ECHO_MS` after a change made here, a tap on the stop that changed is that echo and
- * is dropped. `id` is the stop that changed (`data-stop`), or `'*'` when the whole line did.
+ * second to-do, open an editor). So a tap that lands where the last one did (within `ECHO_PX`), less than `ECHO_MS` after
+ * the change it made, on the stop that changed, is that tap's echo and is dropped. A tap anywhere else is a new tap: the
+ * next to-do can be ticked, or the last one un-ticked from its words, at once. `id` is the stop that changed
+ * (`data-stop`), or `'*'` when the whole line did; `x`, `y` is where the tap that made the change landed.
  */
 export const ECHO_MS = 500;
+export const ECHO_PX = 32;
 export interface PathChange {
   id: string;
   at: number;
+  x: number;
+  y: number;
 }
-export const isEcho = (last: PathChange | null, stop: string | null | undefined, now: number): boolean => !!last && now >= last.at && now - last.at < ECHO_MS && (last.id === '*' || (!!stop && last.id === stop));
+export const isEcho = (last: PathChange | null, stop: string | null | undefined, now: number, x: number, y: number): boolean =>
+  !!last && now >= last.at && now - last.at < ECHO_MS && (last.id === '*' || (!!stop && last.id === stop)) && Math.hypot(x - last.x, y - last.y) <= ECHO_PX;

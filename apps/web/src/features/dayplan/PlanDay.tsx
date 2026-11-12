@@ -131,10 +131,12 @@ export const PlanDay = memo(function PlanDay({ date, today, log, slim, yesterday
     },
     [],
   );
-  // what a tap here last changed under the finger, so its echo (a double tap) is dropped (`isEcho`)
+  // what a tap here last changed under the finger, and where that tap landed, so its echo (a double tap) is dropped
+  // (`isEcho`). A change made from the keyboard has no place and no echo.
   const changed = useRef<PathChange | null>(null);
+  const tapAt = useRef<{ x: number; y: number } | null>(null);
   const moved = (id: string) => {
-    changed.current = { id, at: performance.now() };
+    changed.current = tapAt.current ? { id, at: performance.now(), ...tapAt.current } : null;
   };
   const tick = (x: Todo) => {
     if (checking) return;
@@ -405,10 +407,18 @@ export const PlanDay = memo(function PlanDay({ date, today, log, slim, yesterday
                 // the click that follows a hold is the hold's to swallow; then a tap's echo is ours
                 hold.handlers.onClickCapture(e);
                 if (e.isPropagationStopped()) return;
+                // Enter, Space and VoiceOver click with no pointer behind them (`detail` 0): never an echo
+                if (e.detail === 0) {
+                  tapAt.current = null;
+                  return;
+                }
                 const stop = e.target instanceof Element ? e.target.closest<HTMLElement>('.pth-stop') : null;
-                if (!isEcho(changed.current, stop?.dataset.stop, performance.now())) return;
-                e.stopPropagation();
-                e.preventDefault();
+                if (isEcho(changed.current, stop?.dataset.stop, performance.now(), e.clientX, e.clientY)) {
+                  e.stopPropagation();
+                  e.preventDefault();
+                  return;
+                }
+                tapAt.current = { x: e.clientX, y: e.clientY };
               }}
             >
               <PathLine label={setGoal ? title : 'To-dos'}>{stops}</PathLine>
