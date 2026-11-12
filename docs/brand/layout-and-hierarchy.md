@@ -132,18 +132,19 @@ Build:
 
 | | |
 |---|---|
-| Job | Write down one thing learned today; keep the streak. |
-| Focal point | The prompt card (hero, padding 20, the glow; C8). |
-| Sky button | "Save" (Haze with a Dusk label while empty). |
-| Read in passing | The title block; the lightbulb streak tracker, compact, at the top. |
-| Order of emphasis | 1. The prompt card: "What did you learn today?", one helper line, the field, Save. 2. The streak: "4 days in a row" and the last 7 days as bulbs. 3. This year: the year heading, its count, month rows. |
+| Job | Write down one line learned today; see the week's lines add up. |
+| Focal point | The dusk poster (brand 6.5a): the question, the week's seven lights, the band. |
+| Sky button | "Finish the line". With only the starter in the field it puts the caret there; with words of the person's own it saves. |
+| Read in passing | The title block; the band's count ("This week · 2 lines kept"). |
+| Order of emphasis | 1. The poster: "What did you learn today?", the lights with tonight's ring waiting, the band, the field started from the day, "Finish the line". After the save: "One more thing you know.", tonight lit, the line as a quote with Saved and Edit. 2. The months that hold a line, one row each. 3. From your archive. |
 
-Build (includes the pending owner requests):
+Build:
 
-- **Remove the "Learned: N things on N days" tile.** Owner request. Why: it restates the year count below it (say it once).
-- **"In a row" becomes the lightbulb streak tracker** at the top of the tab, between the title block and the prompt card (component in 6.8). Why: the streak is the number that changes daily [Peers: Apple Journal Insights, Streaks]. It is compact so it reads like Today's week strip and does not compete with the prompt.
-- **The field starts at 3 lines (72 pt) and grows as you type.** It is about 160 pt of empty Paper now. Why: an empty block reads as a false floor and pushes the year list off the first screen [NN/g].
-- **Month rows are one inset group** under the year heading. "No months yet" uses the section empty form (6.5).
+- **The poster replaces the prompt card and the lightbulb tracker.** One card says the question, shows the week and takes the line. Why: the owner chose design A2; the tracker and the card were two things to read before one thing to do.
+- **Counts are lines kept, never days in a row.** A light is a day with a line (a second line on the same day adds no light); a missed day is an unlit light, not a broken chain. No streak word anywhere on the page or in its VoiceOver labels.
+- **The field is started from the day** (brand 6.5a) and its question stays in view while typing: the poster's title at rest, a caption over the field while it has focus. The field and its button stay above the keyboard together.
+- **Month rows are one inset group** 24 under the poster, with no year heading for this year; a month appears once it holds a line. An earlier year is a section under its name and count. There is no "No months yet" row: the poster is the empty state.
+- **One tap away:** Edit (or a tap on the quote) opens the line's sheet: change it, delete it (trash, with Undo), "Add another line" for today. Search all years is the magnifier at the end of the nav bar. A month's row opens its page, where an empty day in the last seven can still be filled in.
 
 ### 2.6 Fitness (the Plan tab)
 
@@ -495,15 +496,17 @@ Alternatives differ by style, never by size [HIG Buttons]. Labels start with a v
 | Tag | Brand 6.3, 28 tall, not tappable. One per row at most. |
 | Segmented control | Brand 6.3. At most 5 segments, equal widths, text only, noun labels, one preselected. Exception: the range control (6.4). |
 
-### 6.8 The Learned streak tracker (pending build)
+### 6.8 The Learned week (the lights)
+
+The lightbulb streak tracker is retired. The week is drawn by the poster kit's lights (brand 6.5a, `ui/poster` `WeekLights`) inside the Learned poster.
 
 | Part | Value |
 |---|---|
-| Container | Paper card, r 18, `--shadow-1`, padding 12 top and bottom, 16 sides; about 104 pt tall. Display only: neither the card nor the bulbs are tappable. |
-| Line 1 | The count, Inter 650 `--fs-value` tnum Night Ink, then "days in a row", Inter 500 `--fs-sub` Dusk, 4 after, on one baseline. Zero reads "0 days in a row". |
-| Line 2 | 8 below: seven equal columns, oldest to today, each a 22 px bulb glyph from the icon set (1.75 stroke) with the day letter under it (caption style, 4 below; today's letter Night Ink). |
-| States | Lit (a day with a learning): Sky fill inside the bulb, Night Ink stroke, and three short Night Ink rays, so the state is shape plus color (brand 3.3). Unlit past day: Pencil stroke, no fill. Today, not yet lit: Night Ink stroke. Future: `--dot-ahead` stroke (decorative). No orange. Never ring-like (HIG Activity rings). |
-| VoiceOver | "4 days in a row. Learned on Monday, Tuesday, Wednesday and today." |
+| Container | The dusk poster's scene, between the title and the band. Display only. |
+| Days | Seven on a rising dotted line: six days back, oldest left, each with its day letter in caption style; tonight last, labeled "Tonight". |
+| States | Kept: an Apricot light with a soft halo. Missed: a small open Haze ring (shape, not color alone). Tonight, waiting: a dotted Paper ring. Tonight, kept: the largest light, with two rings. No orange mark. |
+| Band | Before: "This week · 2 lines kept" over "Tonight's line lights the third". After: "This week" over "3 lines kept". Lines kept, never days in a row. |
+| VoiceOver | One label: "2 lines kept this week, on Monday and Wednesday. Tonight's line is not written yet." |
 
 ### 6.9 The Remember when card (pending build)
 
@@ -563,7 +566,7 @@ Brand 6.16 has the parts. The layout:
 |---|---|---|
 | Today | Hero, habits, today's goal, carry-over, top three | Week detail (the band), the other count (the view pill), habit history, the rest of the to-dos, the status sheet (the status pill while a status is on; in ordinary training, the title menu: hold the title or the date), the session |
 | Goals | Today's goal, carry-over, tomorrow and next week, further out | Goal history ("See all"), the review sheet, each period's goal |
-| Learned | Streak, prompt, this year's months | A month's items, older years |
+| Learned | The poster (the week's lights, the field or tonight's line), the months that hold a line | Edit, delete and "Add another line" (the line's sheet), search (the nav bar), a month's days and filling in an earlier day (the month's page), From your archive (below the months) |
 | Plan | Your plan, this week's days, "+ Add" | The plan summary with the assistant, a session, the Add sheet (and the full editor behind its "More options"), the month view, other weeks, the morning schedule |
 | Progress | This week or the chosen range, trend and health tiles | A metric's page, a week's sheet, a lift's sheet |
 | Journal | Remember when, this week's calendar, recent entries | An entry in full, the month view, share |

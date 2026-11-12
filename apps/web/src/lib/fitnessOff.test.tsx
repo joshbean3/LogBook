@@ -106,13 +106,14 @@ const SCREENS: Screen[] = [
   ['Settings', () => import('@/features/settings/SettingsView'), '/settings', /Run days[\s\S]*Plans/, /Today shows[\s\S]*Fitness[\s\S]*Habits/],
 ];
 
-const render = async (screen: Screen, fitness: boolean): Promise<string> => {
+const render = async (screen: Screen, fitness: boolean, seed?: (qc: QueryClient) => void): Promise<string> => {
   const [, load, path] = screen;
   const { resetPrefsForTest, DEFAULT_PREFS } = await import('./prefs');
   resetPrefsForTest({ ...DEFAULT_PREFS, fitness });
   (g.window as { location: { pathname: string } }).location.pathname = path;
   const [{ NavController, TabScope }, { ToastProvider }, { ContextMenuProvider }, { SheetProvider }, Page] = await Promise.all([import('@/app/NavController'), import('@/ui/Toast'), import('@/ui/ContextMenu'), import('@/ui/Sheet'), load()]);
   const qc = await client();
+  seed?.(qc);
   return renderToStaticMarkup(
     <QueryClientProvider client={qc}>
       <MemoryRouter initialEntries={[path]}>
@@ -185,6 +186,30 @@ describe('Fitness off: no screen speaks of training', () => {
     // on, they still do
     expect(startersFor('today', '2026-11-12', '2026-11-12', true).map((c) => c.title).join(' ')).toMatch(/run/);
   });
+
+  it('What I learned starts its field from the day, and never from training with Fitness off', async () => {
+    const learned = SCREENS.find((x) => x[0] === 'Learned')!;
+    // today's run is done, and the week's lines are loaded (the months the last seven days touch)
+    const day = (extra: (qc: QueryClient) => void = () => undefined) => (qc: QueryClient) => {
+      for (const m of new Set([monthOf(T), monthOf(shiftDays(T, -6))])) qc.setQueryData(['learnings', 'list', { month: m, q: null }], { pages: [{ learnings: [], next: null }], pageParams: [null] });
+      const m = month(monthOf(T));
+      qc.setQueryData(['month', monthOf(T)], { ...m, sessions: m.sessions.map((x) => (x.date === T ? { ...x, mark: 'done' } : x)) });
+      extra(qc);
+    };
+    const on = await render(learned, true, day());
+    expect(said(on)).toMatch(/What did you learn today\?[\s\S]*On my run today I learned[\s\S]*From today’s run[\s\S]*Finish the line/);
+    // off: the same done run is never where the line starts, and the page names no training
+    const off = await render(learned, false, day());
+    expect(said(off)).toMatch(/What did you learn today\?[\s\S]*Today I learned[\s\S]*Finish the line/);
+    expect(said(off)).not.toMatch(/On my run|From today/);
+    expect(hits(off)).toEqual([]);
+    // off, with a habit done today: the line starts from the habits
+    const habit = await render(learned, false, day((qc) => qc.setQueryData(['month', monthOf(T)], { ...month(monthOf(T)), checks: [{ habitId: 'h1', date: T, done: true, note: null }] })));
+    expect(said(habit)).toMatch(/Keeping my habits today I learned[\s\S]*From today’s habits/);
+    expect(hits(habit)).toEqual([]);
+    // the count is lines kept: no run of days, in print or in a label
+    for (const html of [on, off, habit]) expect(said(html)).not.toMatch(/in a row|streak/i);
+  }, 60_000);
 
   it('the tour has no Fitness page and no Progress page', async () => {
     const { tourPages } = await import('@/features/onboarding/tour/Tour');
