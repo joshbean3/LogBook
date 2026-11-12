@@ -7,13 +7,13 @@ import { STRAVA_BUILT } from '@/lib/features';
 import { todayParts, usePrefs } from '@/lib/prefs';
 import { hideSplash } from '@/lib/native';
 import { SectionHeader } from '@/ui/layout';
-import { EmptyState, SectionEmpty } from '@/ui/primitives';
+import { Button, EmptyState, SectionEmpty } from '@/ui/primitives';
 import { Pressable } from '@/ui/Pressable';
 import { useSheet } from '@/ui/Sheet';
 import { NAV_EVENT, type NavEventDetail } from '@/ui/nav';
 import { useOpenHabitsHistory } from '../habits/HabitsHistory';
 import { LearnedPrompt } from '../learned/LearnedPrompt';
-import { useNav } from '@/app/NavController';
+import { useOpenTodayShows } from '../settings/TodayShows';
 import { Composer } from '../journal/JournalDaySection';
 import { HABIT_STARTERS, HabitsMeta, OrbRow } from '../habits/OrbRow';
 import { useLog, type Log } from '../log/useLog';
@@ -224,13 +224,28 @@ const DayShell = ({ date }: { date: ISODate }) => {
 
 /** Every Today section is switched off: one calm line and the way back to the switches (Settings, Today shows). */
 const NothingShown = () => {
-  const nav = useNav();
+  const edit = useOpenTodayShows();
   return (
     <div className="day-none">
       <p className="day-none-line">Nothing is set to show on Today.</p>
-      <Pressable className="day-none-link" press="dim" onPress={() => nav.push('/settings')} label="Choose what Today shows. Opens Settings">
+      <Pressable className="day-none-link" press="dim" onPress={edit} label="Choose what Today shows">
         Choose what Today shows <ChevronRight size={18} aria-hidden="true" />
       </Pressable>
+    </div>
+  );
+};
+
+/**
+ * The last thing on Today: one quiet link that opens the "Today shows" list as a sheet (the same list as Settings). A
+ * choice of what a screen shows is made on that screen; the link is quiet, so it never competes with the day.
+ */
+const EditToday = () => {
+  const edit = useOpenTodayShows();
+  return (
+    <div className="day-edit">
+      <Button variant="quiet" size="sm" className="day-edit-link" onClick={edit} aria-label="Edit Today. Choose what Today shows">
+        Edit Today
+      </Button>
     </div>
   );
 };
@@ -308,6 +323,7 @@ const DayContent = memo(function DayContent({ date, onMorning }: { date: ISODate
       ) : null}
       {loaded && date < today ? <TheDayCard date={date} log={log} /> : null}
       {loaded ? <DayTimeline date={date} log={log} /> : null}
+      {loaded ? <EditToday /> : null}
     </div>
   );
 });

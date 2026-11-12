@@ -2449,3 +2449,12 @@
   color: var(--accent-text);
   font: 600 var(--fs-row) / var(--lh-row) var(--sans);
 }
+/* the last thing on the page: "Edit Today", the quiet link (guide 6.3), centered, a 44 pt target, a section's gap above */
+.day-edit {
+  display: flex;
+  justify-content: center;
+  margin-top: var(--section);
+}
+.day-edit-link {
+  min-height: var(--hit);
+}

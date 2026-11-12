@@ -2,12 +2,13 @@ import { CONSENT_VERSION } from '@logbook/shared';
 import { FileText, HeartPulse, Mail } from 'lucide-react';
 import type * as React from 'react';
 import { PRIVACY_PROMISE, PrivacyFacts } from '@/features/auth/PrivacyFacts';
+import { useFitness } from '@/lib/prefs';
 import { useConsent, useSaveConsent } from '@/lib/consent';
 import { haptics } from '@/lib/haptics';
 import { LEGAL, openExternal, SUPPORT_EMAIL } from '@/lib/siteLinks';
 import { PushedBar, Row, useToast } from '@/ui';
 import { GoRow, SGroup, Switch } from './parts';
-import { CONSENT_SWITCHES, consentFoot, consentWord, firstAnswer, mailto, switchOn, type ConsentSwitch } from './privacyModel';
+import { consentSwitches, consentFoot, consentWord, firstAnswer, mailto, switchOn, type ConsentSwitch } from './privacyModel';
 
 /** How long a privacy request takes to answer, in days (the consumer health data laws allow 45). */
 export const REQUEST_DAYS = 45;
@@ -41,6 +42,7 @@ export const PrivacyPage = (): React.JSX.Element => {
       },
     );
   };
+  const fitness = useFitness();
   return (
     <div className="page s-set s-sub">
       <PushedBar title="Privacy" />
@@ -54,13 +56,13 @@ export const PrivacyPage = (): React.JSX.Element => {
         meta={c?.at === null ? undefined : consentWord(c)}
         foot={c ? consentFoot(c) : consent.isError ? 'Couldn’t load your choices. Check your connection.' : ' '}
       >
-        {CONSENT_SWITCHES.map((s) => (
+        {consentSwitches(fitness).map((s) => (
           <Row key={s.key} className="s-wrap-title s-consent-row" title={s.title} sub={s.sub} right={<Switch on={switchOn(c, s.key)} label={s.title} disabled={!c} onChange={(next) => change(s.key, next)} />} />
         ))}
       </SGroup>
       {/* the whole of what goes and what does not, word for word the list sign-up shows, as one inset group (S5) */}
       {c ? <PrivacyFacts consent={c} title="What is sent" /> : null}
-      <SGroup title="Policies and requests" foot={`We answer a privacy request within ${REQUEST_DAYS} days. Anthropic runs the assistant and sees only what you allow. Fly.io hosts Orby. The privacy policy lists everyone who handles your data.`}>
+      <SGroup title="Policies and requests" foot={`We answer a privacy request within ${REQUEST_DAYS} days. Anthropic provides the assistant and sees only what you allow. Fly.io hosts Orby. The privacy policy lists everyone who handles your data.`}>
         <GoRow icon={FileText} className="s-wrap-title" title="Privacy policy" onPress={() => void openExternal(LEGAL.privacy)} />
         <GoRow icon={HeartPulse} className="s-wrap-title" title="Consumer health data privacy policy" onPress={() => void openExternal(LEGAL.healthPrivacy)} />
         <GoRow icon={Mail} title="Privacy requests" sub="A copy, a correction or deletion" href={supportMail('Privacy request')} label={`Privacy requests: email us for a copy of your data, a correction or deletion. We answer within ${REQUEST_DAYS} days.`} />

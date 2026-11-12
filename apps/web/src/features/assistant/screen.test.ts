@@ -16,8 +16,8 @@ describe('the screen the assistant was opened from', () => {
 
   it('reads in words on the chip', () => {
     expect(screenLabel({ tab: 'today', date: '2026-11-08' })).toBe('Today, Sun Nov 8');
-    expect(screenLabel({ tab: 'plan', week: '2026-11-09' })).toBe('Plan, week of Nov 9');
-    expect(screenLabel({ tab: 'plan', month: '2026-12' })).toBe('Plan, December 2026');
+    expect(screenLabel({ tab: 'plan', week: '2026-11-09' })).toBe('Fitness, week of Nov 9');
+    expect(screenLabel({ tab: 'plan', month: '2026-12' })).toBe('Fitness, December 2026');
     expect(screenLabel({ tab: 'learned' })).toBe('Learned');
   });
 });

@@ -7,6 +7,7 @@ import type { TemplateApplied } from '@/api/types';
 import { DayLetters, Dial, GoalChips, MilesDial, RaceStrip } from '@/features/onboarding/controls';
 import { defaultRaceDay, fixLongRun, MILES_MAX, MILES_MIN, nextMondayAfter, paceText, safeTemplate, sameProfile, type TrainingProfile } from '@/features/onboarding/model';
 import { haptics } from '@/lib/haptics';
+import { useFitness } from '@/lib/prefs';
 import { fadeIn, springs } from '@/lib/motion';
 import { Skeleton, SkeletonGroup } from '@/ui/Skeleton';
 import { useToast } from '@/ui/Toast';
@@ -296,6 +297,18 @@ export const YouPage = () => {
     stripDay.current = d.p.raceDate;
     setStripKey((k) => k + 1);
   }
+  // Fitness is off (lib/prefs.ts): the page is the account's name and address, with no race to pick
+  const fitness = useFitness();
+  if (!fitness)
+    return (
+      <div className="page s-set s-sub">
+        <PushedBar title="You" />
+        <SGroup title="Account">
+          <NameRow />
+          <Row title="Email" sub={boot.data?.user.email} className="s-wrap s-email-row" />
+        </SGroup>
+      </div>
+    );
   return (
     <div className="page s-set s-sub">
       <PushedBar title="You" />

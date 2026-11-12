@@ -21,7 +21,8 @@ import { useSaveOnboarding, type OnboardingPost } from './save';
 import { nudgeNext, questionsFor, type Step } from './steps';
 import { DEFAULT_AFTERNOON, setAfternoon, setTrainWhenDefault } from '@/features/day/trainWhen';
 import { Stepper } from '@/ui/primitives';
-import { BrandIcon, HabitIcon, PlanIcon, RunIcon } from '@/ui/icons';
+import { BrandIcon, FitnessIcon, HabitIcon, PlanIcon, RunIcon, TodayIcon } from '@/ui/icons';
+import { setFitness } from '@/lib/prefs';
 import { Tour } from './tour/Tour';
 import { enableReminders, remindersSupported } from '@/features/goals/reminders';
 import { useToast } from '@/ui';
@@ -57,9 +58,11 @@ import './beats.css';
  * this, unless it is in the middle of its own payoff.
  */
 
-const ALL_STEPS: Step[] = ['name', 'goal', 'days', 'morning', 'habits', 'nudge', 'tour', 'ready'];
+const ALL_STEPS: Step[] = ['name', 'fitness', 'goal', 'days', 'morning', 'habits', 'nudge', 'tour', 'ready'];
 
 interface Draft {
+  /** "Do you want Orby to track training?": undefined until answered; false skips every training question (lib/prefs.ts). */
+  fitness?: boolean;
   /** null: not answered yet; 'none': no running plan for now (onboarding-09). */
   goal: Goal | 'none' | null;
   /** The step the person was on, so the app opened again lands there (onboarding-04). */
@@ -165,7 +168,7 @@ function Flow({ uid }: { uid: string }) {
   const [d, set] = useDraft(uid);
   const sheet = useSheet();
   const replaying = useMemo(() => isReplaying(), []);
-  const QUESTIONS = questionsFor({ native: remindersSupported(), replaying, noPlan: d.goal === 'none' });
+  const QUESTIONS = questionsFor({ native: remindersSupported(), replaying, noPlan: d.goal === 'none', fitness: d.fitness !== false });
   const ORDER: Step[] = ['', ...QUESTIONS, 'ready'];
   const screenRef = useRef<HTMLElement>(null);
   const qc = useQueryClient();
@@ -300,7 +303,9 @@ function Flow({ uid }: { uid: string }) {
     const later = ALL_STEPS.slice(ALL_STEPS.indexOf(step) + 1).find((x) => ORDER.includes(x));
     return <Navigate to={`/welcome/${later ?? 'name'}`} replace />;
   }
-  if (idx > ORDER.indexOf('goal') && !d.goal) return <Navigate to="/welcome/goal" replace />;
+  // the Fitness question is answered before anything after it; with Yes, later steps need a goal
+  if (idx > ORDER.indexOf('fitness') && d.fitness === undefined) return <Navigate to="/welcome/fitness" replace />;
+  if (ORDER.includes('goal') && idx > ORDER.indexOf('goal') && !d.goal) return <Navigate to="/welcome/goal" replace />;
 
   const qIndex = QUESTIONS.indexOf(step);
   const next = () => go(ORDER[idx + 1]!);
@@ -372,6 +377,40 @@ function Flow({ uid }: { uid: string }) {
         </Question>
       );
       break;
+    case 'fitness': {
+      // one question, two clear choices, where the training questions begin. The answer is the Fitness switch itself
+      // (lib/prefs.ts), set at once so a reload keeps it; a replay of setup is a preview and changes nothing
+      const answer = (v: boolean) => {
+        if (d.fitness !== v) haptics.select();
+        // No: nothing about training is asked or built. Yes after a No: the goal is asked afresh
+        set(v ? { fitness: true, goal: d.fitness === false ? null : d.goal } : { fitness: false, goal: 'none', raceDate: undefined });
+        if (!replaying) setFitness(v);
+      };
+      body = (
+        <Question title="Do you want Orby to track training?" sub="Runs, lifts and a training plan. Say no, and Orby keeps to your day." onNext={next} nextDisabled={d.fitness === undefined}>
+          <div className="group ob-goals" role="radiogroup" aria-label="Do you want Orby to track training?">
+            {(
+              [
+                { v: true, Icon: FitnessIcon, label: 'Yes, track training', line: 'Runs, lifts, a plan' },
+                { v: false, Icon: TodayIcon, label: 'No, just my day', line: 'Goals, to-dos, habits' },
+              ] as const
+            ).map((c) => (
+              <Pressable key={String(c.v)} role="radio" aria-checked={d.fitness === c.v} className={`ob-goal ${d.fitness === c.v ? 'on' : ''}`} onPress={() => answer(c.v)}>
+                <span className="icon-tile ob-goal-ic" aria-hidden="true">
+                  <c.Icon size={18} />
+                </span>
+                <span className="ob-goal-words">
+                  <span className="ob-goal-text">{c.label}</span>
+                  <span className="ob-goal-line">{c.line}</span>
+                </span>
+                {d.fitness === c.v ? <Check size={18} className="ob-goal-check" aria-hidden="true" /> : null}
+              </Pressable>
+            ))}
+          </div>
+        </Question>
+      );
+      break;
+    }
     case 'goal':
       body = (
         <Question title="What are you training for?" sub="Pick one. A race gets a taper; just running gets a steady build." onNext={next} nextDisabled={!d.goal}>
@@ -552,7 +591,7 @@ function Flow({ uid }: { uid: string }) {
       break;
     }
     case 'tour':
-      body = <Tour page={d.tourPage ?? 0} onPage={(n) => set({ tourPage: n })} onDone={next} doneLabel={d.goal === 'none' ? 'Finish setup' : 'Build my week'} />;
+      body = <Tour page={d.tourPage ?? 0} onPage={(n) => set({ tourPage: n })} onDone={next} doneLabel={d.goal === 'none' ? 'Finish setup' : 'Build my week'} fitness={d.fitness !== false} />;
       break;
     case 'ready':
       body = <Payoff draft={d} set={set} profile={d.goal === 'none' ? null : profile} start={start} today={t} onOpen={openToday} onChange={() => go('goal', true)} />;
@@ -574,7 +613,7 @@ function Flow({ uid }: { uid: string }) {
    * build carries none of it: the primer's module is never loaded and never bundled).
    */
   function afterHandOff() {
-    if (!STRAVA_BUILT) return;
+    if (!STRAVA_BUILT || d.fitness === false) return;
     void import('./StravaPrimer').then(({ StravaPrimer }) => sheet.open({ title: 'Connect Strava', body: <StravaPrimer onLater={() => sheet.close()} /> }));
   }
   /** The hand-off (§8): Today mounts under a still copy of this screen, the week falls away, Today's chrome fades in. */
@@ -693,19 +732,21 @@ type PayoffAction = 'connect';
  * The payoff's card, where Today's hero will be: a short summary of what the answers made (the plan, the morning, the
  * habits). Nothing here asks for work that was done a minute ago. `offer` is one more row, when the build has one to make.
  */
-function Made({ profile, weeks, wake, leave, habits, afternoon, offer }: { profile: TrainingProfile | null; weeks: number | null; wake: number; leave: number; habits: number; /** when work ends, for someone who runs after it */ afternoon?: number | null; offer?: React.ReactNode }) {
+function Made({ profile, weeks, wake, leave, habits, afternoon, offer, fitness = true }: { /** false: the answer to the Fitness question was No, so no row speaks of a plan */ fitness?: boolean; profile: TrainingProfile | null; weeks: number | null; wake: number; leave: number; habits: number; /** when work ends, for someone who runs after it */ afternoon?: number | null; offer?: React.ReactNode }) {
   return (
     // no caption over the rows: they say what was set up themselves, and the headline above already has the screen's
     // one caption line (plan O11)
     <section className="aura ob-made" aria-label="Set up for you">
       <ul className="ob-made-rows">
-        <li className="ob-made-row">
-          <span className="ob-made-ic" aria-hidden="true">
-            <PlanIcon size={18} />
-          </span>
-          <span className="ob-made-title">{!profile ? 'No running plan for now' : profile.goal === 'base' ? 'Just running' : `${goalLong(profile.goal)} plan`}</span>
-          {profile && weeks ? <span className="ob-made-value">{weeks} {weeks === 1 ? 'week' : 'weeks'}</span> : null}
-        </li>
+        {fitness ? (
+          <li className="ob-made-row">
+            <span className="ob-made-ic" aria-hidden="true">
+              <PlanIcon size={18} />
+            </span>
+            <span className="ob-made-title">{!profile ? 'No running plan for now' : profile.goal === 'base' ? 'Just running' : `${goalLong(profile.goal)} plan`}</span>
+            {profile && weeks ? <span className="ob-made-value">{weeks} {weeks === 1 ? 'week' : 'weeks'}</span> : null}
+          </li>
+        ) : null}
         <li className="ob-made-row">
           <span className="ob-made-ic" aria-hidden="true">
             <BrandIcon name="wake" size={18} />
@@ -878,7 +919,7 @@ function Payoff({ draft, set, profile, start, today, onOpen, onChange }: { draft
 
       {/* what was made, where Today's hero will be */}
       <div className="ob-pay-hero">
-        <Made profile={profile} weeks={shape?.weeks ?? null} wake={draft.wake} leave={draft.leave} habits={habitCount} afternoon={profile ? afternoon : null} offer={offer} />
+        <Made fitness={draft.fitness !== false} profile={profile} weeks={shape?.weeks ?? null} wake={draft.wake} leave={draft.leave} habits={habitCount} afternoon={profile ? afternoon : null} offer={offer} />
       </div>
 
       {profile ? (
@@ -912,17 +953,17 @@ function Payoff({ draft, set, profile, start, today, onOpen, onChange }: { draft
       <div className="ob-pay-foot">
         <p className="ob-pay-sum" aria-live="polite">
           {onboard.isError ? (
-            <span className="ob-err">Couldn’t save your plan. {reason}</span>
+            <span className="ob-err">{draft.fitness === false ? 'Couldn’t save your answers.' : 'Couldn’t save your plan.'} {reason}</span>
           ) : replay ? (
             <>
               <Check size={16} aria-hidden="true" className="ob-ok" />
-              Preview only. Your plan and habits weren’t changed.
+              {draft.fitness === false ? 'Preview only. Nothing was changed.' : 'Preview only. Your plan and habits weren’t changed.'}
             </>
           ) : !profile ? (
             done ? (
               <>
                 <Check size={16} aria-hidden="true" className="ob-ok" />
-                Saved. Add a running plan any time from Fitness.
+                {draft.fitness === false ? 'Saved.' : 'Saved. Add a running plan any time from Fitness.'}
               </>
             ) : (
               'Saving your answers…'

@@ -1,3 +1,4 @@
+import { fitnessOn } from '@/lib/prefs';
 import { fmtDate, monthOf, periodOf, periodPast, periodSpan, periodStart, shiftDays, type Aim, type GoalEventKind, type GoalLevel, type GoalStatus } from '@logbook/shared';
 import { Check, CircleDashed, Dumbbell, Flag, Footprints, Minus, Target, Trash2, X } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
@@ -9,8 +10,8 @@ import { useToday } from '@/lib/useToday';
 import { Button } from '@/ui/primitives';
 import { useSheet, useSheetDepth, type SheetSpec } from '@/ui/Sheet';
 import { useToast } from '@/ui/Toast';
-import { askOf, dayEnd, deadlineWords, goalOf, LEVEL, periodCaps, STATUS_WORD } from './model';
-import { AS_TYPED_WORDS, reviewGoal, SLOW_WORDS, useReviewAccess, type ReviewAccess } from './refine';
+import { askOf, dayEnd, deadlineWords, exampleOf, goalOf, LEVEL, periodCaps, STATUS_WORD } from './model';
+import { asTypedWords, reviewGoal, SLOW_WORDS, useReviewAccess, type ReviewAccess } from './refine';
 import { DraftSteps, GoalSteps, stepsOf } from './Steps';
 import { HalfGauge, NewGoalChoice } from './GoalSheetParts';
 import { KPin } from './Kit';
@@ -94,7 +95,7 @@ export const GoalEditor = ({ level, period, initial, closeOnSave, gate }: { leve
     // closed, popped or replaced while the review ran: its answer is dropped and nothing is saved
     if (left() || run.current !== ctl) return;
     run.current = null;
-    if (r.kind === 'asTyped') return save(words, 'own', undefined, undefined, AS_TYPED_WORDS[r.why]);
+    if (r.kind === 'asTyped') return save(words, 'own', undefined, undefined, asTypedWords(r.why));
     if (r.kind === 'slow' || r.kind === 'failed') {
       setStep({ kind: 'write' });
       if (r.kind === 'failed') return toast(r.message);
@@ -155,7 +156,7 @@ export const GoalEditor = ({ level, period, initial, closeOnSave, gate }: { leve
           className="gs-input"
           rows={3}
           maxLength={400}
-          placeholder={LEVEL[level].example}
+          placeholder={exampleOf(level)}
           aria-label={ask}
           value={text}
           autoFocus
@@ -216,7 +217,8 @@ const useStarters = (level: GoalLevel, period: string) => {
   const goals = useGoals();
   if (level !== 'day') return [];
   const out: Array<{ label: string; text: string; icon: React.ReactNode }> = [];
-  const sess = (month.data?.sessions ?? []).filter((x) => x.date === period && !(x as { deletedAt?: string | null }).deletedAt);
+  // a day's session is a way to start only with Fitness on (lib/prefs.ts)
+  const sess = (fitnessOn() ? (month.data?.sessions ?? []) : []).filter((x) => x.date === period && !(x as { deletedAt?: string | null }).deletedAt);
   const when = dayEnd(period, today);
   for (const x of sess.slice(0, 2)) {
     const name = x.title || [x.type, x.miles ? `${x.miles}` : null].filter(Boolean).join(' ') || 'the session';

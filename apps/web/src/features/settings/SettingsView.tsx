@@ -1,7 +1,7 @@
 import { buildMorning, fmtDate, morningDayFor } from '@logbook/shared';
 import type * as React from 'react';
 import { BookOpenText, CalendarDays, ClipboardList, Database, FileText, Gauge, Heart, House, Link2, LifeBuoy, Mail, RotateCcw, Route, ScrollText, Send, ShieldCheck, Sunrise, Timer, User, Vibrate } from 'lucide-react';
-import { FavoriteIcon, HabitIcon } from '@/ui/icons';
+import { FavoriteIcon, FitnessIcon, HabitIcon } from '@/ui/icons';
 import { useNavigate } from 'react-router';
 import { startReplay } from '@/features/onboarding/replay';
 import { useRef } from 'react';
@@ -10,13 +10,15 @@ import { useBootstrap, useReads } from '@/api/queries';
 import { DAY_NAME, DAY_SHORT, goalLine, hm, isTemplateBlock, paceText, sortDays } from '@/features/onboarding/model';
 import { useOpenRoutineEditor } from '@/features/morning/RoutineEditor';
 import { useConsent } from '@/lib/consent';
-import { DISCLAIMER } from '@/lib/copy';
+import { disclaimer } from '@/lib/copy';
+import { setFitness, usePrefs } from '@/lib/prefs';
 import { HEALTH_BUILT, STRAVA_BUILT } from '@/lib/features';
 import { isNative } from '@/lib/native';
 import { LEGAL, openExternal, SUPPORT, SUPPORT_EMAIL } from '@/lib/siteLinks';
-import { PushedBar } from '@/ui';
+import { PushedBar, Row } from '@/ui';
 import { Wordmark } from '@/ui/Brand';
-import { GoRow, SGroup } from './parts';
+import { GoRow, SGroup, Switch, Tile } from './parts';
+import { TodayShowsRows, todayShowsFoot } from './TodayShows';
 import { supportMail } from './PrivacyPage';
 import { consentShort } from './privacyModel';
 import { HapticsRow } from './SectionPages';
@@ -61,6 +63,10 @@ export default function SettingsView(): React.JSX.Element {
   // the saved links' count, for the Data group's row (the page itself is the Reads view, pushed over Settings)
   const reads = useReads();
   const rate = RATE_URL;
+  // what is switched on (lib/prefs.ts): Fitness as a whole, and Today's sections. With Fitness off this page shows the
+  // switch and none of the training rows, and says nothing else about training
+  const prefs = usePrefs();
+  const fitness = prefs.fitness;
 
   return (
     <div ref={pageRef} className="page s-set s-root">
@@ -69,11 +75,18 @@ export default function SettingsView(): React.JSX.Element {
       <SGroup title="You">
         {/* the email is the Account row's title; with no name, this row asks for one instead of showing the email twice
             (review 3 feel R3-7) */}
-        <GoRow icon={User} title={user?.name || 'Add your name'} sub={loaded ? (named ? `${block!.name}, through ${fmtDate('md', block!.end)}` : goalLine(profile)) : ' '} onPress={go('you')} label={`${user?.name || 'Add your name'}. Your profile`} />
+        <GoRow icon={User} title={user?.name || 'Add your name'} sub={!fitness ? user?.email : loaded ? (named ? `${block!.name}, through ${fmtDate('md', block!.end)}` : goalLine(profile)) : ' '} onPress={go('you')} label={`${user?.name || 'Add your name'}. Your profile`} />
       </SGroup>
 
-      <SGroup title="Training">
-        {noPlan && loaded ? (
+      {/* what Today draws: a switch a section, no order to arrange. The training card is not here: it follows Fitness */}
+      <SGroup title="Today shows" className="s-today-shows" foot={todayShowsFoot(fitness)}>
+        <TodayShowsRows />
+      </SGroup>
+
+      {/* Fitness: one switch for the whole of it (the tab, the training card, the charts), then its settings while it is on */}
+      <SGroup title="Fitness" className="s-fitness">
+        <Row className="s-wrap has-tile" left={<Tile icon={FitnessIcon} />} title="Fitness" sub="Training plan, runs and lifts" right={<Switch on={fitness} label="Fitness" onChange={setFitness} />} />
+        {!fitness ? null : noPlan && loaded ? (
           <GoRow icon={CalendarDays} title="Build a plan" sub="Your days and miles, then the weeks" label="Build a plan. Pick your days and miles, and Orby writes the weeks" onPress={go('training')} />
         ) : (
           <>
@@ -98,9 +111,9 @@ export default function SettingsView(): React.JSX.Element {
             <GoRow icon={Route} title="Long run" value={loaded ? DAY_NAME[profile.longRunDay] : dash} onPress={go('training')} />
           </>
         )}
-        <GoRow icon={Timer} title="Easy pace" value={ms ? `${paceText(ms.run.pace)} /mi` : dash} onPress={go('training')} />
+        {fitness ? <GoRow icon={Timer} title="Easy pace" value={ms ? `${paceText(ms.run.pace)} /mi` : dash} onPress={go('training')} /> : null}
         {/* the plan's name on its own line under the title: whole at 320, not an ellipsis */}
-        <GoRow icon={ClipboardList} title="Plans" sub={block ? block.name : undefined} value={block ? undefined : loaded ? 'None' : dash} onPress={go('plans')} className="s-plans-row" />
+        {fitness ? <GoRow icon={ClipboardList} title="Plans" sub={block ? block.name : undefined} value={block ? undefined : loaded ? 'None' : dash} onPress={go('plans')} className="s-plans-row" /> : null}
       </SGroup>
 
       <SGroup title="Habits">
@@ -115,13 +128,13 @@ export default function SettingsView(): React.JSX.Element {
       </SGroup>
 
       <SGroup title="Morning routine">
-        <GoRow icon={Sunrise} title="Timings" sub={ms && morning ? `Up at ${hm(ms.wake)}, leave at ${hm(morning.leave)}` : 'Wake, run, shower, out the door'} onPress={() => openRoutine()} className="s-routine-row" label="Timings. Morning routine" />
+        <GoRow icon={Sunrise} title="Timings" sub={ms && morning ? `Up at ${hm(ms.wake)}, leave at ${hm(morning.leave)}` : fitness ? 'Wake, run, shower, out the door' : 'Wake, shower, out the door'} onPress={() => openRoutine()} className="s-routine-row" label="Timings. Morning routine" />
       </SGroup>
 
-      {STRAVA_BUILT ? <StravaReturn /> : null}
-      {HEALTH_BUILT || (STRAVA_BUILT && data?.features.strava) ? (
+      {STRAVA_BUILT && fitness ? <StravaReturn /> : null}
+      {HEALTH_BUILT || (STRAVA_BUILT && fitness && data?.features.strava) ? (
         <SGroup title="Data sources">
-          {STRAVA_BUILT ? <StravaRootRows onPress={go('connections')} /> : null}
+          {STRAVA_BUILT && fitness ? <StravaRootRows onPress={go('connections')} /> : null}
           {HEALTH_BUILT ? <GoRow icon={Heart} title="Apple Health" sub="Sleep, HRV, resting heart rate" label="Apple Health. Sleep, heart rate variability and resting heart rate" onPress={go('connections')} /> : null}
         </SGroup>
       ) : null}
@@ -144,7 +157,7 @@ export default function SettingsView(): React.JSX.Element {
           onPress={() => {
             if (!user) return;
             startReplay(user.id);
-            routerNav('/welcome/goal');
+            routerNav('/welcome/fitness');
           }}
         />
       </SGroup>
@@ -157,7 +170,7 @@ export default function SettingsView(): React.JSX.Element {
 
       {/* how to reach the developer and the legal pages; which build this is sits at the very end (the owner reads it to tell
           a stale build) */}
-      <SGroup title="About" foot={DISCLAIMER}>
+      <SGroup title="About" foot={disclaimer(fitness)}>
         <GoRow icon={LifeBuoy} title="Help and contact" sub="Answers, and how to reach us" onPress={() => void openExternal(SUPPORT)} />
         <GoRow icon={Send} title="Email us" sub={SUPPORT_EMAIL} href={supportMail('Orby help')} label={`Email us at ${SUPPORT_EMAIL}`} />
         <GoRow icon={ScrollText} title="Terms of use" onPress={() => void openExternal(LEGAL.terms)} />

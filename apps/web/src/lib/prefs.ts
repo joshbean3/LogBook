@@ -17,7 +17,7 @@ export type TodaySection = 'habits' | 'day' | 'learned';
 export const TODAY_SECTIONS: readonly { id: TodaySection; title: string; sub: string }[] = [
   { id: 'habits', title: 'Habits', sub: 'The tiles you tap each day' },
   { id: 'day', title: 'Plan your day', sub: 'Today’s goal and to-dos' },
-  { id: 'learned', title: 'What I learned', sub: 'A prompt to write one thing down' },
+  { id: 'learned', title: 'What I learned', sub: 'Write one thing down' },
 ];
 
 export interface Prefs {
@@ -96,8 +96,8 @@ export const seedPrefs = (account: unknown) => {
   commit(normalizePrefs(account), false);
 };
 
-export const usePrefs = (): Prefs => useSyncExternalStore(subscribe, getPrefs, () => DEFAULT_PREFS);
-export const useFitness = (): boolean => useSyncExternalStore(subscribe, fitnessOn, () => true);
+export const usePrefs = (): Prefs => useSyncExternalStore(subscribe, getPrefs, getPrefs);
+export const useFitness = (): boolean => useSyncExternalStore(subscribe, fitnessOn, fitnessOn);
 
 /** What Today draws, in order. `fitness` is the training card and everything about training around it. */
 export type TodayPart = 'fitness' | TodaySection;
@@ -115,7 +115,7 @@ export const useTodayParts = (): TodayPart[] => {
 };
 
 /** The routes that belong to Fitness: with it off they lead to Today (ui/nav.ts asks). */
-export const isFitnessPath = (path: string): boolean => /^\/(plan|fitness)(\/|$)/.test(path) || path === '/settings/training' || path === '/settings/plans' || /^\/progress\/metric\/(mileage|pace|consistency|lifts)$/.test(path) || path === '/habits/morning';
+export const isFitnessPath = (path: string): boolean => /^\/(plan|fitness)(\/|$)/.test(path) || path === '/settings/training' || path === '/settings/plans' || /^\/progress\/metric\/(mileage|pace|lifts)$/.test(path) || path === '/habits/morning';
 
 /** Tests only: start from a known state. */
 export const resetPrefsForTest = (p: Prefs | null) => {

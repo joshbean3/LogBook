@@ -2,6 +2,7 @@ import { Check, X } from 'lucide-react';
 import type * as React from 'react';
 import type { Consent } from '@logbook/shared';
 import { STRAVA_BUILT } from '@/lib/features';
+import { useFitness } from '@/lib/prefs';
 import { Footnote, PageSection } from '@/ui/layout';
 import './privacy.css';
 
@@ -26,6 +27,8 @@ export interface Facts {
 
 const TYPED = 'What you type to the assistant and the files you attach';
 const TRAINING = 'Your plan, sessions, training status, goals and to-dos';
+/** The same switch for a person with Fitness off (lib/prefs.ts): the same data, named without the training words. */
+const TRAINING_PLAIN = 'Your goals, to-dos, sessions and status';
 const RECALL = 'One past journal entry or learning at a time, with your first name, to write Remember when';
 const READS = 'Your saved links, notes and tags, to pick a daily read';
 
@@ -34,7 +37,7 @@ const READS = 'Your saved links, notes and tags, to pick a daily read';
  * (training, recall, reads), and `at`, which is null until the person has answered at all. A row sits under "Sent" only
  * while its switch is on. With no answer yet the first list says what Allow would send, and nothing is sent.
  */
-export const privacyFacts = (consent: Consent | null | undefined): Facts => {
+export const privacyFacts = (consent: Consent | null | undefined, fitness = true): Facts => {
   const asked = !!consent?.at;
   const training = asked ? consent!.training : true;
   const recall = asked && consent!.recall;
@@ -42,8 +45,9 @@ export const privacyFacts = (consent: Consent | null | undefined): Facts => {
   const off = asked ? 'off' : 'off until you turn it on';
   const sent: Fact[] = [{ key: 'typed', text: `${TYPED}.` }];
   const notSent: Fact[] = [];
-  if (training) sent.push({ key: 'training', text: `${TRAINING}, only when you ask the assistant, draft a plan or review a goal.` });
-  else notSent.push({ key: 'training', text: `${TRAINING}: off.` });
+  const data = fitness ? TRAINING : TRAINING_PLAIN;
+  if (training) sent.push({ key: 'training', text: `${data}, only when you ask the assistant${fitness ? ', draft a plan' : ''} or review a goal.` });
+  else notSent.push({ key: 'training', text: `${data}: off.` });
   if (recall) sent.push({ key: 'recall', text: `${RECALL}.` });
   else notSent.push({ key: 'recall', text: `${RECALL}: ${off}.` });
   if (reads) sent.push({ key: 'reads', text: `${READS}.` });
@@ -51,7 +55,7 @@ export const privacyFacts = (consent: Consent | null | undefined): Facts => {
   notSent.push({ key: 'account', text: 'Your email and password.' });
   notSent.push({ key: 'health', text: 'Health data: not sent.' });
   // only in a build that has the connection at all: a release build carries no word of it
-  if (STRAVA_BUILT) notSent.push({ key: 'strava', text: 'Strava data.' });
+  if (STRAVA_BUILT && fitness) notSent.push({ key: 'strava', text: 'Strava data.' });
   return { asked, sent, notSent };
 };
 
@@ -67,7 +71,7 @@ export const factsWho = (asked: boolean): string => (asked ? 'Checked items go t
  */
 export const PrivacyFacts = ({ consent, on, title, className = '' }: { /** The Contract 1 record, or null when the person has not answered yet. */ consent?: Consent | null; on?: boolean; health?: boolean | null; /** A list-page group title over the list (Settings, Privacy). */ title?: string; className?: string }): React.JSX.Element => {
   const record: Consent | null = consent ?? (on === undefined ? null : { training: on, recall: false, reads: false, health: null, at: 'set', version: null });
-  const f = privacyFacts(record);
+  const f = privacyFacts(record, useFitness());
   const list = (
     <>
       <ul className="group pv-list" aria-label={title ?? 'What is sent'}>

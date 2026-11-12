@@ -122,7 +122,8 @@ export const shareDataFor = (date: string, sess: Session | null, runs: Activity[
   // a day whose sessions were all skipped is a skipped day, never "Rest": it says so in the shared status word
   const skippedAll = training.length > 0 && !plannedSomething;
   const skippedSess = skippedAll ? (sess && training.some((x) => x.id === sess.id) ? sess : training[0]!) : null;
-  const dayType: ShareDayType = miles > 0 ? 'run' : lifted ? 'lift' : !plannedSomething && !skippedAll ? 'rest' : 'journal';
+  // with Fitness off (the log carries no training) a day is never a rest day: it is the day, in its habits and its words
+  const dayType: ShareDayType = miles > 0 ? 'run' : lifted ? 'lift' : log.fitness === false ? 'journal' : !plannedSomething && !skippedAll ? 'rest' : 'journal';
   let top: string | null = null;
   if (sets.length) {
     const best = sets.reduce((b, x) => (e1rm(x.weight, x.reps) > e1rm(b.weight, b.reps) ? x : b));

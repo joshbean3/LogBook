@@ -425,3 +425,12 @@ button.pg-srow[data-pressed] {
 .pg-foot {
   margin: var(--sp-2) var(--sp-1) 0;
 }
+
+/* ---------- Fitness off (lib/prefs.ts): the page is Habits, then Health. The Habits section leads right under the title,
+   and its one tile takes the row, so the page starts with one full card and never a tile beside a hole ---------- */
+.pg-page > .pg-plain {
+  margin-top: 0;
+}
+.pg-plain .pg-tiles > :only-child {
+  grid-column: 1 / -1;
+}

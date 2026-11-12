@@ -1,3 +1,4 @@
+import { fitnessOn } from '@/lib/prefs';
 import type { Consent, GoalLevel, GoalRefinement } from '@logbook/shared';
 import { api, ApiError, isOffline } from '@/api/client';
 import { useBootstrap } from '@/api/queries';
@@ -53,6 +54,8 @@ export const AS_TYPED_WORDS: Record<AsTyped, string> = {
   declined: 'Saved as written. The review could not help with this one.',
   limit: 'Saved as written. The review is at its limit for now.',
 };
+/** The words for a goal saved without a review; with Fitness off (lib/prefs.ts) the switch is named as that person sees it. */
+export const asTypedWords = (why: AsTyped, fitness = fitnessOn()): string => (why === 'consent' && !fitness ? 'Saved as written. Turn on Your data in Settings, Privacy, to have goals reviewed.' : AS_TYPED_WORDS[why]);
 export const SLOW_WORDS = 'The review took too long. Save as written?';
 
 type Input = { level: GoalLevel; period: string; text: string };

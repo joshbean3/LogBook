@@ -1,3 +1,4 @@
+import { useFitness } from '@/lib/prefs';
 import type * as React from 'react';
 import { fmtDate, LEARNING_MAX, shiftDays, type Learning } from '@logbook/shared';
 import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react';
@@ -60,6 +61,8 @@ const pasteCut = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
  * save the server rejects puts them back in the field whichever state the card is in by then.
  */
 export const Composer = ({ today, quiet }: { today: string; quiet?: boolean }) => {
+  // the example line is about a run only for a person who has Fitness on (lib/prefs.ts)
+  const fitness = useFitness();
   const { add } = useLearnedMutations(today);
   const toast = useToast();
   const ref = useRef<HTMLTextAreaElement>(null);
@@ -77,7 +80,7 @@ export const Composer = ({ today, quiet }: { today: string; quiet?: boolean }) =
         className="ln-field"
         rows={rows}
         maxLength={LEARNING_MAX}
-        placeholder={quiet ? 'Add another' : 'Like: Strides after easy runs keep my legs quick.'}
+        placeholder={quiet ? 'Add another' : fitness ? 'Like: Strides after easy runs keep my legs quick.' : 'Like: A short walk after lunch clears my head.'}
         aria-label={quiet ? 'Add another thing you learned today' : 'What you learned today'}
         value={text}
         onPaste={(e) => setCut(pasteCut(e))}

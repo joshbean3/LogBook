@@ -8,7 +8,8 @@ import { apiOrigin } from '@/lib/native';
 import { useEffect, useState } from 'react';
 import type * as React from 'react';
 import { BevelDial, GlassTile, HealthHero, Hypnogram, MonitorTile, SourceLine, StageTile, TimeChip } from '@/features/health/HealthParts';
-import { DISCLAIMER } from '@/lib/copy';
+import { disclaimer } from '@/lib/copy';
+import { useFitness } from '@/lib/prefs';
 import { haptics } from '@/lib/haptics';
 import { Health, healthMode, hm, summarizeNight, type ReadingCheck } from '@/lib/health';
 import { LEGAL, openExternal } from '@/lib/siteLinks';
@@ -229,7 +230,7 @@ const ConnectPanel = (): React.JSX.Element => {
           Consumer health data privacy policy
         </button>
       </p>
-      <p className="ahc-fine">{DISCLAIMER}</p>
+      <p className="ahc-fine">{disclaimer(useFitness())}</p>
     </div>
   );
 };

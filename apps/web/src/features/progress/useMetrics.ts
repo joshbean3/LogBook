@@ -4,7 +4,7 @@ import { rangeWindow, type RangeKey } from '@/ui/charts';
 import type { Log } from '../log/useLog';
 import { easyPace } from './data';
 import { snapSource } from './feed';
-import { buildMetric, leadVariant, METRICS, type MetricId, type MetricSource } from './metrics';
+import { buildMetric, leadVariant, metricDef, type MetricId, type MetricSource } from './metrics';
 import { useHealthDays } from './useHealthDays';
 
 /** The metric source over the loaded months: rebuilt only when a month lands or the day changes. */
@@ -23,6 +23,6 @@ export const useMetricModels = (log: Log, ids: readonly MetricId[], key: RangeKe
   const src = useMetricSource(log, shiftDays(t, -200));
   return useMemo(() => {
     const w = rangeWindow(t, key);
-    return Object.fromEntries(ids.map((id) => [id, buildMetric(METRICS[id], leadVariant(METRICS[id], src, w), src, w)])) as Record<MetricId, ReturnType<typeof buildMetric>>;
-  }, [src, t, key, ids]);
+    return Object.fromEntries(ids.map((id) => [id, buildMetric(metricDef(id, log.fitness), leadVariant(metricDef(id, log.fitness), src, w), src, w)])) as Record<MetricId, ReturnType<typeof buildMetric>>;
+  }, [src, t, key, ids, log.fitness]);
 };

@@ -5,6 +5,7 @@ import { useBootstrap } from '@/api/queries';
 import { askAssistant, stopAssistant } from './api';
 import { consentKey, useConsent, useSaveConsent } from '@/lib/consent';
 import { haptics } from '@/lib/haptics';
+import { useFitness } from '@/lib/prefs';
 import { LEGAL, openExternal } from '@/lib/siteLinks';
 import { Orb } from '@/ui/Orb';
 import { Button } from '@/ui/primitives';
@@ -38,6 +39,7 @@ export const useAssistantGate = (): { gate: Gate; retry: () => void } => {
  * stay open (the plan builder goes back to its controls); without it Not now closes the sheet.
  */
 export const AssistantPermission = ({ gate, retry, date, screen, chat, inPane, onNotNow }: { gate: Exclude<Gate, 'open'>; retry: () => void; date: ISODate; screen?: AssistantScreen; chat?: string; inPane?: boolean; onNotNow?: () => void }) => {
+  const fitness = useFitness();
   const sheet = useSheet();
   const save = useSaveConsent();
   const [failed, setFailed] = useState(false);
@@ -93,11 +95,11 @@ export const AssistantPermission = ({ gate, retry, date, screen, chat, inPane, o
         <ul className="card as-ask-list">
           <li>
             <b>Allow</b>
-            <span>The assistant can also read your plan, sessions, training status, goals and to-dos, so its answers fit your training.</span>
+            <span>{fitness ? 'The assistant can also read your plan, sessions, training status, goals and to-dos, so its answers fit your training.' : 'The assistant can also read your goals, to-dos, sessions and status, so its answers fit you.'}</span>
           </li>
           <li>
             <b>Only what I type</b>
-            <span>It answers in general terms and can’t see your training data.</span>
+            <span>{fitness ? 'It answers in general terms and can’t see your training data.' : 'It answers in general terms and can’t see your data.'}</span>
           </li>
           <li>
             <b>Not now</b>
