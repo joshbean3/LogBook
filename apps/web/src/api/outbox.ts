@@ -70,6 +70,12 @@ const pendingIn = (path: string, json: unknown) => {
   for (const it of items) if (it.tmpId && mentions(path, json, it.tmpId)) return true;
   return false;
 };
+/**
+ * Is a create under this provisional id still unanswered, or is something still waiting on that id? A second create that
+ * reuses the id (a goal set, undone and set again: one goal per period, so one id) must then wait its turn behind them.
+ */
+const tmpBusy = (tmpId: string) => inflight.has(tmpId) || items.some((it) => it.tmpId === tmpId || mentions(it.path, it.json, tmpId));
+
 /** The same request with every known provisional id replaced by its real one. */
 const rewrite = <T extends { path: string; json?: unknown }>(it: T): T => {
   let path = it.path;
@@ -180,8 +186,9 @@ export const outbox = {
   async enqueue(item: Omit<OutboxItem, 'id' | 'createdAt' | 'userId'> & { id?: string }) {
     const owner = user ?? signedIn(client) ?? undefined;
     const it: OutboxItem = { ...item, id: item.id ?? newKey(), createdAt: new Date().toISOString(), ...(owner ? { userId: owner } : {}) };
-    // a create that fell off the wire goes in ahead of anything already waiting on its id
-    const at = it.tmpId ? items.findIndex((x) => mentions(x.path, x.json, it.tmpId!)) : -1;
+    // a create that fell off the wire (it was sent: `sentAt`) goes in ahead of anything already waiting on its id; one
+    // that was never sent is a later write, and keeps its place at the end
+    const at = it.tmpId && it.sentAt ? items.findIndex((x) => mentions(x.path, x.json, it.tmpId!)) : -1;
     if (at >= 0) items.splice(at, 0, it);
     else items.push(it);
     await persist();
@@ -296,7 +303,7 @@ export async function write<T>(rawPath: string, method: OutboxItem['method'], ra
   const key = newKey();
   // a write that still names a provisional id the server has since answered goes out under the real one
   const { path, json } = rewrite({ path: rawPath, json: rawJson });
-  if (isOffline() || pendingIn(path, json)) {
+  if (isOffline() || pendingIn(path, json) || (tmpId !== undefined && tmpBusy(tmpId))) {
     await outbox.enqueue({ id: key, path, method, json, invalidate, tmpId });
     return null;
   }

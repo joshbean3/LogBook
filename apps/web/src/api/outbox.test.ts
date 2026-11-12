@@ -368,6 +368,80 @@ describe('a goal set offline keeps what was done to it (goals-27)', () => {
 });
 
 /**
+ * Goals poster: "Set this goal", Undo, "Set this goal" again before the first set was answered. The second set carries
+ * the same provisional id (one goal per period), and used to go ahead of the Undo that was waiting on that id: the
+ * server saw set, set, clear, and the goal the person was looking at was gone after the next load.
+ */
+describe('set, Undo, set again before the first answer keeps the goal', () => {
+  const tmp = 'tmp-goal-day-2026-11-12';
+  const order = () => sent.map((x) => [x.method, x.path]);
+
+  it('offline: the three replay in the order they were made', async () => {
+    const { outbox, write } = await load();
+    offline = true;
+    await write('/goals/day/2026-11-12', 'PUT', { text: 'Book dentist' }, [['goals']], { tmpId: tmp });
+    await write(`/goals/${tmp}`, 'DELETE', undefined, [['goals']]);
+    await write('/goals/day/2026-11-12', 'PUT', { text: 'Book dentist' }, [['goals']], { tmpId: tmp });
+    offline = false;
+    respond = async () => ({ id: 'goal-9' });
+    await outbox.replay(qc);
+    expect(order()).toEqual([
+      ['PUT', '/goals/day/2026-11-12'],
+      ['DELETE', '/goals/goal-9'],
+      ['PUT', '/goals/day/2026-11-12'],
+    ]);
+    expect(outbox.size()).toBe(0);
+  });
+
+  it('online on a slow connection: the second set waits behind the Undo', async () => {
+    const { outbox, write } = await load();
+    let answer: (v: unknown) => void = () => undefined;
+    let first = true;
+    respond = (path) => {
+      if (path === '/goals/day/2026-11-12' && first) {
+        first = false;
+        return new Promise((r) => (answer = r));
+      }
+      return Promise.resolve({ id: 'goal-9' });
+    };
+    const set = write('/goals/day/2026-11-12', 'PUT', { text: 'Book dentist' }, [['goals']], { tmpId: tmp });
+    await vi.waitFor(() => expect(sent).toHaveLength(1));
+    await write(`/goals/${tmp}`, 'DELETE', undefined, [['goals']]);
+    await write('/goals/day/2026-11-12', 'PUT', { text: 'Book dentist' }, [['goals']], { tmpId: tmp });
+    // nothing overtakes the first set
+    expect(sent).toHaveLength(1);
+    answer({ id: 'goal-9' });
+    await set;
+    await vi.waitFor(() => expect(outbox.size()).toBe(0));
+    expect(order()).toEqual([
+      ['PUT', '/goals/day/2026-11-12'],
+      ['DELETE', '/goals/goal-9'],
+      ['PUT', '/goals/day/2026-11-12'],
+    ]);
+  });
+
+  it('a create that fell off the wire still goes in ahead of what waits on its id', async () => {
+    const { outbox, write } = await load();
+    let fail: (e: unknown) => void = () => undefined;
+    respond = (path) => (path === '/goals/day/2026-11-12' && sent.length === 1 ? new Promise((_r, rej) => (fail = rej)) : Promise.resolve({ id: 'goal-9' }));
+    const set = write('/goals/day/2026-11-12', 'PUT', { text: 'Book dentist' }, [['goals']], { tmpId: tmp });
+    await vi.waitFor(() => expect(sent).toHaveLength(1));
+    await write(`/goals/${tmp}`, 'PATCH', { status: 'done' }, [['goals']]);
+    fail(new NetworkError('dropped'));
+    await set;
+    expect(onDisk().map((x) => [x.method, x.path])).toEqual([
+      ['PUT', '/goals/day/2026-11-12'],
+      ['PATCH', `/goals/${tmp}`],
+    ]);
+    await outbox.replay(qc);
+    expect(order().slice(1)).toEqual([
+      ['PUT', '/goals/day/2026-11-12'],
+      ['PATCH', '/goals/goal-9'],
+    ]);
+  });
+});
+
+/**
  * Plan's Add sheet (useSessionMutations().add): the session's id is made on the phone and the create is registered under
  * it, so what names the session before the server has answered (a past day's done mark, Undo) goes out after the create,
  * in order, online or offline. A create refused for good takes what waited on it out of the queue.
