@@ -1,4 +1,4 @@
-import { periodEnd, periodOf, zGoalLevel, zGoalPatch, zGoalPut, zGoalRefine, type GoalEventKind, type GoalLevel } from '@logbook/shared';
+import { isISODate, periodEnd, periodOf, shiftDays, zGoalLevel, zGoalPatch, zGoalPut, zGoalRefine, type GoalEventKind, type GoalLevel } from '@logbook/shared';
 import { and, desc, eq, isNull, lt, sql } from 'drizzle-orm';
 import { Hono } from 'hono';
 import { z } from 'zod';
@@ -12,9 +12,15 @@ import { parseSteps, toGoal, toGoalEvent } from '../lib/map.js';
 import { ApiError, nowISO, parseBody, parseQuery, uid } from '../lib/util.js';
 import { refineGoal } from '../services/claude.js';
 
-/** A period key that matches its level: `2026`, `2026-10`, a Monday, or a date. */
+/** A period key that matches its level: `2026`, `2026-10`, a Monday, or a date. It must be on the calendar: no month 13, no Feb 30. */
 const validPeriod = (level: GoalLevel, period: string) => {
-  const ok = level === 'year' ? /^\d{4}$/.test(period) : level === 'month' ? /^\d{4}-\d{2}$/.test(period) : /^\d{4}-\d{2}-\d{2}$/.test(period) && periodOf(level, period) === period;
+  const ok =
+    level === 'year'
+      ? /^\d{4}$/.test(period)
+      : level === 'month'
+        ? /^\d{4}-(0[1-9]|1[0-2])$/.test(period)
+        : // a date that reads back as itself (Feb 30 would be stored, and shown as Mar 2), on the day its level starts
+          /^\d{4}-\d{2}-\d{2}$/.test(period) && isISODate(period) && shiftDays(period, 0) === period && periodOf(level, period) === period;
   if (!ok) throw new ApiError(400, `That isn’t a ${level}.`, 'bad_period');
   return period;
 };
