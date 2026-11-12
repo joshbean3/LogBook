@@ -65,6 +65,17 @@ export const GoalEditor = ({ level, period, initial, closeOnSave, gate }: { leve
   };
   const [step, setStep] = useState<Step>({ kind: 'write' });
   const field = useRef<HTMLTextAreaElement>(null);
+  // a field that opens with words in it (an edit, a draft kept) is focused with its caret before the first word, and
+  // what is typed next would go in front of the goal: the caret starts after the last word
+  useEffect(() => {
+    const f = field.current;
+    if (!f || !f.value) return;
+    try {
+      f.setSelectionRange(f.value.length, f.value.length);
+    } catch {
+      /* a field that cannot take a selection keeps the caret where it is */
+    }
+  }, []);
   const done = () => (depth > 1 ? sheet.pop() : sheet.close());
   // pushed from the two ways to set a goal, a saved goal closes the sheet; Cancel still goes back to them
   const finish = () => (closeOnSave ? sheet.close() : done());
