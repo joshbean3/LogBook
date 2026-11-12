@@ -51,6 +51,17 @@ describe('client error reports (gap-qua-69)', () => {
     expect(reportOf(new Error("Couldn't draw the week, it isn't loaded")).message).toBe("Couldn't draw the week, it isn't loaded");
   });
 
+  it('masks addresses wherever they sit, and reads a huge line of letters at once (it took seconds)', () => {
+    expect(reportOf(new Error('a@b.co, Sam <sam.o+run@mail.example.org>; x@y')).message).toBe('[email], Sam <[email]>; x@y');
+    expect(reportOf(new Error('@handle and 5@ and a@b')).message).toBe('@handle and 5@ and a@b');
+    const e = new Error('x'.repeat(200_000));
+    e.stack = `${'y'.repeat(400_000)}@`;
+    const t0 = performance.now();
+    const r = reportOf(e);
+    expect(performance.now() - t0).toBeLessThan(1500);
+    expect(r.message).toHaveLength(500);
+  });
+
   it('fits in 8 KB', () => {
     const e = new Error('big');
     e.stack = 'x'.repeat(50_000);
