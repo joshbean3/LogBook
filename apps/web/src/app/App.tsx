@@ -12,7 +12,7 @@ import { prefetchAll, stravaSyncNow, useBootstrap } from '@/api/queries';
 import { syncPrefs } from '@/api/prefsSync';
 import { Login, Signup } from '@/features/auth/AuthScreens';
 import DayView from '@/features/day/DayView';
-import { hasAccountHere, markHasAccount, signedOutHome } from '@/features/auth/flag';
+import { hasAccountHere, markHasAccount, markSignedOut, signedOutHome } from '@/features/auth/flag';
 import { Start } from '@/features/auth/Start';
 import { matchRoute, type PushedEntry } from '@/ui/nav';
 import { useContextMenu } from '@/ui/ContextMenu';
@@ -23,6 +23,7 @@ import { watchDynamicType } from './dynamicType';
 import { ErrorBoundary, lazyImport } from './ErrorBoundary';
 import { useNav } from './NavController';
 import { Shell } from './Shell';
+import { loginSendsOn, sessionEnded } from './session';
 import { useHoldSplash } from './splashHold';
 import { healthSyncNow } from '@/lib/healthSync';
 import '@/styles/foundation.css';
@@ -322,7 +323,13 @@ const Authed = () => {
 const LoginRoute = () => {
   const session = useSession();
   const loc = useLocation();
-  if (session.data?.signedIn && !new URLSearchParams(loc.search).has('reset')) return <Navigate to="/today" replace />;
+  const qc = useQueryClient();
+  // the server ended the session: the quiet session query says so from here on (and the cached account goes)
+  const ended = !!(loc.state as { signedOut?: boolean } | null)?.signedOut;
+  useEffect(() => {
+    if (ended) markSignedOut(qc);
+  }, [ended, qc]);
+  if (loginSendsOn(session.data?.signedIn, loc.search, loc.state)) return <Navigate to="/today" replace />;
   return <Login />;
 };
 
@@ -360,22 +367,26 @@ export const App = () => {
    */
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout> | undefined;
+    // one answer at a time: every other 401 that arrives while this one is being settled rides along
+    let settling = false;
+    let gone = false;
     const fn = () => {
-      if (/^\/(login|setup|signup|start)/.test(location.pathname) || timer) return;
+      if (/^\/(login|setup|signup|start)/.test(location.pathname) || settling) return;
+      settling = true;
       const from = location.pathname;
       ui.current.menu.close();
       const open = ui.current.sheet.isOpen();
       if (open) ui.current.sheet.close();
-      timer = setTimeout(
-        () => {
-          timer = undefined;
-          if (!/^\/(login|setup|signup|start)/.test(location.pathname)) navigate(signedOutHome(), { replace: true, state: { signedOut: true, from } });
-        },
-        open ? SHEET_GONE_MS : 0,
-      );
+      const closed = new Promise<void>((done) => (timer = setTimeout(done, open ? SHEET_GONE_MS : 0)));
+      void Promise.all([sessionEnded(() => api<AuthStatus>('/auth/status')), closed]).then(([ended]) => {
+        settling = false;
+        if (gone || !ended) return;
+        if (!/^\/(login|setup|signup|start)/.test(location.pathname)) navigate(signedOutHome(), { replace: true, state: { signedOut: true, from } });
+      });
     };
     onUnauthorized.add(fn);
     return () => {
+      gone = true;
       onUnauthorized.delete(fn);
       clearTimeout(timer);
     };
