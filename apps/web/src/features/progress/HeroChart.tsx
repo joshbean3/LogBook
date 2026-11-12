@@ -7,7 +7,7 @@ import { Button, EmptyState, Segmented, Skeleton, SkeletonGroup } from '@/ui';
 import { RangeControl } from '@/ui/charts';
 import { usePageShown } from '@/ui/nowBudget';
 import type { Log } from '../log/useLog';
-import { HERO_MODES, liftRange, runRange, type HeroMode, type LiftView, type RunView } from './hero';
+import { chartKeyOf, HERO_MODES, liftRange, readingOn, runRange, type HeroMode, type LiftView, type Reading, type RunView } from './hero';
 import { LiftList } from './LiftList';
 import { RangeBars, type BarMark } from './RangeBars';
 import { firstShown, PROGRESS_RANGES, RANGE_WORDS, UNIT_WORD, type ProgressRange } from './ranges';
@@ -162,8 +162,9 @@ export const HeroChart = ({
 }) => {
   const nav = useNav();
   const [mode, setMode] = useMode();
-  const [scrub, setScrub] = useState<number | null>(null);
-  const [opened, setOpened] = useState<number | null>(null);
+  // what is being read, with the chart it was read on (hero.ts `readingOn`: a reading never outlives its chart)
+  const [scrub, setScrub] = useState<Reading | null>(null);
+  const [opened, setOpened] = useState<Reading | null>(null);
   const hint = useScrubHint();
   const openWeek = useOpenWeek(t);
   const snap = log.snap;
@@ -296,7 +297,8 @@ export const HeroChart = ({
   const gaps = view.buckets.some((p) => p.missing);
   // the bucket being read (under the finger, or the one whose sheet is up), if the chart on screen still has it; a bucket
   // that has not loaded has no number to read, so the headline stays as it is over a gap
-  const ati = scrub ?? opened;
+  const chartKey = chartKeyOf(view.mode, span);
+  const ati = readingOn(scrub, chartKey) ?? readingOn(opened, chartKey);
   const reading = ati != null && ati < view.buckets.length && !view.buckets[ati]!.missing;
   const readout: Readout =
     view.mode === 'run'
@@ -320,7 +322,7 @@ export const HeroChart = ({
           const p = view.buckets[i];
           if (!p) return;
           // the headline names this bucket while its sheet is up
-          setOpened(i);
+          setOpened({ chart: chartKey, i });
           openWeek(mondayOf(p.key), 'open', () => setOpened(null));
         };
 
@@ -330,7 +332,7 @@ export const HeroChart = ({
         {seg}
         <Head r={readout} hold={reading} />
         <RangeBars
-          key={`${view.mode}-${span.range}-${span.unit}-${span.from}`}
+          key={chartKey}
           span={span}
           marks={marks}
           label={chartLabel}
@@ -340,7 +342,7 @@ export const HeroChart = ({
           idle={view.mode === 'lift' ? 2 : undefined}
           hint={hint.hint ? `Drag across to see each ${UNIT_WORD[unit]}` : null}
           hintRead={hint.read}
-          onScrub={setScrub}
+          onScrub={(i) => setScrub(i == null ? null : { chart: chartKey, i })}
           onOpen={openAt}
           onRead={hint.done}
         />

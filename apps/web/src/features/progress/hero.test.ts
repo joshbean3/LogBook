@@ -2,7 +2,7 @@ import { shiftDays, type Activity, type LiftSet, type Session } from '@logbook/s
 import { describe, expect, it } from 'vitest';
 import { buildSnapshot } from '@/api/snapshot';
 import type { MonthBundle } from '@/api/types';
-import { liftLog, liftRange, runRange } from './hero';
+import { chartKeyOf, liftLog, liftRange, readingOn, runRange } from './hero';
 
 const run = (date: string, miles: number): Activity => ({ id: `a-${date}`, date, time: null, name: 'Run', sportType: 'Run', kind: 'run', miles, movingSec: miles * 480, elevFt: 0, avgHr: 150, maxHr: null, cadence: null, laps: null, perfAt: null, polyline: null });
 const sess = (date: string, extra: Partial<Session> = {}): Session => ({ id: `s-${date}-${extra.kind ?? 'run'}`, date, position: 0, kind: 'run', type: 'Easy', title: null, details: null, miles: 5, minutes: null, blockId: null, movedFrom: null, mark: null, ...extra });
@@ -98,5 +98,24 @@ describe('the strength list', () => {
     ]);
     expect(items[2]!.session).toBeNull();
     expect(items[2]!.sets).toHaveLength(1);
+  });
+});
+
+describe('a reading belongs to the chart it was made on', () => {
+  // The hero redraws its chart as a new one when the range, the mode or the first bar changes: a tap on a range, and also
+  // months that land while a long range is still loading (the chart on screen was the last whole one). A finger reading
+  // the old chart then never lets go on the new one, and the headline kept that bucket's number until the next touch.
+  const m3 = chartKeyOf('run', { range: '3M', unit: 'week', from: '2026-08-17' });
+  const all = chartKeyOf('run', { range: 'All', unit: 'month', from: '2021-11-01' });
+  it('reads on its own chart', () => {
+    expect(readingOn({ chart: m3, i: 5 }, m3)).toBe(5);
+    expect(readingOn({ chart: m3, i: 0 }, m3)).toBe(0);
+    expect(readingOn(null, m3)).toBeNull();
+  });
+  it('is dropped once the chart is another one: the range, the unit, the mode or the first bar changed', () => {
+    expect(readingOn({ chart: m3, i: 5 }, all)).toBeNull();
+    expect(readingOn({ chart: m3, i: 5 }, chartKeyOf('lift', { range: '3M', unit: 'week', from: '2026-08-17' }))).toBeNull();
+    expect(readingOn({ chart: m3, i: 5 }, chartKeyOf('run', { range: '3M', unit: 'week', from: '2026-08-24' }))).toBeNull();
+    expect(m3).not.toBe(all);
   });
 });
