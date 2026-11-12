@@ -7,7 +7,7 @@ import { Finger, Stage, Steps, useLoop, useTyped } from './engine';
 
 /**
  * One short film per part of Logbook, each a miniature of the real screen with the real labels (mapped from the code:
- * PlanDay, OrbRow, GoalSheets, the Journal poster and its line, Week, ProgressView, Dock and the assistant sheet). Each loops while its
+ * PlanDay, OrbRow, GoalSheets, the Journal poster and its line, Fitness's week and its Progress chart, Dock and the assistant sheet). Each loops while its
  * page is on screen; under Reduce Motion (`still`) it holds its finished frame and every step is lit.
  *
  * A demo is a list of beats (ms). `b` is the beat on screen; everything it shows is read off `b`, so a loop is a pure
@@ -236,12 +236,21 @@ export const JournalDemo = ({ running, still, plain }: DemoProps) => {
   );
 };
 
-// ---------- Plan ----------
+// ---------- Fitness: what is next, then how it is going ----------
 const DAYS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
 const RUNS: Record<number, { t: string; c: string }> = { 1: { t: 'Easy 4', c: 'easy' }, 3: { t: 'Tempo 5', c: 'hard' }, 5: { t: 'Easy 4', c: 'easy' }, 6: { t: 'Long 8', c: 'long' } };
-const PLAN_BEATS = [900, 650, 700, 900, 300, 1500, 900] as const;
-export const PlanDemo = ({ running, still }: DemoProps) => {
-  const b = useLoop(PLAN_BEATS, running && !still, PLAN_BEATS.length - 1);
+const MILES = [14, 16, 15, 18, 12, 19, 21, 20, 23, 22, 25, 24];
+/** Twelve Mondays, a week apart, ending on the latest. */
+const WEEK_OF = MILES.map((_, k) => new Date(2026, 7, 17 + 7 * k).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }));
+const MILES_MAX = 26;
+const FIT_BEATS = [900, 650, 700, 900, 300, 1300, 700, 380, 380, 380, 380, 380, 1200, 900] as const;
+/**
+ * The Fitness tab in two moves, top to bottom as the page reads. What is next: this week's sessions, and a run held and
+ * dragged to another day. How it is going: the Progress chart under them, the weeks as bars, read by sliding along it
+ * (the bar under the finger turns Deep Sky and the headline says its week, as on the page).
+ */
+export const FitnessDemo = ({ running, still }: DemoProps) => {
+  const b = useLoop(FIT_BEATS, running && !still, FIT_BEATS.length - 1);
   const lifted = at(b, 2, 4);
   const moved = still || b >= 4;
   const runs = { ...RUNS };
@@ -249,6 +258,8 @@ export const PlanDemo = ({ running, still }: DemoProps) => {
     runs[4] = runs[3]!;
     delete runs[3];
   }
+  const scrub = at(b, 7, 13) ? 4 + (b - 7) * 1.4 : null;
+  const i = scrub == null ? null : Math.min(MILES.length - 1, Math.round(scrub));
   return (
     <>
       <Stage className="tp">
@@ -256,69 +267,48 @@ export const PlanDemo = ({ running, still }: DemoProps) => {
           <b>This week</b>
           <span>21 mi · 4 runs</span>
         </p>
-        <div className="tour-week">
-          {DAYS.map((d, i) => {
-            const r = runs[i];
-            const ghost = lifted && i === 3;
-            return (
-              <span key={i} className={`tour-day ${lifted && i === 4 ? 'tis-target' : ''}`} data-spot={`day${i}`}>
-                <small>{d}</small>
-                <span className="tour-date">{9 + i}</span>
-                {r && !ghost ? (
-                  <motion.span layout={!still} className={`tour-pill c-${r.c}`} transition={springs.settle}>
-                    {r.t}
-                  </motion.span>
-                ) : (
-                  <span className="tour-rest">{ghost ? '' : 'Rest'}</span>
-                )}
-              </span>
-            );
-          })}
+        <div className="tp-week">
+          <div className="tour-week">
+            {DAYS.map((d, k) => {
+              const r = runs[k];
+              const ghost = lifted && k === 3;
+              return (
+                <span key={k} className={`tour-day ${lifted && k === 4 ? 'tis-target' : ''}`} data-spot={`day${k}`}>
+                  <small>{d}</small>
+                  <span className="tour-date">{9 + k}</span>
+                  {r && !ghost ? (
+                    <motion.span layout={!still} className={`tour-pill c-${r.c}`} transition={springs.settle}>
+                      {r.t}
+                    </motion.span>
+                  ) : (
+                    <span className="tour-rest">{ghost ? '' : 'Rest'}</span>
+                  )}
+                </span>
+              );
+            })}
+          </div>
+          <AnimatePresence>
+            {at(b, 4, 6) ? (
+              <motion.p className="tour-toast" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={springs.settle}>
+                Moved to Fri <b>Undo</b>
+              </motion.p>
+            ) : null}
+          </AnimatePresence>
         </div>
-        <AnimatePresence>
-          {at(b, 4, 6) || still ? (
-            <motion.p className="tour-toast" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={springs.settle}>
-              Moved to Fri <b>Undo</b>
-            </motion.p>
-          ) : null}
-        </AnimatePresence>
-        <Finger spot={at(b, 1, 3) ? 'day3' : b === 3 ? 'day4' : null} hold={at(b, 2, 4)} carry={lifted ? <span className="tour-pill c-hard tis-lifted">Tempo 5</span> : undefined} />
-      </Stage>
-      <Steps items={['Hold a run until it lifts', 'Drag it to another day and let go', 'Tap any day to open or change it']} on={still ? -1 : b < 2 ? 0 : b < 5 ? 1 : 2} />
-    </>
-  );
-};
-
-// ---------- Progress ----------
-const MILES = [14, 16, 15, 18, 12, 19, 21, 20, 23, 22, 25, 24];
-/** Twelve Mondays, a week apart, ending on the latest. */
-const WEEK_OF = MILES.map((_, k) => new Date(2026, 7, 17 + 7 * k).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }));
-const PROG_BEATS = [900, 600, 380, 380, 380, 380, 380, 1200, 900] as const;
-export const ProgressDemo = ({ running, still }: DemoProps) => {
-  const b = useLoop(PROG_BEATS, running && !still, PROG_BEATS.length - 1);
-  const scrub = at(b, 2, 8) ? 4 + (b - 2) * 1.4 : null;
-  const i = scrub == null ? null : Math.min(MILES.length - 1, Math.round(scrub));
-  const max = 26;
-  const pts = MILES.map((m, k) => `${(k / (MILES.length - 1)) * 100},${100 - (m / max) * 100}`).join(' ');
-  return (
-    <>
-      <Stage className="tq">
-        <p className="tq-head">
-          <span className="caps">{i == null ? 'Last 12 weeks' : `Week of ${WEEK_OF[i]}`}</span>
-          <b>{i == null ? '229 mi' : `${MILES[i]} mi`}</b>
-        </p>
-        <div className="tq-chart">
-          <svg viewBox="0 0 100 100" preserveAspectRatio="none">
-            <polyline points={pts} fill="none" stroke="currentColor" strokeWidth="2.5" vectorEffect="non-scaling-stroke" strokeLinejoin="round" strokeLinecap="round" />
-          </svg>
-          {MILES.map((m, k) => (
-            <span key={k} className="tq-spot" style={{ left: `${(k / (MILES.length - 1)) * 100}%`, top: `${100 - (m / max) * 100}%` }} data-spot={`w${k}`} />
-          ))}
-          {i != null ? <span className="tq-rule" style={{ transform: `translateX(${(i / (MILES.length - 1)) * 100}%)` }} /> : null}
+        <div className="tq">
+          <p className="tq-head">
+            <span className="caps">{i == null ? 'Progress · 12 weeks' : `Week of ${WEEK_OF[i]}`}</span>
+            <b>{i == null ? '229 mi' : `${MILES[i]} mi`}</b>
+          </p>
+          <div className={`tq-chart ${i != null ? 'tis-reading' : ''}`}>
+            {MILES.map((m, k) => (
+              <span key={k} className={`tq-bar ${k === i ? 'tis-lit' : ''}`} style={{ height: `${(m / MILES_MAX) * 100}%` }} data-spot={`w${k}`} />
+            ))}
+          </div>
         </div>
-        <Finger spot={i != null ? `w${i}` : b === 1 ? 'w4' : null} hold={i != null} />
+        <Finger spot={at(b, 1, 3) ? 'day3' : b === 3 ? 'day4' : i != null ? `w${i}` : b === 6 ? 'w4' : null} hold={at(b, 2, 4) || i != null} carry={lifted ? <span className="tour-pill c-hard tis-lifted">Tempo 5</span> : undefined} />
       </Stage>
-      <Steps items={['Press on a chart and slide along it', 'The numbers follow the week under your finger']} on={still ? -1 : b < 3 ? 0 : 1} />
+      <Steps items={['This week: what is next', 'Hold a run and drag it to another day', 'Slide along Progress to read a week']} on={still ? -1 : b < 1 ? 0 : b < 6 ? 1 : 2} />
     </>
   );
 };

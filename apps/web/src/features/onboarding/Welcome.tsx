@@ -43,7 +43,7 @@ import './beats.css';
  *                     and when it is tight, a one-tap earlier alarm
  *   /welcome/habits   starter habits (chips that become orbs)
  *   /welcome/nudge    on the phone only: one nudge a morning, previewed as the notification itself, chosen before iOS asks
- *   /welcome/tour     how Logbook works: a page per part (to-dos, habits, goals, journal, plan, progress, the ask
+ *   /welcome/tour     how Logbook works: a page per part (to-dos, habits, goals, journal, fitness, the ask
  *                     bar), each with a short looping demo of the real gestures (tour/)
  *   /welcome/ready    the plan being written, one real step a beat (BuildBeat), then the payoff: POST /me/onboarding, the first week, "Tomorrow: Easy 4. Out the door 6:50.", and
  *                     Today's first-run face where Today's hero will be; Open Today hands off to Today in place (§8)

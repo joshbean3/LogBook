@@ -667,11 +667,15 @@
   font: 500 var(--fs-orb) / 1 var(--sans);
   color: var(--ink-2);
 }
+/* the week holds its own toast, over the foot of the days, so it never covers the chart under them */
+.tp-week {
+  position: relative;
+}
 .tour-toast {
   position: absolute;
   left: 0;
   right: 0;
-  bottom: 12px;
+  bottom: var(--sp-2);
   width: max-content;
   margin-inline: auto !important;
   margin: 0;
@@ -689,60 +693,52 @@
   color: var(--haze);
 }
 
-/* Progress */
+/* Fitness, the lower half: Progress, under the week. The chart is bars, a week each, as the page draws them */
+.tq {
+  position: relative;
+  margin-top: var(--sp-4);
+  padding-top: var(--sp-3);
+  border-top: 1px solid var(--line);
+}
 .tq-head {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
-  margin: 2px 2px var(--sp-4); /* brand-ok: geometry, the head over the chart */
+  margin: 0 2px var(--sp-3); /* brand-ok: geometry, the head over the chart */
 }
 /* the chart's headline number: Inter 650 with even figures, never Fraunces (guide 6.8) */
 .tq-head b {
-  font: 650 var(--fs-section) / 1 var(--sans);
+  font: 650 var(--fs-head) / 1 var(--sans);
   color: var(--ink);
   font-variant-numeric: tabular-nums;
 }
-/* the actual line in Deep Sky (guide 6.8) */
 .tq-chart {
-  position: relative;
-  height: 140px;
-  margin: 0 var(--sp-2);
-  color: var(--deep-sky);
+  display: flex;
+  align-items: flex-end;
+  gap: var(--sp-1);
+  height: 72px;
+  margin: 0 2px; /* brand-ok: geometry, the bars inside the head's own inset */
 }
-.tq-chart svg {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  overflow: visible;
+/* a week done: a Sky bar with round shoulders (guide 6.8). The one being read turns Deep Sky and the others step back
+   to 70 percent, as on the page: a selection, never a now mark */
+.tq-bar {
+  flex: 1 1 0;
+  min-width: 0;
+  border-radius: var(--r-icon) var(--r-icon) 0 0;
+  background: var(--sky);
+  transition: opacity var(--dur-out) var(--ease-out);
 }
-.tq-spot {
-  position: absolute;
-  width: 6px;
-  height: 6px;
-  margin: -3px 0 0 -3px;
-  border-radius: 50%;
+.tq-chart.tis-reading .tq-bar:not(.tis-lit) {
+  opacity: 0.7;
+}
+.tq-bar.tis-lit {
   background: var(--deep-sky);
+  transition: none;
 }
-/* the scrub rule: a Deep Sky guide line (plan 1.3), never a now-mark. A full-width layer slid by a transform (its
-   percentage is of the chart's width), the line drawn at its leading edge */
-.tq-rule {
-  position: absolute;
-  left: 0;
-  top: -6px;
-  bottom: -6px;
-  width: 100%;
-  pointer-events: none;
-  transition: transform var(--dur-settle) var(--ease-out);
-}
-.tq-rule::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  left: -0.75px;
-  width: 1.5px;
-  background: var(--deep-sky);
+@media (prefers-reduced-motion: reduce) {
+  .tq-bar {
+    transition: none;
+  }
 }
 
 /* the ask bar */

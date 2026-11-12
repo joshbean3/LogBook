@@ -214,10 +214,14 @@ describe('Fitness off: no screen speaks of training', () => {
     for (const html of [on, off, habit]) expect(said(html)).not.toMatch(/in a row|streak/i);
   }, 60_000);
 
-  it('the tour has no Fitness page and no Progress page', async () => {
+  it('the tour has no Fitness page (and Progress is part of that page, not one of its own)', async () => {
     const { tourPages } = await import('@/features/onboarding/tour/Tour');
     expect(tourPages(false).map((p) => p.key)).toEqual(['todos', 'habits', 'goals', 'journal', 'ask']);
-    expect(tourPages(true).map((p) => p.key)).toContain('plan');
+    // with Fitness on: six pages, one for training, and one place to write
+    expect(tourPages(true).map((p) => p.key)).toEqual(['todos', 'habits', 'goals', 'journal', 'plan', 'ask']);
+    expect(tourPages(true).map((p) => p.where)).toEqual(['Today', 'Today', 'Goals and Today', 'Journal', 'Fitness', 'Every tab']);
+    // no page still sends a person to a tab that is gone
+    for (const p of tourPages(true)) expect(`${p.where} ${p.title} ${p.lede}`).not.toMatch(/\bLearned\b|What I learned|\bProgress\b/);
     for (const p of tourPages(false)) expect(`${p.where} ${p.title} ${p.lede}`).not.toMatch(WORDS);
   });
 
