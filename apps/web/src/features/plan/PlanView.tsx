@@ -84,8 +84,10 @@ const fitPager = (pane: HTMLElement | null, x: number) => {
   const p = w ? Math.max(-1, Math.min(1, -x / w)) : 0;
   const cur = dp.querySelector<HTMLElement>(':scope > .dp-track > .dp-page[data-role="cur"]');
   const nb = p ? dp.querySelector<HTMLElement>(`:scope > .dp-track > .dp-page[data-role="${p > 0 ? 'next' : 'prev'}"]`) : null;
-  // the neighbour's own height is its page's (the slot itself is as tall as the track)
-  const to = nb?.firstElementChild instanceof HTMLElement ? nb.firstElementChild.offsetHeight : 0;
+  // the neighbour's own height is its page's (the slot itself is as tall as the track). A slot not drawn yet (an empty
+  // page for a frame or two, in a run of quick swipes) has no height to go to: the pager keeps the height it has
+  const page = nb?.firstElementChild;
+  const to = page instanceof HTMLElement && page.childElementCount ? page.offsetHeight : 0;
   if (!p || !cur || !to) {
     if (dp.style.height) {
       dp.style.height = '';

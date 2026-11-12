@@ -22,11 +22,11 @@ const sectionOf = (d: ISODate, today: ISODate) => {
 };
 
 /**
- * Workouts, one by one (lift and cross sessions, as the chart above counts them): date rows (layout standard 6.2), newest first, this week's planned ones on top, under
- * a label per stretch ("This week", "Last week", then the month). Each row has its day in the date gutter (today ringed), the
- * workout's name, one line of what it was (or is meant to be) and its status as the trailing value ("Done", "Planned",
- * "Missed"), and opens what a tap on that lift opens anywhere: the session's sheet, the day's sets when nothing was on the
- * plan, or the synced workout.
+ * Workouts, one by one (lift and cross sessions, as the chart over them counts them): date rows (layout standard 6.2),
+ * newest first, this week's planned ones on top, under a label per stretch ("This week", "Last week", then the month). Each
+ * row has its day in the date gutter (today ringed), the workout's name, one line of what it was (or is meant to be) and
+ * its status as the trailing value ("Done", "Planned", "Missed"), and opens what a tap on that session opens anywhere: the
+ * session's sheet, the day's sets when nothing was on the plan, or the synced workout.
  */
 export const LiftList = ({ log, t }: { log: Log; t: string }) => {
   const sheet = useSheet();

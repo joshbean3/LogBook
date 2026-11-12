@@ -45,7 +45,7 @@
   min-height: var(--row-h);
   padding: var(--sp-2) var(--pad-card);
   color: var(--ink-2);
-  font: 500 var(--fs-body) / var(--lh-body) var(--sans);
+  font: 500 var(--fs-row) / var(--lh-row) var(--sans);
   text-align: left;
 }
 .ll-fold:focus-visible {
@@ -107,10 +107,7 @@
   font-variant-numeric: tabular-nums;
   color: var(--ink-2);
 }
-/* axis words in the kit's caption style, Dusk; the average pill's words at 11 px, never under */
+/* axis words in the kit's caption style, Dusk */
 .hc .ck-ax {
   fill: var(--ink-2);
-}
-.hc .ck-avg-word {
-  font-size: var(--fs-caps);
 }

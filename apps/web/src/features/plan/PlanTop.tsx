@@ -10,10 +10,11 @@ import './plantop.css';
 
 /**
  * The plan row, the last thing on Fitness (guide 6.5a, "Fitness"): one quiet row, never the page's lead (the training card
- * leads). It sits under Progress and Trends, on the page itself, so it is the same row whatever week or month is on show. With no plan: a dashed plus, "Build a plan", "It takes a minute"; it opens the builder. With a plan: the plan's
- * name and where it stands ("Week 3 of 12 · Build", "Warm-up · Week 1 starts Mon"); a tap opens the plan's summary
- * (PlanSummary.tsx: what the assistant reads, the outline, and the assistant to change it). An ended plan's row says so
- * and opens the builder for the next one. A hold offers Open the plan, New plan and All plans.
+ * leads). It sits under Progress and Trends, on the page itself (PlanView), so it is the same row whatever week or month
+ * is on show. With no plan: a dashed plus, "Build a plan", "It takes a minute"; it opens the builder. With a plan: the
+ * plan's name and where it stands ("Week 3 of 12 · Build", "Warm-up · Week 1 starts Mon"); a tap opens the plan's
+ * summary (PlanSummary.tsx: what the assistant reads, the outline, and the assistant to change it). An ended plan's row
+ * says so and opens the builder for the next one. A hold offers Open the plan, New plan and All plans.
  */
 export const PlanCard = ({ block }: { block: PlanBlockProps }): React.JSX.Element => {
   const sheet = useSheet();

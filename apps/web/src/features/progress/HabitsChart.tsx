@@ -57,7 +57,7 @@ export const HabitsChart = () => {
         band={m.band}
         // a share reads on a 0 to 100 axis
         domain={[0, 100]}
-        avg={m.avg ? m.avg : null}
+        // no average line: the headline says the average once
         labels={drawn.dates.map((d) => fmtDate('md', d))}
         format={v.axis}
         zero
