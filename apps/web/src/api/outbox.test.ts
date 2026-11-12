@@ -172,6 +172,62 @@ describe('replay keeps what the server could not take (shell-01)', () => {
     expect(outbox.size()).toBe(0);
   });
 
+  it('a 401 that signs nobody out is not sent again in a loop: one try, then 3 s, 10 s, 30 s, then every 60 s', async () => {
+    vi.useFakeTimers();
+    const { outbox } = await queueOne();
+    // one route answers 401 while the session is still good: the bootstrap stays, so every caller of replay still sees an account
+    respond = async () => {
+      throw http(401);
+    };
+    await outbox.replay(qc);
+    expect(sent).toHaveLength(1);
+    // the app asks again and again (a bootstrap refetch, the page coming back): nothing more leaves
+    for (let i = 0; i < 50; i++) await outbox.replay(qc);
+    expect(sent).toHaveLength(1);
+    await vi.advanceTimersByTimeAsync(2999);
+    expect(sent).toHaveLength(1);
+    await vi.advanceTimersByTimeAsync(1);
+    expect(sent).toHaveLength(2);
+    for (let i = 0; i < 50; i++) await outbox.replay(qc);
+    await vi.advanceTimersByTimeAsync(9999);
+    expect(sent).toHaveLength(2);
+    await vi.advanceTimersByTimeAsync(1);
+    expect(sent).toHaveLength(3);
+    await vi.advanceTimersByTimeAsync(30_000);
+    expect(sent).toHaveLength(4);
+    await vi.advanceTimersByTimeAsync(60_000);
+    expect(sent).toHaveLength(5);
+    await vi.advanceTimersByTimeAsync(60_000);
+    expect(sent).toHaveLength(6);
+    // nothing was lost while it waited
+    expect(outbox.size()).toBe(2);
+    // the server takes it again: everything goes, and the wait starts over
+    respond = async (path) => (path === '/todos' ? { id: 'real-a' } : {});
+    await vi.advanceTimersByTimeAsync(60_000);
+    expect(outbox.size()).toBe(0);
+  });
+
+  it('signing back in after a 401 sends at once, whatever the wait had grown to', async () => {
+    vi.useFakeTimers();
+    const { outbox } = await queueOne();
+    respond = async () => {
+      throw http(401);
+    };
+    await outbox.replay(qc);
+    await vi.advanceTimersByTimeAsync(3000 + 10_000);
+    expect(sent).toHaveLength(3);
+    // the session is found to be over: nobody is signed in, and nothing is sent
+    me = null;
+    await outbox.replay(qc);
+    await vi.advanceTimersByTimeAsync(300_000);
+    expect(sent).toHaveLength(3);
+    // the same person signs in: no wait
+    me = 'u1';
+    respond = async (path) => (path === '/todos' ? { id: 'real-a' } : {});
+    await outbox.replay(qc);
+    expect(outbox.size()).toBe(0);
+  });
+
   it('a network failure with the phone "online" retries by itself: 2 s, 5 s, 15 s, then every 30 s', async () => {
     vi.useFakeTimers();
     const { outbox } = await queueOne();

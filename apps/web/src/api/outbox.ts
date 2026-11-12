@@ -137,6 +137,36 @@ const scheduleRetry = () => {
   }, ms);
 };
 
+// ---------- a 401 that signed nobody out ----------
+/**
+ * A write answered 401 while the app still holds an account (one route refusing, a session the server has not owned up to
+ * yet). Every caller of replay would send it again at once, and a bootstrap refetch calls replay, so the same write went
+ * out over fifty times a second. After a 401 the queue waits 3 s, 10 s, 30 s, then 60 s between tries, however often it is
+ * asked. A real sign-out ends the wait: the next sign-in sends at once.
+ */
+export const AUTH_WAIT_MS = [3000, 10_000, 30_000, 60_000] as const;
+let authStep = 0;
+let authUntil = 0;
+let authTimer: ReturnType<typeof setTimeout> | undefined;
+const clearAuthWait = () => {
+  clearTimeout(authTimer);
+  authTimer = undefined;
+  authUntil = 0;
+  authStep = 0;
+};
+const waitForSignIn = () => {
+  clearTimeout(authTimer);
+  const ms = AUTH_WAIT_MS[Math.min(authStep, AUTH_WAIT_MS.length - 1)]!;
+  authStep++;
+  authUntil = Date.now() + ms;
+  authTimer = setTimeout(() => {
+    authTimer = undefined;
+    authUntil = 0;
+    if (typeof document !== 'undefined' && document.hidden) return;
+    if (client) void outbox.replay(client);
+  }, ms);
+};
+
 /** Who is signed in, by the cached bootstrap (a 401 removes it, so a session that ran out sends nothing). */
 const signedIn = (qc: QueryClient | null): string | null => qc?.getQueryData<{ user?: { id?: string } }>(['bootstrap'])?.user?.id ?? null;
 
@@ -209,14 +239,19 @@ export const outbox = {
   },
   /**
    * Send what the signed-in account queued, oldest first. An item leaves only when the server took it, or refused it for
-   * good (the person is told). Anything else stops the run with the queue intact: a 401 waits for sign-in; a network
+   * good (the person is told). Anything else stops the run with the queue intact: a 401 waits for sign-in (AUTH_WAIT_MS); a network
    * failure, a timeout, 408, 425, 429 or a 5xx goes again on the retry timer.
    */
   async replay(qc: QueryClient) {
     client = qc;
     if (replaying || !items.length || isOffline()) return;
     const me = signedIn(qc);
-    if (!me) return;
+    if (!me) {
+      // signed out for real: whoever signs in next is not kept waiting
+      clearAuthWait();
+      return;
+    }
+    if (Date.now() < authUntil) return;
     replaying = true;
     cancelRetry();
     let stalled = false;
@@ -244,12 +279,14 @@ export const outbox = {
           touched.push(...it.invalidate);
           drop(it.id);
           retryStep = 0;
+          clearAuthWait();
           await persist();
         } catch (e) {
           const verdict = verdictOf(e);
           if (verdict !== 'drop') {
             // it may or may not have reached the server; the next replay sends it with the same key either way
             stalled = verdict === 'retry';
+            if (verdict === 'signin') waitForSignIn();
             break;
           }
           // the server said no for good (validation, gone): it cannot be saved, and the person is told
@@ -279,6 +316,7 @@ export const outbox = {
     inflight.clear();
     user = null;
     cancelRetry();
+    clearAuthWait();
     retryStep = 0;
     await persist();
   },
