@@ -35,357 +35,128 @@
 /* each page carries the gutter and the page's bottom padding (inside the cur page, so its min-height includes it) */
 .pl-wpage,
 .pl-mpage {
-  padding: 0 16px calc(24px + max(var(--chrome-h) + var(--safe-b), var(--kb)));
+  padding: 0 var(--gutter) calc(var(--sp-6) + max(var(--chrome-h) + var(--safe-b), var(--kb)));
   min-width: 0;
 }
 .pl-note {
-  padding: 0 16px 24px;
+  padding: 0 var(--gutter) var(--sp-6);
 }
 
-/* ---------- the page's rhythm: the two top cards, the held banner, Today, then the panes' sections 28 apart ---------- */
+/* ---------- the page's rhythm: the bar's gap, then the week (its card, the line of days 12 under it), the plan row ---------- */
 .plan-root > .pl-panes {
-  margin-top: var(--section);
+  margin-top: 0;
+}
+.plan-root > .held + .pl-panes,
+.plan-root > .held + .pl-hint {
+  margin-top: var(--sp-4);
+}
+
+/* ---------- the week (Week.tsx, guide 6.5a "Fitness"): the card, then the line of days in a card of its own ---------- */
+/* a second session today is its own compact card under the first, as on Today */
+.pl-lead > .second-session {
+  margin-top: var(--sp-3);
+}
+/* another week's card: the summary's words, the same horizon and band, and under the hill the way back to this week */
+.pl-wkcard .hz-name {
+  margin: 0;
+}
+.pl-wkcard .pl-wk-ctl {
+  padding-block: var(--sp-1);
+}
+.pl-ahead.card {
+  display: block;
+  margin-top: var(--sp-3);
+  padding: 0;
+  overflow: hidden;
+  background: var(--surface);
+  border: var(--card-border);
+  box-shadow: var(--shadow-1);
+}
+/* the session's name is the stop's headline (the --fs-row role), its detail one step quieter */
+.pl-ahead .pth-title {
+  font: 600 var(--fs-row) / var(--lh-row) var(--sans);
+}
+.pl-ahead .pth-stop.is-add .pth-title {
+  font-weight: 500;
+}
+/* the fold at the card's foot: three small rings where the line's nodes sit, the words, the count, the chevron */
+.pl-fold.pressable {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-height: var(--row-h);
+  padding: var(--sp-2) var(--pad-hero) var(--sp-2) 0;
+  border-top: 1px solid var(--line);
+  color: var(--ink-2);
+  font: 500 var(--fs-body) / var(--lh-body) var(--sans);
+  text-align: left;
+}
+.pl-fold-dots {
+  flex: none;
+  display: flex;
+  justify-content: center;
+  gap: var(--sp-1);
+  width: 64px; /* brand-ok: the path's rail (poster.css --pth-rail), so the rings sit under the line */
+}
+.pl-fold-dots i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 1.5px var(--ink-3);
+}
+.pl-fold-title {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.pl-fold-value {
+  flex: none;
+  margin: 0 var(--sp-2);
+  font-variant-numeric: tabular-nums;
+}
+.pl-fold-chev {
+  flex: none;
+  transition: transform var(--dur-fast) var(--ease-out);
+}
+.pl-fold.is-open .pl-fold-chev {
+  transform: rotate(180deg);
+}
+.pl-fold:focus-visible {
+  outline: 1.5px solid var(--focus-edge);
+  outline-offset: -2px;
+  box-shadow: var(--focus-ring);
+}
+.pl-earlier {
+  border-top: 1px solid var(--line);
+  animation: pl-earlier-in var(--dur-fast) var(--ease-out);
+}
+@keyframes pl-earlier-in {
+  from {
+    opacity: 0;
+  }
+}
+/* at a larger text size the count goes under the words, so neither is cut */
+html[data-text-xl] .pl-fold.pressable {
+  flex-wrap: wrap;
+}
+html[data-text-xl] .pl-fold-title {
+  flex-basis: calc(100% - 64px - 18px); /* brand-ok: the rail and the chevron */
+}
+html[data-text-xl] .pl-fold-value {
+  order: 3;
+  margin-left: 64px; /* brand-ok: the path's rail */
+}
+@media (prefers-reduced-motion: reduce) {
+  .pl-fold-chev {
+    transition: none;
+  }
+  .pl-earlier {
+    animation-duration: var(--dur-reduce);
+  }
 }
 .pl-sec + .pl-sec {
   margin-top: var(--section);
 }
-/* ---------- the days: one card, a row per day (the date, then its sessions as rows with an icon tile) ---------- */
-.pl-group {
-  position: relative;
-  background: var(--surface);
-  border: var(--card-border);
-  box-shadow: var(--shadow-1);
-  border-radius: var(--r-card);
-  overflow: hidden;
-}
-/* the week group's surface belongs to its rows (an inset grouped table): the first row carries the top edge, the last the
-   bottom edge, so when rows FLIP the group's edge rides the last row and nothing is clipped (review-feel-1 #5). Behind the
-   rows a plain surface (.pl-wsurf, inset by the corner radius) fills the space a leaving row opens or a coming one takes
-   while the rows slide: flip.ts scales it from its top with the last row, so the group never tears (feel review 2 B). */
-.pl-group.pl-wgroup {
-  background: none;
-  border: 0;
-  overflow: visible;
-  isolation: isolate;
-}
-.pl-wsurf {
-  position: absolute;
-  z-index: -1;
-  top: var(--r-card);
-  bottom: var(--r-card);
-  left: 0;
-  right: 0;
-  background: var(--surface);
-  transform-origin: 50% 0;
-  pointer-events: none;
-}
-/* the inline question is revealed by the rows below sliding off it, never drawn over them (feel review 2 E) */
-.pl-wgroup > .pl-conflict {
-  z-index: 0;
-}
-.pl-wgroup > .pl-conflict ~ .pl-day {
-  z-index: 1;
-}
-.pl-wgroup > .pl-wsurf + * {
-  border-top-left-radius: var(--r-card);
-  border-top-right-radius: var(--r-card);
-}
-.pl-wgroup > :last-child {
-  border-bottom-left-radius: var(--r-card);
-  border-bottom-right-radius: var(--r-card);
-}
-.pl-day {
-  position: relative;
-  display: grid;
-  grid-template-columns: var(--gutter-date) minmax(0, 1fr);
-  column-gap: var(--sp-3);
-  padding-left: var(--sp-4);
-  background: var(--surface);
-  transition: background-color var(--dur-color) var(--ease-out);
-}
-/* today: a Cloud wash across its row, its numeral in a Night Ink ring (guide 6.13: today in a day list is a ring; a filled
-   Sky disc would read as the shown day) */
-.pl-day.is-today {
-  background: var(--cloud);
-}
-/* hairlines between days, from the gutter */
-.pl-day + .pl-day::before,
-.pl-conflict + .pl-day::before,
-.pl-day + .pl-conflict::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 16px;
-  right: 0;
-  height: 1px;
-  background: var(--line);
-}
-/* the day's column is the shared date gutter (DateGutter: the numeral 17/600 over the weekday 13 Dusk, today ringed),
-   held at the top so a day of two sessions reads its date against the first */
-.pl-date.date-gutter {
-  align-content: start;
-  padding-top: calc((var(--row-h-2) - var(--tile-ic) - var(--sp-1) - var(--lh-foot)) / 2);
-}
-.pl-date.is-past .date-gutter-num {
-  color: var(--ink-2);
-}
-.pl-lines {
-  min-width: 0;
-}
-/* between two sessions of a day: a hairline from the words, not the edge */
-.pl-slot + .pl-slot > .pl-line,
-.pl-slot + .pl-line {
-  background-image: linear-gradient(var(--line), var(--line));
-  background-size: calc(100% - var(--tile-ic) - var(--sp-3)) 1px;
-  background-position: right top;
-  background-repeat: no-repeat;
-}
-/* a session: its Haze icon tile with the glyph in its data tone (guide 6.4), the name 17/22 600 over one line 15/20 Dusk,
-   the status at the right */
-.pl-line.pressable {
-  position: relative;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  width: 100%;
-  min-height: var(--row-h-2);
-  padding: var(--sp-3) var(--sp-4) var(--sp-3) 0;
-  border: 0;
-  background-color: transparent;
-  color: var(--ink);
-  text-align: left;
-  font: inherit;
-  /* the foundation's press/pre-grow transform transition stays: the lift reads the pre-grow's 1.02 from it, so the hold
-     never dips to 1.00 on the lift frame (review-feel-1 #3) */
-  transition:
-    transform var(--dur-fast) var(--ease-out),
-    background-color var(--dur-color) var(--ease-out);
-}
-.pl-line[data-pressed][data-press='surface'] {
-  background-color: var(--cloud);
-}
-/* lifted in place for the menu (ui/lift.ts scales it to 1.03; the menu's cut-out shows it at full brightness) */
-.pl-line[data-lifting] {
-  border-radius: var(--r-tile);
-  padding-left: 8px;
-  margin-left: -8px;
-  width: calc(100% + 8px);
-  background-color: var(--surface);
-  box-shadow: var(--shadow-float);
-}
-/* in the air: the pill carries it; the row stays as its placeholder (and while the pill lands) */
-.pl-line.is-moving > *,
-.pl-line[data-dragging] > * {
-  opacity: 0.35;
-}
-/* once the pill carries the session, the row it left is a placeholder at rest: no lift, no overhang past the group's edge
-   (feel review 2 G); it settles in 120 ms (the lift's own [data-lifting] rule turns transitions off) */
-.pl-line[data-dragging] {
-  scale: 1 !important;
-  background-color: transparent !important;
-  box-shadow: none !important;
-}
-.pl-line.pressable[data-lifting][data-dragging] {
-  transition:
-    scale 120ms cubic-bezier(0.22, 1, 0.36, 1),
-    background-color 120ms cubic-bezier(0.22, 1, 0.36, 1) !important;
-}
-/* a session just added (the Add sheet): its row is lit in the Sky tint as it lands and lets go on the 200 ms color change
-   (the row's own background transition); brought into view, it clears the bar above and the dock below */
-.pl-slot.is-new > .pl-line {
-  background-color: var(--accent-tint);
-}
-.pl-slot {
-  scroll-margin: 64px 0 calc(var(--ask-h) + var(--dock-gap) + var(--tabbar-h) + 8px + var(--safe-b, 0px) + 16px);
-}
-/* the dropped session's new row waits for the pill to land in it */
-.pl-slot[data-landing] .pl-line > * {
-  opacity: 0;
-}
-.pl-slot .pl-line > * {
-  transition: opacity 120ms cubic-bezier(0.22, 1, 0.36, 1);
-}
-.pl-ic {
-  flex: none;
-  display: grid;
-  place-items: center;
-  width: var(--tile-ic);
-  height: var(--tile-ic);
-  border-radius: var(--r-icon);
-  background: var(--haze);
-  color: var(--tone, var(--t-rest));
-}
-.pl-ic.is-empty {
-  background: transparent;
-}
-/* an open day from today on: a quiet plus where its tile would sit (a mark in Pencil, 3.6 on Paper and 3.4 on today's
-   Cloud; no dashed box: the standard keeps a dashed edge to one add slot a group, never one a row) */
-.pl-ic.is-add {
-  color: var(--ink-faint);
-}
-.pl-main {
-  display: grid;
-  flex: 1 1 auto;
-  min-width: 0;
-}
-.pl-name {
-  overflow: hidden;
-  font: 600 var(--fs-row) / var(--lh-row) var(--sans);
-  letter-spacing: 0;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-}
-.pl-sub {
-  overflow: hidden;
-  font: 500 var(--fs-sub) / var(--lh-sub) var(--sans);
-  font-variant-numeric: tabular-nums;
-  color: var(--ink-2);
-  white-space: nowrap;
-  text-overflow: ellipsis;
-}
-/* today's morning on its run row: the long form, or the short one where the long would be cut */
-.pl-am.is-short {
-  display: none;
-}
-@media (max-width: 359px) {
-  .pl-am {
-    display: none;
-  }
-  .pl-am.is-short {
-    display: inline;
-  }
-}
-[data-text-xl] .pl-am {
-  display: none;
-}
-[data-text-xl] .pl-am.is-short {
-  display: inline;
-}
-.pl-st {
-  flex: none;
-  display: grid;
-  place-items: center;
-  min-width: 14px;
-}
-/* done: a Night Ink check on a Sky disc (7.03), no glow */
-.pl-st.is-check {
-  width: 26px;
-  height: 26px;
-  border-radius: 50%;
-  background: var(--accent);
-  color: var(--accent-ink);
-}
-.pl-st.is-chev {
-  color: var(--ink-4);
-}
-.pl-st.is-word {
-  font: 500 var(--fs-foot) / var(--lh-foot) var(--sans);
-  color: var(--ink-2);
-}
-/* floor is partly done (plan 1.7, D23): the word in Dusk, a step heavier; never Marigold */
-.pl-st.is-word.k-floor {
-  color: var(--ink-2);
-  font-weight: 600;
-}
-/* missed: the word in Dusk and a 1 px strike on the name; never red */
-.pl-line.k-missed .pl-name {
-  text-decoration-line: line-through;
-  text-decoration-thickness: 1px;
-  text-decoration-color: var(--ink-2);
-  color: var(--ink-2);
-}
-.pl-line.k-missed .pl-ic,
-.pl-line.k-skipped .pl-ic {
-  opacity: 0.45;
-}
-.pl-line.k-skipped .pl-name {
-  color: var(--ink-2);
-}
-/* the rest glyph on Haze is #5F6D7B (4.15; Pencil is 2.87 there, guide 3.3) */
-.pl-line.is-rest .pl-ic:not(.is-empty) {
-  background: var(--haze);
-  color: #5f6d7b; /* brand-ok: guide 3.3 names #5F6D7B for the rest glyph on Haze */
-}
-.pl-rest {
-  font: 500 var(--fs-row) / var(--lh-row) var(--sans);
-  color: var(--ink-2);
-}
-/* a day lit under a dragged session: the Sky tint with a 2 px Deep Sky ring inside (a Sky ring is 2.26 on Paper) */
-.pl-day.is-target {
-  background: var(--accent-tint);
-  box-shadow: inset 0 0 0 2px var(--deep-sky);
-}
-/* the inline question under a hard pair */
-.pl-conflict {
-  /* scrolled into view above the dock (Ask bar and tab bar) and under the bar. The dock's height is spelled out: inside
-     the pager `--chrome-h` is the pager's own offset */
-  scroll-margin: 64px 0 calc(var(--ask-h) + var(--dock-gap) + var(--tabbar-h) + 8px + var(--safe-b, 0px) + 16px);
-  position: relative;
-  padding: 12px 16px 14px;
-  background: var(--surface);
-}
-.pl-conflict p {
-  margin: 0;
-  font: 600 var(--fs-sub) / var(--lh-sub) var(--sans);
-  color: var(--ink);
-}
-.pl-conflict-acts {
-  display: flex;
-  gap: 8px;
-  margin-top: 10px;
-}
-.pl-ask.pressable {
-  position: relative;
-  height: 36px;
-  min-height: 36px;
-  padding: 0 16px;
-  border: 0;
-  border-radius: var(--r-pill);
-  background: var(--surface);
-  box-shadow: var(--shadow-1);
-  color: var(--ink);
-  font: 600 var(--fs-sub) / 1 var(--sans);
-}
-.pl-ask.is-on {
-  background: var(--primary);
-  color: var(--primary-ink);
-  box-shadow: none;
-}
-.pl-ask::after {
-  content: '';
-  position: absolute;
-  inset: -4px 0;
-}
-/* the pill in the air (portalled to body; its transform is written from the finger) */
-.drag-pill {
-  position: fixed;
-  left: 0;
-  top: 0;
-  z-index: 60;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  height: 40px;
-  padding: 0 16px 0 14px;
-  border-radius: var(--r-pill);
-  background: var(--surface);
-  box-shadow: var(--shadow-2);
-  color: var(--ink);
-  pointer-events: none;
-  white-space: nowrap;
-  will-change: transform;
-  transform-origin: 50% 50%;
-}
-.drag-pill-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--tone, var(--deep-sky));
-}
-.drag-pill-name {
-  font: 600 var(--fs-sub) / var(--lh-sub) var(--sans);
-  letter-spacing: 0;
-}
+
 /* skeleton: the seven rows' shape */
 .pl-skel {
   padding: 0;
@@ -680,8 +451,7 @@
   color: var(--ink-2);
 }
 /* ---------- the plans list (Settings › Plans): one inset group, an icon tile before each plan ---------- */
-.pl-plans,
-.pl-detail {
+.pl-plans {
   display: grid;
   gap: var(--gap);
   min-width: 0;
@@ -1292,15 +1062,6 @@
   display: contents;
 }
 
-/* ---------- sessions on hold while a status holds them (docs/inspiration.md §5) ---------- */
-.pl-line.is-held .pl-ic,
-.pl-line.is-held .pl-name {
-  opacity: 0.55;
-}
-.pl-line.is-held .pl-sub {
-  color: var(--deep-sky);
-  font-weight: 600;
-}
 /* the held banner: one card under the morning, its status as an icon row, the sentence, the two ways out */
 .held {
   position: relative;
@@ -1730,35 +1491,6 @@
   }
 }
 
-/* ---------- larger text (Dynamic Type at 150 percent and up: `data-text-xl`) ----------
- * The day column grows with its words instead of holding 40 (the weekday would run into the icon tile), today's ring hugs
- * its numeral as a pill, and a session's name may take two lines before it is cut; its line under it may ellipsize (the
- * row's label says it in full). In the plan summary a fact's value wraps under its label rather than widening the sheet. */
-[data-text-xl] .pl-day {
-  grid-template-columns: auto minmax(0, 1fr);
-}
-[data-text-xl] .pl-date.date-gutter {
-  width: auto;
-  min-width: var(--gutter-date);
-}
-[data-text-xl] .pl-date .date-gutter-num {
-  min-width: 0;
-  height: auto;
-  padding: 0 var(--sp-1);
-  border-radius: var(--r-pill);
-}
-[data-text-xl] .pl-name {
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-  white-space: normal;
-}
-/* on the narrowest phones at the largest sizes the tone tile gives its room to the name (the name says the kind) */
-@media (max-width: 359px) {
-  [data-text-xl] .pl-line .pl-ic:not(.is-add) {
-    display: none;
-  }
-}
 .pl-ps-facts .lrow-main {
   flex: 0 0 auto;
 }

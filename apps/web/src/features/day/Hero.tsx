@@ -447,7 +447,7 @@ const CROSSFADE_MS = ((crossfade as { duration?: number }).duration ?? 0.15) * 1
  * mark; or at once when its write fails. A Skip and a quick Undo are two writes: clearing on the first match (the month still
  * without the Skip) let the face flip back and forth inside one crossfade and come to rest at 35 % (code review 2 #4).
  */
-const useMarkOverride = (real: Log, date: ISODate) => {
+export const useMarkOverride = (real: Log, date: ISODate) => {
   const [over, setOver] = useState<{ id: string; mark: SessionMark | null } | null>(null);
   const inFlight = useRef(new Map<string, number>());
   const [settled, setSettled] = useState(0);
@@ -511,7 +511,7 @@ export const Hero = memo(function Hero({ date, log: real, closeOnly }: { date: I
 
 
 /** The 184 card (304 landed): every face but the evening's. The run landing (§6.1) plays on it. */
-const DayHero = ({ date, log, ph, face: dayFace, minutes, markNow }: { date: ISODate; log: Log; ph: ReturnType<typeof phaseOf>; face: Face; minutes: number; markNow: MarkNow }) => {
+export const DayHero = ({ date, log, ph, face: dayFace, minutes, markNow }: { date: ISODate; log: Log; ph: ReturnType<typeof phaseOf>; face: Face; minutes: number; markNow: MarkNow }) => {
   const nav = useNav();
   const sheet = useSheet();
   const toast = useToast();

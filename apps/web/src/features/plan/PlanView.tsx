@@ -10,31 +10,33 @@ import type { ContextMenuItem } from '@/ui/ContextMenu';
 import { DayPager, useDayPagerHandle } from '@/ui/DayPager';
 import { monthCaption, NavBar } from '@/ui/NavBar';
 import { dayCaption } from '@/ui/captions';
-import { Note, SEG_TONE_WAYFINDING, Segmented } from '@/ui/primitives';
+import { Note } from '@/ui/primitives';
 import { useOpenCalendar } from '../day/Calendar';
 import { STRAVA_BUILT } from '@/lib/features';
 import { useLog } from '../log/useLog';
 import { usePlanBlock } from './Blocks';
 import { HeldBanner } from './Held';
+import { X } from 'lucide-react';
+import { Pressable } from '@/ui/Pressable';
 import { MonthPage } from './Month';
-import { PlanCard } from './PlanTop';
+import { markNavHintSeen, navHintSeen } from './navHint';
+import { PlanBlockCtx } from './PlanTop';
 import { WeekPage } from './Week';
 import './plan.css';
 
 /**
- * Plan (docs/feel.md §7, contracts §A.3 page-root): the NavBar (caps: today's date in Week, as on the other tabs, since the
- * week's header says its dates; `OCTOBER 2026` in Month, bound to the month pager's progress; title `Plan`, tap → this week / this month, hold → `Go to a week…`; the
- * `Week | Month` segmented in the 96 px slot); then the plan card across the top (its name, where it stands, a tap for its summary: PlanTop),
- * the held banner; then two mounted panes (today's row in the week carries the morning: no separate Today section, layout
- * plan P1): the week pager (`DayPager
- * step='week'`, full-bleed, each page the week's header with previous and next, its one line and the seven days) and the
- * month pager (`step='month'`). No chart on the page. Switching is a 200 ms crossfade of the two panes (both in the DOM
- * during it); the segmented's thumb rides `settle`. No haptic on any of it.
+ * Fitness (guide 6.5a, "Fitness"; docs/feel.md §7, contracts §A.3 page-root): the NavBar (caps: today's date in Week, as
+ * on the other tabs, `OCTOBER 2026` in Month, bound to the month pager's progress; the caps date is a button, with its
+ * small calendar glyph: it shows the month, and from the month goes back to the week; title `Fitness`, tap → this week /
+ * this month, hold → `Go to a week…`); then the held banner and a one-time hint line; then two mounted panes: the week
+ * pager (`DayPager step='week'`, full-bleed, each page that week's card and its line of days: Week.tsx) and the month
+ * pager (`step='month'`); then the plan row (PlanTop). Weeks move by a sideways swipe anywhere on the page. No chart on
+ * the page. Switching is a 200 ms crossfade of the two panes (both in the DOM during it). No haptic on any of it.
  *
  * `view` and the anchor (the Monday, the first of the month) are page state: read once from the route, mirrored into the
  * URL with `nav.replace` on every commit, changed from outside only through `useRootRequest` (a cut sets them before the
- * first frame; on an active Plan the pager slides, or the panes crossfade when the view changes). The lit tab re-tapped off
- * this week (month) slides home (`useHomeControl`).
+ * first frame; on an active Fitness the pager slides, or the panes crossfade when the view changes). The lit tab re-tapped
+ * off this week (month) slides home (`useHomeControl`).
  */
 type View = 'week' | 'month';
 /** How a pager slot draws its page: live, still (no row hooks), from the stash's HTML, or empty (PlanView's faceOf). */
@@ -84,6 +86,7 @@ export default function PlanView(): React.JSX.Element {
     return () => cic(id);
   }, [monthOn]);
 
+  const dismissRef = useRef<() => void>(() => undefined);
   const weekPath = (m: string) => (m === live.current.thisMon ? '/plan' : `/plan/week/${m}`);
   const monthPath = (f: string) => `/plan/month/${f}`;
 
@@ -95,6 +98,8 @@ export default function PlanView(): React.JSX.Element {
     (m: string) => {
       const shown = live.current.st.view === 'week';
       setSt((s) => ({ ...s, mon: m }));
+      // a swipe to another week: the hint has done its work
+      if (m !== live.current.thisMon) dismissRef.current();
       if (shown) nav.replace(m === live.current.thisMon ? '/plan' : `/plan/week/${m}`);
       refocus();
     },
@@ -381,15 +386,8 @@ export default function PlanView(): React.JSX.Element {
     noteFocus();
     weekH.goTo(live.current.thisMon);
   }, [weekH]); // eslint-disable-line react-hooks/exhaustive-deps
+  const onBackToWeek = useCallback(() => show('week'), []); // eslint-disable-line react-hooks/exhaustive-deps
   const onWeek = useCallback((m: string) => show('week', { mon: m }), []); // eslint-disable-line react-hooks/exhaustive-deps
-  /** The week header's previous and next: one page on from where the pager is going (a running goTo's target), no haptic. */
-  const onStep = useCallback(
-    (dir: -1 | 1) => {
-      noteFocus();
-      weekH.goTo(shiftDays(weekH.target.get() ?? live.current.st.mon, 7 * dir));
-    },
-    [weekH], // eslint-disable-line react-hooks/exhaustive-deps
-  );
   const onThisMonth = useCallback(() => {
     noteFocus();
     monthH.goTo(live.current.thisFirst);
@@ -441,11 +439,18 @@ export default function PlanView(): React.JSX.Element {
       pane.addEventListener('click', click, true);
       offs.push(() => (pane.removeEventListener('pointerdown', down, true), pane.removeEventListener('click', click, true)));
     };
-    bind(weekPane.current, weekH, onStep);
+    // the week has no arrows now (it moves by swipe); the month's header keeps its own
     bind(monthPane.current, monthH, onMonthStep);
     return () => offs.forEach((f) => f());
-  }, [monthOn, weekH, monthH, onStep, onMonthStep]);
+  }, [monthOn, monthH, onMonthStep]);
   const block = usePlanBlock();
+  // the one-time line that says how to reach other weeks and the month, now that the arrows and the switch are gone
+  const [hint, setHint] = useState(() => !navHintSeen());
+  const dismissHint = useCallback(() => {
+    markNavHintSeen();
+    setHint(false);
+  }, []);
+  dismissRef.current = dismissHint;
   /**
    * A page that comes into a pager's neighbour slot is not built live inside the commit's flushSync (review-feel-1 #6;
    * spec §15 risk 1's fallback). When the commit ends a slide (the pager rests), the slot is empty for that frame and the
@@ -523,6 +528,8 @@ export default function PlanView(): React.JSX.Element {
   const snapped = useRef(new Map<string, string>());
   const snapOf = (d: string, h: typeof weekH) => {
     const k = keyOf(d, h);
+    // this week's page holds Today's training card (its ring, its landing): it is always rendered, never pasted as HTML
+    if (h === weekH && d === live.current.thisMon) return false;
     if (snapped.current.has(k)) return true;
     const el = stashRef.current?.querySelector<HTMLElement>(`[data-stash="${k}"] > .pl-wpage, [data-stash="${k}"] > .pl-mpage`);
     if (!el || el.querySelector('.pl-skel, [aria-busy="true"]')) return false;
@@ -604,24 +611,24 @@ export default function PlanView(): React.JSX.Element {
     (m: string, live: boolean) => {
       const f = faceOf(m, live, weekH);
       if (f === 'snap') return <div className="pl-snap" aria-hidden="true" dangerouslySetInnerHTML={{ __html: snapped.current.get(keyOf(m, weekH))! }} />;
-      return f === 'none' ? <div className="pl-wpage" aria-hidden="true" /> : <WeekPage mon={m} onThisWeek={onThisWeek} onStep={onStep} still={f === 'still'} />;
+      return f === 'none' ? <div className="pl-wpage" aria-hidden="true" /> : <WeekPage mon={m} onThisWeek={onThisWeek} still={f === 'still'} />;
     },
-    [onThisWeek, onStep, warm, drawnVer], // eslint-disable-line react-hooks/exhaustive-deps
+    [onThisWeek, warm, drawnVer], // eslint-disable-line react-hooks/exhaustive-deps
   );
   const renderMonth = useCallback(
     (f: string, live: boolean) => {
       const k = faceOf(f, live, monthH);
       if (k === 'snap') return <div className="pl-snap" aria-hidden="true" dangerouslySetInnerHTML={{ __html: snapped.current.get(keyOf(f, monthH))! }} />;
-      return k === 'none' ? <div className="pl-mpage" aria-hidden="true" /> : <MonthPage first={f} onWeek={onWeek} onStep={onMonthStep} onThisMonth={onThisMonth} still={k === 'still'} />;
+      return k === 'none' ? <div className="pl-mpage" aria-hidden="true" /> : <MonthPage first={f} onWeek={onWeek} onStep={onMonthStep} onThisMonth={onThisMonth} onBack={onBackToWeek} still={k === 'still'} />;
     },
-    [onWeek, onMonthStep, onThisMonth, warm, drawnVer], // eslint-disable-line react-hooks/exhaustive-deps
+    [onWeek, onMonthStep, onThisMonth, onBackToWeek, warm, drawnVer], // eslint-disable-line react-hooks/exhaustive-deps
   );
 
   const stashBox = (
     <div ref={stashRef} className="pl-stash" hidden aria-hidden="true" inert>
       {stash.map((k) => (
         <div key={k} data-stash={k}>
-          {k.startsWith('w:') ? <WeekPage mon={k.slice(2)} onThisWeek={onThisWeek} onStep={onStep} still /> : <MonthPage first={k.slice(2)} onWeek={onWeek} onStep={onMonthStep} onThisMonth={onThisMonth} still />}
+          {k.startsWith('w:') ? <WeekPage mon={k.slice(2)} onThisWeek={onThisWeek} still /> : <MonthPage first={k.slice(2)} onWeek={onWeek} onStep={onMonthStep} onThisMonth={onThisMonth} onBack={onBackToWeek} still />}
         </div>
       ))}
     </div>
@@ -638,8 +645,12 @@ export default function PlanView(): React.JSX.Element {
         caps={caps}
         title={{ cur: 'Fitness' }}
         progress={handle.progress}
-        wideTrailing
-        trailing={<Segmented key="seg" className="in-bar" tone={SEG_TONE_WAYFINDING} label="Week or month" value={view} onChange={(v: View) => v !== live.current.st.view && show(v)} options={[['week', 'Week'], ['month', 'Month']]} />}
+        // the date is the way to the month and back (a small calendar glyph marks it as a button)
+        onDatePress={() => {
+          dismissHint();
+          show(live.current.st.view === 'week' ? 'month' : 'week');
+        }}
+        dateLabel={view === 'week' ? 'Show the month' : 'Back to the week'}
         onTitlePress={() => {
           const s = live.current.st;
           if (s.view === 'week' ? s.mon !== live.current.thisMon : s.first !== live.current.thisFirst) goHome();
@@ -649,9 +660,16 @@ export default function PlanView(): React.JSX.Element {
         titleRef={titleRef}
         gap={16}
       />
-      {/* the plan across the top: its name, where it stands, how far through; a tap opens its summary */}
-      <PlanCard block={block} />
       <HeldBanner />
+      {/* shown until the first swipe to another week or the first tap on the date, once on this device */}
+      {hint && view === 'week' ? (
+        <Pressable className="pl-hint" press="dim" onPress={dismissHint} label="Swipe for other weeks. Tap the date for the month. Dismiss">
+          <span>Swipe for other weeks. Tap the date for the month.</span>
+          <X size={16} aria-hidden="true" />
+        </Pressable>
+      ) : null}
+      {/* each page ends with the plan row (PlanFoot reads the plan from here) */}
+      <PlanBlockCtx.Provider value={block}>
       <div className="pl-panes">
         <section ref={weekPane} className={`pl-pane pl-week-pane ${paneCls('week')}`} inert={hidden('week')} aria-hidden={hidden('week')} aria-label="Week">
           <Activity mode={mode('week')}>
@@ -668,6 +686,7 @@ export default function PlanView(): React.JSX.Element {
           </section>
         ) : null}
       </div>
+      </PlanBlockCtx.Provider>
       {strava?.error ? (
         <div className="pl-note">
           <Note kind="warn">{strava.error}</Note>
