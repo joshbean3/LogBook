@@ -1,29 +1,26 @@
 import type * as React from 'react';
-import { counts, fmtDate, LEARNING_MAX, sessionStatus, type Learning } from '@logbook/shared';
-import { Check } from 'lucide-react';
-import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
+import { counts, LEARNING_MAX, sessionStatus } from '@logbook/shared';
+import { useEffect, useImperativeHandle, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { useGoals } from '@/api/queries';
 import { fitHeight } from '@/lib/fitHeight';
 import { haptics } from '@/lib/haptics';
 import { revealField, useKeyboardOpen } from '@/lib/keyboard';
-import { Poster, WeekLights } from '@/ui/poster';
 import { Button } from '@/ui/primitives';
-import { Skeleton, SkeletonGroup } from '@/ui/Skeleton';
-import { Ticker } from '@/ui/Ticker';
 import { useToast } from '@/ui/Toast';
 import { goalOf } from '../goals/model';
+import { longPaste } from '../journal/days';
 import { useLog } from '../log/useLog';
 import { submitDraft, todayDraft } from './draft';
-import { Limit, Line, pasteCut, useGrow } from './LearnedParts';
+import { Limit, pasteCut, useGrow } from './LearnedParts';
 import { useLearnedMutations } from './queries';
 import { hasOwnWords, lineStarter, type Starter } from './starter';
-import { bandWords, learnedWeek, lightsLabel } from './week';
+import './learned.css';
 
 const NO_MONTHS: string[] = [];
-const QUESTION = 'What did you learn today?';
+export const QUESTION = 'What did you learn today?';
 
 /** The field's first words, from the person's own day (starter.ts): the facts are gathered here, the words chosen there. */
-const useStarter = (today: string): Starter => {
+export const useStarter = (today: string): Starter => {
   const log = useLog(NO_MONTHS);
   const goals = useGoals();
   const session = log.fitness ? (log.snap.sessionsOn(today).find((s) => counts(sessionStatus(log.snap, today, s))) ?? null) : null;
@@ -35,19 +32,47 @@ const useStarter = (today: string): Starter => {
   return useMemo(() => lineStarter({ fitness: log.fitness, session: kind ? { kind, type, title } : null, habit, goal }), [log.fitness, kind, type, title, habit, goal]);
 };
 
+export interface LineFieldHandle {
+  /** Put the caret in the field, after its words. */
+  focus: () => void;
+}
+
+export interface LineFieldProps {
+  /** The day the line is saved under (the page's day: draft.ts `lineDay`). */
+  today: string;
+  starter: Starter;
+  /** Under the button: one quiet link (the Journal's "Write a longer entry"). */
+  more?: React.ReactNode;
+  /**
+   * A paste too long for a line (days.ts `longPaste`): with this, the field does not cut it; it offers "Save as an entry"
+   * and hands the whole words over on a tap. Without it the paste is cut to fit and the field says so.
+   */
+  onLong?: (words: string) => void;
+  /** In the Save task, before the field empties: the caller may copy what is on screen (the Close card's still). */
+  onSaving?: () => void;
+  /** After a save was sent (the line is already on the page). */
+  onSaved?: () => void;
+  /** The server refused the save: the words are back in the field (and the toast has said so). */
+  onRefused?: () => void;
+  ref?: React.Ref<LineFieldHandle>;
+}
+
 /**
- * Before tonight's line: the field, already started from the day, and the one Sky button. The starter is not the person's
- * words: the field shows it until they change anything (they may clear it and write what they like), and the button only
- * saves once there is more than the starter; before that it puts the caret in the field. While the field has focus the
- * question is printed over it, so it is in view with the keyboard up, and the field with its button is kept above the
- * keyboard. ⌘/Ctrl+Enter saves.
+ * The line, before it is kept: the field, already started from the day, and the one Sky button. The starter is not the
+ * person's words: the field shows it until they change anything (they may clear it and write what they like), and the
+ * button only saves once there is more than the starter; before that it puts the caret in the field. While the field has
+ * focus the question is printed over it, so it is in view with the keyboard up, and the field with its button is kept
+ * above the keyboard. ⌘/Ctrl+Enter saves. The Journal's poster and the evening's Close card both write the line here, on
+ * one draft (draft.ts), so words begun in one are in the other.
  */
-const Entry = ({ today, starter }: { today: string; starter: Starter }) => {
+export const LineField = ({ today, starter, more, onLong, onSaving, onSaved, onRefused, ref: handle }: LineFieldProps): React.JSX.Element => {
   const { add } = useLearnedMutations(today);
   const toast = useToast();
   const ref = useRef<HTMLTextAreaElement>(null);
   const box = useRef<HTMLDivElement>(null);
   const [cut, setCut] = useState(false);
+  /** A paste that was too long for a line, held until it is saved as an entry or the field is typed in again. */
+  const [long, setLong] = useState<string | null>(null);
   const [focused, setFocused] = useState(false);
   /** Did this tap bring the focus in (and not land in a field already being typed in)? */
   const entering = useRef(false);
@@ -73,16 +98,24 @@ const Entry = ({ today, starter }: { today: string; starter: Starter }) => {
     const el = ref.current;
     if (el) el.setSelectionRange(el.value.length, el.value.length);
   };
+  const start = () => {
+    ref.current?.focus({ preventScroll: true });
+    toEnd();
+  };
+  useImperativeHandle(handle, () => ({ focus: start }));
   const save = () => {
-    if (!ready) {
-      // nothing of their own yet: the button's job is to start the line
-      ref.current?.focus({ preventScroll: true });
-      toEnd();
-      return;
-    }
+    // nothing of their own yet: the button's job is to start the line
+    if (!ready) return start();
+    onSaving?.();
     // the save's one haptic, as tonight's light comes in: only for a save that was sent (a second tap in the same
     // moment finds the field already empty)
-    if (submitDraft(todayDraft, (words) => add.mutateAsync({ date: today, text: words }), () => toast('Couldn’t save that. Your words are back in the field.'))) haptics.success();
+    const failed = () => {
+      toast('Couldn’t save that. Your words are back in the field.');
+      onRefused?.();
+    };
+    if (!submitDraft(todayDraft, (words) => add.mutateAsync({ date: today, text: words }), failed)) return;
+    haptics.success();
+    onSaved?.();
   };
   return (
     <div ref={box} className="ln-entry">
@@ -96,12 +129,23 @@ const Entry = ({ today, starter }: { today: string; starter: Starter }) => {
           rows={2}
           maxLength={LEARNING_MAX}
           aria-label={QUESTION}
-          aria-describedby="ln-entry-note"
+          aria-describedby={starter.note ? 'ln-entry-note' : undefined}
           enterKeyHint="enter"
           value={value}
-          onPaste={(e) => setCut(pasteCut(e))}
+          onPaste={(e) => {
+            const el = e.currentTarget;
+            const words = onLong ? longPaste({ value: el.value, start: el.selectionStart, end: el.selectionEnd, pasted: e.clipboardData.getData('text'), own: touched && hasOwnWords(text, starter) }) : null;
+            if (words) {
+              // too long for a line: it is not cut. The field keeps what it had, and the words are offered as an entry
+              e.preventDefault();
+              setLong(words);
+              return;
+            }
+            setCut(pasteCut(e));
+          }}
           onChange={(e) => {
             if (e.target.value.length < LEARNING_MAX) setCut(false);
+            setLong(null);
             todayDraft.set(e.target.value, today);
           }}
           onPointerDown={() => {
@@ -135,11 +179,32 @@ const Entry = ({ today, starter }: { today: string; starter: Starter }) => {
           </span>
         ) : null}
       </div>
-      <Limit text={value} cut={cut} />
-      <div className="ln-entry-foot">
-        <span id="ln-entry-note" className="caps ln-entry-note">
+      {long && onLong ? (
+        <p className="ln-long" role="status">
+          <span>That is longer than one line holds.</span>
+          <Button
+            variant="quiet"
+            size="sm"
+            className="ln-long-btn"
+            onClick={() => {
+              setLong(null);
+              onLong(long);
+            }}
+          >
+            Save as an entry
+          </Button>
+        </p>
+      ) : (
+        <Limit text={value} cut={cut} />
+      )}
+      {/* where the first words came from: a caption under the field */}
+      {starter.note ? (
+        <p id="ln-entry-note" className="caps ln-entry-note">
           {starter.note}
-        </span>
+        </p>
+      ) : null}
+      <div className="ln-entry-foot">
+        {more ? <span className="ln-entry-more">{more}</span> : null}
         {/* the press does not take the focus from the field, so the keyboard stays and nothing moves under the thumb */}
         <Button variant="primary" className="ln-finish" onMouseDown={(e) => e.preventDefault()} onClick={save}>
           Finish the line
@@ -148,95 +213,3 @@ const Entry = ({ today, starter }: { today: string; starter: Starter }) => {
     </div>
   );
 };
-
-/**
- * After: tonight's line as a quote in the saved style (Fraunces italic), "Saved" with the date, and Edit. A tap on the
- * words or on Edit opens the line's sheet (change it, delete it, add another for today). More than one line today: each
- * is a quote, a hairline between them, and Edit opens the newest. `fresh`: it has just been saved, so it fades in.
- */
-const Kept = ({ today, items, onOpen, fresh }: { today: string; items: Learning[]; onOpen: (l: Learning) => void; fresh: boolean }) => (
-  <div className={`ln-kept ${fresh ? 'is-fresh' : ''}`.trim()}>
-    <div className="ln-kept-lines">
-      {items.map((l) => (
-        <Line key={l.id} item={l} onOpen={onOpen} className="is-quote" clamp />
-      ))}
-    </div>
-    <div className="ln-kept-foot">
-      <span className="ln-kept-mark">
-        <i aria-hidden="true">
-          <Check size={14} strokeWidth={2.5} />
-        </i>
-        Saved · {fmtDate('short', today)}
-      </span>
-      <Button variant="quiet" className="ln-kept-edit" aria-label={items.length > 1 ? 'Edit the newest line' : 'Edit tonight’s line'} onClick={() => onOpen(items[items.length - 1]!)}>
-        Edit
-      </Button>
-    </div>
-  </div>
-);
-
-export interface LearnedPosterProps {
-  today: string;
-  /** Today's lines, in the order they were written. */
-  items: Learning[];
-  /** How many lines each day holds, at least across the last seven days. */
-  lines: ReadonlyMap<string, number>;
-  /** Every line ever kept (the stats), for the first-line invitation. */
-  total: number;
-  onOpen: (l: Learning) => void;
-}
-
-/**
- * What I learned, the poster (guide 6.5a; A2): the dusk card the page leads with. Before tonight's line: the question, the
- * week's seven lights with tonight's ring waiting, the band's count of lines kept and which light tonight's would be, then
- * the field and "Finish the line". After: tonight lights, "One more thing you know.", the band counts up, and the line is
- * a quote with Saved and Edit. The same poster stays mounted across the save, so the light comes in once (WeekLights) with
- * one success haptic; coming back later the same day it is simply lit. Counts are lines kept (a light is a day with a
- * line), never days in a row.
- */
-export const LearnedPoster = ({ today, items, lines, total, onOpen }: LearnedPosterProps): React.JSX.Element => {
-  const starter = useStarter(today);
-  const saved = items.length > 0;
-  // today's light follows today's lines (the save lands in the list at once), the six before it the loaded days
-  const week = useMemo(() => learnedWeek(today, new Map(lines).set(today, items.length)), [lines, items.length, today]);
-  // the save: tonight's line arrived while this poster was up
-  const [prev, setPrev] = useState(saved);
-  const [fresh, setFresh] = useState(false);
-  if (prev !== saved) {
-    setPrev(saved);
-    setFresh(!prev && saved);
-  }
-  const band = bandWords(week, total > (saved ? items.length : 0));
-  return (
-    <Poster
-      ground="dusk"
-      className="ln-poster"
-      label={saved ? 'Tonight’s line' : QUESTION}
-      title={saved ? 'One more thing you know.' : QUESTION}
-      meta={saved ? 'Tonight’s line is kept.' : 'One line is enough.'}
-      scene={<WeekLights days={week.days} tonight={saved ? 'lit' : 'waiting'} label={lightsLabel(week)} />}
-      band={{
-        label: band.label,
-        words: saved ? (
-          <>
-            <Ticker value={week.kept} from={fresh ? week.kept - 1 : undefined} /> {week.kept === 1 ? 'line' : 'lines'} kept
-          </>
-        ) : (
-          band.words
-        ),
-      }}
-    >
-      {saved ? <Kept today={today} items={items} onOpen={onOpen} fresh={fresh} /> : <Entry today={today} starter={starter} />}
-    </Poster>
-  );
-};
-
-/** The poster's place while today's lines load: its height, so nothing jumps when it lands. */
-export const LearnedPosterSkeleton = (): React.JSX.Element => (
-  <SkeletonGroup label="Loading" className="card ln-poster-skel">
-    <Skeleton w="70%" h={32} />
-    <Skeleton w="45%" h={18} />
-    <Skeleton w="100%" h={76} r="control" style={{ marginTop: 'auto' }} />
-    <Skeleton w={148} h={48} r="pill" style={{ marginLeft: 'auto' }} />
-  </SkeletonGroup>
-);

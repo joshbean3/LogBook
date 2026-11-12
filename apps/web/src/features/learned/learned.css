@@ -103,27 +103,55 @@ textarea.ln-entry-in:focus {
   vertical-align: -0.25em;
   background: var(--deep-sky);
 }
-/* where the first words came from, and the button: one row; the caption gives way and wraps, the button keeps its words */
+/* where the first words came from: a caption under the field. Then one row: the quiet link at the text edge (it gives
+   way and wraps), the button at the end, keeping its words */
+.ln-entry-note {
+  margin: var(--sp-2) 0 0;
+}
 .ln-entry-foot {
   display: flex;
-  flex-wrap: wrap;
+  /* where the two do not fit one row the button keeps the first, the link goes under it */
+  flex-wrap: wrap-reverse;
   align-items: center;
   justify-content: flex-end;
   gap: var(--sp-2) var(--sp-3);
   margin-top: var(--sp-3);
 }
-.ln-entry-note {
+/* beside the button: one quiet link, at the text edge; it takes its own row where the two do not fit */
+.ln-entry-more {
   flex: 1 1 auto;
+  display: flex;
   min-width: 0;
 }
-.ln-entry-note:empty {
-  display: none;
+.ln-entry .ln-entry-more > .jn-longer.btn {
+  min-height: var(--hit);
+  padding: 0 var(--sp-1);
+  margin-left: calc(-1 * var(--sp-1));
+  white-space: nowrap;
 }
+/* a paste too long for a line: what happened, and the one way on. Dusk words on Paper, the link at their end */
+.ln-long {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0 var(--sp-3);
+  margin: var(--sp-1) 0 0;
+  font: 400 var(--fs-foot) / var(--lh-foot) var(--sans);
+  color: var(--ink-3);
+}
+.ln-entry .ln-long > .ln-long-btn.btn {
+  min-height: var(--hit);
+  padding: 0 var(--sp-1);
+  margin-right: calc(-1 * var(--sp-1));
+}
+
 /* the screen's one primary: Sky with Night Ink words (7.03), 48 tall, the primary glow (guide 6.2) */
 .ln-finish.btn {
   flex: none;
   min-height: 48px;
-  padding: var(--sp-1) var(--sp-5);
+  /* 16 at each end: at 390 the quiet link and the button share the row */
+  padding: var(--sp-1) var(--sp-4);
   font-size: var(--fs-row);
   box-shadow: var(--primary-glow);
 }

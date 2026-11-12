@@ -9,6 +9,7 @@ import { Pressable } from '@/ui/Pressable';
 import { useSheet } from '@/ui/Sheet';
 import { useToast } from '@/ui/Toast';
 import { KPin, KTrash } from '../goals/Kit';
+import { Marked } from '../journal/Marked';
 import { useLearnedMutations } from './queries';
 
 /* The pieces the tab and a month's page share: a growing field, the edit sheet, a line as words, days under month headings. */
@@ -137,7 +138,7 @@ const LearningSheet = ({ item, today, gate, initial, reopen }: { item: Learning;
         maxLength={LEARNING_MAX}
         value={text}
         readOnly={!editing}
-        aria-label="What you learned"
+        aria-label="The line"
         onClick={begin}
         onPaste={(e) => setCut(pasteCut(e))}
         onChange={(e) => {
@@ -181,7 +182,7 @@ const LearningSheet = ({ item, today, gate, initial, reopen }: { item: Learning;
 };
 
 /** A day's eyebrow and title for a sheet: `Today`, `Yesterday` or the weekday; `Nov 10`, with the year when it is not this one. */
-const sheetWords = (date: string, today: string) => ({
+export const sheetWords = (date: string, today: string) => ({
   eyebrow: date === today ? 'Today' : date === shiftDays(today, -1) ? 'Yesterday' : fmtDate('dowLong', date),
   title: date.slice(0, 4) === today.slice(0, 4) ? fmtDate('md', date) : `${fmtDate('md', date)}, ${date.slice(0, 4)}`,
 });
@@ -200,7 +201,7 @@ export const useOpenLearning = (today: string) => {
           label="Delete"
           title="Delete this?"
           what={item.text}
-          words="It leaves What I learned. Undo brings it back."
+          words="It leaves your journal. Undo brings it back."
           verb="Delete"
           onConfirm={() => {
             gate.gone = true;
@@ -219,7 +220,7 @@ export const useOpenLearning = (today: string) => {
  * A day that was missed (on its month's page): the field to fill it in, and Save. A save the server rejects keeps the
  * words: the toast's Try again opens the sheet again with them in the field.
  */
-const AddSheet = ({ date, today, initial = '' }: { date: string; today: string; initial?: string }) => {
+const AddSheet = ({ date, today, initial = '', more }: { date: string; today: string; initial?: string; more?: (date: string) => void }) => {
   const sheet = useSheet();
   const { add } = useLearnedMutations(today);
   const toast = useToast();
@@ -234,7 +235,7 @@ const AddSheet = ({ date, today, initial = '' }: { date: string; today: string; 
   const save = () => {
     if (!v || sent.current) return;
     sent.current = true;
-    add.mutateAsync({ date, text: v }).catch(() => toast('Couldn’t save that.', { label: 'Try again', fn: () => sheet.open(addSpec(date, today, v)) }));
+    add.mutateAsync({ date, text: v }).catch(() => toast('Couldn’t save that.', { label: 'Try again', fn: () => sheet.open(addSpec(date, today, v, more)) }));
     sheet.close();
   };
   return (
@@ -247,7 +248,7 @@ const AddSheet = ({ date, today, initial = '' }: { date: string; today: string; 
         value={text}
         autoFocus
         placeholder="One thing, in a sentence or two"
-        aria-label={`What you learned on ${fmtDate('long', date)}`}
+        aria-label={`The line for ${fmtDate('long', date)}`}
         onPaste={(e) => setCut(pasteCut(e))}
         onChange={(e) => {
           if (e.target.value.length < LEARNING_MAX) setCut(false);
@@ -266,6 +267,11 @@ const AddSheet = ({ date, today, initial = '' }: { date: string; today: string; 
         <Button variant="primary" block onClick={save} disabled={!v}>
           Save
         </Button>
+        {more ? (
+          <Button variant="quiet" block onClick={() => more(date)}>
+            Write a longer entry
+          </Button>
+        ) : null}
       </KPin>
     </div>
   );
@@ -274,10 +280,11 @@ const AddSheet = ({ date, today, initial = '' }: { date: string; today: string; 
 /** How far back an empty day can still be filled in from its month's page. */
 export const FILL_DAYS = 7;
 /** Open the field for a day with nothing in it. */
-const addSpec = (date: string, today: string, initial?: string) => ({ ...sheetWords(date, today), sticky: true, body: <AddSheet date={date} today={today} initial={initial} /> });
-export const useAddLearning = (today: string) => {
+const addSpec = (date: string, today: string, initial?: string, more?: (date: string) => void) => ({ ...sheetWords(date, today), sticky: true, body: <AddSheet date={date} today={today} initial={initial} more={more} /> });
+/** `more`: the sheet also offers "Write a longer entry" for that day (the Journal's month page passes its entry writer). */
+export const useAddLearning = (today: string, more?: (date: string) => void) => {
   const sheet = useSheet();
-  return (date: string) => sheet.open(addSpec(date, today));
+  return (date: string) => sheet.open(addSpec(date, today, undefined, more));
 };
 
 /** A load that failed: says so, with Try again. Never an empty state, and never a dead end. */
@@ -291,10 +298,16 @@ export const LoadError = ({ title, onRetry, busy }: { title: string; onRetry: ()
   </section>
 );
 
-/** One line as words; a tap opens it. `clamp`: at most six lines (the sheet has the rest). */
-export const Line = ({ item, onOpen, className = '', clamp }: { item: Learning; onOpen: (l: Learning) => void; className?: string; clamp?: boolean }) => (
+/** One line as words; a tap opens it. `clamp`: at most six lines (the sheet has the rest). `mark`: the words searched for. */
+export const Line = ({ item, onOpen, className = '', clamp, mark }: { item: Learning; onOpen: (l: Learning) => void; className?: string; clamp?: boolean; mark?: string | null }) => (
   <Pressable as="button" className={`ln-line ${className}`} press="dim" onPress={() => onOpen(item)} label={`${item.text}. Edit`}>
-    {clamp ? <span className="ln-line-clamp">{item.text}</span> : item.text}
+    {clamp ? (
+      <span className="ln-line-clamp">
+        <Marked text={item.text} q={mark} />
+      </span>
+    ) : (
+      <Marked text={item.text} q={mark} />
+    )}
   </Pressable>
 );
 
