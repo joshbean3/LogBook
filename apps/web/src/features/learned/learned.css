@@ -370,7 +370,10 @@ textarea.ln-entry-in:focus {
 
 /* ---------- the archive under the poster: the months that hold a line, one 56 row each (book tile, month, count) ---------- */
 .ln-year.is-now {
-  margin-top: var(--gap);
+  margin-top: var(--sp-6);
+}
+.ln-mrow .k-row-title {
+  font-weight: 600;
 }
 .ln-mrow-meta {
   font: 500 var(--fs-sub) / var(--lh-sub) var(--sans);
@@ -469,6 +472,28 @@ textarea.ln-entry-in:focus {
 }
 
 /* ---------- Larger Text (above 150 percent, html[data-text-xl]): nothing clips, rows grow (guide 11) ---------- */
+/* a month's row: the count goes under the month, and the month wraps before it would be cut */
+html[data-text-xl] .ln-mrow.k-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  row-gap: 0;
+}
+html[data-text-xl] .ln-mrow > .icon-tile {
+  grid-area: 1 / 1 / span 2;
+}
+html[data-text-xl] .ln-mrow > .k-chev {
+  grid-area: 1 / 3 / span 2;
+}
+html[data-text-xl] .ln-mrow > .k-row-main {
+  grid-area: 1 / 2;
+}
+html[data-text-xl] .ln-mrow > .ln-mrow-meta {
+  grid-area: 2 / 2;
+}
+html[data-text-xl] .ln-mrow .k-row-title {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
 /* the button takes the row to itself under its caption, and wraps its words before it would cut them */
 html[data-text-xl] .ln-finish.btn {
   flex: 1 1 100%;

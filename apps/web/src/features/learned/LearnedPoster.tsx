@@ -48,6 +48,8 @@ const Entry = ({ today, starter }: { today: string; starter: Starter }) => {
   const box = useRef<HTMLDivElement>(null);
   const [cut, setCut] = useState(false);
   const [focused, setFocused] = useState(false);
+  /** Did this tap bring the focus in (and not land in a field already being typed in)? */
+  const entering = useRef(false);
   const text = useSyncExternalStore(todayDraft.subscribe, todayDraft.get, todayDraft.get);
   const touched = useSyncExternalStore(todayDraft.subscribe, todayDraft.touched, todayDraft.touched);
   const value = touched ? text : `${starter.text} `;
@@ -57,6 +59,17 @@ const Entry = ({ today, starter }: { today: string; starter: Starter }) => {
   useEffect(() => {
     if (kb && box.current && document.activeElement === ref.current) revealField(box.current, 80);
   }, [kb]);
+  // the box changed size without the words changing (the text size, the width): the field is fitted to its words again
+  useEffect(() => {
+    const el = ref.current;
+    if (!el || !box.current || typeof ResizeObserver === 'undefined') return;
+    const ro = new ResizeObserver(() => {
+      el.style.height = 'auto';
+      el.style.height = `${el.scrollHeight}px`;
+    });
+    ro.observe(box.current);
+    return () => ro.disconnect();
+  }, []);
   const ready = touched && hasOwnWords(text, starter);
   const toEnd = () => {
     const el = ref.current;
@@ -93,10 +106,19 @@ const Entry = ({ today, starter }: { today: string; starter: Starter }) => {
             if (e.target.value.length < LEARNING_MAX) setCut(false);
             todayDraft.set(e.target.value);
           }}
+          onPointerDown={() => {
+            entering.current = document.activeElement !== ref.current;
+          }}
+          onClick={() => {
+            // the tap that brings the focus in puts the caret after the starter, wherever it landed (the browser places
+            // its own caret after the focus event, so this is done here); a tap in a field already in use is left alone
+            if (entering.current && !touched) toEnd();
+            entering.current = false;
+          }}
           onFocus={() => {
             setFocused(true);
             if (box.current) revealField(box.current);
-            // the caret goes after the starter, wherever the tap landed
+            // focus from the button or a key: the caret goes after the starter
             if (!touched) requestAnimationFrame(toEnd);
           }}
           onBlur={() => setFocused(false)}
