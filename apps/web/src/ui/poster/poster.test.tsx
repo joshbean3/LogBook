@@ -301,4 +301,18 @@ describe('WeekLights', () => {
     expect(html).toContain('role="img"');
     expect(html).toContain('aria-label="3 lines kept this week"');
   });
+  it('is a picture with no buttons until a day can be picked; then each day before tonight is a button with its name', () => {
+    expect(renderToStaticMarkup(<WeekLights days={days} tonight="waiting" label="The week" />)).not.toContain('wl-hit');
+    const named = days.map((d, i) => ({ ...d, name: `Day ${i + 1}` }));
+    const html = renderToStaticMarkup(<WeekLights days={named} tonight="waiting" label="The week" onPick={() => undefined} />);
+    expect(count(html, 'class="wl-hit"')).toBe(6);
+    expect(count(html, 'role="button"')).toBe(6);
+    expect(html).toContain('aria-label="Day 4"');
+    // buttons inside a picture would be hidden from VoiceOver: the picture is a group with the same name
+    expect(html).toContain('role="group"');
+    expect(html).not.toContain('role="img"');
+    expect(html).toContain('aria-label="The week"');
+    // tonight is not one of them
+    expect(html).not.toContain('aria-label="Tonight"');
+  });
 });

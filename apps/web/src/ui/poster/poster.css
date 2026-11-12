@@ -768,6 +768,16 @@
 .wl-letter.is-tonight {
   fill: var(--white);
 }
+/* a day as a button (WeekLights `onPick`): nothing drawn until the keyboard reaches it, then a Paper ring */
+.wl-hit {
+  fill: transparent;
+  cursor: pointer;
+  outline: none;
+}
+.wl-hit:focus-visible {
+  stroke: var(--paper);
+  stroke-width: 1.5;
+}
 .wl-hill-1 {
   fill: var(--twilight);
 }
