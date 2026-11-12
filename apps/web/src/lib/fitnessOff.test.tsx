@@ -18,6 +18,8 @@ vi.mock('react-dom', async (orig) => ({ ...(await orig<typeof import('react-dom'
  *
  * Allowed, and why:
  *  - "Plan your day", "Plan the day", "The plan": Today's own section (the goal and the to-dos), not a training plan.
+ *    With Fitness off it leads Today as the day's poster, and the goal it suggests comes from the habits, never from
+ *    the day's session ("An idea · from your habits"): the Today row below asks for exactly that.
  *  - The Fitness row in Settings ("Fitness", "Training plan, runs and lifts"): the switch that turns it back on has to
  *    say its name.
  * Words the person typed (a to-do, a habit's name, an entry) are theirs and are shown as written; the account here has
@@ -98,7 +100,7 @@ const client = async () => {
 /** A screen: where it lives, what it must say with Fitness on (the account trains), and what it must still show with it off. */
 type Screen = [name: string, load: () => Promise<{ default: React.ComponentType }>, path: string, on: RegExp, keeps: RegExp];
 const SCREENS: Screen[] = [
-  ['Today', () => import('@/features/day/DayView'), '/today', /run|miles|mi\b/i, /Plan your day[\s\S]*Habits[\s\S]*What did you learn today\?/],
+  ['Today', () => import('@/features/day/DayView'), '/today', /run|miles|mi\b/i, /What would make today count\?[\s\S]*An idea · from your habits[\s\S]*Set this goal[\s\S]*Habits[\s\S]*What did you learn today\?/],
   ['Progress', () => import('@/features/progress/ProgressView'), '/progress', /running/i, /Habits[\s\S]*Health/],
   ['Goals', () => import('@/features/goals/GoalsView'), '/goals', /Goals/, /Goals/],
   ['Learned', () => import('@/features/learned/LearnedView'), '/learned', /What I learned/, /What I learned/],
