@@ -82,9 +82,9 @@ const Entry = ({ today, starter }: { today: string; starter: Starter }) => {
       toEnd();
       return;
     }
-    // the save's one haptic, as tonight's light comes in
-    haptics.success();
-    submitDraft(todayDraft, (words) => add.mutateAsync({ date: today, text: words }), () => toast('Couldn’t save that. Your words are back in the field.'));
+    // the save's one haptic, as tonight's light comes in: only for a save that was sent (a second tap in the same
+    // moment finds the field already empty)
+    if (submitDraft(todayDraft, (words) => add.mutateAsync({ date: today, text: words }), () => toast('Couldn’t save that. Your words are back in the field.'))) haptics.success();
   };
   return (
     <div ref={box} className="ln-entry">
@@ -104,7 +104,7 @@ const Entry = ({ today, starter }: { today: string; starter: Starter }) => {
           onPaste={(e) => setCut(pasteCut(e))}
           onChange={(e) => {
             if (e.target.value.length < LEARNING_MAX) setCut(false);
-            todayDraft.set(e.target.value);
+            todayDraft.set(e.target.value, today);
           }}
           onPointerDown={() => {
             entering.current = document.activeElement !== ref.current;

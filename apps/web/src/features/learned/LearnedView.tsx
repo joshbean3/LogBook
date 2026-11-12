@@ -1,18 +1,20 @@
 import type * as React from 'react';
-import type { Learning, LearningMonth } from '@logbook/shared';
+import { shiftDays, type Learning, type LearningMonth } from '@logbook/shared';
 import { BookOpen, ChevronRight, Search, X } from 'lucide-react';
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { useNav, useTabScroller } from '@/app/NavController';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
+import { useIsActiveTab, useNav, useTabScroller } from '@/app/NavController';
 import { useToday } from '@/lib/useToday';
 import { dayCaption, NavBar } from '@/ui/NavBar';
 import { Pressable } from '@/ui/Pressable';
 import { Button } from '@/ui/primitives';
 import { Skeleton, SkeletonGroup } from '@/ui/Skeleton';
 import { KSection } from '../goals/Kit';
-import { byTime, Days, groupByMonth, monthName, plural, useLoadMore, useOpenLearning } from './LearnedParts';
+import { byTime, Days, groupByMonth, LoadError, monthName, plural, useLoadMore, useOpenLearning } from './LearnedParts';
 import { LearnedPoster, LearnedPosterSkeleton } from './LearnedPoster';
-import { useLearningEchoes, useLearningMonths, useLearnings, useLearningStats } from './queries';
+import { dropIfLanded, lineDay, todayDraft } from './draft';
+import { rowsOf, useLearningEchoes, useLearningMonths, useLearnings, useLearningStats } from './queries';
 import { Echoes } from './LearnedEchoes';
+import { isStarterOnly } from './starter';
 import { lastSeven } from './week';
 import './learned.css';
 
@@ -87,17 +89,6 @@ const useSettled = (v: string, ms = 250) => {
   return out;
 };
 
-/** A load that failed: says so, with Try again. Never an empty state. */
-const LoadError = ({ what, onRetry, busy }: { what: 'list' | 'search'; onRetry: () => void; busy?: boolean }) => (
-  <section className="k-card ln-error" role="alert">
-    <p className="k-row-title">{what === 'search' ? 'Couldn’t search what you learned.' : 'Couldn’t load what you learned.'}</p>
-    <p className="k-foot">Check the connection, then try again.</p>
-    <Button size="sm" className="ln-error-btn" onClick={onRetry} disabled={busy}>
-      Try again
-    </Button>
-  </section>
-);
-
 const Searching = () => (
   <SkeletonGroup label="Searching" className="k-card ln-more">
     <Skeleton w="40%" h={12} />
@@ -110,9 +101,9 @@ const Found = ({ q, today, onOpen }: { q: string; today: string; onOpen: (l: Lea
   const list = useLearnings({ q });
   const end = useRef<HTMLDivElement>(null);
   useLoadMore(end, list);
-  const months = useMemo(() => groupByMonth(list.data?.pages.flatMap((p) => p.learnings) ?? []), [list.data]);
+  const months = useMemo(() => groupByMonth(rowsOf(list.data)), [list.data]);
   // a failed search is not "no matches"
-  if (list.isError && !list.data) return <LoadError what="search" onRetry={() => void list.refetch()} busy={list.isFetching} />;
+  if (list.isError && !list.data) return <LoadError title="Couldn’t search what you learned." onRetry={() => void list.refetch()} busy={list.isFetching} />;
   if (list.isPending) return <Searching />;
   if (!months.length)
     return (
@@ -130,7 +121,8 @@ const Found = ({ q, today, onOpen }: { q: string; today: string; onOpen: (l: Lea
           </div>
         </KSection>
       ))}
-      <div ref={end} className="ln-end" aria-hidden="true" />
+      {/* the next page failed: it is not asked for again on its own (that would never stop); Try again asks */}
+      {list.isFetchNextPageError ? <LoadError title="Couldn’t search what you learned." onRetry={() => void list.fetchNextPage()} busy={list.isFetchingNextPage} /> : <div ref={end} className="ln-end" aria-hidden="true" />}
     </div>
   );
 };
@@ -213,8 +205,35 @@ const SearchButton = ({ onPress }: { onPress: () => void }) => (
  * line, then From your archive. Search is one tap away, at the end of the nav bar, and opens its field in place of the
  * poster's neighbors; from its first letter the page is the field and what it finds.
  */
+/**
+ * The day the page stands on: the clock's, or the evening before while a line begun then is still in the field (draft.ts
+ * `lineDay`; midnight must not move the lights under a line half written, or file it under the wrong day). Once that line
+ * is saved the page stays on its evening, showing it kept, until the tab or the app is left; then it is the new day.
+ */
+const usePageDay = (): string => {
+  const live = useToday();
+  const active = useIsActiveTab();
+  const text = useSyncExternalStore(todayDraft.subscribe, todayDraft.get, todayDraft.get);
+  const day = useSyncExternalStore(todayDraft.subscribe, todayDraft.day, todayDraft.day);
+  const writing = lineDay(live, day, !isStarterOnly(text));
+  const [stay, setStay] = useState<string | null>(null);
+  if (writing !== live && stay !== writing) setStay(writing);
+  const held = stay !== null && stay === shiftDays(live, -1);
+  useEffect(() => {
+    // still being written: it holds
+    if (stay === null || writing !== live) return;
+    if (!held || !active) return setStay(null);
+    const away = () => {
+      if (document.hidden) setStay(null);
+    };
+    document.addEventListener('visibilitychange', away);
+    return () => document.removeEventListener('visibilitychange', away);
+  }, [stay, writing, live, held, active]);
+  return writing !== live ? writing : held ? stay : live;
+};
+
 export default function LearnedView(): React.JSX.Element {
-  const today = useToday();
+  const today = usePageDay();
   const list = useLearnings({ month: today.slice(0, 7) });
   const months = useLearningMonths();
   const stats = useLearningStats();
@@ -226,7 +245,16 @@ export default function LearnedView(): React.JSX.Element {
   const searching = q.trim().length > 0;
   const search = useSearchField(searching);
 
-  const rows = useMemo(() => list.data?.pages.flatMap((p) => p.learnings) ?? [], [list.data]);
+  const rows = useMemo(() => rowsOf(list.data), [list.data]);
+  // words that came back from a save cut off by the page going away: the list is asked again, and they are let go once
+  // it shows that line (the field must not offer a line that is already kept)
+  const refetchList = list.refetch;
+  useEffect(() => {
+    if (todayDraft.unsure()) void refetchList();
+  }, [refetchList]);
+  useEffect(() => {
+    dropIfLanded(todayDraft, rows);
+  }, [rows]);
   const todays = useMemo(() => rows.filter((l) => l.date === today).sort(byTime), [rows, today]);
   // the week's lights: this month's lines, and last month's only while the seven days reach back into it. A save lands
   // in these lists at once, so tonight's light does too
@@ -239,17 +267,19 @@ export default function LearnedView(): React.JSX.Element {
       if (l.date >= from && l.date <= today) out.set(l.date, (out.get(l.date) ?? 0) + 1);
     };
     rows.forEach(count);
-    for (const p of prev.data?.pages ?? []) p.learnings.forEach(count);
+    rowsOf(prev.data).forEach(count);
     return out;
   }, [rows, prev.data, from, today]);
   const s = stats.data;
-  const total = s?.total ?? rows.length;
+  // never fewer than the lines on the page (the stats do not count a line still waiting to sync)
+  const total = Math.max(s?.total ?? 0, rows.length);
   const hasPast = total > todays.length;
   const loading = (list.isPending && !list.isError) || (!!prevMonth && prev.isPending && !prev.isError);
   // a failed load is said once, with Try again; the field above it still works
-  const failed = (list.isError && !list.data) || (stats.isError && !s) || (months.isError && !months.data);
+  const failed = (list.isError && !list.data) || (!!prevMonth && prev.isError && !prev.data) || (stats.isError && !s) || (months.isError && !months.data);
   const retry = () => {
     if (list.isError) void list.refetch();
+    if (prevMonth && prev.isError) void prev.refetch();
     if (stats.isError) void stats.refetch();
     if (months.isError) void months.refetch();
   };
@@ -300,7 +330,7 @@ export default function LearnedView(): React.JSX.Element {
       {searching ? null : (
         <div className="k-stack">
           {loading ? <LearnedPosterSkeleton /> : <LearnedPoster today={today} items={todays} lines={lines} total={total} onOpen={open} />}
-          {failed ? <LoadError what="list" onRetry={retry} busy={list.isFetching || stats.isFetching || months.isFetching} /> : null}
+          {failed ? <LoadError title="Couldn’t load what you learned." onRetry={retry} busy={list.isFetching || prev.isFetching || stats.isFetching || months.isFetching} /> : null}
         </div>
       )}
       {field}
