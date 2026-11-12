@@ -22,6 +22,7 @@ import { WeekRing, type WeekDayStatus } from '@/ui/WeekRing';
 import { GhostBars, GhostRows } from '@/ui/Ghost';
 import { AssistantPane } from '@/features/assistant/AssistantPane';
 import { PagerLab } from './PagerLab';
+import { PosterGallery } from './PosterGallery';
 import './gallery.css';
 
 /**
@@ -501,6 +502,8 @@ function Gallery({ onLab }: { onLab: () => void }) {
       <Button variant="soft" className="gal-open-lab" onClick={onLab}>
         Open the pager lab (a stub Today)
       </Button>
+
+      <PosterGallery />
 
       <Section title="Haptics" meta={hOn ? 'On' : 'Off'}>
         <div className="sec-group">

@@ -389,3 +389,17 @@
   background: var(--surface-2);
   color: var(--ink);
 }
+
+/* the poster kit: one sample under another */
+.gal-poster {
+  display: grid;
+  gap: var(--sp-3);
+}
+.gal-poster-stack {
+  display: grid;
+  gap: var(--gap);
+}
+.gal-poster-card {
+  padding: 0;
+  overflow: hidden;
+}
