@@ -1,9 +1,10 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { ChevronDown } from 'lucide-react';
+import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { mondayOf } from '@logbook/shared';
-import { useNav } from '@/app/NavController';
+import { useIsActiveTab, useNav } from '@/app/NavController';
 import { haptics } from '@/lib/haptics';
 import { STRAVA_BUILT } from '@/lib/features';
-import { Button, EmptyState, SectionEmpty, Segmented, Skeleton, SkeletonGroup } from '@/ui';
+import { Button, EmptyState, Pressable, SectionEmpty, Segmented, Skeleton, SkeletonGroup } from '@/ui';
 import { RangeControl } from '@/ui/charts';
 import { ProgressIcon } from '@/ui/icons';
 import { usePageShown } from '@/ui/nowBudget';
@@ -154,6 +155,13 @@ export const HeroChart = ({
   const [scrub, setScrub] = useState<Reading | null>(null);
   const [opened, setOpened] = useState<Reading | null>(null);
   const hint = useScrubHint();
+  // the workouts list under the chart on Fitness: folded until asked for, and folded again once the tab is left
+  const [listOpen, setListOpen] = useState(false);
+  const listId = useId();
+  const activeTab = useIsActiveTab();
+  useEffect(() => {
+    if (!activeTab) setListOpen(false);
+  }, [activeTab]);
   const openWeek = useOpenWeek(t);
   const snap = log.snap;
   const loaded = useCallback((m: string) => snap.loaded(m), [snap]);
@@ -252,13 +260,27 @@ export const HeroChart = ({
     );
   }
 
-  // the workouts themselves: a card of their own under the chart (layout standard 2.7), so the chart is the same card in both modes
+  // the workouts themselves: a card of their own under the chart (layout standard 2.7), so the chart is the same card in
+  // both modes. On Fitness the week above already lists this week's sessions, so the card is folded to one row, as the
+  // week's own "Earlier this week" is, and opens in place
   const list =
-    mode === 'lift' ? (
+    mode !== 'lift' ? null : lead ? (
       <section className="card ll-card" aria-label="Workouts, one by one">
         <LiftList log={log} t={t} />
       </section>
-    ) : null;
+    ) : (
+      <section className={`card ll-card ll-folds${listOpen ? ' is-open' : ''}`} aria-label="Workouts, one by one">
+        <Pressable className="ll-fold" press="surface" aria-expanded={listOpen} aria-controls={listId} onPress={() => setListOpen((o) => !o)} label={`Workouts, one by one. ${listOpen ? 'Hide' : 'Show'}`}>
+          <span className="ll-fold-title">Workouts, one by one</span>
+          <ChevronDown size={18} className="ll-fold-chev" aria-hidden="true" />
+        </Pressable>
+        {listOpen ? (
+          <div id={listId} className="ll-fold-body">
+            <LiftList log={log} t={t} />
+          </div>
+        ) : null}
+      </section>
+    );
 
   // All has no first day to start from: say so, with the way to ask again. The other ranges do not need it
   if (!firstWeek && range === 'All' && startFailed && onRetry) {

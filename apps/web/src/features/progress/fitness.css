@@ -29,3 +29,46 @@
 .pg-empty + .fp-body {
   margin-top: var(--gap);
 }
+
+/* ---------- Workouts, one by one, under the chart: folded to one 56 row (the week's own "Earlier this week" in the same
+   words and weight), the date rows opening in place under a hairline ---------- */
+.card.ll-card.ll-folds {
+  padding: 0;
+  overflow: hidden;
+}
+.ll-fold.pressable {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  width: 100%;
+  min-height: var(--row-h);
+  padding: var(--sp-2) var(--pad-card);
+  color: var(--ink-2);
+  font: 500 var(--fs-body) / var(--lh-body) var(--sans);
+  text-align: left;
+}
+.ll-fold:focus-visible {
+  outline: 1.5px solid var(--focus-edge);
+  outline-offset: -2px;
+  box-shadow: var(--focus-ring);
+}
+.ll-fold-title {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.ll-fold-chev {
+  flex: none;
+  transition: transform var(--dur-fast) var(--ease-out);
+}
+.ll-folds.is-open .ll-fold-chev {
+  transform: rotate(180deg);
+}
+.ll-fold-body {
+  padding: var(--pad-card);
+  border-top: 1px solid var(--line);
+}
+@media (prefers-reduced-motion: reduce) {
+  .ll-fold-chev {
+    transition: none;
+  }
+}
