@@ -16,6 +16,8 @@ import { Finger, Stage, Steps, useLoop, useTyped } from './engine';
 export interface DemoProps {
   running: boolean;
   still: boolean;
+  /** Fitness is off (lib/prefs.ts): the sample words are about a day, not a run. */
+  plain?: boolean;
 }
 const at = (b: number, from: number, to = Infinity) => b >= from && b < to;
 
@@ -173,10 +175,11 @@ export const GoalsDemo = ({ running, still }: DemoProps) => {
 /** The days of the month written so far: each gets its dot (a flat Disc in the journal's tones, never an Orb). */
 const WRITTEN = [true, true, false, true, true, true, false, true, true, true, true, false, true];
 const JOUR_BEATS = [900, 650, 260, 1900, 600, 260, 1400, 900] as const;
-export const JournalDemo = ({ running, still }: DemoProps) => {
+export const JournalDemo = ({ running, still, plain }: DemoProps) => {
+  const line = plain ? 'Long walk by the river with Sam.' : 'Long run by the river with Sam.';
   const b = useLoop(JOUR_BEATS, running && !still, JOUR_BEATS.length - 1);
   const writing = at(b, 3, 6);
-  const typed = useTyped('Long run by the river with Sam.', writing && !still, b >= 4);
+  const typed = useTyped(line, writing && !still, b >= 4);
   const written = still || b >= 6;
   return (
     <>
@@ -200,7 +203,7 @@ export const JournalDemo = ({ running, still }: DemoProps) => {
         </div>
         <div className="tj-day">
           {written ? (
-            <p className="tj-memory">“Long run by the river with Sam.”</p>
+            <p className="tj-memory">“{line}”</p>
           ) : writing ? (
             <>
               <span className="tj-field">
@@ -227,10 +230,11 @@ export const JournalDemo = ({ running, still }: DemoProps) => {
 
 // ---------- Learned ----------
 const LRN_BEATS = [800, 650, 260, 1900, 600, 260, 1500, 900] as const;
-export const LearnedDemo = ({ running, still }: DemoProps) => {
+export const LearnedDemo = ({ running, still, plain }: DemoProps) => {
+  const line = plain ? 'A short walk after lunch clears my head.' : 'Strides before a race wake the legs up.';
   const b = useLoop(LRN_BEATS, running && !still, LRN_BEATS.length - 1);
   const typing = at(b, 3, 6);
-  const typed = useTyped('Strides before a race wake the legs up.', typing && !still, b >= 4);
+  const typed = useTyped(line, typing && !still, b >= 4);
   const saved = still || b >= 6;
   return (
     <>
@@ -239,7 +243,7 @@ export const LearnedDemo = ({ running, still }: DemoProps) => {
         {saved ? (
           <motion.div className="tour-learn-saved" initial={still ? false : { opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={springs.settle}>
             <span className="caps">Today</span>
-            <p>Strides before a race wake the legs up.</p>
+            <p>{line}</p>
             <span className="tour-learn-another">Add another</span>
           </motion.div>
         ) : (

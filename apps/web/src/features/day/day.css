@@ -2412,3 +2412,54 @@
 .pm-line small {
   white-space: nowrap;
 }
+
+/* ---------- Today's switched sections (lib/prefs.ts) ----------
+   With Fitness off the day's own sections lead: the first one starts where the hero would, with no section gap over it. */
+.day-page[data-fitness='off'] > :first-child,
+.day-page[data-fitness='off'] > .hero-close + .pd {
+  margin-top: 0;
+}
+.day-page[data-fitness='off'] > .hero-close {
+  margin-bottom: var(--section);
+}
+.day-learned {
+  margin-top: var(--section);
+  min-width: 0;
+}
+.day-learned-chev {
+  color: var(--ink-2);
+}
+/* the question is the row: at 320 it takes a second line, never an ellipsis */
+.day-learned .lrow-title {
+  white-space: normal;
+  overflow: visible;
+}
+/* every section is off: one calm line and the way to the switches */
+.day-none {
+  display: grid;
+  justify-items: start;
+  gap: var(--sp-1);
+  padding: var(--sp-4) 0;
+}
+.day-none-line {
+  margin: 0;
+  color: var(--ink-2);
+  font: 400 var(--fs-body) / var(--lh-body) var(--sans);
+}
+.day-none-link.pressable {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  min-height: var(--hit);
+  color: var(--accent-text);
+  font: 600 var(--fs-row) / var(--lh-row) var(--sans);
+}
+/* the last thing on the page: "Edit Today", the quiet link (guide 6.3), centered, a 44 pt target, a section's gap above */
+.day-edit {
+  display: flex;
+  justify-content: center;
+  margin-top: var(--section);
+}
+.day-edit-link {
+  min-height: var(--hit);
+}

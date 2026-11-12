@@ -1,3 +1,4 @@
+import { fitnessOn, useFitness } from '@/lib/prefs';
 import { buildMorning, clock, durationWords, fmtDate, monthOf, normalizeMorningSettings, parsePace, routineOf, shiftDays, type MorningDay, type MorningMode, type MorningSettings } from '@logbook/shared';
 import { motion } from 'motion/react';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -103,6 +104,8 @@ const FieldRow = ({ f, s, onChange, open, onToggle, highlight, focus }: { f: Fie
  */
 export const RoutineEditor = ({ day, settings: initial, focus, dayWord = 'This morning' }: { day: MorningDay; settings: MorningSettings; focus?: string; /** The morning's word: `This morning`, `Tomorrow`, `Yesterday`, `Tuesday`. */ dayWord?: string }) => {
   const sheet = useSheet();
+  // Fitness is off (lib/prefs.ts): one kind of morning, so no chips to preview a run or a gym day and no rows for them
+  const fitness = useFitness();
   const { settingsWhen } = useMorningMutations();
   const closed = useClosed();
   const [saved] = useState(() => normalizeMorningSettings(initial));
@@ -179,17 +182,15 @@ export const RoutineEditor = ({ day, settings: initial, focus, dayWord = 'This m
   return (
     <div className="rt" ref={root}>
       <div className="rt-preview">
-        <div className="rt-modes" role="group" aria-label="Preview a morning">
-          {(['run', 'gym', 'rest'] as const).map((m) => (
-            <ChipButton
-              key={m}
-              on={preview === m}
-              onClick={() => setPreview(m)}
-            >
-              {m === 'run' ? 'Run day' : m === 'gym' ? 'Gym day' : 'Rest day'}
-            </ChipButton>
-          ))}
-        </div>
+        {fitness ? (
+          <div className="rt-modes" role="group" aria-label="Preview a morning">
+            {(['run', 'gym', 'rest'] as const).map((m) => (
+              <ChipButton key={m} on={preview === m} onClick={() => setPreview(m)}>
+                {m === 'run' ? 'Run day' : m === 'gym' ? 'Gym day' : 'Rest day'}
+              </ChipButton>
+            ))}
+          </div>
+        ) : null}
         <MiniTimeline stops={stopsOf(T)} now={-1} label={`Preview: ${stopsOf(T).map((x) => `${x.label} ${short(x.at)}`).join(', ')}`} />
         <p className="rt-verdict">
           {preview !== day.mode ? `${kindWord(preview)}: ` : day.own ? `${dayWord}, its own wake time ${short(day.wake)}: ` : ''}
@@ -208,23 +209,27 @@ export const RoutineEditor = ({ day, settings: initial, focus, dayWord = 'This m
         <div className="rt-list">{row('wake')}</div>
       </section>
 
-      <section className="rt-sec" aria-label="Run mornings">
-        <h3 className="section-title">Run mornings</h3>
-        <div className="rt-list">
-          {row('run.wakeup')}
-          {row('run.buffer')}
-          {row('pace')}
-        </div>
-      </section>
+      {fitness ? (
+        <>
+          <section className="rt-sec" aria-label="Run mornings">
+            <h3 className="section-title">Run mornings</h3>
+            <div className="rt-list">
+              {row('run.wakeup')}
+              {row('run.buffer')}
+              {row('pace')}
+            </div>
+          </section>
 
-      <section className="rt-sec" aria-label="Gym mornings">
-        <h3 className="section-title">Gym mornings</h3>
-        <div className="rt-list">
-          {row('gym.wakeup')}
-          {row('gym.walk')}
-          {row('gym.length')}
-        </div>
-      </section>
+          <section className="rt-sec" aria-label="Gym mornings">
+            <h3 className="section-title">Gym mornings</h3>
+            <div className="rt-list">
+              {row('gym.wakeup')}
+              {row('gym.walk')}
+              {row('gym.length')}
+            </div>
+          </section>
+        </>
+      ) : null}
 
       <div className="sheet-foot">
         <Button
@@ -260,7 +265,8 @@ export const useOpenRoutineEditor = (): ((focus?: 'leave') => void) => {
     // morning's push commit among them) was work nobody looked at
     const snap = buildSnapshot(bundles, today, boot.data?.morningSettings?.run?.pace ?? null);
     const st = boot.data?.morningSettings ?? ROUTINE_DEFAULTS;
-    const T = morningOf(snap.sessionsOn(date), snap.morningOverride(date), st);
+    // with Fitness off the morning has no workout in it (lib/prefs.ts)
+    const T = morningOf(fitnessOn() ? snap.sessionsOn(date) : [], snap.morningOverride(date), st);
     const dayWord = date === today ? 'This morning' : date === shiftDays(today, 1) ? 'Tomorrow' : date === shiftDays(today, -1) ? 'Yesterday' : fmtDate('dowLong', date);
     sheet.open({ eyebrow: 'Every morning', title: 'Timings', detent: 'large', body: <RoutineEditor day={T.day} settings={T.settings} focus={focus} dayWord={dayWord} /> });
   };

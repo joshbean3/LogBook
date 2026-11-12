@@ -14,7 +14,7 @@ const bundle = (sessions: Session[], activities: Activity[] = []): MonthBundle =
 const PLAN = [{ id: 'b1', name: 'Half marathon · 12 weeks', start: '2026-10-01', end: '2026-12-31', source: null, summary: null, createdAt: '' }];
 const logOf = (b: MonthBundle, today = FRI, blocks: unknown[] = PLAN): Log => {
   const snap = buildSnapshot({ '2026-10': b }, today);
-  return { today, boot: { morningSettings: MORNING_DEFAULTS, habits: [], blocks } as unknown as Log['boot'], habits: [], zones: null, features: { claude: false, strava: false }, strava: null, snap, ready: true, loading: false, loaded: () => true } as Log;
+  return { today, boot: { morningSettings: MORNING_DEFAULTS, habits: [], blocks } as unknown as Log['boot'], fitness: true, habits: [], zones: null, features: { claude: false, strava: false }, strava: null, snap, ready: true, loading: false, loaded: () => true } as Log;
 };
 
 describe('the hero faces (docs/feel.md §3.2, §3.3)', () => {

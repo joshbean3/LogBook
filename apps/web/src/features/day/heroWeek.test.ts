@@ -88,7 +88,7 @@ const sameAsWeekSheet = (snap: Snapshot, d: ISODate) => {
 const bundle = (month: string, sessions: Session[], activities: Activity[] = []): MonthBundle => ({ month, sessions, checks: [], lifts: [], activities, morningDays: {}, journal: [], coach: [] });
 const logOf = (sessions: Session[], activities: Activity[] = [], today: ISODate = W): Log => {
   const snap = buildSnapshot({ '2026-11': bundle('2026-11', sessions, activities) }, today);
-  return { today, boot: { morningSettings: MORNING_DEFAULTS, habits: [], blocks: [] } as unknown as Log['boot'], habits: [], zones: null, features: { claude: false, strava: false }, strava: null, snap, ready: true, loading: false, loaded: () => true } as Log;
+  return { today, boot: { morningSettings: MORNING_DEFAULTS, habits: [], blocks: [] } as unknown as Log['boot'], fitness: true, habits: [], zones: null, features: { claude: false, strava: false }, strava: null, snap, ready: true, loading: false, loaded: () => true } as Log;
 };
 /** The page's hero for a day at 1 pm, as the hero will build it: the week, the face's lead, no pick. */
 const pageScene = (log: Log, d: ISODate, picked: HeroView | null = null) => {

@@ -14,7 +14,8 @@ import { signOutLede, unsentWords } from './accountModel';
 import { popFav } from '@/features/journal/feel';
 import { Download, House, KeyRound, Mail, Upload, Vibrate, type LucideIcon } from 'lucide-react';
 import { healthDeviceId } from './healthDevice';
-import { EXPORT_SUB, IMPORT_MAX_BYTES, IMPORT_NOT_OURS, IMPORT_SUB, IMPORT_TOO_BIG, importDone, importError, importKind } from './dataModel';
+import { useFitness } from '@/lib/prefs';
+import { EXPORT_SUB, EXPORT_SUB_PLAIN, IMPORT_MAX_BYTES, IMPORT_NOT_OURS, IMPORT_SUB, IMPORT_TOO_BIG, importDone, importError, importKind } from './dataModel';
 import { GoRow, SGroup, Switch, Tile } from './parts';
 
 // ---------- install (the web app only) ----------
@@ -85,7 +86,7 @@ export const AppPage = (): React.JSX.Element => {
       {!isNative ? (
         <SGroup title="Home screen">
           {isStandalone() ? (
-            <Row className="s-wrap has-tile" left={<Tile icon={House} />} title="Installed" sub="You’re running Orby from the home screen." />
+            <Row className="s-wrap has-tile" left={<Tile icon={House} />} title="Installed" sub="You’re using Orby from the home screen." />
           ) : canInstall ? (
             <GoRow icon={House} title="Install Orby" sub="Full screen, and it opens offline." onPress={() => void install()} />
           ) : isIosSafari() ? (
@@ -102,6 +103,7 @@ export const AppPage = (): React.JSX.Element => {
 /** /settings/data: Import and Export. Each row answers in its own second line, a failure included. */
 export const DataPage = (): React.JSX.Element => {
   const qc = useQueryClient();
+  const fitness = useFitness();
   const fileRef = useRef<HTMLInputElement>(null);
   const [importResult, setImportResult] = useState<{ text: string; bad: boolean } | null>(null);
   const importBundle = useMutation({
@@ -148,7 +150,7 @@ export const DataPage = (): React.JSX.Element => {
           className="s-wrap s-export-row has-tile"
           left={<Tile icon={Download} />}
           title="Export"
-          sub={exp.busy ?? (exp.result ? <span className={exp.result.bad ? 's-bad' : ''}>{exp.result.text}</span> : EXPORT_SUB)}
+          sub={exp.busy ?? (exp.result ? <span className={exp.result.bad ? 's-bad' : ''}>{exp.result.text}</span> : fitness ? EXPORT_SUB : EXPORT_SUB_PLAIN)}
           onClick={() => void exp.run()}
           label="Export my data"
           aria-live="polite"

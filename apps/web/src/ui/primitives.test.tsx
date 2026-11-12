@@ -48,8 +48,8 @@ describe('SectionEmpty, NoData, StatusPill', () => {
     expect(renderToStaticMarkup(<NoData />)).toBe('<span class="no-data">None yet</span>');
   });
   it('gives the pill its whole state to VoiceOver', () => {
-    const html = renderToStaticMarkup(<StatusPill label="Week 3 of 12" voiceLabel="Half marathon, week 3 of 12. Open Plan" chevron="right" onPress={() => {}} />);
-    expect(html).toContain('aria-label="Half marathon, week 3 of 12. Open Plan"');
+    const html = renderToStaticMarkup(<StatusPill label="Week 3 of 12" voiceLabel="Half marathon, week 3 of 12. Open Fitness" chevron="right" onPress={() => {}} />);
+    expect(html).toContain('aria-label="Half marathon, week 3 of 12. Open Fitness"');
     expect(html).toContain('status-pill-label');
   });
 });

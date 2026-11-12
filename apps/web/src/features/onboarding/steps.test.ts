@@ -2,6 +2,11 @@ import { describe, expect, it, vi } from 'vitest';
 import { nudgeNext, questionsFor } from './steps';
 
 describe('questionsFor', () => {
+  it('asks about Fitness right after the name, and No skips every training question', () => {
+    expect(questionsFor({ native: false, replaying: false, noPlan: false })).toEqual(['name', 'fitness', 'goal', 'days', 'morning', 'habits', 'tour']);
+    expect(questionsFor({ native: false, replaying: false, noPlan: false, fitness: false })).toEqual(['name', 'fitness', 'habits', 'tour']);
+    expect(questionsFor({ native: true, replaying: false, noPlan: true, fitness: false })).toEqual(['name', 'fitness', 'habits', 'nudge', 'tour']);
+  });
   it('asks the nudge on the phone only', () => {
     expect(questionsFor({ native: true, replaying: false, noPlan: false })).toContain('nudge');
     expect(questionsFor({ native: false, replaying: false, noPlan: false })).not.toContain('nudge');
@@ -10,7 +15,7 @@ describe('questionsFor', () => {
     expect(questionsFor({ native: true, replaying: true, noPlan: false })).not.toContain('nudge');
   });
   it('skips the run questions with no running plan', () => {
-    expect(questionsFor({ native: false, replaying: false, noPlan: true })).toEqual(['name', 'goal', 'habits', 'tour']);
+    expect(questionsFor({ native: false, replaying: false, noPlan: true })).toEqual(['name', 'fitness', 'goal', 'habits', 'tour']);
   });
 });
 

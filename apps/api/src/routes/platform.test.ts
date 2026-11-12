@@ -152,6 +152,21 @@ describe('POST /me/onboarding', () => {
     expect(boot.morningSettings.after.shower).toBe(12);
   });
 
+  it('keeps what is switched on (Fitness, Today sections) on the account, and the bootstrap carries it', async () => {
+    const { cookie } = await signUp('a@example.com', 'correct horse 42', '/api/auth/setup');
+    expect((await call('GET', '/api/bootstrap', undefined, cookie)).body.prefs).toBeNull();
+    const prefs = { fitness: false, today: { habits: true, day: true, learned: false } };
+    const r = await call('PUT', '/api/me/prefs', prefs, cookie);
+    expect(r.status).toBe(200);
+    expect(r.body).toEqual({ prefs });
+    expect((await call('GET', '/api/bootstrap', undefined, cookie)).body.prefs).toEqual(prefs);
+    // the whole record or nothing: a partial or mistyped one is refused and the saved one stands
+    expect((await call('PUT', '/api/me/prefs', { fitness: 'no' }, cookie)).status).toBe(422);
+    expect((await call('GET', '/api/bootstrap', undefined, cookie)).body.prefs).toEqual(prefs);
+    // nothing is deleted by switching Fitness off: it is a preference, not a change to the plan
+    expect((await call('PUT', '/api/me/prefs', prefs)).status).toBe(401);
+  });
+
   it('a goal-less setup ("No running plan for now") finishes with no block and no training answers (onboarding-09)', async () => {
     const { cookie } = await signUp('a@example.com', 'correct horse 42', '/api/auth/setup');
     const r = await call('POST', '/api/me/onboarding', { goal: null, wake: 390, leave: 510, habits: ['Read 15 min'], name: 'Sam', trainWhen: 'none' }, cookie);

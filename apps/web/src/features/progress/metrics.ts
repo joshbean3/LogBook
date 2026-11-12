@@ -388,6 +388,30 @@ export const METRICS: Record<MetricId, MetricDef> = {
   }),
 };
 
+/**
+ * A metric as a person with Fitness off reads it (lib/prefs.ts): Consistency is Habits alone, and the health metrics say why
+ * they matter without the words about training. The numbers are the same; only what is named changes.
+ */
+const PLAIN: Partial<Record<MetricId, Partial<MetricDef>>> = {
+  consistency: {
+    name: 'Habits',
+    emptyLine: 'Nothing to count yet. Habits you tap land here.',
+    what: 'How much of what you set out to do got done: your habits.',
+    why: 'Good weeks are days stacked on days. A rough day matters less than coming back the next one.',
+    how: 'The share of your habits done each day, averaged over 7 days; today counts once a habit is done.',
+  },
+  sleep: { why: 'Sleep is when the day settles. A short week of nights often shows up in how you feel first.' },
+  hrv: { why: 'Higher than your usual often goes with feeling fresh. Several low days in a row often go with fatigue or a hard stretch.' },
+  rhr: { why: 'A resting rate that creeps up over a few days often goes with fatigue or a hard stretch.' },
+};
+export const metricDef = (id: MetricId, fitness: boolean): MetricDef => {
+  const def = METRICS[id];
+  if (fitness || !PLAIN[id]) return def;
+  return { ...def, ...PLAIN[id], variants: id === 'consistency' ? def.variants.filter((v) => v.id === 'habits') : def.variants };
+};
+/** The metrics that are about training: with Fitness off they have no tile and no page. */
+export const FITNESS_METRICS: readonly MetricId[] = ['mileage', 'pace', 'lifts'];
+
 /** Days of history the page needs before the window: the rolling window, the 90 days of the normal and the trend table's 90 + 90. */
 export const HISTORY_DAYS = 180;
 

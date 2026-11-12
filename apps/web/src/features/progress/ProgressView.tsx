@@ -13,7 +13,7 @@ import { healthWord } from './healthDays';
 import { runRange } from './hero';
 import { HeroChart } from './HeroChart';
 import { MetricIcon } from './icons';
-import { HEALTH_IDS, METRICS, type MetricId } from './metrics';
+import { HEALTH_IDS, metricDef, type MetricId } from './metrics';
 import { useHealthLink } from './useHealthDays';
 import { useMetricModels } from './useMetrics';
 import { rangeSpan, spanMonths } from './ranges';
@@ -97,7 +97,8 @@ export default function ProgressView() {
   return (
     <div className="page pg-page">
       {header}
-      <HeroChart
+      {/* Fitness is off (lib/prefs.ts): no Running or Strength chart; the page is Habits, then Health */}
+      {log.fitness ? <HeroChart
         log={log}
         t={t}
         range={range}
@@ -112,7 +113,7 @@ export default function ProgressView() {
           fail.retry();
           if (start.failed) start.retry();
         }}
-      />
+      /> : null}
       <Trends log={log} onConnect={connect} />
       {HEALTH_BUILT ? <Health log={log} t={t} /> : null}
     </div>
@@ -123,6 +124,8 @@ export default function ProgressView() {
 const ALL_CARDS: readonly MetricId[] = ['mileage', 'pace', 'consistency', 'lifts'];
 /** Pace needs runs with a time, and only a synced source has those: with none offered, the tile is not shown. */
 const UNTIMED_CARDS: readonly MetricId[] = ['mileage', 'consistency', 'lifts'];
+/** Fitness is off (lib/prefs.ts): the one trend that is not about training. */
+const PLAIN_CARDS: readonly MetricId[] = ['consistency'];
 /** A tile has 150 px: the short name. */
 const TILE_NAME: Partial<Record<MetricId, string>> = { mileage: 'Mileage', lifts: 'Lifts' };
 /** A value and its unit as a tile shows them: a share keeps its % on the number ("7%"). */
@@ -135,13 +138,15 @@ const valueParts = (value: string, unit: string) => (unit === '%' ? { value: `${
  */
 const Trends = ({ log, onConnect }: { log: Log; onConnect: (() => void) | null }) => {
   const nav = useNav();
-  const ids = STRAVA_BUILT && log.features.strava ? ALL_CARDS : UNTIMED_CARDS;
+  const ids = !log.fitness ? PLAIN_CARDS : STRAVA_BUILT && log.features.strava ? ALL_CARDS : UNTIMED_CARDS;
   const models = useMetricModels(log, ids);
-  const fresh = !models.mileage.hasData && !models.lifts.hasData;
+  // with Fitness off the section is Habits: its one tile, or one row that says what will show (never about a run or a lift)
+  const fresh = log.fitness ? !models.mileage.hasData && !models.lifts.hasData : !models.consistency.hasData;
   const shown = fresh ? ids.filter((id) => models[id].hasData) : ids;
   return (
-    <PageSection className="pg-sec" id="pg-trends" title="Trends">
-      {fresh ? (
+    <PageSection className={log.fitness ? 'pg-sec' : 'pg-sec pg-plain'} id="pg-trends" title={log.fitness ? 'Trends' : 'Habits'}>
+      {fresh && !log.fitness ? <SectionEmpty className="pg-empty" icon={<ProgressIcon size={18} />} title="No trend yet" line="It shows once you tap a habit on Today." /> : null}
+      {fresh && log.fitness ? (
         <SectionEmpty
           className="pg-empty"
           icon={<ProgressIcon size={18} />}
@@ -156,7 +161,7 @@ const Trends = ({ log, onConnect }: { log: Log; onConnect: (() => void) | null }
           {shown.map((id) => {
             const mm = models[id];
             const v = mm.variant;
-            const name = METRICS[id].tileName?.[v.id] ?? TILE_NAME[id] ?? METRICS[id].name;
+            const name = metricDef(id, log.fitness).tileName?.[v.id] ?? TILE_NAME[id] ?? metricDef(id, log.fitness).name;
             const { unit, window } = splitTileUnit(v.tileUnit, v.unit);
             const ctx = tileContext(mm, mm.status, window);
             const parts = mm.value != null ? valueParts(v.format(mm.value), unit) : null;
@@ -230,7 +235,7 @@ const Health = ({ log, t }: { log: Log; t: string }) => {
         {HEALTH_IDS.map((id) => {
           const mm = models[id];
           const v = mm.variant;
-          const name = VITAL_LABEL[id] ?? METRICS[id].name;
+          const name = VITAL_LABEL[id] ?? metricDef(id, log.fitness).name;
           const ctx = tileContext(mm, healthWord(mm, link), null);
           const spark = mm.line.filter((x): x is number => x != null);
           return (

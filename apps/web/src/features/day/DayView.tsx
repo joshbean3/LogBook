@@ -161,7 +161,8 @@ function TodayRoot({ roll, setHeld }: { roll: React.RefObject<(to: ISODate) => v
     { label: 'Go to a day…', onSelect: openCalendar },
     // the status sheet (Training, Taper, Rest, Sick, Injured, Travel, and for how long). In ordinary training Today shows
     // no status pill, so a status starts here; while one is on, its pill under the strip opens the same sheet
-    { label: 'Change training status…', onSelect: openStatus },
+    // (not with Fitness off: nothing on the page then speaks of training, lib/prefs.ts)
+    ...(log.fitness ? [{ label: 'Change training status…', onSelect: openStatus }] : []),
   ];
 
   // the destination of a 2–7 day goTo shows in the label in its direction (one render at its start, one at its end)
@@ -201,12 +202,12 @@ function TodayRoot({ roll, setHeld }: { roll: React.RefObject<(to: ISODate) => v
         dateLabel="Go to a day"
       >
         <Sentence />
-        <DateStrip shown={date} today={today} handle={handle} stripRef={stripRef} statusOf={statusOf} kindsOf={kindsOf} labelOf={labelOf} onPick={(d) => handle.goTo(d)} />
+        <DateStrip shown={date} today={today} handle={handle} stripRef={stripRef} statusOf={statusOf} kindsOf={kindsOf} labelOf={labelOf} plain={!log.fitness} onPick={(d) => handle.goTo(d)} />
       </NavBar>
       <DayPager date={date} step="day" handle={handle} onCommit={commit} render={render} label="Day" prevLabel="Previous day" nextLabel="Next day" />
       {/* pull to refresh's keyboard and VoiceOver path (WP1's request): the same REFRESH a committed pull fires */}
       <button type="button" className="dpager-sr" onClick={() => window.dispatchEvent(new CustomEvent(REFRESH))}>
-        Check for new runs
+        {log.fitness ? 'Check for new runs' : 'Refresh'}
       </button>
     </div>
   );

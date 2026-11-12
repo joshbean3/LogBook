@@ -67,7 +67,7 @@ export const reasonWords = (n: PlanPatchNote): string => REASON[n.reason](n.valu
 /** What the builder has no setting for, as sentences: lifts and cross training share one. */
 export const cannotWords = (topics: readonly PlanCannot[]): string[] => {
   const out: string[] = [];
-  if (topics.includes('lifts')) out.push('This plan holds runs only. Add lifts on the Plan tab.');
+  if (topics.includes('lifts')) out.push('This plan holds runs only. Add lifts on the Fitness tab.');
   else if (topics.includes('cross')) out.push('This plan holds runs only.');
   if (topics.includes('paces')) out.push('Paces aren’t set here.');
   if (topics.includes('workouts')) out.push('The plan picks each week’s workouts.');

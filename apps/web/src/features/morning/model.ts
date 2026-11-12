@@ -1,3 +1,4 @@
+import { fitnessOn } from '@/lib/prefs';
 import { AFTER_LABELS, AFTER_ORDER, afterLabel, buildMorning, clock, durationWords, morningDayFor, NEW_ACCOUNT_MORNING, normalizeAfterOrder, num, routineOf, type MorningAfterKey, type MorningDayOverride, type MorningSettings, type MorningTimeline, type RoutineKey, type RoutineStep, type Session } from '@logbook/shared';
 import { clockParts } from '../day/dayWords';
 
@@ -172,7 +173,7 @@ export const rowsOf = (T: MorningTimeline, just: string, patched = false, keep?:
   const wake = T.blocks.find((b) => b.key === 'wake');
   const door = doorOf(T);
   const own = T.day.own || patched;
-  out.push({ id: 'wake', kind: 'wake', at: T.day.wake, start: T.day.wake, end: wake?.end ?? T.day.wake, name: 'Wake up', sub: own ? `Just ${just}` : T.day.mode === 'rest' ? 'Rest morning' : 'Every morning', icon: 'wake' });
+  out.push({ id: 'wake', kind: 'wake', at: T.day.wake, start: T.day.wake, end: wake?.end ?? T.day.wake, name: 'Wake up', sub: own ? `Just ${just}` : T.day.mode === 'rest' && fitnessOn() ? 'Rest morning' : 'Every morning', icon: 'wake' });
   const work = T.blocks.find((b) => b.key === 'run' || b.key === 'gym');
   if (work && door != null) {
     const sub = work.key === 'run' ? `${num(T.day.miles)} mi · ${clock(T.settings.run.pace)}/mi · back ${short(T.back)}` : `${durationWords(T.day.minutes)} · back ${short(T.back)}`;

@@ -1,3 +1,4 @@
+import { fitnessOn } from '@/lib/prefs';
 import { fmtDate, periodEnd, periodName, periodOf, periodPast, periodSpan, periodStart, shiftPeriod, type Aim, type GoalLevel, type GoalStatus, type ISODate } from '@logbook/shared';
 
 /** The words each level speaks in: its label, the question the editor asks, an example of a sharp goal. */
@@ -7,6 +8,15 @@ export const LEVEL: Record<GoalLevel, { label: string; ask: string; example: str
   week: { label: 'Week', ask: 'What will you get done this week?', example: 'Four runs, 20 miles, the long one on Saturday.', set: 'Set the week’s goal' },
   day: { label: 'Day', ask: 'What is the one thing for today?', example: 'Send the model to Ana by 3 pm.', set: 'Set today’s goal' },
 };
+
+/** The examples for a person with Fitness off (lib/prefs.ts): the same shape of goal, about anything but training. */
+const PLAIN_EXAMPLE: Partial<Record<GoalLevel, string>> = {
+  year: 'Read 24 books by December.',
+  month: 'Finish the kitchen and file the taxes.',
+  week: 'Three early nights, and the report sent by Friday.',
+};
+/** A sharp goal at this level, as the editor's hint and placeholder show it. */
+export const exampleOf = (level: GoalLevel, fitness = fitnessOn()): string => (fitness ? LEVEL[level].example : (PLAIN_EXAMPLE[level] ?? LEVEL[level].example));
 
 /**
  * The question the set-goal sheet asks, for the period it is about: `What is the one thing for tomorrow?`, `What will you get
@@ -169,4 +179,4 @@ const periodPhrase = (level: GoalLevel, period: string, today: string) => {
  * the recent training and goals (no habits, no long history).
  */
 export const suggestRequest = (level: GoalLevel, period: string, today: string) =>
-  `Suggest one ${LEVEL[level].label.toLowerCase()} goal for ${periodPhrase(level, period, today)}, based on my recent training and goals. Make it specific and measurable, with two or three steps.`;
+  `Suggest one ${LEVEL[level].label.toLowerCase()} goal for ${periodPhrase(level, period, today)}, based on my ${fitnessOn() ? 'recent training and goals' : 'goals and to-dos'}. Make it specific and measurable, with two or three steps.`;

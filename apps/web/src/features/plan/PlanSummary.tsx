@@ -201,7 +201,7 @@ const PlanSummary = ({ b: opened, fromList }: { b: PlanBlock; fromList?: boolean
                 title={title}
                 sub={sub}
                 onClick={() => toWeek(w.mon)}
-                label={`${title}${isNow ? ', this week' : ''}. ${sub}. ${miles1(w.planned)} miles planned. Open this week on Plan`}
+                label={`${title}${isNow ? ', this week' : ''}. ${sub}. ${miles1(w.planned)} miles planned. Open this week on Fitness`}
                 right={
                   <>
                     <span className="lrow-value">{miles1(w.planned)} mi</span>

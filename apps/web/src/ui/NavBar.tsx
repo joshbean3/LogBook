@@ -251,6 +251,8 @@ export interface DateStripProps {
   labelOf?: (date: string) => string;
   /** What each day trains (Today's strip): a glyph per kind in the day's pill. Empty for rest or nothing planned: no pill. */
   kindsOf?: (date: string) => readonly StripKind[];
+  /** No kind pills and no slot for them (Fitness is off, lib/prefs.ts): the letter and the numeral only, in a shorter strip. */
+  plain?: boolean;
 }
 export type StripKind = 'run' | 'lift' | 'cross';
 // cross-training is a bike (plan 5.4, Q7): a pulse glyph is banned for training and health (guide 7)
@@ -269,7 +271,7 @@ const STATUS_WORD: Record<Exclude<StripStatus, null>, string> = { done: 'done', 
  * on one line whether a day has one session, two or none. With `kindsOf` a day shows its pill or nothing; without it (a
  * caller that only knows the status) the slot holds the status dot.
  */
-export const DateStrip = ({ shown, today, handle, stripRef, statusOf, onPick, labelOf, kindsOf }: DateStripProps): React.JSX.Element => {
+export const DateStrip = ({ shown, today, handle, stripRef, statusOf, onPick, labelOf, kindsOf, plain }: DateStripProps): React.JSX.Element => {
   const mon = mondayOfIso(shown);
   const days = Array.from({ length: 7 }, (_, i) => iso(D(mon).getTime() + i * 86_400_000));
   const idx = days.indexOf(shown);
@@ -332,7 +334,7 @@ export const DateStrip = ({ shown, today, handle, stripRef, statusOf, onPick, la
 
   return (
     <div
-      className="nb-strip"
+      className={plain ? 'nb-strip is-plain' : 'nb-strip'}
       ref={(el) => {
         rootRef.current = el;
         setRef(stripRef, el);
@@ -362,7 +364,7 @@ export const DateStrip = ({ shown, today, handle, stripRef, statusOf, onPick, la
           >
             <span className="nb-letter">{fmt(d, { weekday: 'narrow' })}</span>
             <span className="nb-num tnum">{DAYN(d)}</span>
-            {kinds.length ? (
+            {plain ? null : kinds.length ? (
               // one pill, one size: a day with two sessions shows both glyphs inside it
               <span className={`nb-kinds is-${s ?? 'planned'}`} aria-hidden="true">
                 {kinds.map((k) => {

@@ -2,7 +2,8 @@ import { daysBetween, fmtDate, monthsBetween, shiftDays } from '@logbook/shared'
 import { ChevronRight, CircleArrowDown, CircleArrowUp, CircleCheck, Hourglass, Info, Sigma, Trophy } from 'lucide-react';
 import { useMemo, useRef, useState } from 'react';
 import { useNav, useRouteParams } from '@/app/NavController';
-import { DISCLAIMER } from '@/lib/copy';
+import { disclaimer } from '@/lib/copy';
+import { useFitness } from '@/lib/prefs';
 import { STRAVA_BUILT } from '@/lib/features';
 import { useMedia } from '@/lib/useToday';
 import { EmptyState, Footnote, NoData, PageSection, PushedBar, Pressable, SectionEmpty, Segmented, StatTile, useSheet } from '@/ui';
@@ -13,7 +14,7 @@ import { rangeLabel } from './data';
 import { agoWords } from './feed';
 import { healthWord, type HealthLink } from './healthDays';
 import { MetricIcon } from './icons';
-import { bandWords, buildMetric, daysWords, HISTORY_DAYS, isMetricId, leadVariant, METRICS, valueDateWords, type MetricId, type MetricModel } from './metrics';
+import { bandWords, buildMetric, daysWords, HISTORY_DAYS, isMetricId, leadVariant, metricDef, valueDateWords, type MetricId, type MetricModel } from './metrics';
 import { EasyPaceSheet, LiftsSheet } from './sheets';
 import { useHealthLink } from './useHealthDays';
 import { useMetricSource } from './useMetrics';
@@ -73,7 +74,8 @@ export default function MetricPage(): React.JSX.Element {
   const nav = useNav();
   const link = useHealthLink();
   const id: MetricId = isMetricId(params.id) ? params.id : 'mileage';
-  const def = METRICS[id];
+  const fitness = useFitness();
+  const def = metricDef(id, fitness);
   const [stored] = useState<RangeKey>(readRange);
   // the span picked on this visit; until then the remembered one, never longer than the data (MP2: no 3-month chart for 2 days)
   const [picked, setPicked] = useState<RangeKey | null>(null);
@@ -273,7 +275,7 @@ export default function MetricPage(): React.JSX.Element {
             <p className="mp-a">{def.how}</p>
           </div>
         </div>
-        <Footnote className="mp-note">{DISCLAIMER}</Footnote>
+        <Footnote className="mp-note">{disclaimer(fitness)}</Footnote>
       </PageSection>
     </div>
   );

@@ -125,7 +125,7 @@ const HistoryTiles = ({ log }: { log: Log }) => {
           {top ? top.streak : '–'}
           {top ? <small>{top.streak === 1 ? 'day' : 'days'}</small> : null}
         </span>
-        <span className={`tile-status hv-top ${top ? '' : 'is-none'}`}>{top ? top.name : 'None running'}</span>
+        <span className={`tile-status hv-top ${top ? '' : 'is-none'}`}>{top ? top.name : 'None going'}</span>
       </div>
     </div>
   );

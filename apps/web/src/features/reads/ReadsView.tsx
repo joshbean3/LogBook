@@ -1,3 +1,4 @@
+import { fitnessOn } from '@/lib/prefs';
 import { ago, isAddressTitle, linkTitle, toISO, type Link, type PickResult } from '@logbook/shared';
 import { ArrowUpRight, Check, Copy, Pencil, Plus, RotateCcw, Trash2, X } from 'lucide-react';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
@@ -152,7 +153,7 @@ const LinkSheet = ({ x }: { x: Link }) => {
         </label>
         <label className="rsheet-field">
           <span className="k-label">Tags</span>
-          <input className="jtext rsheet-tags" maxLength={120} placeholder="running, sleep" value={tags} autoCapitalize="none" onChange={(e) => setTags(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), save())} />
+          <input className="jtext rsheet-tags" maxLength={120} placeholder={fitnessOn() ? 'running, sleep' : 'sleep, focus'} value={tags} autoCapitalize="none" onChange={(e) => setTags(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), save())} />
         </label>
       </div>
       <KPin>

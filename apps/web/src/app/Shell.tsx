@@ -10,7 +10,8 @@ import { outbox } from '@/api/outbox';
 import { keys } from '@/api/queries';
 import { PTR_ARM_PX, PTR_QUIET_MS } from '@/lib/gesture';
 import { haptics } from '@/lib/haptics';
-import { REFRESH, TABS, type PushedEntry, type TabDef, type TabId, type TabState } from '@/ui/nav';
+import { REFRESH, shownTabs, TABS, type PushedEntry, type TabDef, type TabId, type TabState } from '@/ui/nav';
+import { useFitness } from '@/lib/prefs';
 import { BackButton } from '@/ui/NavBar';
 import { PushedLayer, StackCtx, type StackMotion } from '@/ui/PushedLayer';
 import { pointerClaimed } from '@/ui/useHold';
@@ -30,6 +31,8 @@ import './healthPill.css';
 export const Shell = ({ pages, pushed }: { pages: Record<TabId, ReactNode>; pushed: (entry: PushedEntry) => ReactNode }): React.JSX.Element => {
   const ctl = useNavInternal();
   const st = useNavState();
+  // with Fitness off its tab is not mounted and not drawn; the five that remain share the capsule evenly
+  const tabs = shownTabs(useFitness());
   // a tab root mounts on its first activation or in idle after the first content paint, then stays mounted
   const mounted = useRef(new Set<TabId>());
   mounted.current.add(st.active);
@@ -76,12 +79,12 @@ export const Shell = ({ pages, pushed }: { pages: Record<TabId, ReactNode>; push
     <div className="shell">
       <CelebrateLayer />
       <div className="tabs-host">
-        {TABS.map((t) => (
+        {tabs.map((t) => (
           <TabSection key={t.id} ctl={ctl} tab={t.id} state={st.tabs[t.id]} active={st.active === t.id} leaving={leaving === t.id && st.active !== t.id} mounted={mounted.current.has(t.id)} page={pages[t.id]} pushed={pushed} />
         ))}
       </div>
       <Dock today={st.tabs.today.path}>
-        <TabBar ctl={ctl} active={st.active} />
+        <TabBar ctl={ctl} active={st.active} tabs={tabs} />
       </Dock>
       <StatusPill />
     </div>
@@ -263,11 +266,11 @@ const TabItem = memo(function TabItem({ t, on, ctl }: { t: TabDef; on: boolean; 
     </button>
   );
 });
-const TabBar = ({ ctl, active }: { ctl: Controller; active: TabId }) => (
+const TabBar = ({ ctl, active, tabs }: { ctl: Controller; active: TabId; tabs: readonly TabDef[] }) => (
   <nav className="tabbar" aria-label="Views">
     {/* a navigation landmark of buttons, the current one marked (a11y-15): no tablist, which promised arrow keys */}
     <div className="tabs">
-      {TABS.map((t) => (
+      {tabs.map((t) => (
         <TabItem key={t.id} t={t} on={active === t.id} ctl={ctl} />
       ))}
     </div>

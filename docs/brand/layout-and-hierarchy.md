@@ -52,6 +52,7 @@ Each change below is written into `docs/brand/brand-guide.md` in the same words.
 | C24 | 2.1, 6.9, 12.1 | Pointers: the plan builder's pill is a 28 px gloss Orb, still; in the New plan sheet the assistant's composer changes the pinned primary button while it is in use; a New plan row in the screen table. |
 | C25 | 6.7 The week strip | The kind pill is one size on every day and in every state (34 x 22, centered on its column, 8 px under the numeral), with two glyphs inside the same pill on a two-session day, and one fill system: Paper for nothing done yet, Haze for part, Sky for all, hollow for a day that passed with nothing done. Today's pill loses its Deep Sky ring: today is the Sunrise dot. A day with no session keeps the empty slot. The cell is 83 tall (was 81). Owner request: the pills were uneven. |
 | C26 | 6.13 Status row and status sheet; 12.1 Today | The row is the plan pill, with the status pill before it only while a status is on. "On the plan" and "Day by day" are gone (owner request). The plan pill shows the plan's name with its phase and a right chevron. The status sheet opens from the status pill, and in ordinary training from Today's title menu. |
+| C27 | 6.1 The floating dock and tab capsule; 6.13 (new rows); 7; 10.2; 12.1 | The Plan tab is named **Fitness** (the page is Fitness, a plan lives inside it; routes and file names keep `plan`), with the set's run glyph. **Fitness is a switch** in Settings, on by default: off, the tab is not drawn and the five tabs that remain share the capsule evenly, and no screen names training. **Today's sections are switches** too ("Today shows": Habits, Plan your day, What I learned), reached from Settings and from "Edit Today" at the bottom of Today. Layout in 2.3, 2.6, 2.7, 2.9 and 2.11 below. |
 
 **Considered and not changed.** The screen title stays at 38/42 (`--fs-title`). Apple's Large Title is 34 and the hero's session name (40) is within 5 percent of the title, but the brand raised the title from 34 to 38 on purpose. The hero card already wins on Today by area (about 360 pt tall against a 42 pt title line), by the glow and by position once the rows above it are compacted (section 2.3). Body text stays 16/24: Apple's own advice is loose leading for long passages, and 16/24 measures 49 characters a line in a card at 390. The 16 px gutter stays at every width. It is inside Apple's 16 to 20 pt system margin, and one gutter keeps every edge aligned.
 
@@ -93,6 +94,8 @@ Each table names the screen's job, its focal point, its one Sky button, what is 
 | Sky button | "Set the goal" in Plan your day, only while today's goal is unset. Otherwise none. The habit coins are the screen's most used control. |
 | Read in passing, above the hero | The title block (date caption, "Today", the quote), the week strip, one row of status pills (the plan pill; the status pill before it only while a status is on). Nothing else sits above the hero. |
 | Order of emphasis | 1. Hero: the session name, the detail line under it, then the band on the far hill: the label ("Runs this week") with its count, the miles, and the view pill at the band's trailing edge. Under the hill's edge, in the same card: the Morning / Afternoon / No time control, then the morning line or the log line. On a day with no run and no workout: the title, one line for what comes next, the dusk scene, the week's totals. 2. Habits: the two-column tile grid. 3. Plan your day: today's goal, the carry-over row, the top three. 4. The fold ("3 more") and "All to-dos". |
+
+**What Today shows, and Fitness off.** Today's sections can be switched (`lib/prefs.ts`; the list is "Today shows", in Settings and behind "Edit Today"). Fitness on, the order is the one above, with one row added last: 4. What I learned, a section header over one list row ("What did you learn today?", the Learned bulb in a Haze tile, a chevron) that opens Learned. Fitness off, the hero, the kind pills, the status row and the second-session card are not drawn and nothing names training: the week strip is the letter and the numeral only (54 tall), and the day's own sections lead, 16 px under the strip: 1. Plan your day, 2. Habits, 3. What I learned. In the evening the Close card still takes the first place, without a session row or a miles stamp. A section switched off leaves no gap: what follows moves up. With every section off the page is one Dusk line ("Nothing is set to show on Today.") and one quiet Deep Sky link that opens the list. **"Edit Today"** is the last thing on the page on every day: one quiet link (6.6), centered, a 44 pt target, a section's gap (32) above it, opening the "Today shows" sheet. A choice of what a screen shows is made on that screen [HIG: Health's Edit beside Pinned, Fitness's Edit Summary]; the Fitness switch is general and lives in Settings only.
 
 Build:
 
@@ -142,7 +145,9 @@ Build (includes the pending owner requests):
 - **The field starts at 3 lines (72 pt) and grows as you type.** It is about 160 pt of empty Paper now. Why: an empty block reads as a false floor and pushes the year list off the first screen [NN/g].
 - **Month rows are one inset group** under the year heading. "No months yet" uses the section empty form (6.5).
 
-### 2.6 Plan
+### 2.6 Fitness (the Plan tab)
+
+The tab and the page are named **Fitness**: a plan lives inside it ("Your plan", "Make a plan" keep their words). Routes, files and ids keep `plan`; `/fitness` leads to `/plan`. With Fitness switched off (Settings) the tab is not drawn or mounted, and its routes (`/plan…`, `/fitness`, `/settings/training`, `/settings/plans`, the mileage, pace and lifts metric pages) lead to Today.
 
 | | |
 |---|---|
@@ -164,6 +169,8 @@ Build (includes the pending owner request):
 - **The Add sheet** (6.12): the day, Run or Lift, the essentials, Add. The row lands in the week at once with a toast and Undo, and the totals in the week's line and on Today's hero count it.
 
 ### 2.7 Progress
+
+**Fitness off.** No hero chart and no mileage, pace or lifts tile. The page is two sections under the title, the first 16 px under it: **Habits** (the Habits tile at the full width of the row, so the page opens on one whole card and never a tile beside a hole; before any habit is tapped, one section row, "No trend yet") and **Health** (as below). The Habits metric page shows the habits line alone, with no Plan chip.
 
 | | |
 |---|---|
@@ -212,10 +219,12 @@ Build (includes the pending owner requests):
 | Focal point | The You row (name and plan). |
 | Sky button | None. |
 | Read in passing | The back button and the centered title. |
-| Order of emphasis | You, Training, Habits, Morning routine, Data sources, Privacy, App, Data, About, Account (sign out, delete) last. |
+| Order of emphasis | You, Today shows, Fitness, Habits, Morning routine, Data sources, Privacy, App, Data, About, Account (sign out, delete) last. |
 
 Build:
 
+- **Today shows** is three switch rows (Habits, Plan your day, What I learned), each with a Haze tile and one line; switches only, nothing to reorder. A footnote says the training card follows Fitness, only while Fitness is on. The same rows are the "Today shows" sheet on Today (2.3): one list, two ways in.
+- **Fitness** is the old Training group under its new name. Its first row is the switch: the run glyph in a Haze tile, "Fitness", one line ("Training plan, runs and lifts"), the switch trailing. On, the training rows follow it (miles, run days, long run, easy pace, Plans). Off, the group is that one row, the You row's subtitle is the account's address, the Strava rows are gone, and nothing else on Settings or its pages names training.
 - **Group titles drop to Fraunces 600 `--fs-head` (22/28), 24 px above and 8 px below** (C2, C12). Today there are ten 26 px titles down one list, each larger than the rows it labels. Why: on a list page the rows are the content, and grouped lists use quieter headers [HIG Lists, iOS 26 inset grouped lists].
 - **Row subtitles are one line.** "7 habits" gets the subtitle "Meditate, Read and 5 more", not three wrapped lines. Why: rows are for scanning; detail is one tap away [HIG Lists].
 - **Delete account sits alone at the end** as a destructive button (brand 6.2), with the version footnote centered under it.
@@ -239,6 +248,8 @@ Build: answers run the full sheet width less the 16 px gutter, capped at `max-in
 | Focal point | The step's sample (the preview card) with its headline: one unit. |
 | Sky button | "Next", 54 tall, full width, pinned 8 px above the safe area. |
 | Order of emphasis | Intro steps: 1. the sample card, 2. the headline (`--fs-hero`, at most 3 lines at 390), 3. one line (`--fs-body` Dusk), 4. Next, 5. "I have an account" (quiet, 8 px below Next). Question steps: 1. the question (Fraunces `--fs-section`, left aligned), 2. the options as an inset group or chips, 3. Next. |
+
+**The Fitness question.** One question step, right after the name, where the training questions begin: "Do you want Orby to track training?", with two rows in one inset group ("Yes, track training", "No, just my day"), each a Haze tile, a title and one line, a Deep Sky check on the chosen one. Next stays grey until one is chosen. No skips every training step (the goal, the days, the morning), the Fitness and Progress pages of the tour and the plan row of the payoff. It is the only customization first run asks for; Today's sections are not asked here.
 
 Build: the progress dots sit 16 px above Next and are display only. Headline and sample are 24 px apart, and headline and its line 8 px apart. Every step's content clears Next by at least 24 px at 320 x 844.
 

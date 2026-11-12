@@ -9,6 +9,7 @@ import { apiOrigin, onDeepLink, hideSplash } from '@/lib/native';
 import { startServiceWorker } from '@/lib/sw';
 import { outbox } from '@/api/outbox';
 import { prefetchAll, stravaSyncNow, useBootstrap } from '@/api/queries';
+import { syncPrefs } from '@/api/prefsSync';
 import { Login, Signup } from '@/features/auth/AuthScreens';
 import DayView from '@/features/day/DayView';
 import { hasAccountHere, markHasAccount, signedOutHome } from '@/features/auth/flag';
@@ -266,6 +267,12 @@ const Authed = () => {
     void healthSyncNow(qc, 'open').catch(() => undefined);
     requestAnimationFrame(() => setTimeout(startServiceWorker, 0));
   }, [hasBoot, qc]);
+  // what is switched on (Fitness, Today's sections): this device's copy rules; the account's copy, when the server keeps
+  // one, seeds a device that has none (asked again when a fresh bootstrap brings it; api/prefsSync.ts)
+  const accountPrefs = hasBoot ? boot.data?.prefs : undefined;
+  useEffect(() => {
+    if (hasBoot) syncPrefs(accountPrefs);
+  }, [hasBoot, accountPrefs]);
   const retryBoot = useCallback(() => {
     if (!known && !hadAccount) void session.refetch();
     else void boot.refetch();

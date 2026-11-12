@@ -4,13 +4,16 @@ import type * as React from 'react';
 import { lazy, memo, Suspense, useCallback, useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import { useGoals, useHabitMutations, useTodos } from '@/api/queries';
 import { STRAVA_BUILT } from '@/lib/features';
+import { todayParts, usePrefs } from '@/lib/prefs';
 import { hideSplash } from '@/lib/native';
 import { SectionHeader } from '@/ui/layout';
-import { EmptyState, SectionEmpty } from '@/ui/primitives';
+import { Button, EmptyState, SectionEmpty } from '@/ui/primitives';
 import { Pressable } from '@/ui/Pressable';
 import { useSheet } from '@/ui/Sheet';
 import { NAV_EVENT, type NavEventDetail } from '@/ui/nav';
 import { useOpenHabitsHistory } from '../habits/HabitsHistory';
+import { LearnedPrompt } from '../learned/LearnedPrompt';
+import { useOpenTodayShows } from '../settings/TodayShows';
 import { Composer } from '../journal/JournalDaySection';
 import { HABIT_STARTERS, HabitsMeta, OrbRow } from '../habits/OrbRow';
 import { useLog, type Log } from '../log/useLog';
@@ -209,12 +212,43 @@ interface DayPageProps {
  * A neighbour's first frame (risk 1): the page's shape only (the hero's box, the plan's box, the week card's box), so mounting the one new neighbour inside a commit's synchronous frame costs almost nothing; its content renders in
  * the background right after (`useDeferredValue`, interruptible by the next touch). Never a card over black.
  */
-const DayShell = ({ date }: { date: ISODate }) => (
-  <div className="day-page is-shell" data-day={date}>
-    <div className="hero aura hero-skel" data-face="loading" aria-hidden="true" />
-    <section className="pd is-skel" aria-hidden="true" />
-  </div>
-);
+const DayShell = ({ date }: { date: ISODate }) => {
+  const parts = todayParts(usePrefs());
+  return (
+    <div className="day-page is-shell" data-day={date} data-fitness={parts.includes('fitness') ? undefined : 'off'}>
+      {parts.includes('fitness') ? <div className="hero aura hero-skel" data-face="loading" aria-hidden="true" /> : null}
+      {parts.includes('day') ? <section className="pd is-skel" aria-hidden="true" /> : null}
+    </div>
+  );
+};
+
+/** Every Today section is switched off: one calm line and the way back to the switches (Settings, Today shows). */
+const NothingShown = () => {
+  const edit = useOpenTodayShows();
+  return (
+    <div className="day-none">
+      <p className="day-none-line">Nothing is set to show on Today.</p>
+      <Pressable className="day-none-link" press="dim" onPress={edit} label="Choose what Today shows">
+        Choose what Today shows <ChevronRight size={18} aria-hidden="true" />
+      </Pressable>
+    </div>
+  );
+};
+
+/**
+ * The last thing on Today: one quiet link that opens the "Today shows" list as a sheet (the same list as Settings). A
+ * choice of what a screen shows is made on that screen; the link is quiet, so it never competes with the day.
+ */
+const EditToday = () => {
+  const edit = useOpenTodayShows();
+  return (
+    <div className="day-edit">
+      <Button variant="quiet" size="sm" className="day-edit-link" onClick={edit} aria-label="Edit Today. Choose what Today shows">
+        Edit Today
+      </Button>
+    </div>
+  );
+};
 
 /**
  * One day's page inside the pager (docs/feel.md §3.1, §3.3): every day renders the same sections in the same order, quiet when
@@ -258,22 +292,38 @@ const DayContent = memo(function DayContent({ date, onMorning }: { date: ISODate
   const openPlan = useCallback(() => void import('../plan/Blocks').then((m) => m.openTemplate(sheet, logRef.current)), [sheet]);
 
 
+  // what Today shows, and in what order (lib/prefs.ts): Fitness leads when it is on; with it off the day's own content does
+  const parts = todayParts(usePrefs());
+  const fitness = parts.includes('fitness');
+  const habits = !parts.includes('habits') ? null : loaded ? <HabitsTop key="habits" date={date} log={log} /> : <section key="habits" className="habits day-habits is-skel" aria-hidden="true" />;
+  const day = parts.includes('day') && loaded ? <PlanDay key="day" date={date} today={today} yesterday={isToday ? <CloseYesterday log={log} /> : null} /> : null;
+  // nothing is switched on: one line and the way to the switches, and nothing else on the page
+  if (!parts.length)
+    return (
+      <div className="day-page" data-day={date} data-fitness="off">
+        <LiveExtras date={date} loaded={loaded} />
+        <NothingShown />
+      </div>
+    );
+
   return (
-    <div className="day-page" data-day={date}>
-      {loaded ? <StatusChip date={date} today={today} onPlan={openPlan} /> : null}
-      {loaded ? <HeldNote date={date} log={log} /> : null}
-      {/* the day's training is the page's centrepiece: first, above the habits (HeroGauge carries the week's miles) */}
-      {!loaded ? <HeroSkeleton /> : bare ? <FirstRunSlot date={date} log={log} /> : <Hero date={date} log={log} />}
+    <div className="day-page" data-day={date} data-fitness={fitness ? undefined : 'off'}>
+      {fitness && loaded ? <StatusChip date={date} today={today} onPlan={openPlan} /> : null}
+      {fitness && loaded ? <HeldNote date={date} log={log} /> : null}
+      {/* the day's training is the page's centrepiece: first, above the habits (HeroGauge carries the week's miles). With
+          Fitness off the slot holds the evening's Close card only, and the day's own sections lead */}
+      {fitness ? !loaded ? <HeroSkeleton /> : bare ? <FirstRunSlot date={date} log={log} /> : <Hero date={date} log={log} /> : loaded ? <Hero date={date} log={log} closeOnly /> : null}
       <LiveExtras date={date} loaded={loaded} />
-      {loaded ? <HabitsTop date={date} log={log} /> : <section className="habits day-habits is-skel" aria-hidden="true" />}
-      {loaded ? <PlanDay date={date} today={today} yesterday={isToday ? <CloseYesterday log={log} /> : null} /> : null}
-      {STRAVA_BUILT && loaded && isToday && !bare && primer.show ? (
+      {fitness ? [habits, day] : [day, habits]}
+      {parts.includes('learned') && loaded && isToday ? <LearnedPrompt today={today} /> : null}
+      {fitness && STRAVA_BUILT && loaded && isToday && !bare && primer.show ? (
         <div className="strava-primer">
           <StravaPrimer onLater={primer.later} />
         </div>
       ) : null}
       {loaded && date < today ? <TheDayCard date={date} log={log} /> : null}
       {loaded ? <DayTimeline date={date} log={log} /> : null}
+      {loaded ? <EditToday /> : null}
     </div>
   );
 });

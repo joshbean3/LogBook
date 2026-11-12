@@ -27,12 +27,13 @@ import { onUnauthorized } from '@/api/client';
 import { useBootstrap } from '@/api/queries';
 import { useNavInternal } from '@/app/NavController';
 import { useConsent } from '@/lib/consent';
-import { AI_LABEL, DISCLAIMER } from '@/lib/copy';
+import { AI_LABEL, disclaimer } from '@/lib/copy';
+import { useFitness } from '@/lib/prefs';
 import { haptics } from '@/lib/haptics';
 import { revealField } from '@/lib/keyboard';
 import { isNative } from '@/lib/native';
 import { useToday } from '@/lib/useToday';
-import { GoalsIcon, JournalIcon, LearnedIcon, PlanIcon, ProgressIcon, TodayIcon, type BrandIconComponent } from '@/ui/icons';
+import { FitnessIcon, GoalsIcon, JournalIcon, LearnedIcon, ProgressIcon, TodayIcon, type BrandIconComponent } from '@/ui/icons';
 import { useSheet } from '@/ui/Sheet';
 import { useToast } from '@/ui/Toast';
 import { ATTACHMENT_LIMITS, type AssistantFileShown } from '@logbook/shared';
@@ -70,7 +71,7 @@ const TurnFiles = ({ files }: { files: AssistantFileShown[] }) => (
 );
 
 /** The screen it was opened from, in the set's own tab glyphs (guide 7; plan 5.4: never a pulse for Progress). */
-const SCREEN_ICON: Record<AssistantScreen['tab'], BrandIconComponent> = { today: TodayIcon, plan: PlanIcon, progress: ProgressIcon, goals: GoalsIcon, learned: LearnedIcon, journal: JournalIcon };
+const SCREEN_ICON: Record<AssistantScreen['tab'], BrandIconComponent> = { today: TodayIcon, plan: FitnessIcon, progress: ProgressIcon, goals: GoalsIcon, learned: LearnedIcon, journal: JournalIcon };
 
 /** Ways to start an empty chat: two lines each (what, then the rest), as starter cards in phone chat apps read. */
 type Starter = { title: string; sub: string; send?: string; attach?: true };
@@ -79,7 +80,18 @@ const READ_PLAN: Starter = { title: 'Read a plan', sub: 'from a photo or a PDF',
  * The starters for where the sheet was opened. With training data off the assistant can't see the plan, so the plan
  * starters give way to general questions.
  */
-export const startersFor = (tab: AssistantScreen['tab'] | undefined, date: ISODate, today: ISODate, training: boolean): Starter[] => {
+export const startersFor = (tab: AssistantScreen['tab'] | undefined, date: ISODate, today: ISODate, training: boolean, fitness = true): Starter[] => {
+  // Fitness is off (lib/prefs.ts): the starters are about the day, the goals and the habits, and none reads a training plan
+  if (!fitness) {
+    const goals: Starter = { title: 'How my goals', sub: 'are going', send: 'How are my goals going?' };
+    const week: Starter = { title: 'Set this week’s goal', sub: 'with me', send: 'Help me set this week’s goal' };
+    if (!training)
+      return [
+        { title: 'Build a habit', sub: 'that sticks', send: 'How do I build a habit that sticks?' },
+        { title: 'Set a goal', sub: 'I can keep', send: 'How do I set a goal I can keep?' },
+      ];
+    return tab === 'goals' ? [week, goals] : [{ title: 'Sort my to-dos', sub: 'for today', send: 'Help me sort my to-dos for today' }, week, goals];
+  }
   if (!training)
     return [
       { title: 'Pace a long run', sub: 'how easy it should feel', send: 'How easy should a long run feel?' },
@@ -558,6 +570,7 @@ const Conversation = ({ date, initial, screen: openedFrom, chatId, own, placehol
   const consentQ = useConsent();
   const consent = consentQ.data ?? boot?.consent;
   const training = consent?.training === true;
+  const fitness = useFitness();
   const chip = training ? chipOf(openedFrom, today) : null;
   const screen = training && (kept || !chip) ? openedFrom : undefined;
   const askDate = chip && !kept ? today : date;
@@ -833,7 +846,7 @@ const Conversation = ({ date, initial, screen: openedFrom, chatId, own, placehol
       <div className="as-thread">
         {empty && lead ? (
           // a host's lead takes the greeting's place; the legal line stays
-          <p className="as-hello-legal">{DISCLAIMER}</p>
+          <p className="as-hello-legal">{disclaimer(fitness)}</p>
         ) : empty ? (
           <div className="as-hello">
             <Orb size={56} className="as-hello-mark" />
@@ -843,18 +856,18 @@ const Conversation = ({ date, initial, screen: openedFrom, chatId, own, placehol
             </p>
             {training ? (
               <>
-                <p className="as-hello-sub">Ask about your plan, or ask for a change. Nothing changes until you tap Apply.</p>
-                {!chip ? <p className="as-hello-foot">The assistant sees your plan, sessions, training status, goals and to-dos. It can’t read your journal.</p> : null}
+                <p className="as-hello-sub">{fitness ? 'Ask about your plan, or ask for a change.' : 'Ask about your goals and to-dos, or ask for a change.'} Nothing changes until you tap Apply.</p>
+                {!chip ? <p className="as-hello-foot">{fitness ? 'The assistant sees your plan, sessions, training status, goals and to-dos.' : 'The assistant sees your goals, to-dos, sessions and status.'} It can’t read your journal.</p> : null}
               </>
             ) : (
               <>
-                <p className="as-hello-sub">The assistant can’t see your training data. It answers in general terms.</p>
+                <p className="as-hello-sub">{fitness ? 'The assistant can’t see your training data.' : 'The assistant can’t see your data.'} It answers in general terms.</p>
                 <button type="button" className="as-hello-link" onClick={toPrivacy}>
                   Change in Settings, Privacy
                 </button>
               </>
             )}
-            <p className="as-hello-legal">{DISCLAIMER}</p>
+            <p className="as-hello-legal">{disclaimer(fitness)}</p>
           </div>
         ) : (
           <>
@@ -918,7 +931,7 @@ const Conversation = ({ date, initial, screen: openedFrom, chatId, own, placehol
         ) : null}
         {empty && !lead && !draft && !pending.length ? (
           <div className="as-starters" role="group" aria-label="Ways to start">
-            {startersFor(openedFrom?.tab, askDate, today, training).map((s) => (
+            {startersFor(openedFrom?.tab, askDate, today, training, fitness).map((s) => (
               <button key={s.title} type="button" className="as-starter" onClick={() => (s.attach ? picker.current?.click() : send(s.send!))}>
                 <span className="as-starter-title">{s.title}</span>
                 <span className="as-starter-sub">{s.sub}</span>

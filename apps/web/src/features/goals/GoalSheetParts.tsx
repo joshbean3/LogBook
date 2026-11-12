@@ -1,3 +1,4 @@
+import { fitnessOn } from '@/lib/prefs';
 import { goalProgress, type Aim, type GoalLevel } from '@logbook/shared';
 import { Check, MessageCircle, PenLine } from 'lucide-react';
 import { motion } from 'motion/react';
@@ -7,7 +8,7 @@ import { haptics } from '@/lib/haptics';
 import { springs, useReduced } from '@/lib/motion';
 import { useToday } from '@/lib/useToday';
 import { Button } from '@/ui/primitives';
-import { askOf, LEVEL, suggestRequest, timeUsed } from './model';
+import { askOf, exampleOf, LEVEL, suggestRequest, timeUsed } from './model';
 import { useReviewAccess } from './refine';
 import { KPin } from './Kit';
 import './goals.css';
@@ -92,8 +93,8 @@ export const NewGoalChoice = ({ level, period, onMine }: { level: GoalLevel; per
       ? []
       : [
           canSuggest
-            ? { id: 'suggest' as const, icon: <MessageCircle size={18} aria-hidden="true" />, title: 'Suggest one for me', sub: 'The assistant looks at your recent training and goals, then proposes one.' }
-            : { id: 'suggest' as const, icon: <MessageCircle size={18} aria-hidden="true" />, title: 'Suggest one for me', sub: 'Assistant access is off, so the assistant can’t see your training or goals. Turn it on in Settings.', off: true },
+            ? { id: 'suggest' as const, icon: <MessageCircle size={18} aria-hidden="true" />, title: 'Suggest one for me', sub: fitnessOn() ? 'The assistant looks at your recent training and goals, then proposes one.' : 'The assistant looks at your goals and to-dos, then proposes one.' }
+            : { id: 'suggest' as const, icon: <MessageCircle size={18} aria-hidden="true" />, title: 'Suggest one for me', sub: fitnessOn() ? 'Assistant access is off, so the assistant can’t see your training or goals. Turn it on in Settings.' : 'Assistant access is off, so the assistant can’t see your goals. Turn it on in Settings.', off: true },
         ]),
   ];
   return (
@@ -125,7 +126,7 @@ export const NewGoalChoice = ({ level, period, onMine }: { level: GoalLevel; per
           </button>
         ))}
       </div>
-      <p className="k-foot gs-hint">Like: {LEVEL[level].example}</p>
+      <p className="k-foot gs-hint">Like: {exampleOf(level)}</p>
       <KPin>
         <Button variant="primary" block onClick={go}>
           {way === 'mine' || !canSuggest ? 'Write it' : 'Ask the assistant'}

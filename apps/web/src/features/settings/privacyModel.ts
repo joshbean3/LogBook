@@ -14,6 +14,9 @@ export const CONSENT_SWITCHES: ReadonlyArray<{ key: ConsentSwitch; title: string
   { key: 'reads', title: 'Daily read', sub: 'Your saved links, notes and tags' },
 ];
 
+/** The switches as a person with Fitness off reads them (lib/prefs.ts): the first names the same data without the training words. */
+export const consentSwitches = (fitness: boolean): typeof CONSENT_SWITCHES => (fitness ? CONSENT_SWITCHES : CONSENT_SWITCHES.map((s) => (s.key === 'training' ? { ...s, title: 'Your data', sub: 'Goals, to-dos, sessions, status' } : s)));
+
 /** A switch reads on only for a person who has answered: an account that was never asked has granted nothing. */
 export const switchOn = (c: Consent | null | undefined, key: ConsentSwitch): boolean => !!c && c.at !== null && c[key] === true;
 
