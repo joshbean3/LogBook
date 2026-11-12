@@ -1,5 +1,5 @@
 import { fitnessOn } from '@/lib/prefs';
-import type { Consent, GoalLevel, GoalRefinement } from '@logbook/shared';
+import { GOAL_STEPS_MAX, type Consent, type GoalLevel, type GoalRefinement } from '@logbook/shared';
 import { api, ApiError, isOffline } from '@/api/client';
 import { useBootstrap } from '@/api/queries';
 import { useConsent } from '@/lib/consent';
@@ -58,6 +58,28 @@ export const AS_TYPED_WORDS: Record<AsTyped, string> = {
 export const asTypedWords = (why: AsTyped, fitness = fitnessOn()): string => (why === 'consent' && !fitness ? 'Saved as written. Turn on Your data in Settings, Privacy, to have goals reviewed.' : AS_TYPED_WORDS[why]);
 export const SLOW_WORDS = 'The review took too long. Save as written?';
 
+/** What a goal can hold (the server's own limits, packages/shared zGoalPut): its words, the review's why, a step. */
+export const GOAL_TEXT_MAX = 400;
+export const GOAL_WHY_MAX = 300;
+export const GOAL_STEP_MAX = 120;
+/** A goal's words as they can be saved: trimmed, and no longer than a goal may be. */
+export const goalWords = (t: string): string => t.trim().slice(0, GOAL_TEXT_MAX).trim();
+
+/**
+ * The review's answer as the editor can use it. Whatever the server sent, the words fit a goal, the why fits its line,
+ * and the steps are at most five lines of text, so the goal the answer leads to is never refused when it is saved. An
+ * answer with no words is no review at all.
+ */
+const reviewed = (r: GoalRefinement | null | undefined): Review => {
+  const said = r && typeof r === 'object' ? r : null;
+  if (!said || said.available === false) return { kind: 'asTyped', why: 'unavailable' };
+  const text = typeof said.text === 'string' ? goalWords(said.text) : '';
+  if (!text) return { kind: 'asTyped', why: 'unavailable' };
+  const why = typeof said.why === 'string' ? said.why.trim().slice(0, GOAL_WHY_MAX) || null : null;
+  const steps = (Array.isArray(said.steps) ? (said.steps as unknown[]) : []).flatMap((x) => (typeof x === 'string' && x.trim() ? [x.trim().slice(0, GOAL_STEP_MAX)] : [])).slice(0, GOAL_STEPS_MAX);
+  return { kind: 'reviewed', text, why, changed: !!said.changed, steps };
+};
+
 type Input = { level: GoalLevel; period: string; text: string };
 type Post = (input: Input, signal: AbortSignal) => Promise<GoalRefinement>;
 const post: Post = (input, signal) => api<GoalRefinement>('/goals/refine', { method: 'POST', json: input, signal });
@@ -82,7 +104,7 @@ export const reviewGoal = async (
     timer = setTimeout(() => resolve({ kind: 'slow' }), opts.timeoutMs ?? REVIEW_TIMEOUT_MS);
   });
   const answer = (opts.send ?? post)(input, ctl.signal).then(
-    (r): Review => (r.available === false ? { kind: 'asTyped', why: 'unavailable' } : { kind: 'reviewed', text: r.text, why: r.why ?? null, changed: !!r.changed, steps: Array.isArray(r.steps) ? r.steps : [] }),
+    reviewed,
     (e: unknown): Review => {
       if (!(e instanceof ApiError)) return { kind: 'asTyped', why: 'offline' };
       if (e.status === 401) return { kind: 'failed', message: e.message };

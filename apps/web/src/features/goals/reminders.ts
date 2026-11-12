@@ -12,6 +12,15 @@ const DAYS = 7;
 /** Fifteen minutes after the alarm: awake, not yet out the door. */
 const AFTER_WAKE = 15;
 
+/** With no wake time to read, the reminder goes by 7:00. */
+const DEFAULT_WAKE = 7 * 60;
+/**
+ * The wake time as minutes after midnight, whatever was handed in. It comes from the account's morning settings; a saved
+ * copy or a server in another shape may hand over nothing, text, or a number that is not a time of day, and a date made
+ * from that is no date at all (the row would not draw, and iOS refuses the schedule).
+ */
+export const wakeOf = (wake: unknown): number => (typeof wake === 'number' && Number.isFinite(wake) && wake >= 0 && wake < 1440 ? Math.round(wake) : DEFAULT_WAKE);
+
 export const remindersSupported = () => Capacitor.isNativePlatform();
 export const remindersOn = () => {
   try {
@@ -63,7 +72,7 @@ export const openAppSettings = () => {
 
 /** `About 7:15 am`: when the morning reminder comes, from the wake time (minutes after midnight). */
 export const reminderTime = (wake: number) => {
-  const m = (((wake + AFTER_WAKE) % 1440) + 1440) % 1440;
+  const m = (((wakeOf(wake) + AFTER_WAKE) % 1440) + 1440) % 1440;
   return `About ${new Intl.DateTimeFormat(undefined, { hour: 'numeric', minute: '2-digit' }).format(new Date(2000, 0, 1, Math.floor(m / 60), m % 60))}`;
 };
 
@@ -85,7 +94,7 @@ export const plannedReminders = (goals: readonly Aim[] | undefined, today: ISODa
   for (let i = 0; i < DAYS; i++) {
     const d = shiftDays(today, i);
     const [y, m, day] = d.split('-').map(Number) as [number, number, number];
-    const at = new Date(y, m - 1, day, 0, wake + AFTER_WAKE);
+    const at = new Date(y, m - 1, day, 0, wakeOf(wake) + AFTER_WAKE);
     if (at <= now) continue;
     const needDay = !has('day', d);
     const needWeek = d === mondayOf(d) && !has('week', periodOf('week', d));

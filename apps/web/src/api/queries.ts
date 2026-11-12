@@ -1,11 +1,12 @@
 import { askAndWait, type JobAnswer } from '@/features/assistant/poll';
+import { eventsOf, goalOfRow, goalsOf } from '@/features/goals/shape';
 import { type Attachment, addMonths, mondayOf, monthOf, monthsBetween, shiftDays, today, type Activity, type Habit, type HabitCheck, type JournalEntry, type LiftSet, type Link, type LinkVerdict, type MorningDayOverride, type MorningSettings, type PickResult, type PlanBlock, type Quote, type Session, type SessionInput, type SessionMark, type Todo, type TodoBucket, type TodoColor, type TodoGroup, type TodoPriority, type Aim, type GoalEvent, type GoalLevel, type GoalStatus, type GoalStep, type AssistantApplied, type AssistantProposal, type AssistantReply, type TemplateInput, type DayBands, type DayPlan, cleanBands, emptyBands, type SavedTrainingProfile, type TrainingProfile, type TrainingStatus, type TrainingStatusKind, type ISODate } from '@logbook/shared';
 import { useIsMutating, useMutation, useQueries, useQuery, useQueryClient, type QueryClient, type UseMutationResult } from '@tanstack/react-query';
 import { useMemo } from 'react';
 import { STRAVA_BUILT } from '@/lib/features';
 import { STRAVA_GAP_MS } from '@/lib/gesture';
 import { BadShapeError, parseBootstrap } from './bootstrap';
-import { aimOf as readAim, aimsOf, monthBundleOf, todosOf } from './shapes';
+import { monthBundleOf, todosOf } from './shapes';
 import { api, ApiError, LONG_TIMEOUT_MS, NetworkError } from './client';
 import { outbox, write } from './outbox';
 import type { Bootstrap, Daily, ExportBundle, MonthBundle, OnboardingAnswers, OnboardingResult, TemplateApplied } from './types';
@@ -1070,9 +1071,14 @@ Object.assign(keys, { goals: ['goals'] as const, goalEvents: (goal?: string) => 
 const goalsKey = ['goals'] as const;
 const groupsKey = ['todo-groups'] as const;
 
-// A goal as the app reads it (api/shapes.ts): goals cached on the phone, or served by a server, from before steps existed
-// have none; a row that cannot be a goal is left out. An answer that is not a list is a failed request (the last good copy stays).
-const aimOf = (g: Aim): Aim => readAim(g) ?? { ...g, steps: [] };
+/**
+ * Goals as the app reads them (features/goals/shape.ts): whatever the server answers or the phone has saved, every screen
+ * gets whole goals. A row that is not a goal is left out; a goal from before steps existed has none.
+ */
+const aimsOf = (gs: unknown): Aim[] => goalsOf(gs);
+/** A goal the server just answered with, or the one the screen already shows when the answer is not a goal. */
+const aimOf = (g: unknown, shown: Aim): Aim => goalOfRow(g) ?? shown;
+// an answer that is not a list at all is a failed request, so the last good copy stays (a proxy's error page, an older server)
 const fetchGoals = async (): Promise<Aim[]> => {
   const raw = await api<unknown>('/goals');
   if (!Array.isArray(raw)) throw new BadShapeError('goals: not a list');
@@ -1082,7 +1088,7 @@ const fetchGoals = async (): Promise<Aim[]> => {
 // Goals badge, Today's card, the tab), which looped about once a second (goals-03)
 export const useGoals = () => useQuery({ queryKey: goalsKey, queryFn: fetchGoals, select: aimsOf, staleTime: 30_000, retryOnMount: false });
 export const useGoalEvents = (goal?: string, enabled = true) =>
-  useQuery({ queryKey: ['goal-events', goal ?? 'all'], queryFn: () => api<{ events: GoalEvent[]; more: boolean }>(`/goals/events${goal ? `?goal=${encodeURIComponent(goal)}` : '?limit=300'}`), staleTime: 15_000, enabled });
+  useQuery({ queryKey: ['goal-events', goal ?? 'all'], queryFn: async () => eventsOf(await api<unknown>(`/goals/events${goal ? `?goal=${encodeURIComponent(goal)}` : '?limit=300'}`)), select: eventsOf, staleTime: 15_000, enabled });
 
 export const useGoalMutations = () => {
   const qc = useQueryClient();
@@ -1105,7 +1111,7 @@ export const useGoalMutations = () => {
       // the create carries its provisional id: a step added or Mark done before the answer waits behind it and is sent to
       // the real id (the outbox renames it), online or off
       const saved = await write<Aim>(`/goals/${level}/${period}`, 'PUT', body, [goalsKey], isNew ? { tmpId } : {});
-      if (saved) setGoals((g) => g.map((x) => (x.level === level && x.period === period ? aimOf(saved) : x)));
+      if (saved) setGoals((g) => g.map((x) => (x.level === level && x.period === period ? aimOf(saved, x) : x)));
       touched();
     },
     onError: () => void qc.invalidateQueries({ queryKey: goalsKey }),
@@ -1115,7 +1121,7 @@ export const useGoalMutations = () => {
       const now = new Date().toISOString();
       setGoals((g) => g.map((x) => (x.id === id ? { ...x, ...(status ? { status, closedAt: status === 'open' ? null : now } : {}), ...(reflection !== undefined ? { reflection } : {}), ...(steps ? { steps } : {}) } : x)));
       const saved = await write<Aim>(`/goals/${id}`, 'PATCH', { status, reflection, steps }, [goalsKey]);
-      if (saved) setGoals((g) => g.map((x) => (x.id === id ? aimOf(saved) : x)));
+      if (saved) setGoals((g) => g.map((x) => (x.id === id ? aimOf(saved, x) : x)));
       touched();
     },
     onError: () => void qc.invalidateQueries({ queryKey: goalsKey }),

@@ -43,6 +43,21 @@ describe('the goal review', () => {
     expect(await reviewGoal(input, 'on', { send, offline: () => true })).toEqual({ kind: 'asTyped', why: 'offline' });
     expect(send).not.toHaveBeenCalled();
   });
+  it('keeps a review inside what a goal can hold, so the goal it leads to can always be saved', async () => {
+    // an older or newer server may not trim its answer: 400 for the words, 300 for the why, five steps of 120
+    const wild = { text: `  ${'x'.repeat(600)}`, why: 'y'.repeat(900), changed: true, steps: ['a'.repeat(300), '', '   ', 3, null, 'b', 'c', 'd', 'e', 'f', 'g'], available: true } as unknown as GoalRefinement;
+    const r = await reviewGoal(input, 'on', { send: async () => wild, offline: online });
+    if (r.kind !== 'reviewed') throw new Error(`expected a review, got ${r.kind}`);
+    expect(r.text).toHaveLength(400);
+    expect(r.why).toHaveLength(300);
+    expect(r.steps).toEqual(['a'.repeat(120), 'b', 'c', 'd', 'e']);
+  });
+  it('saves as typed when the answer has no words at all', async () => {
+    for (const bad of [{ nonsense: true }, { text: '', changed: true, steps: [], available: true }, { text: 7, changed: true }, null, 'ok']) {
+      const r = await reviewGoal(input, 'on', { send: async () => bad as unknown as GoalRefinement, offline: online });
+      expect(r).toEqual({ kind: 'asTyped', why: 'unavailable' });
+    }
+  });
   it('returns the review when Claude answers', async () => {
     const send = vi.fn(async () => answer);
     expect(await reviewGoal(input, 'on', { send, offline: online })).toEqual({ kind: 'reviewed', text: answer.text, why: answer.why, changed: true, steps: ['Lay out kit'] });

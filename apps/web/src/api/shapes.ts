@@ -1,10 +1,10 @@
-import type { Activity, Aim, CoachRead, GoalStep, HabitCheck, JournalEntry, LiftSet, Session, Todo } from '@logbook/shared';
+import type { Activity, CoachRead, HabitCheck, JournalEntry, LiftSet, Session, Todo } from '@logbook/shared';
 import { BadShapeError } from './bootstrap';
 import type { MonthBundle } from './types';
 
 /**
- * What the app reads from the server and from its saved copy, checked where it comes in (to-dos and goals). A list that
- * is not a list reads as empty; a row that cannot be a to-do or a goal (no id, no words) is left out; a field in a shape
+ * What the app reads from the server and from its saved copy, checked where it comes in (to-dos and months; goals have their own: features/goals/shape.ts). A list that
+ * is not a list reads as empty; a row that cannot be a to-do (no id, no words) is left out; a field in a shape
  * the app never wrote takes its plain default (a to-do's list is left as it came: one in no list shows in none, as before). So one bad row, a proxy's error page saved as an answer, or a copy saved by
  * an older build can never take a screen down. Rows that are already right are returned as they came (the same objects,
  * and the same list when every row is right), so nothing downstream re-renders for the check.
@@ -55,38 +55,7 @@ export const todosOf = (raw: unknown): Todo[] => {
   return same ? (raw as Todo[]) : out;
 };
 
-const LEVELS: readonly unknown[] = ['year', 'month', 'week', 'day'];
-const STATUSES: readonly unknown[] = ['open', 'done', 'partly', 'missed'];
-const stepFine = (s: unknown) => isObj(s) && words(s.id) && words(s.text) && typeof s.done === 'boolean';
-const aimFine = (g: Record<string, unknown>) => STATUSES.includes(g.status) && Array.isArray(g.steps) && g.steps.every(stepFine) && strOrNull(g.why ?? null) && strOrNull(g.reflection ?? null) && strOrNull(g.original ?? null);
-
-/** One goal, or null when the row cannot be one. A goal from before steps existed has none. */
-export const aimOf = (g: unknown): Aim | null => {
-  if (!isObj(g) || !words(g.id) || !words(g.text) || !LEVELS.includes(g.level) || !words(g.period)) return null;
-  if (aimFine(g)) return g as unknown as Aim;
-  const steps = (Array.isArray(g.steps) ? g.steps : []).filter((s): s is GoalStep => isObj(s) && words(s.id) && words(s.text)).map((s) => (typeof s.done === 'boolean' ? s : { ...s, done: !!s.done }));
-  return {
-    ...(g as unknown as Aim),
-    status: (STATUSES.includes(g.status) ? g.status : 'open') as Aim['status'],
-    steps,
-    why: typeof g.why === 'string' ? g.why : null,
-    reflection: typeof g.reflection === 'string' ? g.reflection : null,
-    original: typeof g.original === 'string' ? g.original : null,
-  };
-};
-
-/** The goals as the app reads them. */
-export const aimsOf = (raw: unknown): Aim[] => {
-  if (!Array.isArray(raw)) return [];
-  let same = true;
-  const out: Aim[] = [];
-  for (const x of raw) {
-    const a = aimOf(x);
-    if (a !== x) same = false;
-    if (a) out.push(a);
-  }
-  return same ? (raw as Aim[]) : out;
-};
+// goals are read by their own rule: features/goals/shape.ts (goalsOf, goalOfRow)
 
 // ---------- a month ----------
 const num = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);

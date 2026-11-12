@@ -72,6 +72,14 @@ describe('goals', () => {
     expect((await call('PUT', '/api/goals/month/2026-10-01', { text: 'x' })).status).toBe(400);
     expect((await call('PUT', '/api/goals/year/2026', { text: 'Run a half under 1:40.' })).status).toBe(201);
     expect((await call('PUT', '/api/goals/decade/2020', { text: 'x' })).status).toBe(400);
+    // a period that is not on the calendar: month 13, month 0, Feb 30 (it used to be stored, and read back as Mar 2)
+    expect((await call('PUT', '/api/goals/month/2026-13', { text: 'x' })).status).toBe(400);
+    expect((await call('PUT', '/api/goals/month/2026-00', { text: 'x' })).status).toBe(400);
+    expect((await call('PUT', '/api/goals/day/2026-02-30', { text: 'x' })).status).toBe(400);
+    expect((await call('PUT', '/api/goals/day/2026-13-01', { text: 'x' })).status).toBe(400);
+    expect((await call('POST', '/api/goals/refine', { level: 'month', period: '2026-13', text: 'x' })).status).toBe(400);
+    // only the year above was stored
+    expect((await call('GET', '/api/goals')).body.map((g: { level: string }) => g.level)).toEqual(['year']);
   });
 
   it('a review without a Claude key hands the words back untouched', async () => {

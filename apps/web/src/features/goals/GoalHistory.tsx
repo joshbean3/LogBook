@@ -8,7 +8,8 @@ import { Pressable } from '@/ui/Pressable';
 import { SectionHeader } from '@/ui/layout';
 import { Segmented } from '@/ui/primitives';
 import { SkeletonRows } from '@/ui/Skeleton';
-import { goalOf, LEVEL, periodCaps, STATUS_WORD } from './model';
+import { goalOf, LEVEL, loadState, periodCaps, STATUS_WORD } from './model';
+import { LoadError } from './GoalParts';
 import { StatusIcon, timeOf, useOpenGoal } from './GoalSheets';
 import './goals.css';
 import './kit.css';
@@ -145,7 +146,10 @@ const Periods = ({ level, goals, today }: { level: GoalLevel; goals: Aim[]; toda
 const Log = ({ today }: { today: string }) => {
   const q = useGoalEvents();
   const events = q.data?.events ?? [];
-  if (q.isPending && !q.data) return <SkeletonRows rows={6} label="Loading the log" />;
+  const state = loadState(q);
+  // a log that did not load is not an empty log: say so, with a way to ask again
+  if (state === 'failed') return <LoadError title="The log didn’t load." onRetry={() => void q.refetch()} busy={q.isFetching} />;
+  if (state === 'loading') return <SkeletonRows rows={6} label="Loading the log" />;
   if (!events.length)
     return (
       <section className="k-card g-log-empty">
@@ -179,6 +183,8 @@ const Log = ({ today }: { today: string }) => {
           </ol>
         </section>
       ))}
+      {/* the server hands over the newest changes only: say so, so the last day's count is not read as the whole day */}
+      {q.data?.more ? <p className="k-foot g-log-more">Showing the latest {events.length} changes.</p> : null}
     </>
   );
 };
@@ -204,7 +210,16 @@ export default function GoalHistory(): React.JSX.Element {
           ['log', 'Log'],
         ]}
       />
-      {view === 'log' ? <Log today={today} /> : goals.data ? <Periods level={view} goals={goals.data} today={today} /> : <SkeletonRows rows={6} label="Loading goals" />}
+      {view === 'log' ? (
+        <Log today={today} />
+      ) : goals.data ? (
+        <Periods level={view} goals={goals.data} today={today} />
+      ) : loadState(goals) === 'failed' ? (
+        // the rows' loading shape used to stay up for good when the goals did not load
+        <LoadError title="Goals didn’t load." onRetry={() => void goals.refetch()} busy={goals.isFetching} />
+      ) : (
+        <SkeletonRows rows={6} label="Loading goals" />
+      )}
     </div>
   );
 }

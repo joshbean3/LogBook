@@ -23,5 +23,14 @@ export const todayBand = (todos: readonly { text: string; done: boolean }[], ste
   return { label: `Today · ${done} of ${total} ${noun} done`, words: next ? `Next: ${next.text}` : `All ${noun} done`, total, done };
 };
 
+/** The day's to-dos as the poster counts them: one with no words (a saved copy from another build may hold one) is left out. */
+export const listed = <T extends { text: string }>(todos: readonly T[]): T[] => todos.filter((t) => typeof t.text === 'string' && t.text.trim() !== '');
+
+/**
+ * Minutes on the wall clock since `today` began, for the words that say when ("before lunch"). `now` is the page's own
+ * clock (the day's midnight plus the minutes read from the wall), so this is right on the two days a year the clocks change.
+ */
+export const wallMinutes = (today: string, now: number): number => Math.max(0, Math.min(1439, Math.round((now - new Date(`${today}T00:00:00`).getTime()) / 60e3)));
+
 /** The evening, when the page offers tomorrow's goal under the poster: from 5 pm. `minutes` after local midnight. */
 export const eveningNow = (minutes: number): boolean => minutes >= 17 * 60;

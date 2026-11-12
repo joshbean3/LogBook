@@ -1,6 +1,6 @@
 import { shiftDays, type Aim } from '@logbook/shared';
 import { describe, expect, it } from 'vitest';
-import { askOf, dayEnd, scoreOf, suggestRequest, timeUsed } from './model';
+import { askOf, dayEnd, scoreOf, suggestRequest, timeUsed, loadState, sheetGoal, standingFor } from './model';
 
 const goal = (level: Aim['level'], period: string, status: Aim['status'] = 'open', steps: Aim['steps'] = []): Aim => ({ id: `${level}-${period}`, level, period, text: 'x', original: null, why: null, status, reflection: null, steps, createdAt: '', updatedAt: '', closedAt: null });
 // a Sunday: this week began on Monday Nov 2
@@ -79,5 +79,56 @@ describe('the question the sheet asks', () => {
 
   it('never promises habits or 90 days', () => {
     expect(suggestRequest('week', '2026-11-02', T)).not.toMatch(/habit|90 days/);
+  });
+});
+
+describe('what a list shows while it has nothing to show yet', () => {
+  it('is ready as soon as there is data, even while a refetch fails', () => {
+    expect(loadState({ data: [], isError: false })).toBe('ready');
+    expect(loadState({ data: [], isError: true })).toBe('ready');
+  });
+  it('says it failed, with nothing to show, instead of loading forever or reading as empty', () => {
+    expect(loadState({ data: undefined, isError: true })).toBe('failed');
+    expect(loadState({ data: undefined, isError: false })).toBe('loading');
+  });
+});
+
+describe('the goal a sheet was opened on', () => {
+  const aim = (id: string, level: 'day' | 'week', period: string, text = 'Ship it') => ({ id, level, period, text, original: null, why: null, status: 'open' as const, reflection: null, steps: [], createdAt: '', updatedAt: '', closedAt: null });
+
+  it('is found by its id', () => {
+    const list = [aim('g1', 'day', '2026-11-12'), aim('g2', 'week', '2026-11-09')];
+    expect(sheetGoal(list, 'g2', 'week', '2026-11-09')?.id).toBe('g2');
+  });
+
+  it('is still there once the server has named it: opened under its provisional id, found by its period', () => {
+    // set on a slow connection and opened at once; then the answer came and the id changed under the sheet
+    const tmp = 'tmp-goal-day-2026-11-12';
+    expect(sheetGoal([aim(tmp, 'day', '2026-11-12')], tmp, 'day', '2026-11-12')?.id).toBe(tmp);
+    expect(sheetGoal([aim('goal-real', 'day', '2026-11-12')], tmp, 'day', '2026-11-12')?.id).toBe('goal-real');
+  });
+
+  it('is gone once it was cleared, and never another period’s goal', () => {
+    expect(sheetGoal([], 'g1', 'day', '2026-11-12')).toBeNull();
+    expect(sheetGoal([aim('g9', 'day', '2026-11-13')], 'tmp-goal-day-2026-11-12', 'day', '2026-11-12')).toBeNull();
+    // a goal cleared and set again from somewhere else is a different goal: the sheet says the one it showed is gone
+    expect(sheetGoal([aim('g2', 'day', '2026-11-12')], 'g1', 'day', '2026-11-12')).toBeNull();
+    expect(sheetGoal(undefined, 'g1', 'day', '2026-11-12')).toBeNull();
+  });
+});
+
+describe('the goal an Undo acts on', () => {
+  const aim = (id: string, period: string) => ({ id, level: 'day' as const, period, text: 'Ship it', original: null, why: null, status: 'done' as const, reflection: null, steps: [], createdAt: '', updatedAt: '', closedAt: null });
+  const was = aim('tmp-goal-day-2026-11-12', '2026-11-12');
+
+  it('is the goal that stands for the period now, under whatever id the server gave it since the toast went up', () => {
+    // marked done before the set was answered: the toast holds the provisional id, the list has the real one
+    expect(standingFor([aim('goal-real', '2026-11-12')], was)?.id).toBe('goal-real');
+  });
+
+  it('is nothing once the goal was cleared: an Undo for it has nothing to change', () => {
+    expect(standingFor([], was)).toBeNull();
+    expect(standingFor([aim('other', '2026-11-13')], was)).toBeNull();
+    expect(standingFor(undefined, was)).toBeNull();
   });
 });

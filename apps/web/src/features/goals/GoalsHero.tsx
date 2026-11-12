@@ -15,7 +15,7 @@ import { clockOf, goalOf, STATUS_WORD } from './model';
 import { useOpenGoal } from './GoalSheets';
 import { useMarkDone } from './Steps';
 import { Burst } from './game';
-import { todayBand } from './GoalsHero.logic';
+import { listed, todayBand, wallMinutes } from './GoalsHero.logic';
 import { localGoalIdea, type GoalIdea } from './goalsIdea.local';
 import './goalsPage.css';
 
@@ -70,7 +70,7 @@ export const GoalsHero = ({ today, now, hit }: { today: ISODate; now: number; hi
   const clock = clockOf('day', today, now);
 
   // the day's to-dos as Today lists them: the open ones in the order they matter, then what got done
-  const list = useMemo(() => focusOf(cardsFor(todos.data, null, today, today)).flatMap((c) => (c.kind === 'todo' ? [{ text: c.todo.text, done: c.done }] : [])), [todos.data, today]);
+  const list = useMemo(() => listed(focusOf(cardsFor(todos.data, null, today, today)).flatMap((c) => (c.kind === 'todo' ? [{ text: c.todo.text, done: c.done }] : []))), [todos.data, today]);
   const idea = useMemo(
     () =>
       goal
@@ -82,9 +82,11 @@ export const GoalsHero = ({ today, now, hit }: { today: ISODate; now: number; hi
             sessions: fitness ? (month.data?.sessions ?? []).filter((s) => s.date === today && !(s as { deletedAt?: string | null }).deletedAt) : [],
             habits: (boot.data?.habits ?? []).filter((h) => !h.archivedOn),
             fitness,
-            minutes: new Date(now).getHours() * 60 + new Date(now).getMinutes(),
+            minutes: wallMinutes(today, now),
+            // a source still on its way: the idea waits for it instead of changing under "Set this goal" when it lands
+            loading: { todos: todos.isPending, sessions: month.isPending, habits: boot.isPending },
           }),
-    [goal, goals.data, today, list, fitness, month.data, boot.data, now],
+    [goal, goals.data, today, list, fitness, month.data, boot.data, now, todos.isPending, month.isPending, boot.isPending],
   );
 
   // the goal arriving while the page is open (never one that loads set): its words rise into the title, once

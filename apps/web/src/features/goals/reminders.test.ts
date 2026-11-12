@@ -24,6 +24,26 @@ describe('goal reminders', () => {
   });
 });
 
+describe('a wake time the app cannot read', () => {
+  // the wake time comes from the account's morning settings: a saved copy or a server in another shape may hand over
+  // nothing, text, or a number that is not a time of day
+  const bad = [undefined, null, Number.NaN, '06:30', -30, 99999, Infinity] as unknown as number[];
+  it('never makes a reminder with no date, and falls back to 7:00', () => {
+    const now = new Date(2026, 9, 25, 9, 0);
+    for (const wake of bad) {
+      const due = plannedReminders([], '2026-10-25', now, wake);
+      expect(due.length).toBeGreaterThan(0);
+      for (const d of due) expect(Number.isNaN(d.at.getTime())).toBe(false);
+    }
+    expect(plannedReminders([], '2026-10-25', now, Number.NaN)[0]!.at.getHours() * 60 + plannedReminders([], '2026-10-25', now, Number.NaN)[0]!.at.getMinutes()).toBe(7 * 60 + 15);
+  });
+  it('still says when the reminder comes, and never throws', async () => {
+    const { reminderTime } = await import('./reminders');
+    for (const wake of bad) expect(reminderTime(wake)).toMatch(/^About \d{1,2}[:.]\d{2}/);
+    expect(reminderTime(Number.NaN)).toMatch(/^About 7:15/);
+  });
+});
+
 describe('turning reminders on', () => {
   it('schedules at once when iOS allows it, and reports a denial', async () => {
     vi.resetModules();

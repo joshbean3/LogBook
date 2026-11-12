@@ -20,3 +20,12 @@ export const owedWords = (g: Aim, today: ISODate) => {
   const name = periodName(g.level, g.period, today);
   return /^(Yesterday|Last (week|month|year))$/.test(name) ? `${name}’s goal` : `Still open from ${periodSpan(g.level, g.period)}`;
 };
+
+/**
+ * The review sheet shows the goals owed one after another, and Done, Partly, Missed stay where they are while the next
+ * goal comes in. A second tap in the same place (a double tap) would answer that next goal before anyone has read it, so
+ * an answer is held until the goal has been on screen this long.
+ */
+export const ANSWER_HOLD_MS = 500;
+/** Is it too soon to take an answer for a goal that appeared at `shownAt`? Both in ms on the same clock. */
+export const answerHeld = (shownAt: number, now: number): boolean => now - shownAt < ANSWER_HOLD_MS;

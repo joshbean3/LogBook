@@ -1,20 +1,22 @@
 import { fitnessOn } from '@/lib/prefs';
-import { fmtDate, monthOf, periodOf, periodPast, periodSpan, periodStart, shiftDays, type Aim, type GoalEventKind, type GoalLevel, type GoalStatus } from '@logbook/shared';
+import { fmtDate, GOAL_STEPS_MAX, monthOf, periodOf, periodPast, periodSpan, periodStart, shiftDays, type Aim, type GoalEventKind, type GoalLevel, type GoalStatus } from '@logbook/shared';
 import { Check, CircleDashed, Dumbbell, Flag, Footprints, Minus, Target, Trash2, X } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
-import { useGoalEvents, useGoalMutations, useGoals, useMonth, useTodos } from '@/api/queries';
+import { useBootstrap, useGoalEvents, useGoalMutations, useGoals, useMonth, useTodos } from '@/api/queries';
 import { haptics } from '@/lib/haptics';
 import { revealField } from '@/lib/keyboard';
 import { useToday } from '@/lib/useToday';
 import { Button } from '@/ui/primitives';
 import { useSheet, useSheetDepth, type SheetSpec } from '@/ui/Sheet';
 import { useToast } from '@/ui/Toast';
-import { askOf, dayEnd, deadlineWords, exampleOf, goalOf, LEVEL, periodCaps, STATUS_WORD } from './model';
-import { asTypedWords, reviewGoal, SLOW_WORDS, useReviewAccess, type ReviewAccess } from './refine';
+import { askOf, dayEnd, deadlineWords, exampleOf, goalOf, LEVEL, periodCaps, sheetGoal, STATUS_WORD } from './model';
+import { asTypedWords, GOAL_STEP_MAX, GOAL_TEXT_MAX, GOAL_WHY_MAX, goalWords, reviewGoal, SLOW_WORDS, useReviewAccess, type ReviewAccess } from './refine';
+import { draftOf, dropDraft, keepDraft, type DraftFor } from './drafts';
 import { DraftSteps, GoalSteps, stepsOf } from './Steps';
 import { HalfGauge, NewGoalChoice } from './GoalSheetParts';
 import { KPin } from './Kit';
+import { useOnLeave } from './useOnLeave';
 import { useNowMinutes } from '../day/useNow';
 import './goals.css';
 
@@ -41,6 +43,9 @@ const hintWords = (access: ReviewAccess, deadline: string) =>
  * alone, is offline, refuses or is not there, the goal is saved as typed and a toast says so. Leaving the editor while the
  * review runs saves nothing, and a review with no answer in 15 s gives the field back. Every step lands in the goal's log
  * on the server.
+ *
+ * The words being written are kept while the app is open (drafts.ts): an editor closed by mistake, flicked down, left
+ * mid-review, or whose save the server refused opens again with them. They are let go once the goal is saved.
  */
 export const GoalEditor = ({ level, period, initial, closeOnSave, gate }: { level: GoalLevel; period: string; initial?: string; closeOnSave?: boolean; gate?: EditorGate }) => {
   const today = useToday();
@@ -49,13 +54,32 @@ export const GoalEditor = ({ level, period, initial, closeOnSave, gate }: { leve
   const { set } = useGoalMutations();
   const toast = useToast();
   const access = useReviewAccess();
-  const [text, setText] = useState(initial ?? '');
+  const user = useBootstrap().data?.user.id;
+  const draft: DraftFor = { user, level, period };
+  const [text, setField] = useState(() => draftOf(draft, initial));
+  /** The field's words, kept as they change. Never longer than a goal can be: a starter may be (the week's goal with its lead-in). */
+  const setText = (next: string) => {
+    const t = next.slice(0, GOAL_TEXT_MAX);
+    setField(t);
+    keepDraft(draft, t, initial);
+  };
   const [step, setStep] = useState<Step>({ kind: 'write' });
   const field = useRef<HTMLTextAreaElement>(null);
+  // a field that opens with words in it (an edit, a draft kept) is focused with its caret before the first word, and
+  // what is typed next would go in front of the goal: the caret starts after the last word
+  useEffect(() => {
+    const f = field.current;
+    if (!f || !f.value) return;
+    try {
+      f.setSelectionRange(f.value.length, f.value.length);
+    } catch {
+      /* a field that cannot take a selection keeps the caret where it is */
+    }
+  }, []);
   const done = () => (depth > 1 ? sheet.pop() : sheet.close());
   // pushed from the two ways to set a goal, a saved goal closes the sheet; Cancel still goes back to them
   const finish = () => (closeOnSave ? sheet.close() : done());
-  const words = text.trim();
+  const words = goalWords(text);
   const latest = useRef(words);
   latest.current = words;
 
@@ -79,8 +103,16 @@ export const GoalEditor = ({ level, period, initial, closeOnSave, gate }: { leve
   const save = (final: string, chose: 'sharpened' | 'kept' | 'own', original?: string, why?: string | null, note?: string) => {
     run.current?.abort();
     run.current = null;
+    // what goes to the server always fits what a goal can hold, so a save is never refused for its size
+    const saved = goalWords(final);
+    if (!saved) return;
+    const typed = text;
+    const list = steps.flatMap((x) => (x.trim() ? [x.trim().slice(0, GOAL_STEP_MAX)] : [])).slice(0, GOAL_STEPS_MAX);
     // new steps go in with the goal; an edit of the words keeps the steps it had unless the review offered new ones
-    set.mutate({ level, period, text: final, original: original ?? null, why: why ?? null, chose, ...(steps.length || !existing ? { steps: stepsOf(steps) } : {}) });
+    const input = { level, period, text: saved, original: original ? goalWords(original) || null : null, why: why ? why.trim().slice(0, GOAL_WHY_MAX) || null : null, chose, ...(list.length || !existing ? { steps: stepsOf(list) } : {}) };
+    // saved: the draft is done with. Refused for good: the words typed are kept, and the editor opens with them again
+    dropDraft(draft);
+    set.mutateAsync(input).catch(() => keepDraft(draft, typed, initial));
     haptics.drop();
     finish();
     if (note) toast(note);
@@ -247,9 +279,10 @@ export const StatusIcon = ({ status, size = 16 }: { status: GoalStatus; size?: n
   status === 'done' ? <Check size={size} strokeWidth={2.6} aria-hidden="true" /> : status === 'partly' ? <Minus size={size} strokeWidth={2.6} aria-hidden="true" /> : status === 'missed' ? <X size={size} strokeWidth={2.4} aria-hidden="true" /> : <CircleDashed size={size} strokeWidth={2} aria-hidden="true" />;
 
 /** The three answers to "did you hit it?" as one row of buttons; the chosen one is lit. */
-export const ReviewButtons = ({ goal, onAnswer }: { goal: Aim; onAnswer?: (s: GoalStatus) => void }) => {
+export const ReviewButtons = ({ goal, onAnswer, held }: { goal: Aim; onAnswer?: (s: GoalStatus) => void; /** True while a tap must not count (the review sheet, just after the next goal came in). */ held?: () => boolean }) => {
   const { review } = useGoalMutations();
   const answer = (s: GoalStatus) => {
+    if (held?.()) return;
     const next = goal.status === s ? 'open' : s;
     review.mutate({ id: goal.id, status: next });
     if (next === 'done') haptics.toggle();
@@ -276,25 +309,38 @@ const startsWords = (level: GoalLevel, period: string, today: string) => {
 };
 
 /** A goal opened: its words, where they came from, the review, a line on how it went, and its whole log. */
-export const GoalDetail = ({ id }: { id: string }) => {
+export const GoalDetail = ({ id, level, period }: { id: string; level: GoalLevel; period: string }) => {
   const today = useToday();
   const sheet = useSheet();
   const goals = useGoals();
   const { review } = useGoalMutations();
-  const g = goals.data?.find((x) => x.id === id) ?? null;
-  const events = useGoalEvents(id.startsWith('tmp-') ? undefined : id, !id.startsWith('tmp-'));
+  // by its id, or by its period once the server has replaced the provisional id the sheet was opened under
+  const g = sheetGoal(goals.data, id, level, period);
+  const named = g && !g.id.startsWith('tmp-') ? g.id : undefined;
+  const events = useGoalEvents(named, !!named);
   const [note, setNote] = useState(g?.reflection ?? '');
   const minutes = useNowMinutes();
-  useEffect(() => setNote(g?.reflection ?? ''), [g?.reflection]);
+  // the line being written when the sheet goes (a flick down never blurs the field): saved as the blur would have.
+  // `sent` is the line already on its way, so a blur and the sheet leaving in the same moment save it once; it is
+  // forgotten when the goal's line changes (saved, or put back after a save that failed), so it can be sent again
+  const sent = useRef<string | null>(null);
+  useEffect(() => {
+    setNote(g?.reflection ?? '');
+    sent.current = null;
+  }, [g?.reflection]);
+  const saveNote = () => {
+    if (!g) return;
+    const v = note.trim();
+    if (v === (g.reflection ?? '') || v === sent.current) return;
+    sent.current = v;
+    review.mutate({ id: g.id, reflection: v || null });
+  };
+  useOnLeave(saveNote);
   if (!g) return <p className="gs-hint">This goal was cleared.</p>;
   const past = periodPast(g.level, g.period, today);
   // tomorrow's goal, next week's: nothing to answer yet, and no clock running
   const ahead = periodStart(g.level, g.period) > today;
   const now = new Date(`${today}T00:00:00`).getTime() + minutes * 60e3;
-  const saveNote = () => {
-    const v = note.trim();
-    if (v !== (g.reflection ?? '')) review.mutate({ id: g.id, reflection: v || null });
-  };
   const log = events.data?.events ?? [];
   return (
     <div className="gsheet k-sheet">
@@ -354,13 +400,14 @@ export const GoalDetail = ({ id }: { id: string }) => {
 };
 
 /** Clearing a goal, behind the sheet's red trash: what goes, then Clear (a toast brings it back with Undo). */
-const ClearGoal = ({ id }: { id: string }) => {
+const ClearGoal = ({ id, level, period }: { id: string; level: GoalLevel; period: string }) => {
   const sheet = useSheet();
   const goals = useGoals();
   const { clear, set, review } = useGoalMutations();
   const qc = useQueryClient();
   const toast = useToast();
-  const g = goals.data?.find((x) => x.id === id) ?? null;
+  const g = sheetGoal(goals.data, id, level, period);
+  const cleared = useRef(false);
   /** Undo: the words and steps come back with the PUT (which revives the row as open), then its answer and its note. */
   const restore = async (was: Aim) => {
     await set.mutateAsync({ level: was.level, period: was.period, text: was.text, original: was.original, why: was.why, steps: was.steps });
@@ -381,6 +428,10 @@ const ClearGoal = ({ id }: { id: string }) => {
           className="block k-danger"
           block
           onClick={() => {
+            // once: a second press before the sheet has gone would clear a goal that is already cleared, and the
+            // refusal's toast would take the place of the one that offers Undo
+            if (cleared.current) return;
+            cleared.current = true;
             const was = g;
             haptics.delete();
             clear.mutate(g.id);
@@ -396,10 +447,10 @@ const ClearGoal = ({ id }: { id: string }) => {
 };
 
 /** The goal sheet's header action: a red trash in a tinted circle, then the confirm. */
-const ClearButton = ({ id }: { id: string }) => {
+const ClearButton = ({ id, level, period }: { id: string; level: GoalLevel; period: string }) => {
   const sheet = useSheet();
   return (
-    <button type="button" className="icon-btn k-trash" aria-label="Clear goal" title="Clear goal" onClick={() => sheet.push({ title: 'Clear this goal?', body: <ClearGoal id={id} /> })}>
+    <button type="button" className="icon-btn k-trash" aria-label="Clear goal" title="Clear goal" onClick={() => sheet.push({ title: 'Clear this goal?', body: <ClearGoal id={id} level={level} period={period} /> })}>
       <Trash2 size={18} aria-hidden="true" />
     </button>
   );
@@ -414,7 +465,7 @@ export const useOpenGoal = () => {
   return (level: GoalLevel, period: string, opts: { edit?: boolean } = {}) => {
     const g = goalOf(goals.data, level, period);
     const eyebrow = periodCaps(level, period, today);
-    if (g && !opts.edit) sheet.open({ eyebrow, title: `${LEVEL[level].label} goal`, body: <GoalDetail id={g.id} />, action: <ClearButton id={g.id} />, detents: ['medium', 'large'], detent: 'medium' });
+    if (g && !opts.edit) sheet.open({ eyebrow, title: `${LEVEL[level].label} goal`, body: <GoalDetail id={g.id} level={level} period={period} />, action: <ClearButton id={g.id} level={level} period={period} />, detents: ['medium', 'large'], detent: 'medium' });
     else if (g) sheet.open({ eyebrow, title: 'Edit goal', ...editorPanel({ level, period, initial: g.text }), sticky: true });
     // a new goal: set it myself (the editor, pushed) or ask the assistant for one. The title stays short enough to fit at
     // 320; the question itself is the serif line in the body. With no assistant there is one way only, so the editor opens

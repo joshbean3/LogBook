@@ -1100,6 +1100,10 @@
 .g-logday + .g-logday {
   margin-top: var(--section);
 }
+/* the line under a log cut to its newest changes: a footnote under the last day's group (kit.css) */
+.k-foot.g-log-more {
+  margin: var(--sp-2) var(--pad-card) 0;
+}
 .g-log-empty {
   display: grid;
   gap: 4px;
@@ -1258,4 +1262,36 @@ html[data-text-xl] .g-follow-act {
 }
 html[data-text-xl] .g-follow {
   --k-sep: var(--sp-4);
+}
+/* History's five tabs share one row of a phone. At 320 a segment is 57 wide and "Months" needs 51, so the words take the
+   segment's whole width (they are centered: nothing moves on a wider phone) */
+.g-history .g-seg.seg .seg-btn {
+  padding: 0;
+}
+/* at this size their words stop growing where the row is full (as the header bar's control does,
+   styles/foundation.css), so "Months" is never cut to "ontl" */
+html[data-text-xl] .g-history .g-seg.seg .seg-btn {
+  font-size: clamp(13px, var(--fs-foot), 15px); /* brand-ok: Larger Text cap, five segments in 288 px */
+}
+/* Done, Partly, Missed: three across no longer hold their words at this size ("PartlyMissed"), so they stack, one
+   44 pt row each */
+html[data-text-xl] .g-answers.k-card {
+  grid-template-columns: minmax(0, 1fr);
+}
+/* the label on words the review rewrote wraps at this size, so it stays inside its card at 320 */
+html[data-text-xl] .gs-from-ai {
+  white-space: normal;
+}
+
+/* ---------- the person's own words never widen what holds them ---------- */
+/* a goal, the words before the review, the line on how it went, a goal's words in the log: a pasted link or a word with
+   no spaces breaks where it must, so the card, the sheet and the History page keep the phone's width */
+.gs-sentence,
+.gs-why,
+.gs-mine-text,
+.gs-from,
+.g-hrow-note,
+.g-feed-text {
+  min-width: 0;
+  overflow-wrap: anywhere;
 }

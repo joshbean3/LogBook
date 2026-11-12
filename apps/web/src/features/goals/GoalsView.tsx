@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { SectionBoundary } from '@/app/ErrorBoundary';
 import { useNav } from '@/app/NavController';
 import { useBootstrap, useGoals } from '@/api/queries';
-import { useToday } from '@/lib/useToday';
+import { subscribeToday, useToday } from '@/lib/useToday';
 import { dayCaption, NavBar } from '@/ui/NavBar';
 import { Button } from '@/ui/primitives';
 import { Skeleton, SkeletonGroup } from '@/ui/Skeleton';
@@ -13,7 +13,7 @@ import { Switch } from '../settings/parts';
 import '../settings/settings.css';
 import { useNowMinutes } from '../day/useNow';
 import { disableReminders, enableReminders, openAppSettings, reminderPermission, remindersOn, remindersSupported, reminderTime } from './reminders';
-import { ScoreStrip } from './GoalParts';
+import { LoadError, ScoreStrip } from './GoalParts';
 import { celebrateOnce } from './game';
 import { ReviewRow } from './ReviewRow';
 import { GoalsHero } from './GoalsHero';
@@ -74,7 +74,8 @@ const Reminders = ({ goals, today }: { goals: Aim[]; today: string }) => {
             label="Goal reminders"
             onChange={async (next) => {
               if (!next) {
-                await disableReminders();
+                // off is off even when iOS has nothing to cancel or will not answer: the choice is kept on the phone
+                await disableReminders().catch(() => undefined);
                 setBlocked(false);
                 return setOn(false);
               }
@@ -109,6 +110,11 @@ export default function GoalsView(): React.JSX.Element {
   const nav = useNav();
   const goals = useGoals();
   const minutes = useNowMinutes();
+  // the date is polled every 30 s and the clock ticks on the minute: at midnight the clock would read 00:00 against
+  // yesterday's date for up to half a minute ("Today’s goal · 24 h left" on a day that is over). Each new minute asks the
+  // date store to look again (subscribing reads the clock at once), so the day turns with the minute that turns it
+  const minute = Math.floor(minutes);
+  useEffect(() => subscribeToday(() => undefined), [minute]);
   const now = new Date(`${today}T00:00:00`).getTime() + minutes * 60e3;
   const list = goals.data ?? [];
   const cur = currentGoals(list, today);
@@ -141,13 +147,7 @@ export default function GoalsView(): React.JSX.Element {
     <div className="page g-page">
       <NavBar caps={{ cur: dayCaption(today, today) }} title={{ cur: 'Goals' }} gap={16} />
       {goals.isError && !goals.data ? (
-        <section className="k-card g-error" role="alert">
-          <p className="k-row-title">Goals didn’t load.</p>
-          <p className="k-foot">Check the connection, then try again.</p>
-          <Button size="sm" className="g-error-btn" onClick={() => void goals.refetch()} disabled={goals.isFetching}>
-            Try again
-          </Button>
-        </section>
+        <LoadError title="Goals didn’t load." onRetry={() => void goals.refetch()} busy={goals.isFetching} />
       ) : goals.isPending && !goals.data ? (
         // the shape of the tab (the poster, the hills), so it lays out once
         <SkeletonGroup label="Loading goals" className="g-skel">
