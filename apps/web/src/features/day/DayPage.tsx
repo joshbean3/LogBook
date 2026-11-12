@@ -3,6 +3,7 @@ import { ChevronRight, CloudOff, Lock } from 'lucide-react';
 import type * as React from 'react';
 import { lazy, memo, Suspense, useCallback, useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import { useGoals, useHabitMutations, useMonth, useTodos } from '@/api/queries';
+import { SectionBoundary } from '@/app/ErrorBoundary';
 import { STRAVA_BUILT } from '@/lib/features';
 import { todayParts, usePrefs } from '@/lib/prefs';
 import { hideSplash } from '@/lib/native';
@@ -29,7 +30,6 @@ import { dismissNudge, useNudge } from './nudge';
 import { TheDayCard } from './TheDayCard';
 import { HeldNote } from '../plan/Held';
 import { DayTimeline } from './DayTimeline';
-import { SectionGuard } from './SectionGuard';
 import { StatusChip } from './StatusChip';
 import { useFocus, useOpenWordSheet } from './WordSheet';
 
@@ -321,19 +321,19 @@ const DayContent = memo(function DayContent({ date, onMorning }: { date: ISODate
   // the held day's clock (useDeferred): past midnight on a day still on screen it is that day's last minute, so "Close
   // yesterday" never offers the day before the one the person is still in
   const now = useFaceMinutes();
-  // every section has its own boundary (SectionGuard): one that throws becomes one row, and the rest of Today stays
+  // every section has its own boundary (SectionBoundary): one that throws becomes one row, and the rest of Today stays
   const habits =
     parts.includes('habits') && loaded ? (
-      <SectionGuard key="habits" name="Habits" resetKey={date}>
+      <SectionBoundary key="habits" name="today.habits" resetKey={date}>
         <HabitsTop date={date} log={log} />
-      </SectionGuard>
+      </SectionBoundary>
     ) : null;
   // Plan your day: the slim poster under the training card (no second sun); with Fitness off it leads the page, whole
   const day =
     parts.includes('day') && loaded ? (
-      <SectionGuard key="day" name={isToday ? 'Plan your day' : 'The plan'} resetKey={date}>
+      <SectionBoundary key="day" name="today.plan" resetKey={date}>
         <PlanDay date={date} today={today} log={log} slim={fitness} yesterday={isToday && closeYesterdayDue(log, now) ? <CloseYesterday log={log} /> : null} />
-      </SectionGuard>
+      </SectionBoundary>
     ) : null;
   // nothing is switched on: one line and the way to the switches, and nothing else on the page
   if (!parts.length)
@@ -347,27 +347,27 @@ const DayContent = memo(function DayContent({ date, onMorning }: { date: ISODate
   return (
     <div className="day-page" data-day={date} data-fitness={fitness ? undefined : 'off'}>
       {fitness && loaded ? (
-        <SectionGuard name="Training status" resetKey={date}>
+        <SectionBoundary name="today.status" resetKey={date}>
           <StatusChip date={date} today={today} onPlan={openPlan} />
           <HeldNote date={date} log={log} />
-        </SectionGuard>
+        </SectionBoundary>
       ) : null}
       {/* the day's training is the page's centrepiece: first, above the habits (HeroGauge carries the week's miles). With
           Fitness off the slot holds the evening's Close card only, and the day's own sections lead */}
       {!loaded ? (
         <NotLoaded date={date} fitness={fitness} habits={parts.includes('habits')} />
       ) : (
-        <SectionGuard name={fitness ? 'Training' : 'Close the day'} resetKey={date}>
+        <SectionBoundary name="today.hero" resetKey={date}>
           {fitness ? bare ? <FirstRunSlot date={date} log={log} /> : <Hero date={date} log={log} /> : <Hero date={date} log={log} closeOnly />}
-        </SectionGuard>
+        </SectionBoundary>
       )}
       <LiveExtras date={date} loaded={loaded} />
       {/* the day's first decision sits above the repeat taps: Plan your day, then Habits, in both modes (layout standard 2.1) */}
       {[day, habits]}
       {parts.includes('learned') && loaded && isToday ? (
-        <SectionGuard name="What I learned" resetKey={date}>
+        <SectionBoundary name="today.learned" resetKey={date}>
           <LearnedPrompt today={today} />
-        </SectionGuard>
+        </SectionBoundary>
       ) : null}
       {fitness && STRAVA_BUILT && loaded && isToday && !bare && primer.show ? (
         <div className="strava-primer">
@@ -375,14 +375,14 @@ const DayContent = memo(function DayContent({ date, onMorning }: { date: ISODate
         </div>
       ) : null}
       {loaded && date < today ? (
-        <SectionGuard name="The day" resetKey={date}>
+        <SectionBoundary name="today.day-card" resetKey={date}>
           <TheDayCard date={date} log={log} />
-        </SectionGuard>
+        </SectionBoundary>
       ) : null}
       {loaded ? (
-        <SectionGuard name="Journal" resetKey={date}>
+        <SectionBoundary name="today.timeline" resetKey={date}>
           <DayTimeline date={date} log={log} />
-        </SectionGuard>
+        </SectionBoundary>
       ) : null}
       {loaded ? <EditToday /> : null}
     </div>

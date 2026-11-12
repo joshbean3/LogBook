@@ -39,10 +39,24 @@ export const normalizePrefs = (raw: unknown): Prefs => {
   return { fitness: r.fitness !== false, today: { habits: t.habits !== false, day: t.day !== false, learned: t.learned !== false } };
 };
 
+/**
+ * What the storage key holds, read as a device copy: a record (an object, not a list) made whole, or null. Nothing, an
+ * empty string, text that is not JSON, `null`, a number, a string or a list is no copy at all: the app starts from the
+ * defaults (Fitness on, every section showing), and the account's copy may still seed this device.
+ */
+export const parseStoredPrefs = (raw: string | null | undefined): Prefs | null => {
+  if (!raw) return null;
+  try {
+    const v: unknown = JSON.parse(raw);
+    return v && typeof v === 'object' && !Array.isArray(v) ? normalizePrefs(v) : null;
+  } catch {
+    return null;
+  }
+};
+
 const readStored = (): Prefs | null => {
   try {
-    const raw = localStorage.getItem(PREFS_KEY);
-    return raw ? normalizePrefs(JSON.parse(raw)) : null;
+    return parseStoredPrefs(localStorage.getItem(PREFS_KEY));
   } catch {
     return null;
   }
@@ -92,9 +106,27 @@ export const hasStoredPrefs = (): boolean => stored !== null;
  * its own. A choice made on this device always wins, like `seedTrainWhen`.
  */
 export const seedPrefs = (account: unknown) => {
-  if (stored || !account || typeof account !== 'object') return;
+  if (stored || !account || typeof account !== 'object' || Array.isArray(account)) return;
   commit(normalizePrefs(account), false);
 };
+
+/**
+ * Another tab of the same browser changed the stored copy (the `storage` event): this one follows, so two open tabs
+ * never disagree and the last change stands in both. It is not a change made here: nothing is sent to the account (the
+ * tab that made it has), and a key that was removed (the other tab signed out) is left to that tab's own reload.
+ */
+export const adoptStoredPrefs = (raw: string | null | undefined) => {
+  const next = parseStoredPrefs(raw);
+  if (!next || (stored && same(state, next))) return;
+  state = next;
+  stored = next;
+  subs.forEach((f) => f());
+  if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent(PREFS_EVENT, { detail: next }));
+};
+if (typeof window !== 'undefined' && typeof window.addEventListener === 'function')
+  window.addEventListener('storage', (e: StorageEvent) => {
+    if (e.key === PREFS_KEY) adoptStoredPrefs(e.newValue);
+  });
 
 export const usePrefs = (): Prefs => useSyncExternalStore(subscribe, getPrefs, getPrefs);
 export const useFitness = (): boolean => useSyncExternalStore(subscribe, fitnessOn, fitnessOn);

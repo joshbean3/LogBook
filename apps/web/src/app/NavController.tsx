@@ -3,6 +3,7 @@ import { createContext, createRef, useContext, useEffect, useLayoutEffect, useMe
 import { flushSync } from 'react-dom';
 import { today as todayISO } from '@logbook/shared';
 import { useLocation } from 'react-router';
+import { fitnessOn, isFitnessPath, PREFS_EVENT } from '@/lib/prefs';
 import { entryFor, impliesRoot, matchRoute, NAV_EVENT, resolveRoute, tabDef, TABS, type NavEventDetail, type NavState, type PushedEntry, type RouteMatch, type TabId, type TabState } from '@/ui/nav';
 
 /**
@@ -272,19 +273,22 @@ export class Controller {
     this.queue = [];
     if (this.pending) clearTimeout(this.pending.timer);
     this.pending = null;
-    let rec: { at: number; active?: TabId; tabs?: Record<TabId, TabState> } | null = null;
+    type Saved = { at: number; active?: TabId; tabs?: Record<TabId, TabState> };
+    let rec: Saved | null = null;
     try {
-      rec = JSON.parse(sessionStorage.getItem(STACKS_KEY) ?? 'null');
+      // anything but a record in the shape this build writes counts as none (an older or newer build's, or damage)
+      const raw: unknown = JSON.parse(sessionStorage.getItem(STACKS_KEY) ?? 'null');
+      rec = raw && typeof raw === 'object' && typeof (raw as { at?: unknown }).at === 'number' ? (raw as Saved) : null;
     } catch {
       rec = null;
     }
     const tabs = emptyTabs();
     // a reload keeps the other tabs where they were (their roots; their pushed pages are not rebuilt)
-    if (rec?.tabs && Date.now() - rec.at <= STALE_MS)
+    if (rec?.tabs && typeof rec.tabs === 'object' && Date.now() - rec.at <= STALE_MS)
       for (const t of TABS) {
-        const p = rec.tabs[t.id]?.path;
-        const r = p ? matchRoute(p) : null;
-        if (r && r.kind === 'root' && r.tab === t.id) tabs[t.id].path = p!;
+        const p: unknown = rec.tabs[t.id]?.path;
+        const r = typeof p === 'string' && p ? matchRoute(p) : null;
+        if (r && r.kind === 'root' && r.tab === t.id) tabs[t.id].path = p as string;
       }
     let path = m.path;
     let match: RouteMatch = m;
@@ -708,6 +712,41 @@ export class Controller {
     this.emit('jump', final, tab);
   };
 
+  /**
+   * Fitness was switched off while the app is open (lib/prefs.ts): in Settings, in another tab of the browser, or by the
+   * account's copy arriving on a device that had none of its own. Its routes no longer resolve (ui/nav.ts), so nothing of
+   * it may stay in the state: a pushed Fitness page comes off its stack with everything over it, and when the Fitness tab
+   * is the one on screen, Today takes its place. Without this the shell stood on a tab it no longer draws: a blank page
+   * with no tab lit. The URL follows (a replace: Back never returns to a page that is gone, and an old entry for one
+   * resolves to Today on its own).
+   */
+  fitnessOff = (): void => {
+    if (this.dormant) return;
+    const cut = (t: TabState): TabState => {
+      const k = t.stack.findIndex((e) => isFitnessPath(e.path));
+      return k < 0 ? t : { ...t, stack: t.stack.slice(0, k) };
+    };
+    const before = this.state;
+    const active: TabId = before.active === 'plan' ? 'today' : before.active;
+    const shownChanges = active !== before.active || cut(before.tabs[active]) !== before.tabs[active];
+    // a sheet or a menu over a page that is going closes first, as for a jump (its history entry is released)
+    if (shownChanges) this.closeOverlays();
+    const st = this.state;
+    const tabs = { ...st.tabs };
+    let changed = active !== st.active;
+    for (const t of TABS) {
+      const next = t.id === 'plan' && st.tabs.plan.stack.length ? { ...st.tabs.plan, stack: [] } : cut(st.tabs[t.id]);
+      if (next !== st.tabs[t.id]) changed = true;
+      tabs[t.id] = next;
+    }
+    if (!changed) return;
+    this.set({ ...st, active, tabs });
+    if (!shownChanges) return;
+    const path = topPath(tabs[active]);
+    this.write('replace', path);
+    this.emit('jump', path, active);
+  };
+
   // ---------- popstate: a request ----------
   onPopState = (): void => {
     if (this.dormant) return;
@@ -788,6 +827,15 @@ export const NavController = ({ children }: { children: ReactNode }): React.JSX.
       document.removeEventListener('visibilitychange', f);
       window.removeEventListener('pagehide', f);
     };
+  }, [ctl]);
+  // Fitness switched off while the app is open: its pages leave the state at once (every change fires PREFS_EVENT, a seed
+  // from the account included), in the same task as the tab bar's own update, so no frame shows a tab that is gone
+  useEffect(() => {
+    const f = () => {
+      if (!fitnessOn()) ctl.fitnessOff();
+    };
+    window.addEventListener(PREFS_EVENT, f);
+    return () => window.removeEventListener(PREFS_EVENT, f);
   }, [ctl]);
   useEffect(() => {
     if (import.meta.env.DEV || import.meta.env.VITE_FAKE_CLOCK) (window as unknown as { __nav?: Controller }).__nav = ctl;

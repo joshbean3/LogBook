@@ -1,6 +1,7 @@
 import { monthsBetween, shiftDays } from '@logbook/shared';
 import { ChevronRight, Heart } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
+import { SectionBoundary } from '@/app/ErrorBoundary';
 import { useNav } from '@/app/NavController';
 import { ProgressIcon } from '@/ui/icons';
 import { HEALTH_BUILT, STRAVA_BUILT } from '@/lib/features';
@@ -98,7 +99,7 @@ export default function ProgressView() {
     <div className="page pg-page">
       {header}
       {/* Fitness is off (lib/prefs.ts): no Running or Strength chart; the page is Habits, then Health */}
-      {log.fitness ? <HeroChart
+      {log.fitness ? <SectionBoundary name="progress.hero"><HeroChart
         log={log}
         t={t}
         range={range}
@@ -113,9 +114,9 @@ export default function ProgressView() {
           fail.retry();
           if (start.failed) start.retry();
         }}
-      /> : null}
-      <Trends log={log} onConnect={connect} />
-      {HEALTH_BUILT ? <Health log={log} t={t} /> : null}
+      /></SectionBoundary> : null}
+      <SectionBoundary name="progress.trends"><Trends log={log} onConnect={connect} /></SectionBoundary>
+      {HEALTH_BUILT ? <SectionBoundary name="progress.health"><Health log={log} t={t} /></SectionBoundary> : null}
     </div>
   );
 }

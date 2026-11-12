@@ -1,6 +1,7 @@
 import { awaitingReview, currentGoals, shiftDays, type Aim, type GoalLevel } from '@logbook/shared';
 import { Bell } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
+import { SectionBoundary } from '@/app/ErrorBoundary';
 import { useNav } from '@/app/NavController';
 import { useBootstrap, useGoals } from '@/api/queries';
 import { useToday } from '@/lib/useToday';
@@ -156,19 +157,19 @@ export default function GoalsView(): React.JSX.Element {
       ) : (
         <>
           <Stack className="g-top">
-            <GoalsHero today={today} now={now} hit={hit} />
+            <SectionBoundary name="goals.hero"><GoalsHero today={today} now={now} hit={hit} /></SectionBoundary>
             {owed || evening ? (
               <div className="k-rows has-icons g-follow">
-                <ReviewRow today={today} />
-                {evening ? <AheadRow level="day" period={shiftDays(today, 1)} name="Tomorrow" /> : null}
+                <SectionBoundary name="goals.follow"><ReviewRow today={today} />
+                {evening ? <AheadRow level="day" period={shiftDays(today, 1)} name="Tomorrow" /> : null}</SectionBoundary>
               </div>
             ) : null}
-            <FurtherOut today={today} now={now} />
+            <SectionBoundary name="goals.further"><FurtherOut today={today} now={now} /></SectionBoundary>
           </Stack>
           <KSection title="History" meta="Goals kept" action="See all" actionLabel="See all of the history" onAction={() => nav.push('/goals/history')} className="g-past">
-            <ScoreStrip goals={list} today={today} />
+            <SectionBoundary name="goals.history"><ScoreStrip goals={list} today={today} /></SectionBoundary>
           </KSection>
-          {remindersSupported() ? <Reminders goals={list} today={today} /> : null}
+          {remindersSupported() ? <SectionBoundary name="goals.reminders"><Reminders goals={list} today={today} /></SectionBoundary> : null}
         </>
       )}
     </div>

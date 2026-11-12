@@ -2,7 +2,7 @@ import type * as React from 'react';
 import { useId } from 'react';
 import { useNowMark } from '@/ui/nowBudget';
 import { closed, crestY, FAR, HZ, KEY, MARK_R, markX, marksOf, MIDDLE, NEAR, SKY, SUN_R, sunDx, sunDy, VB_H, VB_W, wayAhead } from './horizon';
-import { sunProgress } from './logic';
+import { sunProgress, unit } from './logic';
 
 export interface PosterSceneProps {
   /** full: the hills, the sun and its way (88 tall at 358 wide). slim: a strip of the same hills, no sun (48 tall). Default full. */
@@ -22,10 +22,14 @@ export interface PosterSceneProps {
  * sun's place, and two rings bloom when everything is done. Only transform and opacity change; a change of `progress`
  * moves the sun over --dur-number, and under Reduce Motion it jumps.
  */
-export const PosterScene = ({ size = 'full', total = 0, done = 0, progress, lit = false }: PosterSceneProps) => {
+export const PosterScene = ({ size = 'full', total: totalIn = 0, done: doneIn = 0, progress, lit = false }: PosterSceneProps) => {
   const id = useId().replace(/:/g, '');
   const slim = size === 'slim';
-  const f = Math.min(1, Math.max(0, progress ?? sunProgress(done, total)));
+  // counts as whole numbers from 0 up, whatever was passed (a missing value, a text, a NaN is 0)
+  const whole = (n: number) => (typeof n === 'number' && Number.isFinite(n) && n > 0 ? Math.floor(n) : 0);
+  const total = whole(totalIn);
+  const done = whole(doneIn);
+  const f = unit(progress ?? sunProgress(done, total));
   // the Sunrise sun is one of the screen's three now marks; past the budget it yields to Apricot
   const paint = useNowMark('pointer', lit && !slim);
   const complete = total > 0 && done >= total;

@@ -1,4 +1,5 @@
 import { useCallback, useState } from 'react';
+import { SectionBoundary } from '@/app/ErrorBoundary';
 import { useToday } from '@/lib/useToday';
 import { dayCaption, NavBar } from '@/ui';
 import { JournalCalendarPane } from './JournalPane';
@@ -18,8 +19,8 @@ export default function JournalView() {
   return (
     <div className="page journal-page">
       <NavBar caps={{ cur: dayCaption(today, today) }} title={{ cur: 'Journal' }} gap={16} />
-      <RecallCard today={today} onOpenDay={openRecalled} />
-      <JournalCalendarPane today={today} openDay={openDay} />
+      <SectionBoundary name="journal.recall"><RecallCard today={today} onOpenDay={openRecalled} /></SectionBoundary>
+      <SectionBoundary name="journal.calendar"><JournalCalendarPane today={today} openDay={openDay} /></SectionBoundary>
     </div>
   );
 }

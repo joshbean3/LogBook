@@ -4,6 +4,8 @@
  * and their tests read the same values. `features/day/heroWeek.ts` re-exports the names it always had.
  */
 
+import { unit } from './logic';
+
 type Pt = readonly [number, number];
 
 /** One session (or to-do) on the horizon. */
@@ -24,8 +26,14 @@ export const NEAR_CREST: readonly (readonly [Pt, Pt, Pt, Pt])[] = [
   [[138, 59], [198, 63], [250, 72], [300, 70]],
   [[300, 70], [325, 69], [345, 66], [358, 64]],
 ];
-/** The sun's center at fraction `f`: straight across, and up a parabola whose top is the full count. */
-export const sunAt = (f: number): [number, number] => [HZ.x0 + HZ.W * f, HZ.yTop + HZ.D * (1 - f) * (1 - f)];
+/**
+ * The sun's center at fraction `f`: straight across, and up a parabola whose top is the full count. `f` is held between 0
+ * and 1 here and in `sunDx` / `sunDy`, and a value that is not a number is 0, so no drawing can be handed a NaN.
+ */
+export const sunAt = (f: number): [number, number] => {
+  const u = unit(f);
+  return [HZ.x0 + HZ.W * u, HZ.yTop + HZ.D * (1 - u) * (1 - u)];
+};
 /** A mark's center x from its share. */
 export const markX = (share: number): number => HZ.x0 + HZ.W * share;
 const bez = (a: number, b: number, c: number, d: number, t: number) => {
@@ -60,7 +68,8 @@ const IN_SUN = 25;
  */
 export const marksOf = (c: { planned: number; done: number }, f: number): HorizonMark[] => {
   const n = Math.max(c.planned, c.done);
-  if (n > MAX_MARKS) return [];
+  // more than the horizon holds, or a count that is not a count (NaN, a negative, no end): no marks
+  if (!(n >= 0 && n <= MAX_MARKS)) return [];
   const [sx, sy] = sunAt(f);
   let last = FIRST_X - MARK_GAP;
   return Array.from({ length: n }, (_, i) => {
@@ -97,8 +106,8 @@ export const WAY: readonly { x: number; y: number }[] = Array.from({ length: 40 
   return { x, y: HZ.yTop + HZ.D * (1 - u) * (1 - u) };
 }).filter((d) => d.x <= 301);
 /** The sun's offset from its resting place (38, 63) at fraction f, as a translate. */
-export const sunDx = (f: number): number => HZ.W * f;
-export const sunDy = (f: number): number => HZ.D * (1 - f) * (1 - f) - HZ.D;
+export const sunDx = (f: number): number => HZ.W * unit(f);
+export const sunDy = (f: number): number => HZ.D * (1 - unit(f)) * (1 - unit(f)) - HZ.D;
 /** The way still to go with the sun at `f`: the dots from the sun onward, never within 11 of a drawn mark. */
 export const wayAhead = (f: number, marks: readonly HorizonMark[] = []): { x: number; y: number }[] => {
   const [sx] = sunAt(f);

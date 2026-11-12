@@ -3,6 +3,7 @@ import { useMotionValueEvent } from 'motion/react';
 import type * as React from 'react';
 import { Activity, startTransition, useCallback, useEffect, useLayoutEffect, useReducer, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
+import { SectionBoundary } from '@/app/ErrorBoundary';
 import { useHomeControl, useNav, useRootRequest, useRouteParams, useTabScroller } from '@/app/NavController';
 import { crossfadeSlow, ease } from '@/lib/motion';
 import { useToday } from '@/lib/useToday';
@@ -611,7 +612,7 @@ export default function PlanView(): React.JSX.Element {
     (m: string, live: boolean) => {
       const f = faceOf(m, live, weekH);
       if (f === 'snap') return <div className="pl-snap" aria-hidden="true" dangerouslySetInnerHTML={{ __html: snapped.current.get(keyOf(m, weekH))! }} />;
-      return f === 'none' ? <div className="pl-wpage" aria-hidden="true" /> : <WeekPage mon={m} onThisWeek={onThisWeek} still={f === 'still'} />;
+      return f === 'none' ? <div className="pl-wpage" aria-hidden="true" /> : <SectionBoundary name="fitness.week"><WeekPage mon={m} onThisWeek={onThisWeek} still={f === 'still'} /></SectionBoundary>;
     },
     [onThisWeek, warm, drawnVer], // eslint-disable-line react-hooks/exhaustive-deps
   );
@@ -619,7 +620,7 @@ export default function PlanView(): React.JSX.Element {
     (f: string, live: boolean) => {
       const k = faceOf(f, live, monthH);
       if (k === 'snap') return <div className="pl-snap" aria-hidden="true" dangerouslySetInnerHTML={{ __html: snapped.current.get(keyOf(f, monthH))! }} />;
-      return k === 'none' ? <div className="pl-mpage" aria-hidden="true" /> : <MonthPage first={f} onWeek={onWeek} onStep={onMonthStep} onThisMonth={onThisMonth} onBack={onBackToWeek} still={k === 'still'} />;
+      return k === 'none' ? <div className="pl-mpage" aria-hidden="true" /> : <SectionBoundary name="fitness.month"><MonthPage first={f} onWeek={onWeek} onStep={onMonthStep} onThisMonth={onThisMonth} onBack={onBackToWeek} still={k === 'still'} /></SectionBoundary>;
     },
     [onWeek, onMonthStep, onThisMonth, onBackToWeek, warm, drawnVer], // eslint-disable-line react-hooks/exhaustive-deps
   );
