@@ -1273,6 +1273,11 @@ html[data-text-xl] .g-follow {
 html[data-text-xl] .g-history .g-seg.seg .seg-btn {
   font-size: clamp(13px, var(--fs-foot), 15px); /* brand-ok: Larger Text cap, five segments in 288 px */
 }
+/* Done, Partly, Missed: three across no longer hold their words at this size ("PartlyMissed"), so they stack, one
+   44 pt row each */
+html[data-text-xl] .g-answers.k-card {
+  grid-template-columns: minmax(0, 1fr);
+}
 /* the label on words the review rewrote wraps at this size, so it stays inside its card at 320 */
 html[data-text-xl] .gs-from-ai {
   white-space: normal;
