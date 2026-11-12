@@ -1,18 +1,18 @@
-import { fmtDate, parseISO, type JournalEntry } from '@logbook/shared';
-import { ChevronRight, PenLine, Plus } from 'lucide-react';
-import { haptics } from '@/lib/haptics';
-import { PagerButtons, Row, Segmented, SEG_TONE_WAYFINDING, Skeleton } from '@/ui';
+import { fmtDate, parseISO } from '@logbook/shared';
+import { Plus } from 'lucide-react';
 import { Disc, type DiscTone } from '@/ui/Disc';
 import { FavoriteIcon } from '@/ui/icons';
-import { dayLabel, monthGrid, orbVariant, pageBy, pageHolds, pageTitle, weekDays, type CalView, type OrbVariant } from './calDays';
+import { monthGrid, type OrbVariant } from './calDays';
+import { writtenWords, type DayMark } from './days';
+import './calendar.css';
 
-/** The guide's entry marks (12.1): one entry a Haze disc ringed in Deep Sky, two `--entry-2`, three or more Sky, a Favorite Deep Sky. */
+/** The guide's entry marks (12.1): one thing written a Haze disc ringed in Deep Sky, two `--entry-2`, three or more Sky, a Favorite Deep Sky. */
 const TONE: Record<Exclude<OrbVariant, 'brand'>, DiscTone> = { sky: 'haze', dusk: 'two', tide: 'sky', sun: 'deep' };
 
 /**
- * A day's mark: a flat disc in the tone its entries pick (calDays.ts `orbVariant`), never the Orb (guide 2.1). The count is
- * the numeral inside it and a Favorite carries a heart instead, so the tone is never the only signal (guide 3.3). With no
- * variant it is the empty Haze disc of "Write today's entry".
+ * A day's mark: a flat disc in the tone its count picks, never the Orb (guide 2.1). The count is the numeral inside it and
+ * a Favorite carries a heart instead, so the tone is never the only signal (guide 3.3). With no variant it is an empty
+ * Haze disc.
  */
 export const DayDisc = ({ variant, size, n }: { variant: OrbVariant | null; size: number; n?: number }) => {
   if (!variant || variant === 'brand') return <Disc size={size} tone="haze" className="jcal-disc" />;
@@ -26,133 +26,69 @@ export const DayDisc = ({ variant, size, n }: { variant: OrbVariant | null; size
   return <Disc size={size} tone={TONE[variant]} n={n == null ? undefined : n > 9 ? '9+' : n} className="jcal-disc" />;
 };
 
+/** The disc for a day's mark: by how much was written (a line and each entry count one), a Favorite first. */
+export const markVariant = (m: DayMark | undefined): OrbVariant | null => {
+  const n = m ? m.lines + m.entries : 0;
+  if (!m || !n) return null;
+  if (m.fav) return 'sun';
+  return n === 1 ? 'sky' : n === 2 ? 'dusk' : 'tide';
+};
+
+/** A day cell's name for VoiceOver: the number printed on it first, then the weekday and what the cell shows. */
+export const cellLabel = (d: string, m: DayMark | undefined, today: string): string => {
+  const num = String(parseISO(d).getDate());
+  const empty = !m || m.lines + m.entries === 0;
+  return `${num}, ${fmtDate('dowLong', d)}${today === d ? ', today' : ''}, ${writtenWords(m?.lines ?? 0, m?.entries ?? 0)}${m?.fav ? ', a Favorite' : ''}${empty && d <= today ? '. Write this day' : ''}`;
+};
+
 const WEEKDAYS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
 
-export interface CalendarProps {
+export interface MonthCalendarProps {
+  /** '2026-11' */
+  month: string;
   today: string;
-  byDate: Map<string, JournalEntry[]>;
-  /** The page's days are still being fetched: nothing is said about what was or was not written. */
-  loading?: boolean;
-  /** The page's days could not be read (the pane says so under the calendar): nothing is said about them either. */
-  failed?: boolean;
-  /** Ask again for the days that could not be read (the meta line offers it). */
-  onRetry?: () => void;
-  view: CalView;
-  onView: (v: CalView) => void;
-  /** Any day of the page shown (a week, or a month). */
-  anchor: string;
-  onAnchor: (d: string) => void;
-  /** The day open in the day card under the calendar. */
+  /** What each written day holds (days.ts `dayMarks`). */
+  marks: ReadonlyMap<string, DayMark>;
+  /** The month's days are still being read (or could not be): nothing is said about what was or was not written. */
+  unknown?: boolean;
+  /** The day picked last (its page's row is lit under the calendar). */
   open: string | null;
   onPick: (d: string) => void;
-  /** Whether today's entry is being written right now (the affordance steps aside). */
-  writingToday: boolean;
 }
 
 /**
- * The Journal's calendar card: the page's name with how many days have entries, Week · Month and the paging chevrons,
- * then the days. A day with entries wears a flat disc in its tone with the count inside it (a heart on a day with a
- * favorite), so nothing rests on color alone and no legend is needed; a day without is a plain number. Today's numeral
- * is ringed in Night Ink, the open day's in Sky. Until today has an entry it holds a plus, and the card ends in the
- * "Write today's entry" row under a hairline. Tap a day to open it; days to come are quiet.
+ * A month's calendar, at the top of its page: a day with something written wears a flat disc in its tone with the count
+ * inside it (a heart on a day with a Favorite), so nothing rests on color alone and no legend is needed; a day without is
+ * a plain number. Today's numeral is ringed in Night Ink, the picked day's in Sky; until today has something it holds a
+ * plus. Tap a day: the page jumps to it (or, for a day with nothing, opens its composer). Days to come are quiet.
  */
-export const Calendar = ({ today, byDate, loading = false, failed = false, onRetry, view, onView, anchor, onAnchor, open, onPick, writingToday }: CalendarProps) => {
-  const days = view === 'week' ? weekDays(anchor) : monthGrid(anchor);
-  const written = days.filter((d) => d && byDate.has(d)).length;
-  const onToday = pageHolds(anchor, view, today);
-  const todayEmpty = !byDate.has(today);
-  // nothing to page on to once the page holds today (the days to come have no memories yet)
-  const atEnd = view === 'week' ? anchor >= today : anchor.slice(0, 7) >= today.slice(0, 7);
-  const page = (dir: -1 | 1) => {
-    haptics.select();
-    onAnchor(pageBy(anchor, view, dir));
-  };
-  const back = () => {
-    haptics.select();
-    onAnchor(today);
-  };
-  const markSize = view === 'week' ? 22 : 18;
-  const unknown = loading || failed;
-  const title = pageTitle(anchor, view, today);
+export const MonthCalendar = ({ month, today, marks, unknown = false, open, onPick }: MonthCalendarProps) => {
+  const days = monthGrid(`${month}-01`);
+  const title = fmtDate('month', `${month}-01`);
   return (
-    <section className="jcal" aria-label="Calendar">
-      <div className="jcal-head">
-        <h2 className="jcal-title">{title}</h2>
-        {written ? (
-          <span className="jcal-meta">{`${written} ${written === 1 ? 'day' : 'days'} written`}</span>
-        ) : loading ? (
-          <span className="jcal-meta" aria-hidden="true">
-            <Skeleton w={96} h={14} />
-          </span>
-        ) : failed ? (
-          onRetry ? (
-            <button type="button" className="jcal-retry" onClick={onRetry}>
-              Couldn’t load. Try again
-            </button>
-          ) : null
-        ) : (
-          <span className="jcal-meta">Nothing written</span>
-        )}
+    <section className="jcal is-fixed" aria-label={`${title}, calendar`}>
+      <div className="jcal-dow" aria-hidden="true">
+        {WEEKDAYS.map((w, i) => (
+          <span key={i}>{w}</span>
+        ))}
       </div>
-      <div className="jcal-bar">
-        <Segmented
-          className="k-seg jcal-seg"
-          tone={SEG_TONE_WAYFINDING}
-          label="Week or month"
-          options={[
-            ['week', 'Week'],
-            ['month', 'Month'],
-          ]}
-          value={view}
-          onChange={(v: CalView) => {
-            haptics.select();
-            onView(v);
-          }}
-        />
-        <div className="jcal-nav">
-          {onToday ? null : (
-            <button type="button" className="jcal-today-btn" onClick={back}>
-              Today
-            </button>
-          )}
-          <PagerButtons onPrev={() => page(-1)} onNext={() => page(1)} prevLabel={view === 'week' ? 'Previous week' : 'Previous month'} nextLabel={view === 'week' ? 'Next week' : 'Next month'} nextDisabled={atEnd} />
-        </div>
-      </div>
-      {view === 'month' ? (
-        <div className="jcal-dow" aria-hidden="true">
-          {WEEKDAYS.map((w, i) => (
-            <span key={i}>{w}</span>
-          ))}
-        </div>
-      ) : null}
-      <div className={`jcal-grid is-${view}`} role="group" aria-label={title}>
+      <div className="jcal-grid is-month" role="group" aria-label={title}>
         {days.map((d, i) => {
           if (!d) return <span key={`x${i}`} className="jcal-cell is-blank" aria-hidden="true" />;
-          const entries = byDate.get(d);
-          const n = entries?.length ?? 0;
+          const m = marks.get(d);
+          const n = m ? m.lines + m.entries : 0;
           const isToday = d === today;
           const future = d > today;
-          const variant = orbVariant(entries);
-          const fav = !!entries?.some((e) => e.fav);
+          const variant = markVariant(m);
           return (
-            <button
-              key={d}
-              type="button"
-              className={`jcal-cell ${isToday ? 'is-today' : ''} ${future ? 'is-future' : ''} ${n ? 'has' : ''} ${open === d ? 'is-open' : ''}`}
-              aria-label={`${dayLabel(d, n, { view, today, fav })}${isToday && !n && !unknown ? '. Write today’s entry' : ''}`}
-              aria-current={isToday ? 'date' : undefined}
-              aria-pressed={open === d}
-              disabled={future}
-              onClick={() => onPick(d)}
-            >
-              {view === 'week' ? <span className="jcal-wd">{fmtDate('dow', d)}</span> : null}
+            <button key={d} type="button" className={`jcal-cell ${isToday ? 'is-today' : ''} ${future ? 'is-future' : ''} ${n ? 'has' : ''} ${open === d ? 'is-open' : ''}`} aria-label={cellLabel(d, unknown ? undefined : m, today)} aria-current={isToday ? 'date' : undefined} aria-pressed={open === d} disabled={future} onClick={() => onPick(d)}>
               <span className="jcal-num">{parseISO(d).getDate()}</span>
               <span className="jcal-mark" aria-hidden="true">
                 {variant ? (
-                  <DayDisc variant={variant} size={markSize} n={n} />
+                  <DayDisc variant={variant} size={18} n={n} />
                 ) : isToday && !unknown ? (
-                  <span className="jcal-plus" style={{ width: markSize, height: markSize }}>
-                    <Plus size={view === 'week' ? 14 : 11} strokeWidth={2.4} />
+                  <span className="jcal-plus" style={{ width: 18, height: 18 }}>
+                    <Plus size={11} strokeWidth={2.4} />
                   </span>
                 ) : null}
               </span>
@@ -160,23 +96,6 @@ export const Calendar = ({ today, byDate, loading = false, failed = false, onRet
           );
         })}
       </div>
-      {todayEmpty && !writingToday && !unknown ? (
-        <>
-          <hr className="rule jcal-rule" />
-          <Row
-            className="jcal-write"
-            left={
-              <span className="icon-tile" aria-hidden="true">
-                <PenLine size={18} />
-              </span>
-            }
-            title="Write today’s entry"
-            sub="A line or two is plenty"
-            right={<ChevronRight size={18} className="lrow-chev" aria-hidden="true" />}
-            onClick={() => onPick(today)}
-          />
-        </>
-      ) : null}
     </section>
   );
 };
