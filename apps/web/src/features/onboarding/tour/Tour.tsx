@@ -28,7 +28,7 @@ export const TOUR_ALL: readonly Page[] = [
   { key: 'todos', icon: TodayIcon, where: 'Today', title: 'Your three that matter.', lede: 'The first three to-dos are your priorities. Check one off and the next moves up; the rest wait folded below.', Demo: TodosDemo },
   { key: 'habits', icon: HabitIcon, where: 'Today', title: 'Habits you can tap.', lede: 'Each habit is a tile on Today. Tap it when it’s done; the week fills in under it.', Demo: HabitsDemo },
   { key: 'goals', icon: GoalsIcon, where: 'Goals and Today', title: 'One goal a day.', lede: 'Set the one thing that would make today count, then break it into steps. Week, month and year goals live in Goals.', Demo: GoalsDemo },
-  { key: 'journal', icon: JournalIcon, where: 'Journal', title: 'One line a day.', lede: 'What you learned today, in a line. It lights the week. Write more when you want to, and old days come back as Remember when.', Demo: JournalDemo },
+  { key: 'journal', icon: JournalIcon, where: 'Journal', title: 'One line a day.', lede: 'What you learned today, in a line. Write more any time. Old days come back as Remember when.', Demo: JournalDemo },
   // one page for training: what is next (the week), then how it is going (Progress, the lower half of the tab)
   {
     key: 'plan',

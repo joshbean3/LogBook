@@ -527,12 +527,14 @@
   justify-self: end;
 }
 
-/* Journal: the dusk poster (ui/poster, the kit's own, drawn at 72 percent so the whole card reads as one picture) and
+/* Journal: the dusk poster (ui/poster, the kit's own, drawn at 70 percent so the whole card reads as one picture) and
    the line attached under it, in one Paper card as on the tab */
-/* the card is taller before the line is kept (the field and its button) than after (one row): the stage keeps the taller
-   height, so the steps under it never move */
-.tstage.tj {
-  min-height: 24.25rem;
+/* the card is taller before the line is kept (the field and its button) than after (one row). Its place keeps the
+   tallest height it has had (demos.tsx measures it: the picture follows the width, the words the text size), so the
+   steps under it do not move when the line is kept */
+.tj-hold {
+  display: grid;
+  align-content: start;
 }
 .tj-card {
   border-radius: var(--r-card);
@@ -541,7 +543,7 @@
   overflow: hidden;
 }
 .tj-poster {
-  zoom: 0.72;
+  zoom: 0.7;
 }
 /* inside the card the poster has no edge of its own: the card carries the corners and the shadow */
 .tj-po {
@@ -551,11 +553,13 @@
 }
 .tj-compose {
   display: grid;
-  gap: var(--sp-3);
-  padding: var(--sp-3) var(--sp-4) var(--sp-4);
+  gap: var(--sp-2);
+  padding: var(--sp-3) var(--sp-4);
 }
+/* two lines tall from the start, as the real field is: the words being typed never push the button down */
 .tj-field {
   display: block;
+  min-height: calc(2 * var(--lh-row) + 2 * var(--sp-2));
 }
 /* after the line is kept, the same spot is the way to say more: one quiet row */
 .tj-more {

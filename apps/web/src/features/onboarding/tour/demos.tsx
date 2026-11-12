@@ -2,6 +2,7 @@ import { ArrowRight, Check, ChevronRight, Plus } from 'lucide-react';
 import { Disc } from '@/ui/Disc';
 import { Poster, WeekLights, type WeekLight } from '@/ui/poster';
 import { AnimatePresence, motion } from 'motion/react';
+import { useLayoutEffect, useRef, useState } from 'react';
 import { springs } from '@/lib/motion';
 import { Finger, Stage, Steps, useLoop, useTyped } from './engine';
 
@@ -195,43 +196,53 @@ export const JournalDemo = ({ running, still, plain }: DemoProps) => {
   const typing = at(b, 3, 6);
   const typed = useTyped(rest, typing && !still, b >= 4);
   const kept = still || b >= 6;
+  // the card's place holds the tallest height the card has had, so the steps under it stay put when the composer
+  // gives way to one row
+  const hold = useRef<HTMLDivElement>(null);
+  const [held, setHeld] = useState(0);
+  useLayoutEffect(() => {
+    const h = hold.current?.offsetHeight ?? 0;
+    if (h > held) setHeld(h);
+  });
   return (
     <>
       <Stage className="tj">
-        <div className="tj-card">
-          <div className="tj-poster">
-            <Poster
-              ground="dusk"
-              className="tj-po"
-              titleAs="p"
-              titleSize={kept ? 'goal' : 'lead'}
-              title={kept ? `${starter}${rest}` : 'What did you learn today?'}
-              meta={kept ? 'Tonight’s line is kept.' : 'One line is enough.'}
-              scene={<WeekLights days={JOUR_WEEK} tonight={kept ? 'lit' : 'waiting'} />}
-              band={kept ? { label: 'This week', words: '4 days written' } : { label: 'This week · 3 days written', words: 'Tonight’s line lights the fourth' }}
-            />
-          </div>
-          {kept ? (
-            <motion.div className="tj-more" data-spot="more" initial={still ? false : { opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={springs.settle}>
-              <span>Write more about today</span>
-              <ChevronRight size={18} />
-            </motion.div>
-          ) : (
-            <div className="tj-compose">
-              <span className="tj-field" data-spot="field">
-                {starter}
-                {typed}
-                {b >= 2 ? <i className="tcaret" /> : null}
-              </span>
-              <span className="tg-set" data-spot="save">
-                Finish the line
-              </span>
+        <div ref={hold} className="tj-hold" style={held ? { minHeight: held } : undefined}>
+          <div className="tj-card">
+            <div className="tj-poster">
+              <Poster
+                ground="dusk"
+                className="tj-po"
+                titleAs="p"
+                titleSize={kept ? 'goal' : 'lead'}
+                title={kept ? `${starter}${rest}` : 'What did you learn today?'}
+                meta={kept ? 'Tonight’s line is kept.' : 'One line is enough.'}
+                scene={<WeekLights days={JOUR_WEEK} tonight={kept ? 'lit' : 'waiting'} />}
+                band={kept ? { label: 'This week', words: '4 days written' } : { label: 'This week · 3 days written', words: 'Tonight’s line lights the fourth' }}
+              />
             </div>
-          )}
+            {kept ? (
+              <motion.div className="tj-more" data-spot="more" initial={still ? false : { opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={springs.settle}>
+                <span>Write more about today</span>
+                <ChevronRight size={18} />
+              </motion.div>
+            ) : (
+              <div className="tj-compose">
+                <span className="tj-field" data-spot="field">
+                  {starter}
+                  {typed}
+                  {b >= 2 ? <i className="tcaret" /> : null}
+                </span>
+                <span className="tg-set" data-spot="save">
+                  Finish the line
+                </span>
+              </div>
+            )}
+          </div>
         </div>
         <Finger spot={at(b, 1, 3) ? 'field' : at(b, 4, 6) ? 'save' : b === 7 ? 'more' : null} down={b === 2 || b === 5} />
       </Stage>
-      <Steps items={['Tap the line. It is started for you', 'Finish it, and tonight lights', 'Write more when there is more to say']} on={still ? -1 : b < 3 ? 0 : b < 7 ? 1 : 2} />
+      <Steps items={['Tap the line. It is started for you', 'Finish it, and tonight lights', 'Write more when you want to']} on={still ? -1 : b < 3 ? 0 : b < 7 ? 1 : 2} />
     </>
   );
 };
