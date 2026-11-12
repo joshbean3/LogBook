@@ -24,10 +24,11 @@
 .fp-tiles > :first-child:nth-last-child(odd) {
   grid-column: 1 / -1;
 }
-/* the body's numbers: one group, a card's gap under the trend tiles */
+/* the body's numbers: a group of their own under the trend tiles, 24 apart (two groups in one section, where tiles in a
+   group are 12 apart), with where they come from as the footnote under them */
 .pg-tiles + .fp-body,
 .pg-empty + .fp-body {
-  margin-top: var(--gap);
+  margin-top: var(--sp-6);
 }
 
 /* ---------- Workouts, one by one, under the chart: folded to one 56 row (the week's own "Earlier this week" in the same
