@@ -24,6 +24,13 @@
 .fp-tiles > :first-child:nth-last-child(odd) {
   grid-column: 1 / -1;
 }
+/* on the narrowest phones a half-width tile has no room for its whole name and a chevron ("Resting HR", "Plan kept"):
+   the name wins. The whole tile is the target, and every tile in the grid opens its page */
+@media (max-width: 359px) {
+  .fp-tiles > :not(:first-child:nth-last-child(odd)) .tile-chev {
+    display: none;
+  }
+}
 /* the body's numbers: a group of their own under the trend tiles, 24 apart (two groups in one section, where tiles in a
    group are 12 apart), with where they come from as the footnote under them */
 .pg-tiles + .fp-body,
