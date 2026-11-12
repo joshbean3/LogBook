@@ -306,9 +306,14 @@ export const GoalDetail = ({ id }: { id: string }) => {
   const events = useGoalEvents(id.startsWith('tmp-') ? undefined : id, !id.startsWith('tmp-'));
   const [note, setNote] = useState(g?.reflection ?? '');
   const minutes = useNowMinutes();
-  useEffect(() => setNote(g?.reflection ?? ''), [g?.reflection]);
-  // the line being written when the sheet goes (a flick down never blurs the field): saved as the blur would have
+  // the line being written when the sheet goes (a flick down never blurs the field): saved as the blur would have.
+  // `sent` is the line already on its way, so a blur and the sheet leaving in the same moment save it once; it is
+  // forgotten when the goal's line changes (saved, or put back after a save that failed), so it can be sent again
   const sent = useRef<string | null>(null);
+  useEffect(() => {
+    setNote(g?.reflection ?? '');
+    sent.current = null;
+  }, [g?.reflection]);
   const saveNote = () => {
     if (!g) return;
     const v = note.trim();
