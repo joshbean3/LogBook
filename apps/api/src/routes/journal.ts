@@ -4,7 +4,7 @@ import { Hono } from 'hono';
 import { z } from 'zod';
 import type { AuthEnv } from '../auth.js';
 import type { DB } from '../db/index.js';
-import { dailyPicks, journalEntries, quotePrefs, quotes, shownItems, userQuotes } from '../db/schema.js';
+import { dailyPicks, journalEntries, learnings, quotePrefs, quotes, shownItems, userQuotes } from '../db/schema.js';
 import { toEntry } from '../lib/map.js';
 import { keyOf, recallToday, setRecallPrefs } from '../services/recall.js';
 import { addTag, dayOf, markDay, removeTag, statsOf } from '../services/daytags.js';
@@ -37,6 +37,26 @@ export const journalRoutes = (db: DB) => {
     const rows = db.select().from(journalEntries).where(and(...conds)).orderBy(desc(journalEntries.date), desc(journalEntries.createdAt), asc(journalEntries.id)).limit(q.limit + 1).offset(q.offset ?? 0).all();
     const more = rows.length > q.limit;
     return c.json({ entries: rows.slice(0, q.limit).map(toEntry), more, total });
+  });
+
+  /**
+   * The one Journal's archive: every month with a line (`learnings`) or an entry in it, newest first, with how many days
+   * were written (a day with both counts once) and how many of each. The app lays lines and entries out by day; this is
+   * the one count it cannot make from the two lists' own months.
+   */
+  r.get('/journal/months', (c) => {
+    const userId = uidOf(c);
+    const months = db.all<{ month: string; days: number; lines: number; entries: number }>(sql`
+      SELECT substr(date, 1, 7) AS month, count(DISTINCT date) AS days, sum(kind = 'l') AS lines, sum(kind = 'e') AS entries
+      FROM (
+        SELECT ${learnings.date} AS date, 'l' AS kind FROM ${learnings} WHERE ${learnings.userId} = ${userId} AND ${learnings.deletedAt} IS NULL
+        UNION ALL
+        SELECT ${journalEntries.date} AS date, 'e' AS kind FROM ${journalEntries} WHERE ${journalEntries.userId} = ${userId} AND ${journalEntries.deletedAt} IS NULL
+      )
+      GROUP BY month
+      ORDER BY month DESC
+    `);
+    return c.json({ months });
   });
 
   r.post('/journal', async (c) => {
