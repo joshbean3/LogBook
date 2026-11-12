@@ -72,3 +72,44 @@
     transition: none;
   }
 }
+
+/* ---------- the habits chart at the top of History (HabitsChart.tsx): one card. The headline is the readout (the value
+   size with its context beside it, one Dusk line under it), then the plot, then the range control 12 under it ---------- */
+.card.hc {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--sp-3);
+}
+.hc-head {
+  display: grid;
+  gap: var(--sp-1);
+  min-width: 0;
+  margin-bottom: var(--sp-2);
+}
+.hc-big {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  column-gap: var(--sp-2);
+  min-width: 0;
+  font: 650 var(--fs-value) / var(--lh-value) var(--sans);
+  letter-spacing: var(--tr-value);
+  color: var(--ink);
+}
+.hc-big small {
+  font: 500 var(--fs-sub) / var(--lh-sub) var(--sans);
+  letter-spacing: 0;
+  color: var(--ink-2);
+}
+.hc-take {
+  font: 500 var(--fs-sub) / var(--lh-sub) var(--sans);
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-2);
+}
+/* axis words in the kit's caption style, Dusk; the average pill's words at 11 px, never under */
+.hc .ck-ax {
+  fill: var(--ink-2);
+}
+.hc .ck-avg-word {
+  font-size: var(--fs-caps);
+}

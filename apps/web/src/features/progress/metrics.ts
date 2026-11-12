@@ -256,7 +256,7 @@ export const METRICS: Record<MetricId, MetricDef> = {
   consistency: {
     id: 'consistency',
     name: 'Consistency',
-    tileName: { habits: 'Habits', plan: 'On plan' },
+    tileName: { habits: 'Habits', plan: 'Plan kept' },
     emptyWord: 'Nothing to count yet',
     emptyLine: 'Nothing to count yet. Habits you tap and sessions you keep land here.',
     what: 'How much of what you set out to do got done: your habits, or the sessions in your plan.',
@@ -404,11 +404,28 @@ const PLAIN: Partial<Record<MetricId, Partial<MetricDef>>> = {
   hrv: { why: 'Higher than your usual often goes with feeling fresh. Several low days in a row often go with fatigue or a hard stretch.' },
   rhr: { why: 'A resting rate that creeps up over a few days often goes with fatigue or a hard stretch.' },
 };
+/**
+ * Consistency as a person with Fitness on reads it: the plan alone, "Plan kept", a trend tile on Fitness. Their habits'
+ * share is not training: its chart is on Today (Habits, History: features/habits/HabitsHistory.tsx), so the two halves
+ * of this metric are each said once, where they belong.
+ */
+const TRAINING: Partial<Record<MetricId, Partial<MetricDef>>> = {
+  consistency: {
+    name: 'Plan kept',
+    emptyWord: 'Nothing to count yet',
+    emptyLine: 'Nothing to count yet. Sessions you keep land here.',
+    what: 'How much of your plan got done: the days with a session that you kept.',
+    how: 'Each day with a session is kept (done, done at the floor, or a run off the plan) or missed, averaged over the days with something planned in the last 14. Rest days are left out.',
+  },
+};
 export const metricDef = (id: MetricId, fitness: boolean): MetricDef => {
   const def = METRICS[id];
-  if (fitness || !PLAIN[id]) return def;
-  return { ...def, ...PLAIN[id], variants: id === 'consistency' ? def.variants.filter((v) => v.id === 'habits') : def.variants };
+  const own = fitness ? TRAINING[id] : PLAIN[id];
+  if (!own) return def;
+  return { ...def, ...own, variants: id === 'consistency' ? def.variants.filter((v) => v.id === (fitness ? 'plan' : 'habits')) : def.variants };
 };
+/** The habits' share alone, whatever the Fitness switch says: what History draws. */
+export const habitsDef = (): MetricDef => metricDef('consistency', false);
 /** The metrics that are about training: with Fitness off they have no tile and no page. */
 export const FITNESS_METRICS: readonly MetricId[] = ['mileage', 'pace', 'lifts'];
 

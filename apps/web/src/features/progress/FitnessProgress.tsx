@@ -50,7 +50,7 @@ export const useOpenMetric = () => {
  *
  * - **Progress**: one card, the chart (HeroChart, `lead={false}`: a plain card, since the training card is the page's
  *   hero). Runs / Workouts is the training card's own switch. With nothing planned or done yet it is one quiet row.
- * - **Trends**: the tiles that have something to show (Weekly mileage, Run pace, Lift volume), each opening its metric
+ * - **Trends**: the tiles that have something to show (Weekly mileage, Run pace, Plan kept, Lift volume), each opening its metric
  *   page, and under them the body's numbers from Apple Health (Sleep, HRV, Resting HR) once it is connected.
  *
  * The page builds from the months that are loaded: before the first lands it is the section title over a skeleton of the
@@ -200,7 +200,8 @@ const Trends = ({ log, t, onConnect }: { log: Log; t: string; onConnect: (() => 
   const models = useMetricModels(log, timed ? TIMED : UNTIMED);
   const shown = trendsShown({
     ids: trendIds(timed),
-    has: (id) => models[id].hasData,
+    // Plan kept shows once a planned day has been kept: a week of misses is not a lone "0%" tile
+    has: (id) => models[id].hasData && (id !== 'consistency' || models[id].line.some((x) => x != null && x > 0)),
     canConnect: STRAVA_BUILT && !!onConnect,
     health: healthShown(HEALTH_BUILT, link, BODY_IDS.some((id) => models[id].hasData)),
   });

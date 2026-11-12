@@ -1,16 +1,24 @@
 import { describe, expect, it } from 'vitest';
 import { BODY_IDS, healthShown, trendIds, trendsShown } from './fitnessPage';
-import type { MetricId } from './metrics';
+import { habitsDef, metricDef, type MetricId } from './metrics';
 
 const having = (...ids: MetricId[]) => (id: MetricId) => ids.includes(id);
 
 describe('Fitness, Trends: which tiles show', () => {
   it('offers pace only where a synced source can time a run', () => {
-    expect(trendIds(true)).toEqual(['mileage', 'pace', 'lifts']);
-    expect(trendIds(false)).toEqual(['mileage', 'lifts']);
-    // the habits tile is not training: it is on Today's History, never here
-    expect(trendIds(true)).not.toContain('consistency');
-    expect(trendIds(false)).not.toContain('consistency');
+    expect(trendIds(true)).toEqual(['mileage', 'pace', 'consistency', 'lifts']);
+    expect(trendIds(false)).toEqual(['mileage', 'consistency', 'lifts']);
+  });
+
+  it('keeps Plan kept and gives up Habits: with Fitness on, consistency is the plan alone', () => {
+    const d = metricDef('consistency', true);
+    expect(d.name).toBe('Plan kept');
+    expect(d.variants.map((v) => v.id)).toEqual(['plan']);
+    expect(d.tileName?.plan).toBe('Plan kept');
+    expect(`${d.what} ${d.how} ${d.emptyLine}`).not.toMatch(/habit/i);
+    // the habits' share is what History draws, whatever the switch says
+    expect(habitsDef().variants.map((v) => v.id)).toEqual(['habits']);
+    expect(habitsDef().name).toBe('Habits');
   });
 
   it('shows a tile only for a metric with something in it', () => {
@@ -19,6 +27,9 @@ describe('Fitness, Trends: which tiles show', () => {
     expect(trendsShown({ ids: trendIds(false), has: having('mileage'), canConnect: false, health: false }).tiles).toEqual(['mileage']);
     expect(trendsShown({ ids: trendIds(false), has: having('lifts'), canConnect: false, health: false }).tiles).toEqual(['lifts']);
     expect(trendsShown({ ids: trendIds(true), has: having('mileage', 'pace', 'lifts'), canConnect: false, health: false }).tiles).toEqual(['mileage', 'pace', 'lifts']);
+    expect(trendsShown({ ids: trendIds(true), has: having('mileage', 'pace', 'consistency', 'lifts'), canConnect: false, health: false }).tiles).toEqual(['mileage', 'pace', 'consistency', 'lifts']);
+    // a plan with nothing kept yet is not a lone "0%" tile
+    expect(trendsShown({ ids: trendIds(false), has: having(), canConnect: false, health: false }).tiles).toEqual([]);
     // a source is connected and no run has a time yet: no empty pace tile
     expect(trendsShown({ ids: trendIds(true), has: having('mileage'), canConnect: false, health: false }).tiles).toEqual(['mileage']);
   });

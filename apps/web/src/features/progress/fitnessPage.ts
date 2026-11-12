@@ -5,10 +5,14 @@
 import type { HealthLink } from './healthDays';
 import type { MetricId } from './metrics';
 
-/** Fitness's trend tiles, in order. Habits' consistency is not training: it lives on Today (Habits, History). */
-export const TREND_IDS: readonly MetricId[] = ['mileage', 'pace', 'lifts'];
+/**
+ * Fitness's trend tiles, in order: Mileage, Run pace, Plan kept, Lifts. `consistency` here is the plan alone (with
+ * Fitness on, metrics.ts `metricDef` gives it only its plan half): the habits' share is not training and lives on Today
+ * (Habits, History).
+ */
+export const TREND_IDS: readonly MetricId[] = ['mileage', 'pace', 'consistency', 'lifts'];
 /** Pace needs runs with a time, and only a synced source has those: with none offered, the tile is never shown. */
-export const UNTIMED_IDS: readonly MetricId[] = ['mileage', 'lifts'];
+export const UNTIMED_IDS: readonly MetricId[] = ['mileage', 'consistency', 'lifts'];
 /** The body's numbers from Apple Health, in the order they are read: the night, then the two heart numbers. */
 export const BODY_IDS: readonly MetricId[] = ['sleep', 'hrv', 'rhr'];
 
@@ -32,8 +36,9 @@ export interface TrendsShown {
 }
 
 /**
- * Trends on Fitness. A tile shows when its metric has something to show: nobody gets a "None yet" tile for a thing they
- * do not do. Pace is the one exception: while a synced source is on offer and not connected, it stays beside a mileage
+ * Trends on Fitness. A tile shows when its metric has something to show (`has`: for Plan kept, at least one kept day,
+ * so a week of misses is never a lone "0%" tile): nobody gets a "None yet" tile for a thing they do not do. Pace is the
+ * one exception: while a synced source is on offer and not connected, it stays beside a mileage
  * tile, because its page is the way to connect. With no tile and nothing to connect, the section is only the health
  * group, and with none of the three it is not drawn: the Progress row above already says what will show.
  */

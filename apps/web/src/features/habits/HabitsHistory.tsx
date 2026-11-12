@@ -7,7 +7,9 @@ import { Pressable } from '@/ui/Pressable';
 import { Row } from '@/ui/primitives';
 import { useSheet } from '@/ui/Sheet';
 import { SkeletonRows } from '@/ui/Skeleton';
+import { SectionBoundary } from '@/app/ErrorBoundary';
 import { useLog, type Log } from '../log/useLog';
+import { HabitsChart } from '../progress/HabitsChart';
 import { HabitSheet } from './HabitSheet';
 import { initialOf } from './initial';
 import { useHabitShown, useHabitsLit } from './OrbRow';
@@ -53,7 +55,10 @@ const StreakRow = ({ h, log }: { h: Habit; log: Log }) => {
 };
 
 /**
- * Every habit's last 30 days, opened from "History" beside Today's habits: one row per habit with its streak and a 30-cell
+ * How the habits are going, opened from "History" beside Today's habits. On top, the chart: the share of habits done, as
+ * a 7-day average, with its ranges (30 days to 12 months), read by dragging across it. This is where habit progress
+ * lives: it was the Habits tile and metric page on the Progress tab, and here a person with Fitness off has it too. Then
+ * today's count and the top streak, then every habit's last 30 days: one row per habit with its streak and a 30-cell
  * grid; a row pushes that habit's page (fix a day, notes, rename, archive). Manage habits (reorder, archive) closes the
  * sheet and opens the Settings page.
  */
@@ -69,6 +74,10 @@ export const HabitsHistory = (): React.JSX.Element => {
   if (!loaded) return <SkeletonRows rows={4} label="Loading habits" />;
   return (
     <div className="hv-history">
+      {/* before any habit has been tapped there is no chart, and no frame for one */}
+      <SectionBoundary name="habits.chart">
+        <HabitsChart />
+      </SectionBoundary>
       <HistoryTiles log={log} />
       {log.habits.length ? (
         <div className="hv-list">
