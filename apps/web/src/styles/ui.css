@@ -1108,6 +1108,22 @@ textarea.in {
   margin: 0;
   overflow-wrap: anywhere;
 }
+/* one section of a page that could not be drawn (SectionBoundary): a quiet line and Try again where the section was,
+   the rest of the page untouched */
+.eb-sec {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 16px var(--gutter, 16px);
+  text-align: center;
+}
+.eb-sec-line {
+  margin: 0;
+  font-size: var(--fs-sub);
+  line-height: var(--lh-sub);
+  color: var(--ink-2);
+}
 
 /* ---------- the boot screens (app/App.tsx) ----------
    The first bootstrap failed with nothing saved: the orb, a title, one line and Try again, centred on the canvas like the
