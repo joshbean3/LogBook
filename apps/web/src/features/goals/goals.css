@@ -330,9 +330,9 @@
 }
 
 /* ======================================================================================================================
-   Shape system v2 (docs/shape-system.md): the tab as a stack of white lifted cards on one gutter. Two small chips for
-   what is ahead, today's goal as the warm hero, a review owed, the week, the month and the year as cards with their rings,
-   then History. The sheets: content in cards, steps as rows, one Sky primary pinned at the bottom.
+   Shape system v2 (docs/shape-system.md): the tab as a stack of cards on one gutter. Today's goal as the poster and
+   "Further out" as three hills are in goalsPage.css (design A2); here: the review owed, History, and the sheets (content
+   in cards, steps as rows, one Sky primary pinned at the bottom). The gh- rules are the earlier hero card (TodayGoal.tsx).
    ====================================================================================================================== */
 
 /* ---------- the tab ---------- */
@@ -625,44 +625,6 @@
   box-shadow: var(--primary-glow);
 }
 
-/* ---------- the week, the month, the year: rows of one inset group (G1) ---------- */
-/* the trailing time left: Inter 500 15 Dusk, even figures, never cut (the goal under the title gives way first). An
-   answer says itself in words: Done in Night Ink, Partly in warning words (6.28), Missed in Dusk */
-.gl-end.k-row-end {
-  font-weight: 500;
-}
-.gl-end.is-done {
-  color: var(--ink);
-}
-.gl-end.is-partly {
-  color: var(--warn-text);
-}
-
-/* ---------- ahead: tomorrow's goal and next week's, two context chips in a row over the hero (G8, F9) ---------- */
-.ga-row {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--sp-3);
-  min-width: 0;
-}
-html[data-text-xl] .ga-row {
-  grid-template-columns: minmax(0, 1fr);
-}
-.ga-chip.pressable {
-  width: 100%;
-  min-width: 0;
-  transition: transform var(--dur-fast) var(--ease-out);
-  container: ga-chip / inline-size;
-}
-/* the title stays whole: a chip whose content box is narrower than the disc and its gap (52) plus the longest name
-   ("Next week", about 5.3rem) lets the disc go, as narrow phones do. 8.5rem is 136 at the default size, so the disc shows
-   from 375 up (content 140 at 375, 147 at 390, 172 at 440), and 184 at 135 percent, where only a wider chip keeps it */
-@container ga-chip (max-width: 8.5rem) {
-  .ga-chip .ctx-ic {
-    display: none;
-  }
-}
-
 /* ---------- the four numbers: goals kept per level (G4) ----------
  * Under "History · Goals kept": four columns, each its label (Inter 500 15 Dusk), the value (Inter 650 26/32, even figures,
  * the card's one big number size) and its span (Inter 500 13 Dusk). No markers. Behind, the span line says so in warning
@@ -710,7 +672,7 @@ html[data-text-xl] .ga-row {
   color: var(--warn-text);
 }
 
-/* ---------- the review owed and the carry-over: rows of one card under the hero (G2) ----------
+/* ---------- the review owed, the carry-over and tomorrow's goal: rows of one card under the poster (G2) ----------
  * The shared row template: the goal as the title, where it came from under it, and the row's one action as a quiet Deep
  * Sky word at the trailing edge (5.57 on Paper). The whole row is the target. On Today the same rows sit in Plan your day */
 .g-follow-row.pressable {
@@ -1182,7 +1144,6 @@ html[data-text-xl] .ga-row {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .ga-chip,
   .gh,
   .gh-step-text,
   .g-answer,
@@ -1224,13 +1185,10 @@ html[data-text-xl] .ga-row {
   min-height: 56px;
   padding: 10px 16px;
 }
-/* the tab on its way: its own shape, 12 between the parts and a section's 32 above the Further out header */
+/* the tab on its way: its own shape (the poster, the hills), 12 between the parts */
 .g-skel {
   display: grid;
   gap: var(--gap);
-}
-.g-skel-head {
-  margin-top: calc(var(--section) - var(--gap));
 }
 /* goals that did not load */
 .g-error {
@@ -1278,27 +1236,26 @@ html[data-text-xl] .g-scores-row {
 }
 /* rows at this size: the words get the row's width. The icon tile steps out, the period, the goal and its line wrap
    whole, and the time left (or the row's action) moves to its own line under them instead of squeezing the words */
-html[data-text-xl] :is(.gl-row, .g-follow-row) {
+html[data-text-xl] .g-follow-row {
   flex-wrap: wrap;
   row-gap: var(--sp-1);
 }
-html[data-text-xl] :is(.gl-row, .g-follow-row) > .icon-tile {
+html[data-text-xl] .g-follow-row > .icon-tile {
   display: none;
 }
-html[data-text-xl] :is(.gl-row, .g-follow-row) .k-row-main {
+html[data-text-xl] .g-follow-row .k-row-main {
   flex: 1 1 0;
 }
-html[data-text-xl] :is(.gl-row, .g-follow-row) .k-row-title,
-html[data-text-xl] :is(.gl-row, .g-follow-row) .k-row-sub {
+html[data-text-xl] .g-follow-row .k-row-title,
+html[data-text-xl] .g-follow-row .k-row-sub {
   white-space: normal;
   overflow-wrap: break-word;
 }
-html[data-text-xl] .gl-end.k-row-end,
 html[data-text-xl] .g-follow-act {
   order: 3;
   flex: 1 0 100%;
   white-space: normal;
 }
-html[data-text-xl] :is(.gl-list, .g-follow) {
+html[data-text-xl] .g-follow {
   --k-sep: var(--sp-4);
 }

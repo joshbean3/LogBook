@@ -116,17 +116,18 @@ Build:
 | | |
 |---|---|
 | Job | Set and keep today's goal; see what is next. |
-| Focal point | The Today goal card (hero; its Apricot sun is the screen's glow). |
-| Sky button | "Set today's goal" while unset. |
-| Read in passing | The title block; the Tomorrow and Next week chips (above the hero, as now). |
-| Order of emphasis | 1. Today card: the prompt or the goal, its time-left tag, the button. 2. The carry-over row (a past goal still open). 3. Tomorrow and Next week chips. 4. Further out (this week, this month, this year). 5. History. |
+| Focal point | Today's goal as the poster (brand guide 6.5a): the question or the goal in Fraunces, the day scene, one band. |
+| Sky button | "Set this goal" while unset (with no idea to offer, "Set today's goal"). None once the goal is set: the check is the next move. |
+| Read in passing | The title block; the hills' captions. |
+| Order of emphasis | 1. The poster: the question or the goal, the band, the button or the check. 2. The quiet card under it, only while it has a row: a review owed, and from 5 pm tomorrow's goal. 3. Further out: three hills (the year far, the month, this week near). 4. History. |
 
 Build:
 
-- **"To review" becomes a carry-over row**, using the same row template as Today's carry-over. Title = the goal text (17/600, one line), subtitle = "Still open from Mon, Nov 9" (15 Dusk), trailing quiet "Review" (44 hit). This replaces a card with four text levels and a secondary button. Why: front-load the words that matter [NN/g F-pattern], and one template across screens [HIG Familiarity].
-- **Further out becomes one inset group with three rows**: title "This week" / "November" / "2026" (17/600), subtitle = the goal or "Not set" (15 Dusk), trailing "5 days left" (15 Dusk, tnum) and a chevron. No dashed circles. Why: three like items are rows in one card [NN/g cards, HIG Lists]. Dashed edges mark one add slot, not every row (C5).
+- **Today's goal is the poster**, the same card and state as Today's. Its controls sit on Paper under the band: "Set this goal" and "Something else", or "Not done yet" with the check. Carrying yesterday's goal over is the first idea the band offers ("An idea · from yesterday").
+- **The quiet card under the poster** uses the one row template (icon tile, title 17/600, subtitle 15 Dusk): the review owed ("Still open from Mon, Nov 9", trailing quiet "Review") and, from 5 pm, "Set tomorrow's goal" with its date and a chevron. No card when it has no row.
+- **Further out is one card of three hills** (the kit's FarHills), 12 under the poster or the quiet card: no section title above it, its caption is on its own sky. Each hill is one target of 48 pt or more that opens its goal, or the way to set one. One plus only, on the nearest hill with no goal; nothing reads "Not set". The caption opens "Coming up": tomorrow's goal and next week's, one row each. The Tomorrow and Next week chips are gone from the page.
 - **History drops the inner "Goals kept" label**, and the section meta says it instead ("History · Goals kept"). Four columns: label 15/500 Dusk, value `--fs-value`, context 13 Dusk. No colored tick before each label. A period with no data shows "None yet", never "–". Why: a section title stacked on a card label is two headers for one thing (section 4.4), and zero or no data is a value [Orby rule H50].
-- Card templates on Goals drop from six to three: hero, the standard card or inset group, the chip.
+- Card templates on Goals: the poster, the hills, the inset group (the quiet card, History).
 
 ### 2.5 Learned
 
@@ -389,7 +390,7 @@ Choose the first one in this list that works.
 |---|---|---|
 | **None** (on the ground) | Wayfinding, section titles and their meta, footnotes, "See all" links, status pills, the week strip, a range of chips. | Today's title block and week strip; a footnote under a card (8 below, 16 in). |
 | **Hairline rows inside an existing card** | The items belong to a unit that already has a card. | The top three in Plan your day; the write row in the calendar card. |
-| **Inset group** (one Paper card with rows) | Three or more items of the same kind. | Settings groups; Goals' Further out; the week's days; entries in a month; trend rows. |
+| **Inset group** (one Paper card with rows) | Three or more items of the same kind. | Settings groups; Goals' quiet card under the poster; the week's days; entries in a month; trend rows. |
 | **Card** | One unit people read or act on as one: (a) mixed kinds of content that must read as one, (b) one tap target, or (c) people misgroup without it. | The hero; the Remember when card; the calendar card. |
 | **Tile grid** | Same-template items that each have their own state or tap. | Habit tiles; trend and health tiles. |
 
@@ -489,7 +490,7 @@ Alternatives differ by style, never by size [HIG Buttons]. Labels start with a v
 | Part | Value |
 |---|---|
 | Status pill (Today) | `--glass`, 32 tall, 44 hit, Inter 15 500 Night Ink, a 16 px chevron (right: it goes somewhere; down: it opens a sheet), and on the status pill a 6 px state dot (brand 6.13, 6.14). One row from the left gutter, 12 apart: the plan pill, with the status pill before it only while a status is on. |
-| Context chip (Goals) | Brand 6.3. Two side by side, 12 apart. Lighter than the hero below it: no glow, no tint. |
+| Context chip | Brand 6.3. Two side by side, 12 apart. Lighter than the hero below it: no glow, no tint. (Goals no longer uses it: tomorrow and next week are rows in "Coming up".) |
 | Filter chip | Brand 6.3, 32 tall, 44 hit, 12 apart. |
 | View pill (Today's hero) | Brand 6.3. Two controls in one card: the second is quiet. On Today's hero that is the view pill, 28 tall on the band, against the When control's 44 under the hill. |
 | Tag | Brand 6.3, 28 tall, not tappable. One per row at most. |
@@ -562,7 +563,7 @@ Brand 6.16 has the parts. The layout:
 | Screen | Up front | One tap away |
 |---|---|---|
 | Today | Hero, habits, today's goal, carry-over, top three | Week detail (the band), the other count (the view pill), habit history, the rest of the to-dos, the status sheet (the status pill while a status is on; in ordinary training, the title menu: hold the title or the date), the session |
-| Goals | Today's goal, carry-over, tomorrow and next week, further out | Goal history ("See all"), the review sheet, each period's goal |
+| Goals | Today's goal, the review owed, tomorrow's goal in the evening, further out | Goal history ("See all"), the review sheet, each period's goal, "Coming up" (tomorrow and next week) |
 | Learned | Streak, prompt, this year's months | A month's items, older years |
 | Plan | Your plan, this week's days, "+ Add" | The plan summary with the assistant, a session, the Add sheet (and the full editor behind its "More options"), the month view, other weeks, the morning schedule |
 | Progress | This week or the chosen range, trend and health tiles | A metric's page, a week's sheet, a lift's sheet |

@@ -24,7 +24,7 @@ export const AheadRow = ({ level, period, name }: { level: GoalLevel; period: st
   const open = useOpenGoal();
   const goal = goalOf(goals.data, level, period);
   const when = periodSpan(level, period);
-  const ask = setWords(level, period, today);
+  const ask = name === 'Next week' ? 'Set next week’s goal' : setWords(level, period, today);
   const Icon = goal ? (level === 'day' ? Sunrise : CalendarRange) : Plus;
   return (
     <Pressable className="k-row two g-follow-row gx-ahead" press="surface" onPress={() => open(level, period)} label={goal ? `${name}, ${when}. ${bare(goal.text)}. Open` : `${ask}. ${name}, ${when}`}>
