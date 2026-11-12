@@ -1,19 +1,20 @@
 import { describe, expect, it } from 'vitest';
 import { isFitnessPath } from '@/lib/prefs';
-import { impliesRoot, matchRoute, resolveRoute, ROUTES, TABS, type NavState, type PushedEntry } from './nav';
+import { impliesRoot, matchRoute, resolveRoute, ROUTES, shownTabs, TABS, type NavState, type PushedEntry } from './nav';
 
 /** docs/feel.md §1.2 and contracts §A.1: every route of the table and every redirect resolves to its target. */
 describe('the route table', () => {
-  it('has the six tabs in order', () => {
-    expect(TABS.map((t) => t.id)).toEqual(['today', 'goals', 'learned', 'plan', 'progress', 'journal']);
-    expect(TABS.map((t) => t.root)).toEqual(['/today', '/goals', '/learned', '/plan', '/progress', '/journal']);
+  it('has the five tabs in order, Journal last, and no tab named Learned', () => {
+    expect(TABS.map((t) => t.id)).toEqual(['today', 'goals', 'plan', 'progress', 'journal']);
+    expect(TABS.map((t) => t.root)).toEqual(['/today', '/goals', '/plan', '/progress', '/journal']);
+    expect(TABS.map((t) => t.label)).toEqual(['Today', 'Goals', 'Fitness', 'Progress', 'Journal']);
+    expect(shownTabs(false).map((t) => t.label)).toEqual(['Today', 'Goals', 'Progress', 'Journal']);
   });
 
   it.each([
     ['/today', 'root', 'today', '/today'],
     ['/today/2026-10-24', 'root', 'today', '/today/2026-10-24'],
     ['/goals', 'root', 'goals', '/goals'],
-    ['/learned', 'root', 'learned', '/learned'],
     ['/plan', 'root', 'plan', '/plan'],
     ['/plan/week/2026-10-26', 'root', 'plan', '/plan/week/2026-10-26'],
     ['/plan/month/2026-11-01', 'root', 'plan', '/plan/month/2026-11-01'],
@@ -27,13 +28,58 @@ describe('the route table', () => {
     expect(m.stack).toEqual([]);
   });
 
-  it('a month of What I learned is pushed over the tab, titled by its month; a bad month goes to the tab', () => {
-    const m = matchRoute('/learned/2026-09-01');
-    expect(m.kind).toBe('pushed');
-    expect(m.tab).toBe('learned');
-    expect(m.root).toBe('/learned');
-    expect(m.stack.map((e) => e.title)).toEqual(['September 2026']);
-    expect(matchRoute('/learned/2026-09-14')).toMatchObject({ kind: 'redirect', redirect: '/learned' });
+  it('a month of the journal is pushed over the tab, titled by its month, with the month as its param', () => {
+    const m = matchRoute('/journal/2026-09');
+    expect(m).toMatchObject({ kind: 'pushed', tab: 'journal', root: '/journal' });
+    expect(m.stack.map((e) => [e.path, e.depth, e.title, e.idx])).toEqual([['/journal/2026-09', 1, 'September 2026', -1]]);
+    expect(m.stack[0]!.params).toEqual({ month: '2026-09' });
+    // it sits over whatever the tab shows: a jump to it never moves the root
+    expect(impliesRoot(m)).toBe(false);
+    expect(matchRoute('/journal/2026-09/').kind).toBe('pushed');
+    expect(matchRoute('/journal/1900-01').kind).toBe('pushed');
+    expect(matchRoute('/journal/2199-12').kind).toBe('pushed');
+  });
+
+  it.each([
+    ['a thirteenth month', '/journal/2026-13'],
+    ['month zero', '/journal/2026-00'],
+    ['a day', '/journal/2026-09-01'],
+    ['a year alone', '/journal/2026'],
+    ['one digit of month', '/journal/2026-9'],
+    ['a word', '/journal/banana'],
+    ['a year no one logged', '/journal/0000-01'],
+    ['a year past the calendar the app prints', '/journal/2200-01'],
+    ['five digits of year', '/journal/12026-09'],
+    ['a month with something after it', '/journal/2026-09/extra'],
+    ['bad percent-encoding', '/journal/%ZZ'],
+    ['an encoded slash', '/journal/2026-09%2F01'],
+    ['a space', '/journal/2026-09%20'],
+    ['a name every object has', '/journal/constructor'],
+  ])('a month that is not a real YYYY-MM (%s) goes to the tab', (_name, path) => {
+    expect(matchRoute(path)).toMatchObject({ kind: 'redirect', redirect: '/journal' });
+    expect(resolveRoute(path)).toMatchObject({ kind: 'root', tab: 'journal', path: '/journal', stack: [] });
+  });
+
+  it('What I learned is part of Journal: its tab opens Journal, and a month of it opens that month of the journal', () => {
+    expect(matchRoute('/learned')).toMatchObject({ kind: 'redirect', redirect: '/journal' });
+    expect(resolveRoute('/learned')).toMatchObject({ kind: 'root', tab: 'journal', path: '/journal' });
+    // the old month pages were named by the first of the month; a bare month works too
+    for (const old of ['/learned/2026-10-01', '/learned/2026-10', '/learned/2026-10-01/']) {
+      expect(matchRoute(old)).toMatchObject({ kind: 'redirect', redirect: '/journal/2026-10' });
+      const r = resolveRoute(old);
+      expect(r).toMatchObject({ kind: 'pushed', tab: 'journal', root: '/journal', path: '/journal/2026-10' });
+      expect(r.stack.map((e) => [e.path, e.title, e.params.month])).toEqual([['/journal/2026-10', 'October 2026', '2026-10']]);
+    }
+    // anything else under the old tab is the tab: never Today, never a blank
+    for (const bad of ['/learned/2026-10-14', '/learned/2026-13', '/learned/banana', '/learned/2026-10-01/x', '/learned/%ZZ', '/learned/9999-12-01']) expect(resolveRoute(bad)).toMatchObject({ kind: 'root', tab: 'journal', path: '/journal' });
+  });
+
+  it('Journal’s older links still resolve, ahead of its month page: Reads under Settings, the removed Library on Journal', () => {
+    expect(resolveRoute('/journal/reads')).toMatchObject({ kind: 'pushed', tab: 'today', path: '/settings/reads' });
+    expect(resolveRoute('/journal/reads/read')).toMatchObject({ kind: 'pushed', tab: 'today', path: '/settings/reads/read' });
+    expect(resolveRoute('/journal/reads').stack.map((e) => e.path)).toEqual(['/settings', '/settings/reads']);
+    // not one of them is read as a month
+    for (const old of ['/journal/reads', '/journal/library', '/journal/quotes', '/journal/favorites']) expect(matchRoute(old).route?.pattern).not.toBe('/journal/:month');
   });
 
   it('Journal is one root: the removed Library and its old links land on Journal, with no segment', () => {
@@ -97,6 +143,13 @@ describe('the route table', () => {
     ['/journal/library', '/journal'],
     ['/journal/quotes', '/journal'],
     ['/journal/favorites', '/journal'],
+    ['/learned', '/journal'],
+    ['/learned/2026-10', '/journal/2026-10'],
+    ['/learned/2026-10-01', '/journal/2026-10'],
+    ['/learned/2026-10-02', '/journal'],
+    ['/journal/2026-13', '/journal'],
+    ['/journal/2026-10-01', '/journal'],
+    ['/journal/2026-10/more', '/journal'],
     ['/plan/plans', '/settings/plans'],
     ['/settings/routine', '/settings'],
     ['/settings/banana', '/settings'],
@@ -162,7 +215,8 @@ describe('a malformed URL', () => {
     expect(() => matchRoute('/today/%')).not.toThrow();
     expect(resolveRoute('/today/%').path).toBe('/today');
     expect(resolveRoute('/today/%E0%A4%A').path).toBe('/today');
-    expect(resolveRoute('/learned/%ZZ').path).toBe('/learned');
+    expect(resolveRoute('/learned/%ZZ').path).toBe('/journal');
+    expect(resolveRoute('/journal/%E0%A4%A').path).toBe('/journal');
     expect(resolveRoute('/progress/metric/%').path).toBe('/progress');
   });
   it('nothing, a query alone, a fragment alone and a value that is not text all resolve to a page', () => {
@@ -171,7 +225,7 @@ describe('a malformed URL', () => {
   });
   it('every route resolves, with Fitness on and off, in at most a few hops', () => {
     for (const r of ROUTES) {
-      const path = r.pattern.replace(':date?', '').replace(':date', '2026-10-24').replace(':mon', '2026-10-26').replace(':month', '2026-11-01').replace(':section', 'app').replace(':id', 'sleep').replace(':tab?', '').replace('/*', '').replace('*', 'nope');
+      const path = r.pattern.replace(':date?', '').replace(':date', '2026-10-24').replace(':mon', '2026-10-26').replace(':month', r.pattern.startsWith('/plan') ? '2026-11-01' : '2026-11').replace(':section', 'app').replace(':id', 'sleep').replace(':tab?', '').replace('/*', '').replace('*', 'nope');
       expect(['root', 'pushed', 'full']).toContain(resolveRoute(path).kind);
     }
   });

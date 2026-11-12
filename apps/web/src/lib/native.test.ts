@@ -11,6 +11,14 @@ describe('deep links', () => {
     ['logbook://today/2026-11-10/morning', '/today/2026-11-10/morning'],
     // old addresses that the table redirects to a real page
     ['logbook://journal/reads', '/settings/reads'],
+    // Journal, a month of it, and the links to the tab that became part of it
+    ['logbook://journal', '/journal'],
+    ['logbook://journal/2026-10', '/journal/2026-10'],
+    ['logbook://journal/2026-13', '/journal'],
+    ['logbook://learned', '/journal'],
+    ['logbook://learned/2026-10-01', '/journal/2026-10'],
+    ['logbook://learned/2026-10', '/journal/2026-10'],
+    ['logbook://learned/nope', '/journal'],
     ['logbook://trends', '/progress'],
   ])('%s opens %s', (url, path) => {
     expect(deepLinkPath(url)).toBe(path);

@@ -24,14 +24,14 @@ import './shell.css';
 import './healthPill.css';
 
 /**
- * The frame (docs/feel.md §9.1, contracts §A.3): six tabs, each its own mounted scroller (`visibility: hidden` + `inert`
+ * The frame (docs/feel.md §9.1, contracts §A.3): the tabs, each its own mounted scroller (`visibility: hidden` + `inert`
  * when not active, never `display: none`, so WebKit keeps its scrollTop), each with a stack of pushed layers over it; the tab
  * bar and the ask bar float over them in the dock (Dock.tsx). A tab change is a 0 ms cut: no opacity, no transform, no scrollTo, no remount.
  */
 export const Shell = ({ pages, pushed }: { pages: Record<TabId, ReactNode>; pushed: (entry: PushedEntry) => ReactNode }): React.JSX.Element => {
   const ctl = useNavInternal();
   const st = useNavState();
-  // with Fitness off its tab is not mounted and not drawn; the five that remain share the capsule evenly
+  // with Fitness off its tab is not mounted and not drawn; the ones that remain share the capsule evenly
   const tabs = shownTabs(useFitness());
   // the tab on screen is always one the capsule draws: should the state ever name one that is not shown (Fitness, the
   // moment it is switched off; NavController.fitnessOff then moves the state itself), Today stands in, never a blank page

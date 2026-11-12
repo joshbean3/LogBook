@@ -120,6 +120,8 @@ describe('a cold start from anything saved or typed', () => {
     ['null', 'null'],
     ['junk', '{"at":'],
     ['wrong types', JSON.stringify({ at: Date.now(), active: 7, tabs: { today: { path: 5, stack: 'x' }, goals: null, learned: [], plan: { path: {} }, progress: 3, journal: { path: '//evil.example' } } })],
+    ['a tab this build does not have, and none of its own', JSON.stringify({ at: Date.now(), active: 'learned', tabs: { learned: { path: '/learned', stack: [{ path: '/learned/2026-10-01' }] }, library: { path: '/journal/library', stack: [] } } })],
+    ['a tab whose saved root is another tab’s old page', JSON.stringify({ at: Date.now(), active: 'journal', tabs: { journal: { path: '/learned', stack: [] }, goals: { path: '/learned/2026-10-01', stack: [] } } })],
     ['tabs that are not a record', JSON.stringify({ at: Date.now(), tabs: 9 })],
     ['a newer shape', JSON.stringify({ v: 4, at: String(Date.now()), stacks: [{ tab: 'today' }] })],
   ])('the saved tabs hold %s: the app opens where the URL says', (_name, raw) => {
@@ -141,7 +143,139 @@ describe('a cold start from anything saved or typed', () => {
 
   it('a jump to a malformed address lands on a page and throws nothing', () => {
     const { ctl, entry } = start('/today');
-    for (const p of ['//goals', '/today/%', '///', '/learned/%ZZ']) expect(() => ctl.go(p)).not.toThrow();
+    for (const p of ['//goals', '/today/%', '///', '/learned/%ZZ', '/journal/%ZZ']) expect(() => ctl.go(p)).not.toThrow();
     expect(entry.url.includes('//')).toBe(false);
+  });
+});
+
+/**
+ * What I learned was a tab until it became part of Journal. A phone that ran the older build may still hold its places:
+ * the session's stacks (`logbook.stacks`) with a `learned` tab, the last place (`logbook.nav`) on one of its pages, a
+ * history entry or a link with its address. Every one opens Journal (or the month of it), and none leaves a tab the
+ * shell does not draw.
+ */
+describe('places saved by the build that had a What I learned tab', () => {
+  const TAB_IDS = ['today', 'goals', 'plan', 'progress', 'journal'];
+  const page = (path: string, title: string, params: Record<string, string> = {}) => ({ key: `${path}#1`, path, title, depth: 1, idx: 1, params });
+  /** The record that build wrote: six tabs, the Learned one active, a month page pushed over it. */
+  const oldStacks = (at = Date.now()) =>
+    JSON.stringify({
+      at,
+      active: 'learned',
+      tabs: {
+        today: { path: '/today', stack: [] },
+        goals: { path: '/goals', stack: [] },
+        learned: { path: '/learned', stack: [page('/learned/2026-10-01', 'October 2026', { month: '2026-10-01' })] },
+        plan: { path: '/plan/week/2026-10-26', stack: [] },
+        progress: { path: '/progress', stack: [] },
+        journal: { path: '/journal', stack: [] },
+      },
+    });
+  const whole = (ctl: Controller) => {
+    expect(Object.keys(ctl.state.tabs).sort()).toEqual([...TAB_IDS].sort());
+    expect(TAB_IDS).toContain(ctl.state.active);
+    for (const t of Object.values(ctl.state.tabs)) {
+      expect(typeof t.path).toBe('string');
+      expect(Array.isArray(t.stack)).toBe(true);
+      expect(t.path.startsWith('/learned')).toBe(false);
+      for (const e of t.stack) expect(e.path.startsWith('/learned')).toBe(false);
+    }
+  };
+
+  it('a reload on the old tab opens Journal, and the URL follows', () => {
+    const entry = browser('/learned');
+    (g.sessionStorage as Storage).setItem('logbook.stacks', oldStacks());
+    const ctl = new Controller();
+    expect(() => ctl.sync()).not.toThrow();
+    expect(ctl.state.active).toBe('journal');
+    expect(ctl.state.tabs.journal).toEqual({ path: '/journal', stack: [] });
+    expect(entry.url).toBe('/journal');
+    whole(ctl);
+    // the other tabs stay where that session left them
+    expect(ctl.state.tabs.plan.path).toBe('/plan/week/2026-10-26');
+  });
+
+  it('a reload on one of its month pages opens that month of the journal, pushed over Journal', () => {
+    const entry = browser('/learned/2026-10-01');
+    (g.sessionStorage as Storage).setItem('logbook.stacks', oldStacks());
+    const ctl = new Controller();
+    expect(() => ctl.sync()).not.toThrow();
+    expect(ctl.state.active).toBe('journal');
+    expect(ctl.state.tabs.journal.path).toBe('/journal');
+    expect(ctl.state.tabs.journal.stack.map((e) => [e.path, e.title, e.params.month])).toEqual([['/journal/2026-10', 'October 2026', '2026-10']]);
+    expect(entry.url).toBe('/journal/2026-10');
+    whole(ctl);
+  });
+
+  it('the record names Learned as the tab on screen, the URL another tab: the URL rules and nothing is blank', () => {
+    for (const [url, tab] of [['/goals', 'goals'], ['/today', 'today'], ['/journal', 'journal'], ['/progress', 'progress']] as const) {
+      const entry = browser(url);
+      (g.sessionStorage as Storage).setItem('logbook.stacks', oldStacks());
+      const ctl = new Controller();
+      expect(() => ctl.sync()).not.toThrow();
+      expect(ctl.state.active).toBe(tab);
+      expect(entry.url).toBe(url);
+      whole(ctl);
+    }
+  });
+
+  it('a stale record (older than the session window) is read the same way', () => {
+    const entry = browser('/learned/2026-10-01');
+    (g.sessionStorage as Storage).setItem('logbook.stacks', oldStacks(Date.now() - 3 * 60 * 60_000));
+    const ctl = new Controller();
+    ctl.sync();
+    expect(ctl.state.active).toBe('journal');
+    expect(entry.url).toBe('/journal/2026-10');
+    expect(ctl.state.tabs.plan.path).toBe('/plan');
+    whole(ctl);
+  });
+
+  it.each([
+    ['/learned', '/journal', 0],
+    ['/learned/2026-10-01', '/journal/2026-10', 1],
+    ['/learned/2026-10', '/journal/2026-10', 1],
+    ['/learned/2026-10-17', '/journal', 0],
+    ['/learned/nope', '/journal', 0],
+  ])('a cold launch whose last place was %s reopens %s', (was, opens, layers) => {
+    const entry = browser('/');
+    (g.localStorage as Storage).setItem('logbook.nav', JSON.stringify({ at: Date.now(), path: was }));
+    const ctl = new Controller();
+    expect(() => ctl.sync()).not.toThrow();
+    expect(ctl.state.active).toBe('journal');
+    expect(ctl.state.tabs.journal.stack).toHaveLength(layers);
+    expect(entry.url).toBe(opens);
+    whole(ctl);
+  });
+
+  it('a jump, a push and Back onto an old address all land on Journal', () => {
+    const { ctl, entry } = start('/today');
+    ctl.go('/learned');
+    expect(ctl.state.active).toBe('journal');
+    expect(entry.url).toBe('/journal');
+    // the old month link, pushed from the tab (as the page before the merge did) or jumped to from anywhere
+    ctl.push('/learned/2026-09-01');
+    expect(ctl.state.tabs.journal.stack.map((e) => e.path)).toEqual(['/journal/2026-09']);
+    expect(entry.url).toBe('/journal/2026-09');
+    ctl.go('/goals');
+    ctl.go('/learned/2026-08-01');
+    expect(ctl.state.active).toBe('journal');
+    expect(ctl.state.tabs.journal.stack.map((e) => e.path)).toEqual(['/journal/2026-08']);
+    // Back lands on a history entry the older build wrote
+    ctl.go('/goals');
+    entry.url = '/learned';
+    entry.state = { nav: { idx: 0 } };
+    expect(() => ctl.onPopState()).not.toThrow();
+    expect(ctl.state.active).toBe('journal');
+    expect(entry.url.startsWith('/journal')).toBe(true);
+    whole(ctl);
+  });
+
+  it('the saved place is never written back with the old name', () => {
+    const { ctl } = start('/learned/2026-10-01');
+    const stacks = JSON.parse((g.sessionStorage as Storage).getItem('logbook.stacks')!) as { active: string; tabs: Record<string, unknown> };
+    expect(stacks.active).toBe('journal');
+    expect(Object.keys(stacks.tabs)).not.toContain('learned');
+    expect(JSON.parse((g.localStorage as Storage).getItem('logbook.nav')!).path).toBe('/journal/2026-10');
+    expect(ctl.state.active).toBe('journal');
   });
 });
