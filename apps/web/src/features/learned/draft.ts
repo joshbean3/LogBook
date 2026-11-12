@@ -177,14 +177,22 @@ export const lineDay = (live: string, draftDay: string | null, own: boolean): st
 /** One `logbook.` key in localStorage (the account's wipe clears it, lib/account.ts). */
 export const DRAFT_KEY = 'logbook.learned.draft.v1';
 const localKeep: DraftKeep = {
+  // storage can refuse at any time (a private window, a full disk): then there is no stored draft, and the page carries on
   load: () => {
-    const raw = typeof localStorage === 'undefined' ? null : localStorage.getItem(DRAFT_KEY);
-    return raw ? (JSON.parse(raw) as unknown) : null;
+    try {
+      const raw = localStorage.getItem(DRAFT_KEY);
+      return raw ? (JSON.parse(raw) as unknown) : null;
+    } catch {
+      return null;
+    }
   },
   save: (v) => {
-    if (typeof localStorage === 'undefined') return;
-    if (v) localStorage.setItem(DRAFT_KEY, JSON.stringify(v));
-    else localStorage.removeItem(DRAFT_KEY);
+    try {
+      if (v) localStorage.setItem(DRAFT_KEY, JSON.stringify(v));
+      else localStorage.removeItem(DRAFT_KEY);
+    } catch {
+      /* not stored: the words stay in the field */
+    }
   },
 };
 
