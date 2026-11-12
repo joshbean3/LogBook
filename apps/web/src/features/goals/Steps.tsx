@@ -2,12 +2,14 @@ import { GOAL_STEPS_MAX, goalProgress, type Aim, type GoalStep } from '@logbook/
 import { Plus, X } from 'lucide-react';
 import { animate, motion, useMotionValue } from 'motion/react';
 import { useRef, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { useGoalMutations } from '@/api/queries';
 import { revealField } from '@/lib/keyboard';
 import { springs, useReduced } from '@/lib/motion';
 import { useToast } from '@/ui/Toast';
 import { usePress } from '@/ui/usePress';
 import { TodoMark } from '../todos/TodoMark';
+import { standingFor } from './model';
 import { useOnLeave } from './useOnLeave';
 import './goals.css';
 
@@ -26,10 +28,15 @@ const POP_V = 5.5;
 export const useMarkDone = () => {
   const { review } = useGoalMutations();
   const toast = useToast();
+  const qc = useQueryClient();
   return (goal: Aim) => {
     const was = { status: goal.status, steps: goal.steps };
     review.mutate({ id: goal.id, status: 'done' });
-    const undo = () => review.mutate({ id: goal.id, status: was.status, steps: was.steps });
+    const undo = () => {
+      // the goal as it stands now: its id may have changed since the toast went up, and it may have been cleared
+      const now = standingFor(qc.getQueryData<Aim[]>(['goals']), goal);
+      if (now) review.mutate({ id: now.id, status: was.status, steps: was.steps });
+    };
     toast('Goal marked done', { label: 'Undo', fn: undo });
     return undo;
   };

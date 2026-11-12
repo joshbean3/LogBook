@@ -77,6 +77,21 @@ export const loadState = (q: { data?: unknown; isError: boolean }): 'ready' | 'f
 
 export const goalOf = (goals: readonly Aim[] | undefined, level: GoalLevel, period: string) => goals?.find((g) => g.level === level && g.period === period) ?? null;
 
+/**
+ * The goal a sheet was opened on. Found by its id; or, when the sheet was opened before the server had answered the set
+ * (the goal still had its provisional `tmp-` id, which the answer replaces), by the period it is for. Without this the
+ * sheet said "This goal was cleared." about a goal the person had just set.
+ */
+export const sheetGoal = (goals: readonly Aim[] | undefined, id: string, level: GoalLevel, period: string): Aim | null =>
+  goals?.find((g) => g.id === id) ?? (id.startsWith('tmp-') ? goalOf(goals, level, period) : null);
+
+/**
+ * The goal an Undo acts on: the one that stands for that period now. The toast holds the goal as it was when it went up;
+ * since then the server may have replaced its provisional id (the change would go to a row the screen no longer has, and
+ * the screen would keep the old answer), or the goal may have been cleared (there is nothing to undo).
+ */
+export const standingFor = (goals: readonly Aim[] | undefined, was: Pick<Aim, 'level' | 'period'>): Aim | null => goalOf(goals, was.level, was.period);
+
 const dayMs = 864e5;
 const localMs = (d: ISODate) => new Date(`${d}T00:00:00`).getTime();
 

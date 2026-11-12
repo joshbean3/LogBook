@@ -10,7 +10,7 @@ import { useToday } from '@/lib/useToday';
 import { Button } from '@/ui/primitives';
 import { useSheet, useSheetDepth, type SheetSpec } from '@/ui/Sheet';
 import { useToast } from '@/ui/Toast';
-import { askOf, dayEnd, deadlineWords, exampleOf, goalOf, LEVEL, periodCaps, STATUS_WORD } from './model';
+import { askOf, dayEnd, deadlineWords, exampleOf, goalOf, LEVEL, periodCaps, sheetGoal, STATUS_WORD } from './model';
 import { asTypedWords, GOAL_STEP_MAX, GOAL_TEXT_MAX, GOAL_WHY_MAX, goalWords, reviewGoal, SLOW_WORDS, useReviewAccess, type ReviewAccess } from './refine';
 import { draftOf, dropDraft, keepDraft, type DraftFor } from './drafts';
 import { DraftSteps, GoalSteps, stepsOf } from './Steps';
@@ -297,13 +297,15 @@ const startsWords = (level: GoalLevel, period: string, today: string) => {
 };
 
 /** A goal opened: its words, where they came from, the review, a line on how it went, and its whole log. */
-export const GoalDetail = ({ id }: { id: string }) => {
+export const GoalDetail = ({ id, level, period }: { id: string; level: GoalLevel; period: string }) => {
   const today = useToday();
   const sheet = useSheet();
   const goals = useGoals();
   const { review } = useGoalMutations();
-  const g = goals.data?.find((x) => x.id === id) ?? null;
-  const events = useGoalEvents(id.startsWith('tmp-') ? undefined : id, !id.startsWith('tmp-'));
+  // by its id, or by its period once the server has replaced the provisional id the sheet was opened under
+  const g = sheetGoal(goals.data, id, level, period);
+  const named = g && !g.id.startsWith('tmp-') ? g.id : undefined;
+  const events = useGoalEvents(named, !!named);
   const [note, setNote] = useState(g?.reflection ?? '');
   const minutes = useNowMinutes();
   // the line being written when the sheet goes (a flick down never blurs the field): saved as the blur would have.
@@ -386,13 +388,13 @@ export const GoalDetail = ({ id }: { id: string }) => {
 };
 
 /** Clearing a goal, behind the sheet's red trash: what goes, then Clear (a toast brings it back with Undo). */
-const ClearGoal = ({ id }: { id: string }) => {
+const ClearGoal = ({ id, level, period }: { id: string; level: GoalLevel; period: string }) => {
   const sheet = useSheet();
   const goals = useGoals();
   const { clear, set, review } = useGoalMutations();
   const qc = useQueryClient();
   const toast = useToast();
-  const g = goals.data?.find((x) => x.id === id) ?? null;
+  const g = sheetGoal(goals.data, id, level, period);
   /** Undo: the words and steps come back with the PUT (which revives the row as open), then its answer and its note. */
   const restore = async (was: Aim) => {
     await set.mutateAsync({ level: was.level, period: was.period, text: was.text, original: was.original, why: was.why, steps: was.steps });
@@ -428,10 +430,10 @@ const ClearGoal = ({ id }: { id: string }) => {
 };
 
 /** The goal sheet's header action: a red trash in a tinted circle, then the confirm. */
-const ClearButton = ({ id }: { id: string }) => {
+const ClearButton = ({ id, level, period }: { id: string; level: GoalLevel; period: string }) => {
   const sheet = useSheet();
   return (
-    <button type="button" className="icon-btn k-trash" aria-label="Clear goal" title="Clear goal" onClick={() => sheet.push({ title: 'Clear this goal?', body: <ClearGoal id={id} /> })}>
+    <button type="button" className="icon-btn k-trash" aria-label="Clear goal" title="Clear goal" onClick={() => sheet.push({ title: 'Clear this goal?', body: <ClearGoal id={id} level={level} period={period} /> })}>
       <Trash2 size={18} aria-hidden="true" />
     </button>
   );
@@ -446,7 +448,7 @@ export const useOpenGoal = () => {
   return (level: GoalLevel, period: string, opts: { edit?: boolean } = {}) => {
     const g = goalOf(goals.data, level, period);
     const eyebrow = periodCaps(level, period, today);
-    if (g && !opts.edit) sheet.open({ eyebrow, title: `${LEVEL[level].label} goal`, body: <GoalDetail id={g.id} />, action: <ClearButton id={g.id} />, detents: ['medium', 'large'], detent: 'medium' });
+    if (g && !opts.edit) sheet.open({ eyebrow, title: `${LEVEL[level].label} goal`, body: <GoalDetail id={g.id} level={level} period={period} />, action: <ClearButton id={g.id} level={level} period={period} />, detents: ['medium', 'large'], detent: 'medium' });
     else if (g) sheet.open({ eyebrow, title: 'Edit goal', ...editorPanel({ level, period, initial: g.text }), sticky: true });
     // a new goal: set it myself (the editor, pushed) or ask the assistant for one. The title stays short enough to fit at
     // 320; the question itself is the serif line in the body. With no assistant there is one way only, so the editor opens
