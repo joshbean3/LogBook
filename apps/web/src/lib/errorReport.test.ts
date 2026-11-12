@@ -32,6 +32,25 @@ describe('client error reports (gap-qua-69)', () => {
     expect(routeShape('/progress/metric/3f2a9c1e-77aa-4b1e-9e0d-1c2b3a4d5e6f')).toBe('/progress/metric/:id');
   });
 
+  it('never carries what a person typed: quoted text is masked, a code name the engine quotes is kept', () => {
+    // a JSON parser quotes the text it could not read
+    const json = reportOf(new SyntaxError(`Unexpected token 'B', "Buy a ring for Sam" is not valid JSON`));
+    expect(json.message).not.toMatch(/Buy|ring|Sam/);
+    expect(json.message).toContain('is not valid JSON');
+    // a validator quotes the value it refused; curly quotes and backticks too
+    for (const m of ['Invalid goal "Ask Alex about the loan"', 'Invalid goal “Ask Alex about the loan”', 'Invalid goal `Ask Alex about the loan`', "Unknown tag 'groceries'"]) {
+      const r = reportOf(new Error(m));
+      expect(r.message).not.toMatch(/Alex|loan|groceries/);
+      expect(r.stack).not.toMatch(/Alex|loan|groceries/);
+    }
+    // a key the engine could not read is quoted too: a name from the code stays, a typed one does not
+    expect(reportOf(new TypeError("Cannot read properties of undefined (reading 'stack')")).message).toContain("reading 'stack'");
+    expect(reportOf(new TypeError("Cannot read properties of undefined (reading 'Call the bank at 9')")).message).not.toMatch(/bank/);
+    expect(reportOf(new Error("Failed to execute 'replaceState' on 'History': bad URL 'http://my-private-note/'")).message).toBe("Failed to execute 'replaceState' on 'History': bad URL '…'");
+    // an apostrophe in plain words is not a quote
+    expect(reportOf(new Error("Couldn't draw the week, it isn't loaded")).message).toBe("Couldn't draw the week, it isn't loaded");
+  });
+
   it('fits in 8 KB', () => {
     const e = new Error('big');
     e.stack = 'x'.repeat(50_000);

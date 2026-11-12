@@ -20,7 +20,18 @@ const seen = new Set<string>();
 let sent = 0;
 
 const EMAIL = /[\w.+-]+@[\w-]+\.[\w.-]+/g;
-const scrub = (s: string) => s.replace(EMAIL, '[email]');
+/**
+ * Text in quotes inside an error is data as often as not: a JSON parser quotes the text it choked on, a validator the
+ * value it refused, the engine the key it could not read. All of it is masked, whatever it holds, so nothing a person
+ * typed can ride out in a report. One kind is kept, because it is the report's most useful word and comes from the code:
+ * a plain name (letters, digits, `_`, `$`, at most 24) right after the engine's own "reading", "setting", "execute", "on",
+ * "property" or "method".
+ */
+const QUOTED = /(^|[\s(\[:,=])(["'`\u201c\u2018])([^\n]{1,400}?)(["'`\u201d\u2019])(?=$|[\s)\].,:;!?])/g;
+const NAME = /^[A-Za-z_$][\w$]{0,23}$/;
+const AFTER = /(?:reading|setting|execute|on|property|method)\s$/;
+const scrub = (s: string) =>
+  s.replace(EMAIL, '[email]').replace(QUOTED, (all: string, lead: string, open: string, inner: string, close: string, at: number, whole: string) => (NAME.test(inner) && AFTER.test(whole.slice(Math.max(0, at - 12), at + lead.length)) ? all : `${lead}${open}…${close}`));
 
 /** The route's shape: /today/2026-11-10/morning stays (a date is not personal), a long id becomes :id, the query goes. */
 export const routeShape = (path: string): string =>
