@@ -43,7 +43,8 @@ const WORDS: Record<string, [string, string]> = {
   goals: ['goal', 'goals'],
   goalEvents: ['goal update', 'goal updates'],
   journal: ['journal entry', 'journal entries'],
-  learnings: ['learning', 'learnings'],
+  // the journal's two kinds, in the words the app uses: a day's line, and its longer entries
+  learnings: ['journal line', 'journal lines'],
   todos: ['to-do', 'to-dos'],
   todoGroups: ['to-do list', 'to-do lists'],
   links: ['saved link', 'saved links'],

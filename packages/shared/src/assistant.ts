@@ -220,6 +220,7 @@ export interface AssistantReply {
 
 // ---------- screen context: where the conversation was opened from ----------
 
+/** The tabs a conversation may be opened from. `learned` is no tab any more (it is part of Journal): the name stays so a build that still sends it, and a chat stored with it, keep reading. */
 export const ASSISTANT_SCREENS = ['today', 'plan', 'progress', 'goals', 'learned', 'journal'] as const;
 export const zAssistantScreen = z.object({
   tab: z.enum(ASSISTANT_SCREENS),
@@ -233,7 +234,7 @@ export const zAssistantScreen = z.object({
 });
 export type AssistantScreen = z.infer<typeof zAssistantScreen>;
 
-const TAB_NAME: Record<AssistantScreen['tab'], string> = { today: 'Today', plan: 'Fitness', progress: 'Progress', goals: 'Goals', learned: 'Learned', journal: 'Journal' };
+const TAB_NAME: Record<AssistantScreen['tab'], string> = { today: 'Today', plan: 'Fitness', progress: 'Progress', goals: 'Goals', learned: 'Journal', journal: 'Journal' };
 /** The screen in words, as the chip shows it and the assistant reads it: "Fitness, week of Nov 9", "Today, Sun Nov 8". */
 export const screenLabel = (s: AssistantScreen): string => {
   const name = TAB_NAME[s.tab];

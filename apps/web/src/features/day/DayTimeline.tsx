@@ -10,6 +10,9 @@ import type { Log } from '../log/useLog';
 
 const ICON: Record<TimelineKind, typeof Check> = { habit: Check, run: Footprints, lift: Dumbbell, activity: Bike, learned: Lightbulb, journal: BookOpen };
 
+/** The second line of a row. The day's line is part of the journal: a server from before that still says "Learned". */
+const subOf = (i: TimelineItem): string | null => (i.kind === 'learned' ? 'Journal line' : i.sub);
+
 /** Minutes after local midnight: from a recorded moment, or a local `HH:MM` start. */
 const minutesOf = (i: TimelineItem): number | null => {
   if (i.time) {
@@ -34,7 +37,7 @@ const SETTLE_MS = 1000;
 
 /**
  * What was done, in the order it happened (docs/inspiration.md §6, Today 6): habit taps, sessions marked, synced
- * activities, the day's learnings and journal entries, at the foot of the day. Hidden until something has happened;
+ * activities, the day's journal line and entries, at the foot of the day. Hidden until something has happened;
  * never on a day still to come. Today's refreshes whenever the day's data changes.
  */
 export const DayTimeline = ({ date, log }: { date: ISODate; log: Log }): React.JSX.Element | null => {
@@ -70,7 +73,7 @@ export const DayTimeline = ({ date, log }: { date: ISODate; log: Log }): React.J
               </span>
               <span className="tl-main">
                 <span className="tl-title">{r.title}</span>
-                {r.sub ? <span className="tl-sub">{r.sub}</span> : null}
+                {subOf(r) ? <span className="tl-sub">{subOf(r)}</span> : null}
               </span>
               <span className="tl-time tnum">{r.mins === null ? '' : minutesText(r.mins)}</span>
             </li>

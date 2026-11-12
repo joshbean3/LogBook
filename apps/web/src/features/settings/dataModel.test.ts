@@ -22,6 +22,9 @@ describe('Import', () => {
   });
   it('names what arrived in plain words', () => {
     expect(importDone({ journal: 2, todos: 1, blocks: 1 })).toBe('Imported 2 journal entries, 1 to-do, 1 plan.');
+    // the journal's lines are named as the app names them, never as learnings
+    expect(importDone({ journal: 1, learnings: 3 })).toBe('Imported 1 journal entry, 3 journal lines.');
+    expect(importDone({ learnings: 1 })).toBe('Imported 1 journal line.');
     expect(importDone({ name: 1, trainingProfile: 1, habits: 3 })).toBe('Imported 3 habits, your settings.');
     expect(importDone({ sessions: 1200, mystery: 2 })).toBe('Imported 1,200 sessions, 2 other items.');
     expect(importDone({ journal: 0 })).toBe('Nothing new: it was all here already.');
