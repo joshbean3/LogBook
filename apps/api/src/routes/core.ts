@@ -122,6 +122,8 @@ export const coreRoutes = (db: DB) => {
       consent: readConsent(db, userId),
       // when they usually train and when work ends, as onboarding saved it (null before)
       trainWhen: readSetting(db, userId, 'trainWhen') ?? null,
+      // what is switched on (Fitness, Today's sections), as PUT /me/prefs saved it (null before)
+      prefs: readSetting(db, userId, 'prefs') ?? null,
       serverTime: nowISO(),
     });
   });

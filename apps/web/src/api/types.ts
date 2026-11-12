@@ -14,6 +14,8 @@ export interface Bootstrap {
   consent: Consent;
   /** The onboarding answer for when training happens, kept on the account (null before one; parseBootstrap fills null when absent). Seeds this device's choice on Today (features/day/trainWhen.ts). */
   trainWhen: { when: 'morning' | 'afternoon' | 'none'; offWork: number | null } | null;
+  /** What is switched on, as the account keeps it (lib/prefs.ts). Absent from a server without `PUT /me/prefs`; null before one is saved. Read through `normalizePrefs`, never trusted as it comes. */
+  prefs?: unknown;
   /** The server also sends `serverTime`; `fetchBootstrap` drops it so the cached object only changes when the data does. */
 }
 

@@ -415,6 +415,15 @@ export const zDeleteAccount = z.object({ password: z.string().min(1).max(200) })
 
 // ---------- fix round contracts (docs/platform.md §7–§11) ----------
 
+/**
+ * `PUT /me/prefs`: what a person has switched on. `fitness` is the whole of training (the Fitness tab, the training card,
+ * the charts); `today` is which sections Today shows. Kept as a user setting and carried by the bootstrap (`prefs`, null
+ * before one is saved), so a second device starts from the same choices. The device keeps its own copy and works without
+ * this route (an older server has none).
+ */
+export const zPrefs = z.object({ fitness: z.boolean(), today: z.object({ habits: z.boolean(), day: z.boolean(), learned: z.boolean() }) });
+export type AccountPrefs = z.infer<typeof zPrefs>;
+
 /** `PATCH /me`: the account's name ("Josh"); an empty string or null clears it. */
 export const zMePatch = z.object({ name: z.string().trim().max(60).nullable() });
 

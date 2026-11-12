@@ -1,4 +1,4 @@
-import { buildTemplate, mondayOf, passwordProblem, NEW_ACCOUNT_MORNING, normalizeMorningSettings, zMePatch, shiftDays, TemplateError, today as serverToday, weekdayOf, zChangePassword, zDeleteAccount, zOnboarding, zTemplateInput, zTrainingPatch, zTrainingProfile, zTrainingStatusInput, zConsentInput, zIntroSeen, type TrainWhenSetting, type TrainingStatus, type ISODate, type TemplateInput } from '@logbook/shared';
+import { buildTemplate, mondayOf, passwordProblem, NEW_ACCOUNT_MORNING, normalizeMorningSettings, zMePatch, zPrefs, shiftDays, TemplateError, today as serverToday, weekdayOf, zChangePassword, zDeleteAccount, zOnboarding, zTemplateInput, zTrainingPatch, zTrainingProfile, zTrainingStatusInput, zConsentInput, zIntroSeen, type TrainWhenSetting, type TrainingStatus, type ISODate, type TemplateInput } from '@logbook/shared';
 import { and, asc, eq, isNull, sql } from 'drizzle-orm';
 import { Hono } from 'hono';
 import { deleteCookie } from 'hono/cookie';
@@ -22,6 +22,8 @@ import { deepMerge, readSetting, writeSetting } from './core.js';
 export const ONBOARDING_SOURCE = 'onboarding';
 /** User setting: when the person usually trains and when work ends (onboarding; the bootstrap carries it). */
 export const TRAIN_WHEN_KEY = 'trainWhen';
+/** User setting: what the person has switched on (`zPrefs`; the bootstrap carries it, null before one is saved). */
+export const PREFS_KEY = 'prefs';
 
 /** The Monday after `d` (a week later when `d` is itself a Monday). */
 export const nextMonday = (d: ISODate): ISODate => (weekdayOf(d) === 'mon' ? shiftDays(d, 7) : shiftDays(mondayOf(d), 7));
@@ -56,6 +58,14 @@ export const meRoutes = (db: DB) => {
     const { name } = await parseBody(c.req.raw, zMePatch);
     db.update(users).set({ name: name ? name : null }).where(eq(users.id, userId)).run();
     return c.json(meOf(userId));
+  });
+
+  /** What is switched on (Fitness, Today's sections): the whole record each time. Answers `{ prefs }`; the bootstrap carries it. */
+  r.put('/me/prefs', async (c) => {
+    const userId = c.get('user').id;
+    const prefs = await parseBody(c.req.raw, zPrefs);
+    writeSetting(db, userId, PREFS_KEY, prefs);
+    return c.json({ prefs });
   });
 
   /**
