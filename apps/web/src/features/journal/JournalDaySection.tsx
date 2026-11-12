@@ -1,4 +1,4 @@
-import { ago, fmtDate, monthOf, type JournalEntry } from '@logbook/shared';
+import { ago, fmtDate, type JournalEntry } from '@logbook/shared';
 import { Check, Pencil, Share, Trash2 } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
@@ -12,7 +12,11 @@ import { getDraft, getEdit, holdSent, restoreDraft, SAVE_FAILED, setDraft, setEd
 import { FavStar } from './FavStar';
 import { useDraftOwner, useJournalWrites, useLiveEntry } from './queries';
 import { shareWords } from '../share/shareOut';
+import { ENTRY_MAX } from './days';
 import './journal.css';
+
+/** The count of characters shows from here on (the limit is `ENTRY_MAX`). */
+const COUNT_FROM = 4500;
 
 /** A time of day on the device's own clock (12 or 24 hour, as the phone is set). */
 export const timeOf = (at: string) => {
@@ -210,6 +214,8 @@ export interface ComposerProps {
   inputRef?: React.RefObject<HTMLTextAreaElement | null>;
   /** VoiceOver name. Default "Journal entry". */
   label?: string;
+  /** A quiet Cancel beside Save (a writer opened in place, which can be put away): the words stay in the day's draft. */
+  onCancel?: () => void;
 }
 
 /** Put words on top of a day's unsaved draft (a quote to write from); every composer on that day picks them up (drafts.ts). */
@@ -223,7 +229,7 @@ export const addToDraft = (date: string, s: string) => {
  * same box) and the entry settles into whatever list shows the day. The first entry of today is the day's close and fires
  * `success` (one of the two a day, §11.4); any later save is silent. No toast: the entry landing is the answer.
  */
-export const Composer = ({ date, today, rows = 3, placeholder, prompt, onSaved, haptic = true, autoFocus, inputRef, label = 'Journal entry' }: ComposerProps) => {
+export const Composer = ({ date, today, rows = 3, placeholder, prompt, onSaved, haptic = true, autoFocus, inputRef, label = 'Journal entry', onCancel }: ComposerProps) => {
   const w = useJournalWrites();
   useDraftOwner();
   const list = useJournalList('', false);
@@ -303,7 +309,7 @@ export const Composer = ({ date, today, rows = 3, placeholder, prompt, onSaved, 
         ref={ref}
         className="jtext serif"
         rows={rows}
-        maxLength={5000}
+        maxLength={ENTRY_MAX}
         placeholder={placeholder ?? fallback}
         aria-label={label}
         autoFocus={autoFocus}
@@ -318,6 +324,17 @@ export const Composer = ({ date, today, rows = 3, placeholder, prompt, onSaved, 
       />
       {prompt ? prompt(insert, text) : null}
       <div className="composer-foot">
+        {/* near the limit: how much of it is used */}
+        {text.length >= COUNT_FROM ? (
+          <span className="composer-count tnum" role="status">
+            {text.length.toLocaleString('en-US')} of {ENTRY_MAX.toLocaleString('en-US')}
+          </span>
+        ) : null}
+        {onCancel ? (
+          <Button variant="quiet" size="sm" className="composer-cancel" onClick={onCancel}>
+            Cancel
+          </Button>
+        ) : null}
         <AnimatePresence mode="popLayout" initial={false}>
           {saved && !text.trim() ? (
             <motion.span key="saved" className="composer-saved" role="status" initial={{ opacity: 0 }} animate={{ opacity: 1, transition: crossfade }} exit={{ opacity: 0, transition: crossfade }}>
@@ -333,6 +350,3 @@ export const Composer = ({ date, today, rows = 3, placeholder, prompt, onSaved, 
     </div>
   );
 };
-
-/** Months a set of dates spans, for `useLog`. */
-export const monthsOf = (dates: string[]) => [...new Set(dates.map(monthOf))].sort();

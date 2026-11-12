@@ -19,6 +19,21 @@
 .composer-saved {
   display: inline-flex;
 }
+/* a writer opened in place: how much of the limit is used (from 4,500), then a quiet Cancel beside Save */
+.composer-count {
+  margin-right: auto;
+  font: 400 var(--fs-foot) / var(--lh-foot) var(--sans);
+  color: var(--ink-3);
+}
+.composer-foot .composer-cancel.btn {
+  margin-left: auto;
+  min-height: var(--hit);
+}
+.composer-count + .composer-cancel.btn,
+.composer-cancel.btn + .composer-save,
+.composer-cancel.btn + .composer-saved {
+  margin-left: 0;
+}
 /* Save: a 32 px pill, the one Sky primary; Haze with Dusk words until there is text (guide 6.2); a 44 px target */
 .save-pill.pressable {
   position: relative;

@@ -1,9 +1,8 @@
-import { recallDay, type RecallItem } from '@logbook/shared';
+import { recallDay, type Learning, type RecallItem } from '@logbook/shared';
 import { Bell, Copy, Download, EyeOff, Loader2, Share, Shuffle } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
 import { useEffect, useMemo, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { useNav } from '@/app/NavController';
 import { useJournalList } from '@/api/queries';
 import { haptics } from '@/lib/haptics';
 import { isNative } from '@/lib/native';
@@ -13,6 +12,7 @@ import { Button } from '@/ui/primitives';
 import { useSheet } from '@/ui/Sheet';
 import { useToast } from '@/ui/Toast';
 import { PressButton } from './PressButton';
+import { useLearningEchoes } from '../learned/queries';
 import { useAiConsent } from './queries';
 import { plainLine, recallItemOf, recallKey, useRecall, useRecallActions, writtenByAi } from './recall';
 import { shareImage } from '../share/shareOut';
@@ -85,22 +85,80 @@ const ShareRecall = ({ summary, when }: { summary: string; when: string }) => {
 };
 
 /**
- * "Remember when" (the top of the Journal tab; layout standard 6.9): one past entry or learning a day. The card's tinted
- * header holds all of it: the caption, Share, and the reminder in the serif ("On Oct 11 you wrote: “…”", at most four
- * lines). Tap the words to open that day's page (a learning opens What I learned). On Paper under the header, three quiet
- * verbs: Remind me more (the server picks it four times as often), Another, Hide (with Undo). Nothing eligible: no card at
- * all; it fades in once there is one, and a change of item cross-fades in place.
+ * A line from the archive, in the same card (the Learned tab's "From your archive", folded in): shown only on a day the
+ * server has nothing to remember (`useRecall` answers no item), so there is one object from the past on the page, never
+ * two. It is the line nearest a year ago, else a month ago, else one from any day; "Another" steps through the ones there
+ * are. The words are the person's own, so nothing is marked as written by anyone else. A tap opens the line's sheet.
+ */
+const EchoCard = ({ today, onOpenLine }: { today: string; onOpenLine: (l: Learning) => void }) => {
+  const e = useLearningEchoes().data;
+  const sheet = useSheet();
+  const [at, setAt] = useState(0);
+  const slots = [
+    { when: 'A year ago', item: e?.yearAgo },
+    { when: 'A month ago', item: e?.monthAgo },
+    { when: null, item: e?.random },
+  ].filter((x): x is { when: string | null; item: Learning } => !!x.item);
+  const cur = slots[at % Math.max(1, slots.length)];
+  if (!cur) return null;
+  const { item, when } = cur;
+  const line = plainLine({ kind: 'learning', date: item.date, excerpt: item.text }, today);
+  return (
+    <div className="recall-wrap">
+      <Card className="recall" aria-label="Remember when">
+        <div className="recall-head">
+          <div className="recall-top">
+            <p className="caps recall-eyebrow">
+              Remember when
+              {when ? (
+                <>
+                  {' '}
+                  <span aria-hidden="true">·</span> {when}
+                </>
+              ) : null}
+            </p>
+            <PressButton press="dim" className="recall-share-btn" aria-label="Share" onClick={() => (haptics.select(), sheet.open({ eyebrow: 'Remember when', title: 'Share', body: <ShareRecall summary={line} when={recallDay(item.date, today)} /> }))}>
+              <Share size={18} aria-hidden="true" />
+            </PressButton>
+          </div>
+          <div className="recall-stack">
+            <div className="recall-body">
+              <PressButton press="dim" className="recall-text" onClick={() => (haptics.select(), onOpenLine(item))} aria-label={`${line} Open the line`}>
+                <span className="recall-quote">{line}</span>
+              </PressButton>
+            </div>
+          </div>
+        </div>
+        {slots.length > 1 ? (
+          <div className="recall-tools">
+            <PressButton press="dim" className="recall-tool" onClick={() => (haptics.select(), setAt((n) => n + 1))}>
+              <Shuffle size={18} aria-hidden="true" />
+              Another
+            </PressButton>
+          </div>
+        ) : null}
+      </Card>
+    </div>
+  );
+};
+
+/**
+ * "Remember when" (on the Journal tab, under today's rows; layout standard 6.9): one past entry or line a day. The card's
+ * tinted header holds all of it: the caption, Share, and the reminder in the serif ("On Oct 11 you wrote: “…”", at most
+ * four lines). Tap the words to open that day on its month's page. On Paper under the header, three quiet verbs: Remind
+ * me more (the server picks it four times as often), Another, Hide (with Undo). Nothing eligible: a line from the archive
+ * in the same card (`EchoCard`), and with none of those either, no card at all; it fades in once there is one, and a
+ * change of item cross-fades in place.
  *
  * The reminder is Claude's line only when the account has said yes to that (the recall switch, Contract 1; the server
  * holds the same switch). Then it is marked "Written by AI", and the line itself opens the entry. With the switch off the
  * card shows the plain line made here from the entry's own words. The caption carries the date only when the line does
  * not already open with it (say it once).
  */
-export const RecallCard = ({ today, onOpenDay }: { today: string; onOpenDay: (date: string) => void }) => {
+export const RecallCard = ({ today, onOpenDay, onOpenLine }: { today: string; onOpenDay: (date: string) => void; /** A tap on a line from the archive: its sheet. */ onOpenLine: (l: Learning) => void }) => {
   const q = useRecall(today);
   const { another, prefs } = useRecallActions(today);
   const toast = useToast();
-  const nav = useNav();
   const sheet = useSheet();
   const qc = useQueryClient();
   const reduce = useReduced();
@@ -120,8 +178,7 @@ export const RecallCard = ({ today, onOpenDay }: { today: string; onOpenDay: (da
 
   const open = (it: RecallItem) => {
     haptics.select();
-    if (it.kind === 'learning') nav.go('/learned');
-    else onOpenDay(it.date);
+    onOpenDay(it.date);
   };
   const boost = (it: RecallItem) => {
     const on = !it.boosted;
@@ -180,6 +237,8 @@ export const RecallCard = ({ today, onOpenDay }: { today: string; onOpenDay: (da
         </Card>
       </div>
     );
+  // nothing to remember today: a line from the archive takes the card's place, when there is one
+  if (!item && !q.isError && q.data) return <EchoCard today={today} onOpenLine={onOpenLine} />;
   const day = item ? recallDay(item.date, today) : '';
   // the plain line opens with the date ("On Oct 11 you wrote"); a line written by the assistant may not
   const dated = !!item && !lineOf(item).startsWith(`On ${day} `);
@@ -206,7 +265,7 @@ export const RecallCard = ({ today, onOpenDay }: { today: string; onOpenDay: (da
               <div className="recall-stack">
                 <AnimatePresence initial={false}>
                   <motion.div key={`${item.kind}:${item.id}`} className="recall-body" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={reduce ? fadeIn : crossfade}>
-                    <PressButton press="dim" className="recall-text" onClick={() => open(item)} aria-label={`${lineOf(item)} ${item.kind === 'learning' ? 'Open What I learned' : 'Open that day'}`}>
+                    <PressButton press="dim" className="recall-text" onClick={() => open(item)} aria-label={`${lineOf(item)} Open that day`}>
                       <span className="recall-quote">{lineOf(item)}</span>
                     </PressButton>
                     {byAi ? <p className="recall-ai">Written by AI</p> : null}

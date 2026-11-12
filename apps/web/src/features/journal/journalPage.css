@@ -1,0 +1,271 @@
+/* ======================================================================================================================
+   The one Journal (the tab and a month's page): the dusk poster (ui/poster) with the one composer under its band, today's
+   rows, Remember when, the months; a month's calendar and its days. The line's own parts keep their styles in
+   features/learned/learned.css (.ln-*); what is new with the merge is here (.jn-*).
+   ====================================================================================================================== */
+
+/* ---------- the poster's title once the line is kept: the person's own words, a button (the line's sheet) ---------- */
+.pressable.jn-title {
+  display: block;
+  width: 100%;
+  /* a line of one letter is still a 44 pt target */
+  min-width: var(--hit);
+  margin: calc(-1 * var(--sp-2)) 0;
+  padding: var(--sp-2) 0;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  letter-spacing: inherit;
+  color: inherit;
+  text-align: left;
+}
+/* four lines at most on the card; the sheet has the rest */
+.jn-title-in {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 4;
+  line-clamp: 4;
+  overflow: hidden;
+  text-wrap: balance;
+  overflow-wrap: anywhere;
+}
+/* the save: the words rise into the title once, as tonight's light comes in */
+.jn-title.is-new .jn-title-in {
+  animation: jn-rise var(--dur) var(--ease-out) both;
+}
+@keyframes jn-rise {
+  from {
+    opacity: 0;
+    transform: translateY(var(--sp-3));
+  }
+}
+@keyframes jn-fade {
+  from {
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .jn-title.is-new .jn-title-in {
+    animation: jn-fade var(--dur-reduce) linear both;
+  }
+}
+/* the band's second words (the lines kept) stay on the band's line where there is room */
+.jn-poster .po-second {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Remember when, on this page: a quiet card among the page's parts, 24 from the one above it. The poster is the page's
+   one hero device, so the card's header is plain Paper here (no Haze wash: layout standard 5.3) */
+.jn-page > .recall-wrap {
+  margin: var(--sp-6) 0 0;
+}
+.jn-page .recall-head {
+  background: none;
+}
+/* ---------- the line is kept: one quiet row in the composer's place ---------- */
+.jn-more.pressable {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  width: calc(100% + 2 * var(--sp-2));
+  min-height: var(--row-h);
+  margin: calc(-1 * var(--sp-2));
+  padding: var(--sp-2);
+  border: 0;
+  border-radius: var(--r-control);
+  background: none;
+  color: var(--ink);
+  text-align: left;
+}
+.jn-more[data-pressed] {
+  background: var(--surface-2);
+}
+.jn-more-words {
+  flex: 1;
+  display: grid;
+  gap: 1px;
+  min-width: 0;
+}
+.jn-more-title {
+  font: 600 var(--fs-row) / var(--lh-row) var(--sans);
+}
+.jn-more-sub {
+  font: 500 var(--fs-sub) / var(--lh-sub) var(--sans);
+  color: var(--ink-3);
+}
+.jn-more-chev {
+  flex: none;
+  color: var(--ink-2);
+}
+
+/* ---------- the entry writer, opened in place: the journal's Composer in a field's box (guide 6.14) ---------- */
+.jn-writer {
+  min-width: 0;
+  /* brought into view clear of the floating tab bar and the fade above it */
+  scroll-margin-bottom: calc(var(--chrome-h, 64px) + var(--safe-b, 0px) + var(--sp-4));
+}
+/* the box shows the focus (its edge and ring); the bare field inside it draws none of its own */
+.jn-writer textarea.jtext:focus,
+.jn-writer textarea.jtext:focus-visible {
+  outline: none;
+  box-shadow: none;
+}
+.jn-writer .composer {
+  border-radius: var(--r-control);
+  border: 1px solid var(--field-edge);
+  background: var(--cloud);
+}
+.jn-writer .composer:focus-within {
+  border-color: var(--focus-edge);
+  box-shadow: 0 0 0 0.5px var(--focus-edge), var(--focus-ring);
+}
+.jn-writer textarea.jtext {
+  min-height: calc(3 * var(--lh-body) + var(--sp-3) + var(--sp-1));
+  padding: var(--sp-3) var(--sp-4) var(--sp-1);
+  font: 400 var(--fs-row) / var(--lh-body) var(--sans);
+  letter-spacing: 0;
+  color: var(--ink);
+}
+.jn-writer .composer-foot {
+  flex-wrap: wrap;
+  min-height: var(--row-h);
+  padding: 0 var(--sp-2) var(--sp-2) var(--sp-4);
+}
+/* Save at rest is the disabled primary (guide 6.2: Haze with Dusk words), not Sky at 40 percent */
+.jn-writer .save-pill.pressable:not(.is-ready) {
+  opacity: 1;
+  background: var(--haze);
+  color: var(--ink-2);
+}
+/* a sheet's writer sits on the sheet's ground: Paper, as the line's own sheet field does */
+.sheet-body .jn-writer .composer {
+  background: var(--surface);
+}
+
+/* ---------- Today, under the poster: what else was written today, as rows of one inset group ---------- */
+.jn-rows {
+  overflow: hidden;
+}
+/* an entry as a quiet row: its opening in the journal's voice, then one Dusk line (when, a heart) */
+.jn-erow.pressable {
+  display: grid;
+  gap: var(--sp-1);
+  width: 100%;
+  min-height: var(--row-h-2);
+  padding: var(--sp-3) var(--sp-4);
+  border: 0;
+  background: none;
+  color: var(--ink);
+  text-align: left;
+}
+.jn-erow[data-pressed] {
+  background: var(--surface-2);
+}
+.jn-erow-text {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  overflow: hidden;
+  font: italic 420 var(--fs-sentence-sm) / var(--lh-body) var(--serif);
+  letter-spacing: 0;
+  color: var(--j-ink);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.jn-erow-meta {
+  display: flex;
+  align-items: center;
+  gap: 0 var(--sp-2);
+  min-width: 0;
+  font: 500 var(--fs-foot) / var(--lh-foot) var(--sans);
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-3);
+}
+/* a second line of the day: its words (Inter, the line's own style) over "Line" and its time */
+.jn-lrow {
+  display: grid;
+  padding: var(--sp-1) var(--sp-4) var(--sp-3);
+}
+/* inside a day (a month's page, a search): the entry sits at the day's own text edge, a hairline above it */
+.jn-erow.is-inset.pressable {
+  min-height: var(--hit);
+  padding: var(--sp-2) 0;
+  border-top: 1px solid var(--line);
+  border-radius: 0;
+}
+.jn-erow.is-inset[data-pressed] {
+  background: none;
+  opacity: 0.6;
+}
+
+/* what was searched for, marked in the words: a Haze ground under them, and their weight (never color alone) */
+.jn-mark {
+  background: var(--haze);
+  color: inherit;
+  font-weight: 600;
+  font-style: inherit;
+}
+.jn-found-more {
+  margin: var(--sp-2) var(--pad-card) 0;
+}
+
+/* ---------- a month's page: the calendar, then the days ---------- */
+/* the calendar card with no head of its own (the bar names the month) */
+.jcal.is-fixed {
+  gap: var(--sp-3);
+}
+.jn-month-page > .lb-sec {
+  margin-top: var(--sp-6);
+}
+/* the day's first line is its headline */
+.ln-line.is-grid.is-head.pressable {
+  font-weight: 600;
+}
+/* the picked day: its row is lit in Cloud across the card */
+.jn-mdays > li.is-open {
+  background: var(--surface-2);
+}
+.jn-mdays > li {
+  scroll-margin: var(--sp-12) 0;
+}
+/* "Add the line", "Write an entry": quiet links at the day's text edge */
+.jn-addline.btn {
+  justify-self: start;
+  gap: var(--sp-2);
+  min-height: var(--hit);
+  padding: 0 var(--sp-1);
+  margin-left: calc(-1 * var(--sp-1));
+}
+.jn-dayfoot {
+  display: grid;
+  border-top: 1px solid var(--line);
+}
+/* this day in an earlier year: a caption that goes there, then that entry's opening */
+.jn-ago.pressable {
+  display: grid;
+  gap: var(--sp-1);
+  min-height: var(--hit);
+  padding: var(--sp-2) 0;
+  border: 0;
+  background: none;
+  text-align: left;
+}
+.jn-ago-k {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  font: 600 var(--fs-foot) / var(--lh-foot) var(--sans);
+  color: var(--accent-text);
+}
+.jn-ago-t {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+  font: italic 420 var(--fs-sentence-sm) / var(--lh-body) var(--serif);
+  letter-spacing: 0;
+  color: var(--ink-3);
+  overflow-wrap: anywhere;
+}
