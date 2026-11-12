@@ -1,7 +1,8 @@
-import { monthOf, type Consent, type JournalEntry } from '@logbook/shared';
+import { isISODate, monthOf, type Consent, type JournalEntry } from '@logbook/shared';
 import { keepPreviousData, useInfiniteQuery, useQueryClient, type InfiniteData, type QueryClient } from '@tanstack/react-query';
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { api } from '@/api/client';
+import { outbox } from '@/api/outbox';
 import { fetchMonth, keys, useBootstrap, useJournalList, useJournalMutations, useMonth, useMonths } from '@/api/queries';
 import type { MonthBundle } from '@/api/types';
 import { useConsent } from '@/lib/consent';
@@ -113,6 +114,49 @@ export const totalOf = (head: JournalPage | undefined, loaded: number, more: boo
   return more ? null : loaded;
 };
 
+// ---------- entries still waiting to sync ----------
+/** A write in the outbox, as far as the Journal reads it (`OutboxItem`, api/outbox.ts). */
+interface QueuedWrite {
+  path: string;
+  method: string;
+  json?: unknown;
+  tmpId?: string;
+  createdAt: string;
+  sentAt?: string;
+}
+const isQueued = (w: unknown): w is QueuedWrite => !!w && typeof w === 'object' && typeof (w as QueuedWrite).path === 'string' && typeof (w as QueuedWrite).method === 'string';
+/** The entries whose save is still in the outbox, under their provisional ids. */
+export const queuedEntries = (queue: readonly unknown[]): JournalEntry[] =>
+  queue.flatMap((w) => {
+    if (!isQueued(w) || w.method !== 'POST' || w.path !== '/journal' || !w.tmpId) return [];
+    const b = (w.json && typeof w.json === 'object' ? w.json : {}) as { date?: unknown; text?: unknown };
+    if (!isISODate(b.date) || typeof b.text !== 'string' || !b.text.trim()) return [];
+    return [{ id: w.tmpId, date: b.date, text: b.text, createdAt: w.createdAt, editedAt: null, fav: false }];
+  });
+/**
+ * The entries the page has, with the ones still waiting in the outbox kept among them. A list the server answers while a
+ * save waits (it was down or busy, or the phone was offline) does not have that entry, and would take it off the page
+ * until the save lands. One that went on the wire and that the server already has (only its answer was lost) shows once;
+ * a waiting delete of a waiting entry takes it away again.
+ */
+export const withQueuedEntries = (entries: readonly JournalEntry[], queue: readonly unknown[]): JournalEntry[] => {
+  const waiting = queuedEntries(queue);
+  if (!waiting.length) return entries as JournalEntry[];
+  const sent = new Set(queue.filter(isQueued).filter((w) => w.sentAt && w.tmpId).map((w) => w.tmpId!));
+  const gone = new Set(queue.filter(isQueued).flatMap((w) => (w.method === 'DELETE' ? (/^\/journal\/([^/?]+)$/.exec(w.path)?.[1] ?? []) : [])));
+  const add = waiting.filter((q) => !gone.has(q.id) && !entries.some((e) => e.id === q.id || (sent.has(q.id) && !e.id.startsWith('tmp-') && e.date === q.date && e.text === q.text)));
+  return add.length ? [...entries, ...add].sort(journalOrder) : (entries as JournalEntry[]);
+};
+/** The outbox as it stands, read again whenever it changes. */
+const useQueued = (): readonly unknown[] => {
+  const [queue, setQueue] = useState<readonly unknown[]>(() => outbox.peek());
+  useEffect(() => {
+    const off = outbox.subscribe(() => setQueue(outbox.peek()));
+    return () => void off();
+  }, []);
+  return queue;
+};
+
 export interface JournalFeed {
   /** Every entry loaded so far, newest first. */
   entries: JournalEntry[];
@@ -169,7 +213,8 @@ export const useJournalFeed = (fetchOlder = false): JournalFeed => {
     if (loadedPages > 0 && loadedPages < want.current && hasNext) void fetchNext();
   }, [fetchOlder, cursor, fetching, loadedPages, hasNext, fetchNext, older.isError]);
 
-  const entries = useMemo(() => mergeEntries(head?.entries ?? [], ...(pages ?? []).map((p) => p.entries)), [head, pages]);
+  const queue = useQueued();
+  const entries = useMemo(() => withQueuedEntries(mergeEntries(head?.entries ?? [], ...(pages ?? []).map((p) => p.entries)), queue), [head, pages, queue]);
   const more = !!head?.more && (!pages?.length || older.isPlaceholderData || hasNext);
   const reach = !head ? null : !more ? '0000-00-00' : (entries.at(-1)?.date ?? null);
   return {

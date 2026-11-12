@@ -26,13 +26,18 @@ export interface LearnedWeek {
  */
 export const learnedWeek = (today: string, lines: ReadonlyMap<string, number>): LearnedWeek => {
   const seven = lastSeven(today);
-  const days = seven.slice(0, 6).map((date) => ({ date, letter: letterOf(date), lit: (lines.get(date) ?? 0) > 0 }));
-  return { days, before: days.filter((d) => d.lit).length, tonight: (lines.get(today) ?? 0) > 0, kept: seven.reduce((n, d) => n + (lines.get(d) ?? 0), 0) };
+  // a count that is not a whole number of lines (nothing, a negative, not a number) is no lines
+  const on = (d: string) => {
+    const n = lines.get(d);
+    return typeof n === 'number' && n >= 1 ? Math.floor(n) : 0;
+  };
+  const days = seven.slice(0, 6).map((date) => ({ date, letter: letterOf(date), lit: on(date) > 0 }));
+  return { days, before: days.filter((d) => d.lit).length, tonight: on(today) > 0, kept: seven.reduce((n, d) => n + on(d), 0) };
 };
 
 const ORDINALS = ['first', 'second', 'third', 'fourth', 'fifth', 'sixth', 'seventh'] as const;
 /** "third" for 3. The week has seven lights, so seven is as far as it goes. */
-export const ordinal = (n: number): string => ORDINALS[Math.min(Math.max(n, 1), 7) - 1]!;
+export const ordinal = (n: number): string => ORDINALS[Math.min(Math.max(Number.isFinite(n) ? Math.round(n) : 1, 1), 7) - 1] ?? ORDINALS[0];
 
 export const linesKept = (n: number): string => `${n} ${n === 1 ? 'line' : 'lines'} kept`;
 

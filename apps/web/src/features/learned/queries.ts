@@ -236,7 +236,7 @@ export const learnedWrites = (qc: QueryClient, today: string) => {
       // a search it no longer matches lets it go; one it now matches gets it at the next refetch
       patchList(qc, next, (rows) => rows.map((x) => (x.id === item.id ? next : x)));
       patchEchoes(qc, item.id, next);
-      if (await write(`/learnings/${item.id}`, 'PATCH', { text }, [learnedKeys.all])) settle();
+      if ((await write(`/learnings/${item.id}`, 'PATCH', { text }, [learnedKeys.all])) !== null) settle();
     },
     restore: async (item: Learning): Promise<void> => {
       deleted.delete(item.id);
@@ -246,7 +246,7 @@ export const learnedWrites = (qc: QueryClient, today: string) => {
       patchMonths(qc, item, 1, newDay);
       // today's only one coming back lengthens the run again, as a first save does
       patchStats(qc, today, item.date, 1, newDay);
-      if (await write(`/learnings/${item.id}/restore`, 'POST', undefined, [learnedKeys.all])) settle();
+      if ((await write(`/learnings/${item.id}/restore`, 'POST', undefined, [learnedKeys.all])) !== null) settle();
     },
     remove: async (item: Learning): Promise<void> => {
       // a second Delete of the same line (a double tap) is the first one: nothing is counted out or sent twice
@@ -260,7 +260,7 @@ export const learnedWrites = (qc: QueryClient, today: string) => {
       // today's last one going takes today out of the run at once (the server's count follows at the refetch)
       patchStats(qc, today, item.date, -1, lastOfDay);
       try {
-        if (await write(`/learnings/${item.id}`, 'DELETE', undefined, [learnedKeys.all])) settle();
+        if ((await write(`/learnings/${item.id}`, 'DELETE', undefined, [learnedKeys.all])) !== null) settle();
       } catch (e) {
         deleted.delete(item.id);
         throw e;
