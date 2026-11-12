@@ -131,3 +131,10 @@ html[data-text-xl] .gx-status-main,
 html[data-text-xl] .gx-status-sub {
   overflow-wrap: anywhere;
 }
+
+/* ---------- live numbers: the band's count, a session's minutes in the idea, a time in a goal's words ---------- */
+.gx .po-label,
+.gx .po-words-b,
+.gx-far .fh-goal {
+  font-variant-numeric: tabular-nums;
+}
