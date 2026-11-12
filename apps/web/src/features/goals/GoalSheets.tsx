@@ -1,9 +1,9 @@
 import { fitnessOn } from '@/lib/prefs';
-import { fmtDate, monthOf, periodOf, periodPast, periodSpan, periodStart, shiftDays, type Aim, type GoalEventKind, type GoalLevel, type GoalStatus } from '@logbook/shared';
+import { fmtDate, GOAL_STEPS_MAX, monthOf, periodOf, periodPast, periodSpan, periodStart, shiftDays, type Aim, type GoalEventKind, type GoalLevel, type GoalStatus } from '@logbook/shared';
 import { Check, CircleDashed, Dumbbell, Flag, Footprints, Minus, Target, Trash2, X } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
-import { useGoalEvents, useGoalMutations, useGoals, useMonth, useTodos } from '@/api/queries';
+import { useBootstrap, useGoalEvents, useGoalMutations, useGoals, useMonth, useTodos } from '@/api/queries';
 import { haptics } from '@/lib/haptics';
 import { revealField } from '@/lib/keyboard';
 import { useToday } from '@/lib/useToday';
@@ -11,10 +11,12 @@ import { Button } from '@/ui/primitives';
 import { useSheet, useSheetDepth, type SheetSpec } from '@/ui/Sheet';
 import { useToast } from '@/ui/Toast';
 import { askOf, dayEnd, deadlineWords, exampleOf, goalOf, LEVEL, periodCaps, STATUS_WORD } from './model';
-import { asTypedWords, reviewGoal, SLOW_WORDS, useReviewAccess, type ReviewAccess } from './refine';
+import { asTypedWords, GOAL_STEP_MAX, GOAL_TEXT_MAX, GOAL_WHY_MAX, goalWords, reviewGoal, SLOW_WORDS, useReviewAccess, type ReviewAccess } from './refine';
+import { draftOf, dropDraft, keepDraft, type DraftFor } from './drafts';
 import { DraftSteps, GoalSteps, stepsOf } from './Steps';
 import { HalfGauge, NewGoalChoice } from './GoalSheetParts';
 import { KPin } from './Kit';
+import { useOnLeave } from './useOnLeave';
 import { useNowMinutes } from '../day/useNow';
 import './goals.css';
 
@@ -41,6 +43,9 @@ const hintWords = (access: ReviewAccess, deadline: string) =>
  * alone, is offline, refuses or is not there, the goal is saved as typed and a toast says so. Leaving the editor while the
  * review runs saves nothing, and a review with no answer in 15 s gives the field back. Every step lands in the goal's log
  * on the server.
+ *
+ * The words being written are kept while the app is open (drafts.ts): an editor closed by mistake, flicked down, left
+ * mid-review, or whose save the server refused opens again with them. They are let go once the goal is saved.
  */
 export const GoalEditor = ({ level, period, initial, closeOnSave, gate }: { level: GoalLevel; period: string; initial?: string; closeOnSave?: boolean; gate?: EditorGate }) => {
   const today = useToday();
@@ -49,13 +54,21 @@ export const GoalEditor = ({ level, period, initial, closeOnSave, gate }: { leve
   const { set } = useGoalMutations();
   const toast = useToast();
   const access = useReviewAccess();
-  const [text, setText] = useState(initial ?? '');
+  const user = useBootstrap().data?.user.id;
+  const draft: DraftFor = { user, level, period };
+  const [text, setField] = useState(() => draftOf(draft, initial));
+  /** The field's words, kept as they change. Never longer than a goal can be: a starter may be (the week's goal with its lead-in). */
+  const setText = (next: string) => {
+    const t = next.slice(0, GOAL_TEXT_MAX);
+    setField(t);
+    keepDraft(draft, t, initial);
+  };
   const [step, setStep] = useState<Step>({ kind: 'write' });
   const field = useRef<HTMLTextAreaElement>(null);
   const done = () => (depth > 1 ? sheet.pop() : sheet.close());
   // pushed from the two ways to set a goal, a saved goal closes the sheet; Cancel still goes back to them
   const finish = () => (closeOnSave ? sheet.close() : done());
-  const words = text.trim();
+  const words = goalWords(text);
   const latest = useRef(words);
   latest.current = words;
 
@@ -79,8 +92,16 @@ export const GoalEditor = ({ level, period, initial, closeOnSave, gate }: { leve
   const save = (final: string, chose: 'sharpened' | 'kept' | 'own', original?: string, why?: string | null, note?: string) => {
     run.current?.abort();
     run.current = null;
+    // what goes to the server always fits what a goal can hold, so a save is never refused for its size
+    const saved = goalWords(final);
+    if (!saved) return;
+    const typed = text;
+    const list = steps.flatMap((x) => (x.trim() ? [x.trim().slice(0, GOAL_STEP_MAX)] : [])).slice(0, GOAL_STEPS_MAX);
     // new steps go in with the goal; an edit of the words keeps the steps it had unless the review offered new ones
-    set.mutate({ level, period, text: final, original: original ?? null, why: why ?? null, chose, ...(steps.length || !existing ? { steps: stepsOf(steps) } : {}) });
+    const input = { level, period, text: saved, original: original ? goalWords(original) || null : null, why: why ? why.trim().slice(0, GOAL_WHY_MAX) || null : null, chose, ...(list.length || !existing ? { steps: stepsOf(list) } : {}) };
+    // saved: the draft is done with. Refused for good: the words typed are kept, and the editor opens with them again
+    dropDraft(draft);
+    set.mutateAsync(input).catch(() => keepDraft(draft, typed, initial));
     haptics.drop();
     finish();
     if (note) toast(note);
@@ -286,15 +307,21 @@ export const GoalDetail = ({ id }: { id: string }) => {
   const [note, setNote] = useState(g?.reflection ?? '');
   const minutes = useNowMinutes();
   useEffect(() => setNote(g?.reflection ?? ''), [g?.reflection]);
+  // the line being written when the sheet goes (a flick down never blurs the field): saved as the blur would have
+  const sent = useRef<string | null>(null);
+  const saveNote = () => {
+    if (!g) return;
+    const v = note.trim();
+    if (v === (g.reflection ?? '') || v === sent.current) return;
+    sent.current = v;
+    review.mutate({ id: g.id, reflection: v || null });
+  };
+  useOnLeave(saveNote);
   if (!g) return <p className="gs-hint">This goal was cleared.</p>;
   const past = periodPast(g.level, g.period, today);
   // tomorrow's goal, next week's: nothing to answer yet, and no clock running
   const ahead = periodStart(g.level, g.period) > today;
   const now = new Date(`${today}T00:00:00`).getTime() + minutes * 60e3;
-  const saveNote = () => {
-    const v = note.trim();
-    if (v !== (g.reflection ?? '')) review.mutate({ id: g.id, reflection: v || null });
-  };
   const log = events.data?.events ?? [];
   return (
     <div className="gsheet k-sheet">
