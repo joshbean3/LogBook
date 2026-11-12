@@ -365,6 +365,7 @@ Files in `docs/brand/fonts/`: `fraunces-latin-full-normal.woff2` (121 KB), `frau
 | Hero (splash, onboarding, empty states) | Fraunces | 3.5 / 3.5 rem (56/56) | 700 | -0.02 em | Night Ink | `--fs-hero` |
 | Screen title (Today, Goals...) | Fraunces | 2.375 / 2.625 rem (38/42) | 650 | -0.015 em | Night Ink | `--fs-title` |
 | Session name in Today's hero | Fraunces | 2.5 / 2.625 rem (40/42), left aligned; 1.875 / 2.125 rem when it does not fit one line | 650 | -0.015 em | Night Ink | `--fs-stamp` |
+| Poster title (the card a redesigned screen leads with) | Fraunces | 2 / 2.25 rem (32/36), two lines allowed; 1.875 / 2.125 rem when it is the person's own goal | 650 | -0.015 em | Night Ink; Paper at dusk | `--fs-poster`, `--fs-poster-goal` |
 | Hero stat that changes (Progress, a count) | Inter | 2.75 rem, line 1 | 650, `tabular-nums` | -0.02 em | Night Ink; unit Inter 500 0.9375 rem Dusk | `--fs-stat-live` |
 | Stat in a tile or card (changes) | Inter | 1.625 / 2 rem (26/32), the section-title size, so no new size enters the scale | 650, `tabular-nums` | `--tr-title` | Night Ink; unit Inter 500 `--fs-sub` Dusk, 4 px after | `--fs-value`, `--lh-value` |
 | Hero stat, static (never changes after first paint) | Fraunces | 2.75 to 3.625 rem, line 1 | 650 (proportional figures: Fraunces has no tnum) | -0.02 em | Night Ink | `--fs-stat` |
@@ -573,6 +574,16 @@ Replaces the U-arc gauge. Built in `features/day/HeroHorizon.tsx` (the drawing) 
 ### 6.9 Sheets
 
 Paper, top corners 24, grabber 36 x 5 pill `rgba(14,34,54,.18)` 8 px from the top. Title Fraunces 600 26/32 (or the card-title size in a compact sheet). Close and secondary actions are 40 px round Paper buttons in the top corners. Scrim `rgba(14,34,54,.32)`. A CSS open runs 500 ms on `--ease-sheet`; a drag release and detent snaps run on `springs.sheet` (0.50 s, bounce 0). One primary button pinned at the bottom, above the safe area. In the New plan sheet the assistant's composer changes this while it is in use (6.16).
+
+### 6.5a The poster kit
+
+The cards the redesigned Today, Goals, What I learned and Fitness lead with are built from one kit, `apps/web/src/ui/poster` (shown at `/dev/ui`, "Poster kit"). It reuses the week horizon's landscape (`ui/poster/horizon.ts` holds the geometry for both).
+
+- **Poster.** The training card's anatomy: a Fraunces title (`--fs-poster`, two lines allowed) and a meta line on the sky, a picture, one band of words (White on Deep Sky; on Night Ink at dusk), then the controls on Paper. `full` carries the sun scene; `slim` (under another poster on the same page) carries a strip of the hills and no sun. The dusk ground is What I learned's own.
+- **The day scene.** The sun stands at done over total along the horizon's way, a mark per item, the dotted way to its place, two rings when all are done. Apricot at rest until the day has its goal, then Sunrise (one now mark).
+- **The path.** One line of stops under the band: solid Deep Sky behind the next stop, dotted (`--tick-major`) ahead. A done stop is a filled check with struck words; the next stop is the lit ring (a Sunrise dot with its keyline in an Apricot halo, one now mark), tagged "Next" in Ember on a Cloud row; a stop ahead is an open ring; the line ends at a dashed plus. The line never carries meaning alone: the tag, the check and the struck words do. When the next stop changes, the light moves to it on `springs.settle` (a `--dur-reduce` fade under Reduce Motion).
+- **The far hills.** Goals' "Further out": Deep Sky, Middle hill and Near hill blocks toward a pale Apricot sun (not a now mark). White words on the far hill, Night Ink on the other two. Each hill grows with its words.
+- **The week's lights.** On the dusk poster: a kept day is an Apricot light, a missed one a small Haze ring, tonight a dotted Paper ring that lights with two rings on save (one scale to 1.12 over `--dur-complete`).
 
 ### 6.10 Toasts
 
