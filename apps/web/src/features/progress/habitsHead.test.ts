@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { HABIT_RANGE, HABIT_SPAN, habitsAt, habitsHead, habitsHeadWords, habitsSeries } from './habitsChart';
+import { HABIT_RANGE, HABIT_SPAN, habitsAt, habitsHead, habitsHeadWords, habitsSeries } from './habitsHead';
 
 const dates = ['2026-11-08', '2026-11-09', '2026-11-10', '2026-11-11', '2026-11-12'];
 

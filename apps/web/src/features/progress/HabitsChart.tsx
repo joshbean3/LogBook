@@ -3,7 +3,7 @@ import { useMemo, useState } from 'react';
 import { RANGE_KEYS, RANGE_NAMES, RangeControl, rangeWindow, TrendChart, windowLabel, type RangeKey } from '@/ui/charts';
 import { useMedia } from '@/lib/useToday';
 import { useLog } from '../log/useLog';
-import { HABIT_RANGE, habitsAt, habitsHead, habitsHeadWords, habitsSeries, type HabitsHead } from './habitsChart';
+import { HABIT_RANGE, habitsAt, habitsHead, habitsHeadWords, habitsSeries, type HabitsHead } from './habitsHead';
 import { buildMetric, habitsDef, HISTORY_DAYS } from './metrics';
 import { useMetricSource } from './useMetrics';
 import './metric.css';

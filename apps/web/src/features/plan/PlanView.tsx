@@ -410,12 +410,21 @@ export default function PlanView(): React.JSX.Element {
   }, [activeTab, shown, scroller]);
 
   // ---------- home, requests, the title ----------
+  /**
+   * A week or a month asked for by name (the title, the lit tab, a link, the calendar) while the page is scrolled down
+   * into Progress: the pager would move where nobody is looking, so the page comes back up to it.
+   */
+  const upToPager = useCallback(() => {
+    const sc = scroller.current;
+    if (sc && sc.scrollTop > 0) sc.scrollTo({ top: 0, behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+  }, [scroller]);
   const goHome = useCallback(() => {
     const s = live.current.st;
     noteFocus();
+    upToPager();
     if (s.view === 'week') weekH.goTo(live.current.thisMon);
     else monthH.goTo(live.current.thisFirst);
-  }, [weekH, monthH]);
+  }, [weekH, monthH, upToPager]);
   const atHome = view === 'week' ? mon === thisMon : first === thisFirst;
   useHomeControl({ atHome, goHome });
   useRootRequest((p, how) => {
@@ -429,13 +438,15 @@ export default function PlanView(): React.JSX.Element {
       return;
     }
     if (want.view !== s.view) return show(want.view, want);
+    upToPager();
     if (want.view === 'week') weekH.goTo(want.mon);
     else monthH.goTo(want.first);
   });
   const pickWeek = (d: string) => {
     const m = mondayOf(d);
-    if (live.current.st.view === 'month') show('week', { mon: m });
-    else weekH.goTo(m);
+    if (live.current.st.view === 'month') return show('week', { mon: m });
+    upToPager();
+    weekH.goTo(m);
   };
   const openCalendar = useOpenCalendar({ mode: 'week', value: view === 'week' ? mon : first, onPick: pickWeek });
   const titleMenu = (): ContextMenuItem[] => [{ label: 'Go to a week…', onSelect: openCalendar }];
