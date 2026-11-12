@@ -376,7 +376,8 @@
 .pth-text {
   flex: 1 1 auto;
   display: grid;
-  /* the track may shrink: one long word (a pasted link) breaks inside the row, never under the check or off the card */
+  /* one column that may be narrower than its longest word: a name with no spaces wraps inside the row, never under the
+     chevron or past the card's edge */
   grid-template-columns: minmax(0, 1fr);
   min-width: 0;
 }
@@ -384,7 +385,9 @@
   flex: 1 1 auto;
   min-width: 0;
 }
-.pth-title {
+.pth-title,
+.pth-sub,
+.pth-cap {
   overflow-wrap: anywhere;
 }
 .pth-tag,

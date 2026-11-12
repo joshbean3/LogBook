@@ -1,13 +1,13 @@
 import { floorFor, floorMinutes, fmtDate, label, monthsBetween, num, shiftDays, tone, TYPES, type Session, type SessionKind } from '@logbook/shared';
 import { Repeat } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ApiError } from '@/api/client';
 import { newSessionId, useAllLifts, useSessionMutations } from '@/api/queries';
 import { haptics } from '@/lib/haptics';
 import { Button, Segmented, Stepper } from '@/ui/primitives';
 import { useSheet, useSheetDepth } from '@/ui/Sheet';
 import { useToast } from '@/ui/Toast';
 import { useLog } from '../log/useLog';
+import { errorWords } from '../plan/errorWords';
 import { afterSheetLeft, useAddSession } from './addSession';
 import { DayPicker } from './DayPicker';
 import { PressButton } from './PressButton';
@@ -185,7 +185,7 @@ export const SessionEditor = ({ date, session, restore }: { date: string; sessio
     } catch (err) {
       pending.current.done = false;
       haptics.error();
-      toast(err instanceof ApiError ? err.message : 'Not saved. Try again.');
+      toast(errorWords(err, 'Not saved. Try again.'));
     } finally {
       setBusy(false);
     }

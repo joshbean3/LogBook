@@ -6,6 +6,7 @@ import { useToast } from '@/ui/Toast';
 import { useLog } from '../log/useLog';
 import { DayPicker } from './DayPicker';
 import { movesOnly, useMoveTo } from '../plan/moveRule';
+import { focusAfterMove, STOP_ROW } from './moveFocus';
 
 const nameOf = (s: Session) => (s.kind === 'rest' ? 'Rest' : label(s));
 
@@ -32,26 +33,32 @@ export const announceReshape = (toast: ReturnType<typeof useToast>, r: { conflic
 
 /**
  * After a pick the row the sheet would give focus back to has moved (it is a new row on its new day): focus goes to the
- * moved session's row in the shown page once the sheet has let go of focus, not to `<body>` (code review 2 #8). The Add
- * sheet uses it too: an empty day's row is gone once the day holds the new session. When its
- * new day is not on the shown page (a move past Sunday, or off Today's day), focus goes to the shown pager, where the
- * arrow keys page to it (code review 3 #1).
+ * moved session's stop on the shown page (the line of days, `STOP_ROW`) once the sheet has let go of focus, not to
+ * `<body>` (code review 2 #8). The Add sheet uses it too: an empty day's row is gone once the day holds the new session.
+ * A day before today sits behind "Earlier this week": focus goes to that row. When its new day is not on the shown page
+ * (a move past Sunday, or off Today's day), focus goes to the shown pager, where the arrow keys page to it (code review
+ * 3 #1). The decision is `focusAfterMove` (moveFocus.ts).
  */
 export const refocusMoved = (id: string, to: string) => {
   const t0 = performance.now();
   const cur = '.tab[data-active] .pl-pane.is-on .dp-page[data-role="cur"]';
   const tick = () => {
-    if (performance.now() - t0 > 1500) return;
+    const waited = performance.now() - t0;
+    if (waited > 1500) return;
     const a = document.activeElement;
     // still in the closing sheet: wait; somewhere else on purpose: leave it
     if (a && a !== document.body && a.isConnected) {
       if (a.closest('.sheet, [role="dialog"]')) return void requestAnimationFrame(tick);
       return;
     }
-    const row = document.querySelector<HTMLElement>(`${cur} [data-session-id="${CSS.escape(id)}"] .pl-line`);
-    if (row) return void row.focus({ preventScroll: true });
+    const page = document.querySelector<HTMLElement>(cur);
+    const row = page?.querySelector<HTMLElement>(STOP_ROW(id)) ?? null;
+    const fold = page?.querySelector<HTMLElement>('.pl-fold') ?? null;
+    const where = focusAfterMove({ pageMon: page?.dataset.date, to, hasRow: !!row, hasFold: !!fold, waited });
+    if (where === 'row') return void row!.focus({ preventScroll: true });
     // its day is on the shown page: the row comes with the write's render
-    if (document.querySelector(`${cur} [data-plan-day="${to}"]`) && performance.now() - t0 < 600) return void requestAnimationFrame(tick);
+    if (where === 'wait') return void requestAnimationFrame(tick);
+    if (where === 'fold') return void fold!.focus({ preventScroll: true });
     const pager = document.querySelector<HTMLElement>('.tab[data-active] .pl-pane.is-on .dp') ?? document.querySelector<HTMLElement>('.tab[data-active] .dp[aria-roledescription="pager"]');
     pager?.focus({ preventScroll: true });
   };

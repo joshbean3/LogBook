@@ -2,7 +2,6 @@ import { counts, fmtDate, mondayOf, monthsBetween, sessionStatus, shiftDays, typ
 import { ChevronDown, ChevronRight, Ellipsis, ListChecks, Plus, Target, Trash2 } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNav, useNavInternal } from '@/app/NavController';
-import { ApiError } from '@/api/client';
 import { useGoals, usePlanDelete } from '@/api/queries';
 import { useConsent } from '@/lib/consent';
 import { haptics } from '@/lib/haptics';
@@ -22,6 +21,7 @@ import { useLog } from '../log/useLog';
 import { Arc, arcOf, openPlans, openTemplate, phasesFor, planName, stateOf } from './Blocks';
 import { fromEndingBlock } from './builderModel';
 import { shortName } from './context';
+import { errorWords } from './errorWords';
 import { PHASE_WORDS } from './phases';
 import { lengthWords, miles1, planFacts, sourceWords } from './planFacts';
 import { planWeeks, weekOf } from './topWords';
@@ -279,7 +279,9 @@ const PlanMore = ({ b, fromList }: { b: PlanBlock; fromList?: boolean }) => {
     haptics.delete();
     const gone = remove.mutateAsync(b);
     gone.catch((e: unknown) => {
-      toast(e instanceof ApiError && e.status !== 404 ? `Couldn’t delete the plan. ${e.message}` : 'Couldn’t delete the plan. It’s still on your calendar.');
+      // the server's own reason only when it wrote one for the person (errorWords.ts); else the plain line
+      const why = errorWords(e, '');
+      toast(why ? `Couldn’t delete the plan. ${why}` : 'Couldn’t delete the plan. It’s still on your calendar.');
     });
     toast('Plan deleted', {
       label: 'Undo',

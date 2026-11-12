@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { impliesRoot, matchRoute, resolveRoute, ROUTES, TABS } from './nav';
+import { isFitnessPath } from '@/lib/prefs';
+import { impliesRoot, matchRoute, resolveRoute, ROUTES, TABS, type NavState, type PushedEntry } from './nav';
 
 /** docs/feel.md §1.2 and contracts §A.1: every route of the table and every redirect resolves to its target. */
 describe('the route table', () => {

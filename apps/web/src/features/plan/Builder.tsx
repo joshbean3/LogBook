@@ -1,9 +1,10 @@
 import { BUILDER_LIMITS, builderDates, builderInput, counts, fmtDate, GOAL_SPECS, mondayOf, monthsBetween, num, sessionStatus, shiftDays, tone, WEEKDAYS, type AnswersFromRuns, type BuilderAnswers, type Goal, type PlanBlock, type Template, type Weekday } from '@logbook/shared';
+import { errorWords } from './errorWords';
 import { animate, AnimatePresence, motion } from 'motion/react';
 import { useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type CSSProperties, type FocusEvent as ReactFocusEvent, type ReactNode } from 'react';
 import { useNav, useTab } from '@/app/NavController';
-import { ApiError } from '@/api/client';
 import { useTemplatePlan, useTemplateUndo, type PlanTemplateResult } from '@/api/queries';
+import { oneAtATime } from './oneAtATime';
 import { DISCLAIMER } from '@/lib/copy';
 import { haptics } from '@/lib/haptics';
 import { crossfade, forRange, reducedFade, springs, useReduced } from '@/lib/motion';
@@ -288,12 +289,11 @@ const BuilderBody = ({ log, store, seed, ghost, life }: { log: Log; store: Ghost
   const from = tpl ? (tpl.start > t ? tpl.start : t) : t;
   const existing = tpl ? replaceable(span, from, tpl.end, overlap) : 0;
   const counting = !!tpl && !span.ready;
-  const use = () => {
-    if (!tpl || counting || write.isPending) return;
+  const send = () => {
     const replacing = existing > 0;
     // the promise settles whether or not the sheet is still open (mutate's own callbacks need a mounted observer): a write
     // that lands after a dismiss still raises its Undo, and a failure still says so (code review 1 #2)
-    write.mutateAsync({ ...input, replace: replacing, ...(assisted.current > 0 ? { assisted: true } : {}) }).then(
+    return write.mutateAsync({ ...input, replace: replacing, ...(assisted.current > 0 ? { assisted: true } : {}) }).then(
       (r) => {
         // a destructive commit with Undo (spec §11.4), when it commits; a plain new block is silent
         if (replacing) haptics.delete();
@@ -312,8 +312,17 @@ const BuilderBody = ({ log, store, seed, ghost, life }: { log: Log; store: Ghost
           ),
         );
       },
-      (e) => toast(e instanceof ApiError ? e.message : 'Couldn’t save the plan. Try again.'),
+      (e) => void toast(errorWords(e, 'Couldn’t save the plan. Try again.')),
     );
+  };
+  // one plan per press: the button's `disabled` waits for a render, so the lock is taken in the press itself (two presses
+  // in one task wrote the plan twice, every session doubled). It opens when the write settles, so a failed one can be tried again
+  const sendNow = useRef(send);
+  sendNow.current = send;
+  const [sendOnce] = useState(() => oneAtATime(() => sendNow.current()));
+  const use = () => {
+    if (!tpl || counting || write.isPending) return;
+    sendOnce();
   };
   // a number field the owner types in sits above the foot and the keyboard (review-feel-1 #7; spec §0.2, risk 6)
   const root = useRef<HTMLDivElement>(null);

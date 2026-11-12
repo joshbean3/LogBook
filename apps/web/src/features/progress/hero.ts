@@ -50,6 +50,20 @@ export interface LiftView {
   span: RangeSpan;
   buckets: LiftBucket[];
 }
+/** One drawn chart: the hero draws a new one (the bars rise again) whenever any of these changes. */
+export const chartKeyOf = (mode: HeroMode, span: Pick<RangeSpan, 'range' | 'unit' | 'from'>) => `${mode}-${span.range}-${span.unit}-${span.from}`;
+/** A bucket being read (under a finger, or with its sheet up), and the chart it was read on. */
+export interface Reading {
+  chart: string;
+  i: number;
+}
+/**
+ * The bucket a reading names on the chart now drawn, or null. A reading never outlives its chart: when the chart is
+ * redrawn under a finger (the range changed, or its months landed), the finger's lift is never heard by the new one, and
+ * the headline would keep a bucket's number that nothing is pointing at.
+ */
+export const readingOn = (r: Reading | null, chart: string): number | null => (r && r.chart === chart ? r.i : null);
+
 /** Days already read, per snapshot (a new snapshot, new data, starts over): switching ranges reads no day twice. */
 const runCache = new WeakMap<AppSnapshot, Map<string, DayRun>>();
 const liftCache = new WeakMap<AppSnapshot, Map<string, DayLift>>();

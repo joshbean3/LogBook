@@ -915,6 +915,8 @@
 /* words in a card: the workout as written, the other sets, what else was done */
 .ss-words.card {
   display: grid;
+  /* one column no wider than the card: a pasted link or a name with no spaces wraps inside it */
+  grid-template-columns: minmax(0, 1fr);
   gap: 4px;
 }
 .ss-words-k {
@@ -1123,6 +1125,8 @@
 /* ---------- move: quick picks, then the week ---------- */
 .mv2 {
   display: grid;
+  /* one column no wider than the sheet: a session's name that is one long word wraps, and the week's days stay on screen */
+  grid-template-columns: minmax(0, 1fr);
   gap: 14px;
   min-width: 0;
 }

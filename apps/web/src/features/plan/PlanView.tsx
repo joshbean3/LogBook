@@ -1,4 +1,4 @@
-import { addMonths, mondayOf, monthOf, monthStart, parseISO, shiftDays } from '@logbook/shared';
+import { addMonths, mondayOf, monthStart, parseISO, shiftDays } from '@logbook/shared';
 import { useMotionValueEvent } from 'motion/react';
 import type * as React from 'react';
 import { Activity, startTransition, useCallback, useEffect, useLayoutEffect, useReducer, useRef, useState } from 'react';
@@ -21,6 +21,7 @@ import { X } from 'lucide-react';
 import { Pressable } from '@/ui/Pressable';
 import { MonthPage } from './Month';
 import { markNavHintSeen, navHintSeen } from './navHint';
+import { followToday, fromParams, monthOfWeek, weekForMonth } from './planRoute';
 import { PlanBlockCtx } from './PlanTop';
 import { WeekPage } from './Week';
 import './plan.css';
@@ -50,18 +51,8 @@ interface St {
   leaving: View | null;
 }
 
-/** The month a week belongs to: its Thursday's (ISO weeks). */
-const monthOfWeek = (mon: string) => monthStart(shiftDays(mon, 3));
 /** Months from `a` to `b` (firsts of months). */
 const monthsApart = (a: string, b: string) => (+b.slice(0, 4) - +a.slice(0, 4)) * 12 + (+b.slice(5, 7) - +a.slice(5, 7));
-/** The first week that belongs to a month: the one whose Thursday falls in it. */
-const firstWeekOf = (first: string) => (shiftDays(mondayOf(first), 3) >= first ? mondayOf(first) : shiftDays(mondayOf(first), 7));
-
-const fromParams = (p: Readonly<Record<string, string>>, today: string): Omit<St, 'leaving'> => {
-  if (p.month) return { view: 'month', first: p.month, mon: monthOf(p.month) === monthOf(today) ? mondayOf(today) : firstWeekOf(p.month) };
-  const mon = p.mon ?? mondayOf(today);
-  return { view: 'week', mon, first: monthOfWeek(mon) };
-};
 
 export default function PlanView(): React.JSX.Element {
   const params = useRouteParams();
@@ -90,6 +81,23 @@ export default function PlanView(): React.JSX.Element {
   const dismissRef = useRef<() => void>(() => undefined);
   const weekPath = (m: string) => (m === live.current.thisMon ? '/plan' : `/plan/week/${m}`);
   const monthPath = (f: string) => `/plan/month/${f}`;
+  // midnight passed with the page open: a page that was on this week (this month) is on the new one, so the morning
+  // opens on today's card and not on "Last week" under the URL that means this week (planRoute.ts `followToday`)
+  const home = useRef({ mon: thisMon, first: thisFirst });
+  useEffect(() => {
+    const was = home.current;
+    if (was.mon === thisMon && was.first === thisFirst) return;
+    home.current = { mon: thisMon, first: thisFirst };
+    const s = live.current.st;
+    const next = followToday(s, was, home.current);
+    if (next !== s) setSt(next);
+    // the URL names the shown week by what it is today ("/plan" is this week)
+    nav.replace(next.view === 'week' ? weekPath(next.mon) : monthPath(next.first));
+  }, [thisMon, thisFirst]); // eslint-disable-line react-hooks/exhaustive-deps
+  // a URL that named a date the pages cannot draw opened this week (planRoute.ts): the URL says so too
+  useEffect(() => {
+    if ((params.mon && params.mon !== mon) || (params.month && params.month !== first)) nav.replace(view === 'week' ? weekPath(mon) : monthPath(first));
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ---------- commits (inside the pager's flushSync) ----------
   // A commit moves only its own pager's anchor (a pager still sliding while its pane fades out commits under the other
@@ -144,8 +152,8 @@ export default function PlanView(): React.JSX.Element {
     });
   };
   /**
-   * Show `v`, anchored where the owner was: Week shows the week of the month in view (this week in this month), Month the
-   * month of the week in view. Only the incoming pane's anchor changes: the leaving pane keeps the page it shows while it
+   * Show `v`, anchored where the owner was: Week shows the week that was left (or, once the month was paged away from it,
+   * the week of the month in view: this week in this month), Month the month of the week in view. Only the incoming pane's anchor changes: the leaving pane keeps the page it shows while it
    * fades (code review 2 #1). A pager's running goTo counts as already there (its target: code review 1 #1, code review 2
    * #6), and a view shown again inside its own fade-out comes back as it was (code review 2 #1 C).
    */
@@ -155,7 +163,8 @@ export default function PlanView(): React.JSX.Element {
     let { mon: m, first: f } = s;
     if (v === 'week') {
       const f0 = monthH.target.get() ?? s.first;
-      m = anchor?.mon ?? (back ? s.mon : monthOf(f0) === monthOf(today) ? live.current.thisMon : firstWeekOf(f0));
+      // back to the week that was left while the month in view still holds it; else this week, or that month's first
+      m = anchor?.mon ?? (back ? s.mon : weekForMonth(f0, s.mon, today));
     } else {
       f = anchor?.first ?? (back ? s.first : monthOfWeek(weekH.target.get() ?? s.mon));
       setMonthOn(true);

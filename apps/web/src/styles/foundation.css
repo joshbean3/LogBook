@@ -663,13 +663,17 @@ html.kb-open .sheet[data-tall][data-box='auto'] {
   flex: 1 1 auto;
   min-width: 0;
   display: grid;
+  /* one column no wider than the head gives it: a name that is one long word wraps, and never widens the sheet */
+  grid-template-columns: minmax(0, 1fr);
 }
 .sheet-titles-in {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   min-width: 0;
 }
 .sheet-eyebrow {
   line-height: 0.875rem;
+  overflow-wrap: anywhere;
 }
 .sheet-back {
   margin-left: -10px;

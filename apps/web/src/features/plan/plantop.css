@@ -38,13 +38,15 @@
 }
 .pt-row-main {
   display: grid;
+  /* one column that may be narrower than its longest word, so a plan's name with no spaces wraps too */
+  grid-template-columns: minmax(0, 1fr);
   flex: 1 1 auto;
   min-width: 0;
 }
 /* the name and where it stands wrap before they are cut (a11y-03) */
 .pt-row-name {
   font: 600 var(--fs-row) / var(--lh-row) var(--sans);
-  overflow-wrap: break-word;
+  overflow-wrap: anywhere;
 }
 .pt-row.is-empty .pt-row-name {
   color: var(--ink-2);
