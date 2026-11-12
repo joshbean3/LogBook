@@ -35,7 +35,6 @@ const views = {
   goals: () => import('@/features/goals/GoalsView'),
   goalHistory: () => import('@/features/goals/GoalHistory'),
   plan: () => import('@/features/plan/PlanView'),
-  progress: () => import('@/features/progress/ProgressView'),
   journal: () => import('@/features/journal/JournalView'),
   journalMonth: () => import('@/features/journal/JournalMonth'),
   reads: () => import('@/features/reads/ReadsView'),
@@ -76,7 +75,6 @@ const MorningView = view(views.morning);
 const GoalsView = view(views.goals);
 const GoalHistory = view(views.goalHistory);
 const PlanView = view(views.plan);
-const ProgressView = view(views.progress);
 const JournalView = view(views.journal);
 const JournalMonth = view(views.journalMonth);
 const ReadsView = view(views.reads);
@@ -95,7 +93,7 @@ const prefetchViews = () => {
   };
   requestAnimationFrame(() => setTimeout(pushed, 0));
   const run = () => {
-    for (const v of [GoalsView, PlanView, ProgressView, JournalView, Welcome, PlansPage, GoalHistory]) void v.preload().catch(() => undefined);
+    for (const v of [GoalsView, PlanView, JournalView, Welcome, PlansPage, GoalHistory]) void v.preload().catch(() => undefined);
   };
   if ('requestIdleCallback' in window) (window as Window & { requestIdleCallback: (cb: () => void, o?: { timeout: number }) => void }).requestIdleCallback(run, { timeout: 2000 });
   else setTimeout(run, 400);
@@ -120,12 +118,11 @@ const StubRoot = STUBS_BUILT ? lazy(() => import('./dev/StubRoots').then((m) => 
 const StubPushed = STUBS_BUILT ? lazy(() => import('./dev/StubRoots').then((m) => ({ default: m.StubPushed }))) : null;
 const pages =
   STUBS && StubRoot
-    ? { today: <StubRoot tab="today" />, goals: <StubRoot tab="goals" />, plan: <StubRoot tab="plan" />, progress: <StubRoot tab="progress" />, journal: <StubRoot tab="journal" /> }
+    ? { today: <StubRoot tab="today" />, goals: <StubRoot tab="goals" />, plan: <StubRoot tab="plan" />, journal: <StubRoot tab="journal" /> }
     : {
         today: <DayView />,
         goals: <GoalsView />,
         plan: <PlanView />,
-        progress: <ProgressView />,
         journal: <JournalView />,
       };
 /** The pushed page for an entry: a switch on its route (contracts §A.3). */
@@ -140,6 +137,7 @@ const pushedFor = (e: PushedEntry) => {
   if (pattern === '/settings') return <SettingsView />;
   if (pattern === '/settings/reads/:tab?') return <ReadsView />;
   if (DEV_TOOLS && pattern === '/dev/ui') return STUBS && StubPushed ? <StubPushed /> : UiGallery ? <UiGallery /> : null;
+  // a metric's page (Fitness's trend tiles): its address is from when Progress was a tab; it is pushed over Fitness
   if (pattern === '/progress/metric/:id') return <MetricPage />;
   return null;
 };

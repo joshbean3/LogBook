@@ -117,25 +117,30 @@ describe('what Today shows', () => {
 });
 
 describe('Fitness off: the tab, the routes and the data', () => {
-  it('draws four tabs, in the same order, without Fitness', () => {
-    expect(shownTabs(true).map((t) => t.label)).toEqual(['Today', 'Goals', 'Fitness', 'Progress', 'Journal']);
-    expect(shownTabs(false).map((t) => t.label)).toEqual(['Today', 'Goals', 'Progress', 'Journal']);
+  it('draws three tabs, in the same order, without Fitness', () => {
+    expect(shownTabs(true).map((t) => t.label)).toEqual(['Today', 'Goals', 'Fitness', 'Journal']);
+    expect(shownTabs(false).map((t) => t.label)).toEqual(['Today', 'Goals', 'Journal']);
   });
 
   it('knows which routes are Fitness', () => {
     for (const p of ['/plan', '/plan/week/2026-11-09', '/plan/morning', '/fitness', '/settings/training', '/settings/plans', '/progress/metric/mileage', '/progress/metric/pace', '/progress/metric/lifts']) expect(isFitnessPath(p)).toBe(true);
-    for (const p of ['/today', '/goals', '/progress', '/progress/metric/sleep', '/progress/metric/consistency', '/settings', '/settings/habits', '/planet']) expect(isFitnessPath(p)).toBe(false);
+    // Progress is part of Fitness: every address under it is one of Fitness's, the body's numbers and the habits' trend too
+    for (const p of ['/progress', '/progress/', '/progress/metric/sleep', '/progress/metric/hrv', '/progress/metric/rhr', '/progress/metric/consistency', '/progress/metric/nope', '/progress/anything/else', '/trends']) expect(isFitnessPath(p)).toBe(true);
+    for (const p of ['/today', '/goals', '/journal', '/journal/2026-11', '/settings', '/settings/habits', '/settings/connections', '/planet', '/progression', '/progress-report', '/trendsetter']) expect(isFitnessPath(p)).toBe(false);
   });
 
   it('sends every Fitness route to Today while it is off, and back where it was when it is on again', () => {
     expect(resolveRoute('/fitness').path).toBe('/plan');
     expect(matchRoute('/plan').tab).toBe('plan');
+    expect(resolveRoute('/progress')).toMatchObject({ path: '/plan', tab: 'plan' });
+    expect(resolveRoute('/progress/metric/sleep')).toMatchObject({ path: '/progress/metric/sleep', tab: 'plan', kind: 'pushed' });
     setFitness(false);
-    for (const p of ['/plan', '/fitness', '/plan/week/2026-11-09', '/settings/training', '/settings/plans', '/progress/metric/mileage', '/habits/morning']) expect(resolveRoute(p).path).toBe('/today');
-    expect(resolveRoute('/progress/metric/sleep').path).toBe('/progress/metric/sleep');
+    for (const p of ['/plan', '/fitness', '/plan/week/2026-11-09', '/settings/training', '/settings/plans', '/progress/metric/mileage', '/habits/morning', '/progress', '/progress/metric/sleep', '/progress/metric/consistency', '/progress/metric/nope', '/trends']) expect(resolveRoute(p).path).toBe('/today');
     expect(resolveRoute('/settings/habits').path).toBe('/settings/habits');
+    expect(resolveRoute('/journal/2026-11').path).toBe('/journal/2026-11');
     setFitness(true);
     expect(resolveRoute('/plan/week/2026-11-09').path).toBe('/plan/week/2026-11-09');
+    expect(resolveRoute('/progress/metric/sleep').path).toBe('/progress/metric/sleep');
   });
 
   it('leaves training out of what screens read, and deletes nothing', () => {

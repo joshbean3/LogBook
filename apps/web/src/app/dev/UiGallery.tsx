@@ -330,7 +330,7 @@ const NavBarDemos = () => {
         <NavBar caps={{ cur: weekCaption(shiftDays(t, 7), t) }} title={{ cur: 'Plan' }} wideTrailing trailing={<Segmented className="in-bar" label="Week or month" value={seg} onChange={setSeg} options={[['week', 'Week'], ['month', 'Month']]} />} />
       </div>
       <div className="gal-frame gal-bar-frame">
-        <NavBar caps={{ cur: dayCaption(t) }} title={{ cur: 'Progress' }} />
+        <NavBar caps={{ cur: dayCaption(t) }} title={{ cur: 'Journal' }} />
       </div>
     </>
   );
@@ -433,11 +433,12 @@ const NavRows = () => {
         ['/settings', 'Settings (pushed, Today stays lit)'],
         ['/settings/training', 'Training (depth 2)'],
         ['/settings/plans', 'Plans (depth 2)'],
-        ['/plan', 'Plan (tab)'],
-        ['/progress', 'Progress (tab)'],
+        ['/plan', 'Fitness (tab)'],
+        ['/progress', '/progress redirects to Fitness'],
+        ['/progress/metric/mileage', 'Weekly mileage (pushed on Fitness)'],
         ['/journal', 'Journal (tab)'],
         ['/settings/reads', 'Saved links (pushed under Settings, Today stays lit)'],
-        ['/trends', '/trends redirects to Progress'],
+        ['/trends', '/trends redirects to Fitness'],
         ['/morning', '/morning redirects to Today'],
       ].map(([to, label]) => (
         <Pressable key={to} as="div" press="surface" className="gal-edge-row" onPress={() => nav.go(to!)}>

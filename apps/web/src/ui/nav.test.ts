@@ -4,11 +4,12 @@ import { impliesRoot, matchRoute, resolveRoute, ROUTES, shownTabs, TABS, type Na
 
 /** docs/feel.md §1.2 and contracts §A.1: every route of the table and every redirect resolves to its target. */
 describe('the route table', () => {
-  it('has the five tabs in order, Journal last, and no tab named Learned', () => {
-    expect(TABS.map((t) => t.id)).toEqual(['today', 'goals', 'plan', 'progress', 'journal']);
-    expect(TABS.map((t) => t.root)).toEqual(['/today', '/goals', '/plan', '/progress', '/journal']);
-    expect(TABS.map((t) => t.label)).toEqual(['Today', 'Goals', 'Fitness', 'Progress', 'Journal']);
-    expect(shownTabs(false).map((t) => t.label)).toEqual(['Today', 'Goals', 'Progress', 'Journal']);
+  it('has the four tabs in order, Journal last, and no tab named Learned or Progress', () => {
+    expect(TABS.map((t) => t.id)).toEqual(['today', 'goals', 'plan', 'journal']);
+    expect(TABS.map((t) => t.root)).toEqual(['/today', '/goals', '/plan', '/journal']);
+    expect(TABS.map((t) => t.label)).toEqual(['Today', 'Goals', 'Fitness', 'Journal']);
+    expect(shownTabs(true)).toEqual(TABS);
+    expect(shownTabs(false).map((t) => t.label)).toEqual(['Today', 'Goals', 'Journal']);
   });
 
   it.each([
@@ -18,7 +19,6 @@ describe('the route table', () => {
     ['/plan', 'root', 'plan', '/plan'],
     ['/plan/week/2026-10-26', 'root', 'plan', '/plan/week/2026-10-26'],
     ['/plan/month/2026-11-01', 'root', 'plan', '/plan/month/2026-11-01'],
-    ['/progress', 'root', 'progress', '/progress'],
     ['/journal', 'root', 'journal', '/journal'],
   ])('%s is a %s of %s', (path, kind, tab, root) => {
     const m = matchRoute(path);
@@ -72,6 +72,21 @@ describe('the route table', () => {
     }
     // anything else under the old tab is the tab: never Today, never a blank
     for (const bad of ['/learned/2026-10-14', '/learned/2026-13', '/learned/banana', '/learned/2026-10-01/x', '/learned/%ZZ', '/learned/9999-12-01']) expect(resolveRoute(bad)).toMatchObject({ kind: 'root', tab: 'journal', path: '/journal' });
+  });
+
+  it('Progress is part of Fitness: its tab opens Fitness, and a metric page keeps its address, pushed over Fitness', () => {
+    expect(matchRoute('/progress')).toMatchObject({ kind: 'redirect', redirect: '/plan' });
+    expect(resolveRoute('/progress')).toMatchObject({ kind: 'root', tab: 'plan', path: '/plan', stack: [] });
+    for (const [id, title] of [['mileage', 'Weekly mileage'], ['pace', 'Run pace'], ['consistency', 'Consistency'], ['lifts', 'Lift volume'], ['sleep', 'Sleep'], ['hrv', 'HRV'], ['rhr', 'Resting HR']] as const) {
+      const m = matchRoute(`/progress/metric/${id}`);
+      expect(m).toMatchObject({ kind: 'pushed', tab: 'plan', root: '/plan' });
+      expect(m.stack.map((e) => [e.path, e.depth, e.title, e.idx])).toEqual([[`/progress/metric/${id}`, 1, title, -1]]);
+      expect(m.stack[0]!.params).toEqual({ id });
+      // it sits over whatever week Fitness shows: a jump to it never moves Fitness's root
+      expect(impliesRoot(m)).toBe(false);
+    }
+    // anything else under the old tab is Fitness: never Today (with Fitness on), never a blank
+    for (const bad of ['/progress/metric', '/progress/metric/nope', '/progress/metric/sleep/more', '/progress/weeks', '/progress/%ZZ', '/progress/metric/%ZZ', '/progress/metric/constructor']) expect(resolveRoute(bad)).toMatchObject({ kind: 'root', tab: 'plan', path: '/plan' });
   });
 
   it('Journal’s older links still resolve, ahead of its month page: Reads under Settings, the removed Library on Journal', () => {
@@ -153,7 +168,12 @@ describe('the route table', () => {
     ['/plan/plans', '/settings/plans'],
     ['/settings/routine', '/settings'],
     ['/settings/banana', '/settings'],
-    ['/trends', '/progress'],
+    ['/trends', '/plan'],
+    ['/progress', '/plan'],
+    ['/progress/', '/plan'],
+    ['/progress/metric', '/plan'],
+    ['/progress/metric/bogus', '/plan'],
+    ['/progress/elsewhere', '/plan'],
     ['/setup', '/signup'],
     ['/today/banana', '/today'],
     ['/today/2026-02-30', '/today'],
@@ -190,9 +210,9 @@ describe('the route table', () => {
 });
 
 describe('bad route parameters fall back to the tab (shell-23)', () => {
-  it('a metric that does not exist goes to Progress', () => {
-    expect(matchRoute('/progress/metric/bogus')).toMatchObject({ kind: 'redirect', redirect: '/progress' });
-    expect(matchRoute('/progress/metric/toString')).toMatchObject({ kind: 'redirect', redirect: '/progress' });
+  it('a metric that does not exist goes to Fitness', () => {
+    expect(matchRoute('/progress/metric/bogus')).toMatchObject({ kind: 'redirect', redirect: '/plan' });
+    expect(matchRoute('/progress/metric/toString')).toMatchObject({ kind: 'redirect', redirect: '/plan' });
     expect(matchRoute('/progress/metric/hrv').kind).toBe('pushed');
   });
   it('Reads opens only its two lists', () => {
@@ -217,7 +237,7 @@ describe('a malformed URL', () => {
     expect(resolveRoute('/today/%E0%A4%A').path).toBe('/today');
     expect(resolveRoute('/learned/%ZZ').path).toBe('/journal');
     expect(resolveRoute('/journal/%E0%A4%A').path).toBe('/journal');
-    expect(resolveRoute('/progress/metric/%').path).toBe('/progress');
+    expect(resolveRoute('/progress/metric/%').path).toBe('/plan');
   });
   it('nothing, a query alone, a fragment alone and a value that is not text all resolve to a page', () => {
     for (const p of ['', '?', '#', '?x=1#y', ' ', '/%20', '/\u202Etoday', '/' + 'a'.repeat(5000)]) expect(['root', 'pushed']).toContain(resolveRoute(p).kind);

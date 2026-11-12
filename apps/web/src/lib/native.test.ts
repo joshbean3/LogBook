@@ -19,7 +19,11 @@ describe('deep links', () => {
     ['logbook://learned/2026-10-01', '/journal/2026-10'],
     ['logbook://learned/2026-10', '/journal/2026-10'],
     ['logbook://learned/nope', '/journal'],
-    ['logbook://trends', '/progress'],
+    ['logbook://trends', '/plan'],
+    // Progress is part of Fitness; a metric page keeps its address
+    ['logbook://progress', '/plan'],
+    ['logbook://progress/metric/sleep', '/progress/metric/sleep'],
+    ['logbook://progress/metric/nope', '/plan'],
   ])('%s opens %s', (url, path) => {
     expect(deepLinkPath(url)).toBe(path);
   });

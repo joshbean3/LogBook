@@ -1,13 +1,13 @@
-import { GoalsIcon, JournalIcon, FitnessIcon, ProgressIcon, TodayIcon, type BrandIconComponent } from './icons';
+import { GoalsIcon, JournalIcon, FitnessIcon, TodayIcon, type BrandIconComponent } from './icons';
 import { DEV_TOOLS } from '@/lib/features';
 import { fitnessOn, isFitnessPath } from '@/lib/prefs';
 
 /**
- * The navigation model (docs/feel.md §1, contracts §A.1): five tabs, the route table, and `matchRoute`, which turns a URL into
+ * The navigation model (docs/feel.md §1, contracts §A.1): four tabs, the route table, and `matchRoute`, which turns a URL into
  * the tab it lights, the root page it shows and the pushed pages stacked over it. NavController is the only reader that acts
  * on it; everything else asks the controller.
  */
-export type TabId = 'today' | 'goals' | 'plan' | 'progress' | 'journal';
+export type TabId = 'today' | 'goals' | 'plan' | 'journal';
 
 export interface TabDef {
   id: TabId;
@@ -17,21 +17,22 @@ export interface TabDef {
   icon: BrandIconComponent;
 }
 /**
- * Five, in this order (§1.1; Goals is the second tab, Journal the last; habits live at the top of Today). Icons from the
- * brand set (guide 6.1, 7): sun, rings, the lift bar, the rising line, the open book. The third tab is Fitness (its id
- * and routes keep the name `plan`); with Fitness switched off it is not drawn (`shownTabs`, lib/prefs.ts). Journal is the
- * one place to write: the day's line and its longer entries. It took in the tab that was What I learned, whose old
- * addresses (`/learned`, `/learned/:month`) lead here.
+ * Four, in this order (§1.1; Goals is the second tab, Journal the last; habits live at the top of Today). Icons from the
+ * brand set (guide 6.1, 7): sun, rings, the lift bar, the open book. The third tab is Fitness (its id and routes keep
+ * the name `plan`); with Fitness switched off it is not drawn (`shownTabs`, lib/prefs.ts). Fitness is what is next and
+ * how it is going: it took in the tab that was Progress, whose address (`/progress`) leads here and whose metric pages
+ * (`/progress/metric/:id`) keep their addresses and are pushed over Fitness. Journal is the one place to write: the
+ * day's line and its longer entries. It took in the tab that was What I learned, whose old addresses (`/learned`,
+ * `/learned/:month`) lead here.
  */
 export const TABS: readonly TabDef[] = [
   { id: 'today', root: '/today', label: 'Today', icon: TodayIcon },
   { id: 'goals', root: '/goals', label: 'Goals', icon: GoalsIcon },
   { id: 'plan', root: '/plan', label: 'Fitness', icon: FitnessIcon },
-  { id: 'progress', root: '/progress', label: 'Progress', icon: ProgressIcon },
   { id: 'journal', root: '/journal', label: 'Journal', icon: JournalIcon },
 ];
 export const tabDef = (id: TabId): TabDef => TABS.find((t) => t.id === id)!;
-/** The tabs the capsule draws: all five, or four with Fitness off. */
+/** The tabs the capsule draws: all four, or three with Fitness off. */
 export const shownTabs = (fitness: boolean): readonly TabDef[] => (fitness ? TABS : TABS.filter((t) => t.id !== 'plan'));
 
 export type RouteKind = 'root' | 'pushed' | 'full' | 'redirect';
@@ -92,9 +93,12 @@ export const ROUTES: readonly RouteDef[] = [
   { pattern: '/plan/morning/:date?', owner: 'plan', kind: 'pushed', depth: 1, title: 'This morning' },
   { pattern: '/plan/week/:mon', owner: 'plan', kind: 'root' },
   { pattern: '/plan/month/:month', owner: 'plan', kind: 'root' },
-  { pattern: '/progress', owner: 'progress', kind: 'root' },
-  // a metric's page, pushed from Progress's trend cards (features/progress/metrics.ts names the ids)
-  { pattern: '/progress/metric/:id', owner: 'progress', kind: 'pushed', depth: 1, title: (p) => METRIC_TITLE[p.id ?? ''] ?? 'Progress' },
+  // Progress was a tab of its own; it is the lower half of Fitness now, and its address opens Fitness
+  { pattern: '/progress', owner: null, kind: 'redirect', to: '/plan' },
+  // a metric's page keeps its address and is pushed over Fitness, from its trend tiles (features/progress/metrics.ts
+  // names the ids); it sits over whatever week Fitness shows, so a jump to it never moves the root
+  { pattern: '/progress/metric/:id', owner: 'plan', kind: 'pushed', depth: 1, title: (p) => METRIC_TITLE[p.id ?? ''] ?? 'Fitness' },
+  { pattern: '/progress/*', owner: null, kind: 'redirect', to: '/plan' },
   { pattern: '/journal', owner: 'journal', kind: 'root' },
   // Journal's old links come before its month page, which would otherwise read their second segment as a month. Reads
   // moved under Settings; the Library was removed (owner request) and its links land on Journal
@@ -120,7 +124,7 @@ export const ROUTES: readonly RouteDef[] = [
   { pattern: '/habits/morning', owner: null, kind: 'redirect', to: '/plan/morning' },
   { pattern: '/reads/:tab?', owner: null, kind: 'redirect', to: '/settings/reads/:tab?' },
   { pattern: '/plan/plans', owner: null, kind: 'redirect', to: '/settings/plans' },
-  { pattern: '/trends', owner: null, kind: 'redirect', to: '/progress' },
+  { pattern: '/trends', owner: null, kind: 'redirect', to: '/plan' },
   { pattern: '/setup', owner: null, kind: 'redirect', to: '/signup' },
   { pattern: '*', owner: null, kind: 'redirect', to: '/today' },
 ];
@@ -169,11 +173,11 @@ const VALID: Record<string, (v: string) => boolean> = {
   mon: isMonday,
   month: isFirstOfMonth,
   section: (v) => (SETTINGS_SECTIONS as readonly string[]).includes(v),
-  // a metric page exists only for the metrics Progress draws; Reads has its two lists (shell-23)
+  // a metric page exists only for the metrics Fitness draws; Reads has its two lists (shell-23)
   id: (v) => Object.hasOwn(METRIC_TITLE, v),
   tab: (v) => v === 'read' || v === 'unread',
 };
-const INVALID_TO: Record<string, string> = { '/learned': '/journal', '/today': '/today', '/settings': '/settings', '/plan': '/plan', '/morning': '/today', '/progress': '/progress', '/journal': '/journal', '/reads': '/settings' };
+const INVALID_TO: Record<string, string> = { '/learned': '/journal', '/today': '/today', '/settings': '/settings', '/plan': '/plan', '/morning': '/today', '/progress': '/plan', '/journal': '/journal', '/reads': '/settings' };
 
 // ---------- the matcher ----------
 /**
@@ -244,7 +248,8 @@ export const entryFor = (route: RouteDef, path: string, params: Record<string, s
  */
 export const matchRoute = (pathname: string): RouteMatch => {
   const path = clean(pathname);
-  // Fitness is switched off: its tab, its settings pages and its charts all lead to Today (lib/prefs.ts)
+  // Fitness is switched off: its tab, its settings pages, its charts and every address of the tab that was Progress
+  // lead to Today (lib/prefs.ts)
   if (!fitnessOn() && isFitnessPath(path)) return { kind: 'redirect', tab: null, root: '/today', stack: [], params: {}, redirect: '/today' };
   for (const route of ROUTES) {
     const params = matchPattern(route.pattern, path);

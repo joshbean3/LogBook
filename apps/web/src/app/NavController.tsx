@@ -58,7 +58,7 @@ interface Overlay {
 }
 type Op = { kind: 'push' | 'replace'; path: string; idx: number; overlay?: boolean } | { kind: 'traverse'; n: number } | { kind: 'foreign'; push: boolean; data: unknown; url?: string | URL | null };
 
-const ROOTS: Record<TabId, string> = { today: '/today', goals: '/goals', plan: '/plan', progress: '/progress', journal: '/journal' };
+const ROOTS: Record<TabId, string> = { today: '/today', goals: '/goals', plan: '/plan', journal: '/journal' };
 const STACKS_KEY = 'logbook.stacks';
 const STALE_MS = 30 * 60_000;
 /**
@@ -98,7 +98,6 @@ const emptyTabs = (): Record<TabId, TabState> => ({
   today: { path: ROOTS.today, stack: [] },
   goals: { path: ROOTS.goals, stack: [] },
   plan: { path: ROOTS.plan, stack: [] },
-  progress: { path: ROOTS.progress, stack: [] },
   journal: { path: ROOTS.journal, stack: [] },
 });
 const topPath = (t: TabState) => t.stack[t.stack.length - 1]?.path ?? t.path;
@@ -120,10 +119,10 @@ export class Controller {
   private dead = new Set<number>();
   private pending: { timer: ReturnType<typeof setTimeout> } | null = null;
   private queue: Op[] = [];
-  private rootSubs: Record<TabId, Set<{ current: RootCb }>> = { today: new Set(), goals: new Set(), plan: new Set(), progress: new Set(), journal: new Set() };
-  private home: Record<TabId, { current: HomeControl } | null> = { today: null, goals: null, plan: null, progress: null, journal: null };
+  private rootSubs: Record<TabId, Set<{ current: RootCb }>> = { today: new Set(), goals: new Set(), plan: new Set(), journal: new Set() };
+  private home: Record<TabId, { current: HomeControl } | null> = { today: null, goals: null, plan: null, journal: null };
   /** Each tab's `.tab-scroll` (the Shell attaches them). */
-  readonly scrollers: Record<TabId, RefObject<HTMLDivElement | null>> = { today: createRef(), goals: createRef(), plan: createRef(), progress: createRef(), journal: createRef() };
+  readonly scrollers: Record<TabId, RefObject<HTMLDivElement | null>> = { today: createRef(), goals: createRef(), plan: createRef(), journal: createRef() };
   private layers = new Map<string, LayerControl>();
   /** Tabs whose pop-all is running (a second lit-tab tap rides along instead of writing history twice). */
   private popping = new Set<TabId>();
@@ -283,7 +282,7 @@ export class Controller {
     }
     const tabs = emptyTabs();
     // a reload keeps the other tabs where they were (their roots; their pushed pages are not rebuilt). Only the tabs this
-    // build has are read: a record from a build with other tabs (What I learned was one) leaves nothing behind, and the
+    // build has are read: a record from a build with other tabs (What I learned and Progress were tabs) leaves nothing behind, and the
     // tab on screen is always the one the URL resolves to, never the one the record names
     if (rec?.tabs && typeof rec.tabs === 'object' && Date.now() - rec.at <= STALE_MS)
       for (const t of TABS) {

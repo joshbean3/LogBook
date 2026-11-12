@@ -148,8 +148,12 @@ export const useTodayParts = (): TodayPart[] => {
   return todayParts(p);
 };
 
-/** The routes that belong to Fitness: with it off they lead to Today (ui/nav.ts asks). */
-export const isFitnessPath = (path: string): boolean => /^\/(plan|fitness)(\/|$)/.test(path) || path === '/settings/training' || path === '/settings/plans' || /^\/progress\/metric\/(mileage|pace|lifts)$/.test(path) || path === '/habits/morning';
+/**
+ * The routes that belong to Fitness: with it off they lead to Today (ui/nav.ts asks). Progress is part of Fitness, so
+ * every address under `/progress` is one of them, its metric pages included (the old `/trends` too): with Fitness off the
+ * habits' trend is in History, beside the habits, and the body's numbers are in Settings, under Apple Health.
+ */
+export const isFitnessPath = (path: string): boolean => /^\/(plan|fitness|progress|trends)(\/|$)/.test(path) || path === '/settings/training' || path === '/settings/plans' || path === '/habits/morning';
 
 /** Tests only: start from a known state. */
 export const resetPrefsForTest = (p: Prefs | null) => {
