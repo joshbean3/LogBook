@@ -5,6 +5,7 @@ import { useMemo } from 'react';
 import { STRAVA_BUILT } from '@/lib/features';
 import { STRAVA_GAP_MS } from '@/lib/gesture';
 import { BadShapeError, parseBootstrap } from './bootstrap';
+import { aimOf as readAim, aimsOf, todosOf } from './shapes';
 import { api, ApiError, LONG_TIMEOUT_MS, NetworkError } from './client';
 import { outbox, write } from './outbox';
 import type { Bootstrap, Daily, ExportBundle, MonthBundle, OnboardingAnswers, OnboardingResult, TemplateApplied } from './types';
@@ -85,13 +86,13 @@ export const prefetchAll = (qc: QueryClient) => {
   const months = [...new Set([...monthsBetween(from, to), ...monthsBetween(addMonths(t, -7), addMonths(t, 1))])];
   const jobs: Array<Promise<unknown>> = [
     ...months.map((m) => qc.prefetchQuery({ queryKey: keys.month(m), queryFn: () => fetchMonth(m), staleTime: 30_000 })),
-    qc.prefetchQuery({ queryKey: keys.todos, queryFn: () => api<Todo[]>('/todos'), staleTime: 30_000 }),
+    qc.prefetchQuery({ queryKey: keys.todos, queryFn: fetchTodos, staleTime: 30_000 }),
     qc.prefetchQuery({ queryKey: dayPlanKey(today()), queryFn: () => fetchDayPlan(today()), staleTime: 30_000 }),
     qc.prefetchQuery({ queryKey: keys.daily, queryFn: () => api<Daily>('/journal/daily'), staleTime: 5 * 60_000 }),
     qc.prefetchQuery({ queryKey: keys.lifts, queryFn: () => api<LiftSet[]>('/lifts'), staleTime: 60_000 }),
     qc.prefetchQuery({ queryKey: keys.journal('', false), queryFn: () => api<{ entries: JournalEntry[]; more: boolean }>('/journal?q=&fav=0&limit=200'), staleTime: 30_000 }),
     qc.prefetchQuery({ queryKey: keys.reads, queryFn: fetchReads, staleTime: 30_000 }),
-    qc.prefetchQuery({ queryKey: ['goals'], queryFn: () => api<Aim[]>('/goals'), staleTime: 30_000 }),
+    qc.prefetchQuery({ queryKey: ['goals'], queryFn: fetchGoals, staleTime: 30_000 }),
     qc.prefetchQuery({ queryKey: ['todo-groups'], queryFn: () => api<TodoGroup[]>('/todo-groups'), staleTime: 60_000 }),
   ];
   return Promise.allSettled(jobs);
@@ -217,7 +218,15 @@ export const useStravaCheck = (): UseMutationResult<StravaSyncAnswer, Error, voi
 // ── end WP1 ──
 
 // ── WP2 ──
-export const useTodos = () => useQuery({ queryKey: keys.todos, queryFn: () => api<Todo[]>('/todos'), staleTime: 30_000 });
+// To-dos as the app reads them (api/shapes.ts): an answer that is not a list is a failed request (the last good copy
+// stays); a row that cannot be a to-do is left out, on the way in and when read from the saved copy.
+function fetchTodos(): Promise<Todo[]> {
+  return api<unknown>('/todos').then((raw) => {
+    if (!Array.isArray(raw)) throw new BadShapeError('to-dos: not a list');
+    return todosOf(raw);
+  });
+}
+export const useTodos = () => useQuery({ queryKey: keys.todos, queryFn: fetchTodos, select: todosOf, staleTime: 30_000 });
 export const useDaily = () => useQuery({ queryKey: keys.daily, queryFn: () => api<Daily>('/journal/daily'), staleTime: 5 * 60_000 });
 export const useAllLifts = () => useQuery({ queryKey: keys.lifts, queryFn: () => api<LiftSet[]>('/lifts'), staleTime: 60_000 });
 export const useActivities = () => useQuery({ queryKey: keys.activities, queryFn: () => api<Activity[]>(`/activities?from=${shiftDays(today(), -120)}&to=${shiftDays(today(), 7)}`), staleTime: 60_000 });
@@ -442,12 +451,12 @@ export const newTodoId = () => `tmp-${Math.random().toString(36).slice(2, 9).pad
 
 export const useTodoMutations = () => {
   const qc = useQueryClient();
-  const setTodos = (fn: (t: Todo[]) => Todo[]) => qc.setQueryData<Todo[]>(keys.todos, (t) => fn(t ?? []));
+  const setTodos = (fn: (t: Todo[]) => Todo[]) => qc.setQueryData<Todo[]>(keys.todos, (t) => fn(todosOf(t)));
   const add = useMutation({
     mutationFn: async (input: { id?: string; text: string; date: string; priority?: TodoPriority; due?: string | null; bucket?: TodoBucket; color?: TodoColor | null; groupId?: string | null }) => {
       const { text, date } = input;
       const bucket: TodoBucket = input.bucket ?? (input.due && input.due > date ? 'later' : 'today');
-      const cur = qc.getQueryData<Todo[]>(keys.todos) ?? [];
+      const cur = todosOf(qc.getQueryData(keys.todos));
       const tmp: Todo = {
         id: input.id ?? newTodoId(),
         text,
@@ -1057,12 +1066,17 @@ Object.assign(keys, { goals: ['goals'] as const, goalEvents: (goal?: string) => 
 const goalsKey = ['goals'] as const;
 const groupsKey = ['todo-groups'] as const;
 
-/** A goal as the app reads it. Goals cached on the phone, or served by a server, from before steps existed have none. */
-const aimOf = (g: Aim): Aim => (Array.isArray(g.steps) ? g : { ...g, steps: [] });
-const aimsOf = (gs: Aim[]): Aim[] => (gs.every((g) => Array.isArray(g.steps)) ? gs : gs.map(aimOf));
+// A goal as the app reads it (api/shapes.ts): goals cached on the phone, or served by a server, from before steps existed
+// have none; a row that cannot be a goal is left out. An answer that is not a list is a failed request (the last good copy stays).
+const aimOf = (g: Aim): Aim => readAim(g) ?? { ...g, steps: [] };
+const fetchGoals = async (): Promise<Aim[]> => {
+  const raw = await api<unknown>('/goals');
+  if (!Array.isArray(raw)) throw new BadShapeError('goals: not a list');
+  return aimsOf(raw);
+};
 // retryOnMount off: a goals query that failed with nothing cached is not restarted by every observer that mounts (the
 // Goals badge, Today's card, the tab), which looped about once a second (goals-03)
-export const useGoals = () => useQuery({ queryKey: goalsKey, queryFn: async () => aimsOf(await api<Aim[]>('/goals')), select: aimsOf, staleTime: 30_000, retryOnMount: false });
+export const useGoals = () => useQuery({ queryKey: goalsKey, queryFn: fetchGoals, select: aimsOf, staleTime: 30_000, retryOnMount: false });
 export const useGoalEvents = (goal?: string, enabled = true) =>
   useQuery({ queryKey: ['goal-events', goal ?? 'all'], queryFn: () => api<{ events: GoalEvent[]; more: boolean }>(`/goals/events${goal ? `?goal=${encodeURIComponent(goal)}` : '?limit=300'}`), staleTime: 15_000, enabled });
 

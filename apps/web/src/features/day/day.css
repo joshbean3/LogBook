@@ -2436,6 +2436,14 @@
   white-space: normal;
   overflow: visible;
 }
+/* a section that broke (SectionGuard): one row in the section's place, a section's gap above it */
+.day-guard {
+  margin-top: var(--section);
+  min-width: 0;
+}
+.day-page > .day-guard:first-child {
+  margin-top: 0;
+}
 /* every section is off: one calm line and the way to the switches */
 .day-none {
   display: grid;
