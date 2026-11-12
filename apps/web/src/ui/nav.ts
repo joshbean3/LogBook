@@ -123,6 +123,22 @@ export interface NavState {
   overlays: number;
 }
 
+/**
+ * The state with no Fitness page open, for the moment Fitness is switched off (lib/prefs.ts): the lit tab is Today when it
+ * was Fitness, and a Fitness page pushed over any tab (a Running page under Progress, Training over Settings) is taken
+ * off with whatever was pushed over it. Each tab's root is kept: turning Fitness back on finds the week it was on.
+ * The same object when nothing had to change.
+ */
+export const withoutFitness = (st: NavState): NavState => {
+  let tabs = st.tabs;
+  for (const t of TABS) {
+    const i = st.tabs[t.id].stack.findIndex((e) => isFitnessPath(e.path));
+    if (i >= 0) tabs = { ...tabs, [t.id]: { ...tabs[t.id], stack: tabs[t.id].stack.slice(0, i) } };
+  }
+  const active: TabId = st.active === 'plan' ? 'today' : st.active;
+  return tabs === st.tabs && active === st.active ? st : { ...st, active, tabs };
+};
+
 export interface RouteMatch {
   kind: RouteKind;
   tab: TabId | null;

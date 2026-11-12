@@ -3,7 +3,7 @@ import { createContext, createRef, useContext, useEffect, useLayoutEffect, useMe
 import { flushSync } from 'react-dom';
 import { today as todayISO } from '@logbook/shared';
 import { useLocation } from 'react-router';
-import { entryFor, impliesRoot, matchRoute, NAV_EVENT, resolveRoute, tabDef, TABS, type NavEventDetail, type NavState, type PushedEntry, type RouteMatch, type TabId, type TabState } from '@/ui/nav';
+import { entryFor, impliesRoot, matchRoute, NAV_EVENT, resolveRoute, tabDef, TABS, withoutFitness, type NavEventDetail, type NavState, type PushedEntry, type RouteMatch, type TabId, type TabState } from '@/ui/nav';
 
 /**
  * NavController (docs/feel.md §1.3, contracts §A.2): the one owner of NavState and the only caller of history.pushState /
@@ -383,6 +383,28 @@ export class Controller {
     if (n) this.traverse(n);
     this.flushDeferredReplace();
   }
+
+  /**
+   * Fitness was switched off (the Shell calls this when the switch reads off): no open page may be one of its routes, as
+   * a cold open of them leads to Today (ui/nav.ts `matchRoute`). The tab bar has already dropped Fitness, so a lit Fitness
+   * tab would have no page at all; and a Fitness page left open under another tab (a Running page under Progress) would
+   * still be there. Nothing slides: the pages are gone with the feature. When the page on screen changed, any sheet over it
+   * closes and the URL is put on what is shown.
+   */
+  leaveFitness = (): void => {
+    if (this.dormant) return;
+    const before = this.state;
+    const next = withoutFitness(before);
+    if (next === before) return;
+    const shownChanged = next.active !== before.active || next.tabs[next.active].stack.length !== before.tabs[before.active].stack.length;
+    if (shownChanged) this.closeOverlays();
+    this.set({ ...next, overlays: this.state.overlays });
+    if (shownChanged) {
+      const path = topPath(this.state.tabs[this.state.active]);
+      this.write('replace', path);
+      this.emit('jump', path, this.state.active);
+    }
+  };
 
   // ---------- actions ----------
   activate = (tab: TabId): void => {

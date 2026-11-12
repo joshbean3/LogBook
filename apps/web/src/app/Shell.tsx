@@ -32,7 +32,13 @@ export const Shell = ({ pages, pushed }: { pages: Record<TabId, ReactNode>; push
   const ctl = useNavInternal();
   const st = useNavState();
   // with Fitness off its tab is not mounted and not drawn; the five that remain share the capsule evenly
-  const tabs = shownTabs(useFitness());
+  const fitness = useFitness();
+  const tabs = shownTabs(fitness);
+  // Fitness went off under an open Fitness page (the switch with a Running page left under Progress; the account's copy
+  // reaching a new device that opened on /plan): those pages go, and a lit Fitness tab becomes Today (never a blank tab)
+  useLayoutEffect(() => {
+    if (!fitness) ctl.leaveFitness();
+  }, [fitness, ctl]);
   // a tab root mounts on its first activation or in idle after the first content paint, then stays mounted
   const mounted = useRef(new Set<TabId>());
   mounted.current.add(st.active);
