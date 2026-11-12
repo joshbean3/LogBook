@@ -15,10 +15,10 @@ import { useSheet } from '@/ui/Sheet';
 import { useToast } from '@/ui/Toast';
 import { useHold } from '@/ui/useHold';
 import { useIsLive } from '../day/live';
-import { useNowMinutes } from '../day/useNow';
+import { useFaceMinutes } from '../day/useDeferred';
 import { useCelebrate } from '../goals/Celebrate';
 import { celebrateOnce } from '../goals/game';
-import { goalIdea, type GoalIdea } from '../goals/goalIdea';
+import { goalIdea, ideaGoal, type GoalIdea } from '../goals/goalIdea';
 import { useOpenGoal } from '../goals/GoalSheets';
 import { goalOf, STATUS_WORD } from '../goals/model';
 import { ReviewRow } from '../goals/ReviewRow';
@@ -30,7 +30,7 @@ import { PriorityFlag } from '../todos/PriorityDots';
 import { parseQuickAdd } from '../todos/quickAdd';
 import { goneOn, TodoListSheet, understoodOf, useTodoActions } from '../todos/TodoList';
 import { TodoSheet } from '../todos/TodoSheet';
-import { cardsFor, countWords, focusOf, leftWords, pathOf } from './model';
+import { cardsFor, countWords, focusOf, isEcho, leftWords, pathOf, type PathChange } from './model';
 import './dayplan.css';
 
 /** The day after the page's day is "Tomorrow" only on today's page; on a day ahead it is that day's next day. */
@@ -70,7 +70,9 @@ export const PlanDay = memo(function PlanDay({ date, today, log, slim, yesterday
   const groups = useTodoGroups();
   const reduce = useReduced();
   const live = useIsLive(date);
-  const minutes = useNowMinutes();
+  // the clock of the day on the page: while the tab holds yesterday past midnight (a draft, an open sheet), that day is at
+  // its last minute, never "24 h left" of a day that is over
+  const minutes = useFaceMinutes();
   const open = useOpenGoal();
   const sheet = useSheet();
   const toast = useToast();
@@ -122,6 +124,11 @@ export const PlanDay = memo(function PlanDay({ date, today, log, slim, yesterday
     },
     [],
   );
+  // what a tap here last changed under the finger, so its echo (a double tap) is dropped (`isEcho`)
+  const changed = useRef<PathChange | null>(null);
+  const moved = (id: string) => {
+    changed.current = { id, at: performance.now() };
+  };
   const tick = (x: Todo) => {
     if (checking) return;
     // the key moment's one haptic
@@ -129,6 +136,8 @@ export const PlanDay = memo(function PlanDay({ date, today, log, slim, yesterday
     setChecking(x.id);
     flush.current = () => {
       flush.current = null;
+      // the stop turns into a done stop where it stood: a second tap there is not "Mark not done"
+      moved(stopId(x));
       act.done(x, date <= today ? date : today);
       setChecking(null);
     };
@@ -144,7 +153,9 @@ export const PlanDay = memo(function PlanDay({ date, today, log, slim, yesterday
   /** "Set this goal": the idea becomes the day's goal in one tap (yesterday's comes with its why and its steps), with Undo. */
   const setIdea = (it: GoalIdea) => {
     haptics.toggle();
-    set.mutate({ level: 'day', period: date, text: it.text, why: it.from?.why ?? null, steps: it.from ? it.from.steps.map((s) => ({ ...s })) : [] });
+    // the buttons give way to the to-dos: a second tap would land on one of them
+    moved('*');
+    set.mutate({ level: 'day', period: date, ...ideaGoal(it) });
     toast('Goal set', {
       label: 'Undo',
       fn: () => {
@@ -315,7 +326,7 @@ export const PlanDay = memo(function PlanDay({ date, today, log, slim, yesterday
   for (const c of path.done) {
     if (c.kind !== 'todo') continue;
     const x = c.todo;
-    stops.push(<PathStop key={x.id} id={stopId(x)} state="done" title={x.text} onPress={() => act.reopen(x)} label={`Done: ${x.text}. Mark not done`} />);
+    stops.push(<PathStop key={x.id} id={stopId(x)} state="done" title={x.text} onPress={() => (moved('*'), act.reopen(x))} label={`Done: ${x.text}. Mark not done`} />);
   }
   path.open.forEach((c, i) => {
     if (c.kind !== 'todo') return;
@@ -378,7 +389,21 @@ export const PlanDay = memo(function PlanDay({ date, today, log, slim, yesterday
         band={band}
         path={
           stops.length ? (
-            <div className="pd-path" {...hold.handlers} onPointerDownCapture={aim} onFocusCapture={aim}>
+            <div
+              className="pd-path"
+              {...hold.handlers}
+              onPointerDownCapture={aim}
+              onFocusCapture={aim}
+              onClickCapture={(e) => {
+                // the click that follows a hold is the hold's to swallow; then a tap's echo is ours
+                hold.handlers.onClickCapture(e);
+                if (e.isPropagationStopped()) return;
+                const stop = e.target instanceof Element ? e.target.closest<HTMLElement>('.pth-stop') : null;
+                if (!isEcho(changed.current, stop?.dataset.stop, performance.now())) return;
+                e.stopPropagation();
+                e.preventDefault();
+              }}
+            >
               <PathLine label={setGoal ? title : 'To-dos'}>{stops}</PathLine>
             </div>
           ) : undefined

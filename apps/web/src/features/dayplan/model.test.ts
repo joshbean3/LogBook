@@ -1,6 +1,6 @@
 import type { Todo } from '@logbook/shared';
 import { describe, expect, it } from 'vitest';
-import { cardsFor, countWords, focusOf, leftWords, pathOf, splitFocus, type Card } from './model';
+import { cardsFor, countWords, ECHO_MS, focusOf, isEcho, leftWords, pathOf, splitFocus, type Card } from './model';
 
 const card = (id: string, done = false): Card => ({ ref: `todo:${id}`, kind: 'todo', todo: { id } as Todo, done });
 
@@ -76,5 +76,31 @@ describe('the day’s order', () => {
   it('holds on a day ahead too', () => {
     const list = [todo('b', 1, 3, { bucket: 'later', due: '2026-11-12' }), todo('a', 0, 0, { bucket: 'later', due: '2026-11-12' })];
     expect(cardsFor(list, null, '2026-11-12', '2026-11-10').map((c) => c.ref)).toEqual(['todo:a', 'todo:b']);
+  });
+});
+
+describe('a second tap that lands on what the first one changed', () => {
+  it('is dropped on the stop that changed, for half a second', () => {
+    const last = { id: 't:a', at: 1000 };
+    expect(isEcho(last, 't:a', 1080)).toBe(true);
+    expect(isEcho(last, 't:a', 1000 + ECHO_MS - 1)).toBe(true);
+    expect(isEcho(last, 't:a', 1000 + ECHO_MS)).toBe(false);
+  });
+  it('leaves every other stop alone, so the next to-do can be ticked right after', () => {
+    const last = { id: 't:a', at: 1000 };
+    expect(isEcho(last, 't:b', 1080)).toBe(false);
+    expect(isEcho(last, 'add', 1080)).toBe(false);
+    expect(isEcho(last, undefined, 1080)).toBe(false);
+  });
+  it('covers the whole line when the whole line changed (the goal was set, a done to-do reopened)', () => {
+    const last = { id: '*', at: 1000 };
+    expect(isEcho(last, 't:b', 1080)).toBe(true);
+    expect(isEcho(last, 'add', 1300)).toBe(true);
+    expect(isEcho(last, undefined, 1300)).toBe(true);
+    expect(isEcho(last, 't:b', 1000 + ECHO_MS)).toBe(false);
+  });
+  it('is never an echo with nothing changed, or on a clock that went back', () => {
+    expect(isEcho(null, 't:a', 5)).toBe(false);
+    expect(isEcho({ id: '*', at: 1000 }, 't:a', 900)).toBe(false);
   });
 });

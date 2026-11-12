@@ -24,11 +24,12 @@ import { FirstRunHero, type FirstRunAction } from './FirstRunHero';
 import { preloadCloseDay } from './CloseDay';
 import { Hero } from './Hero';
 import { useIsLive } from './live';
-import { useNowMinutes } from './useNow';
+import { useFaceMinutes } from './useDeferred';
 import { dismissNudge, useNudge } from './nudge';
 import { TheDayCard } from './TheDayCard';
 import { HeldNote } from '../plan/Held';
 import { DayTimeline } from './DayTimeline';
+import { SectionGuard } from './SectionGuard';
 import { StatusChip } from './StatusChip';
 import { useFocus, useOpenWordSheet } from './WordSheet';
 
@@ -296,10 +297,24 @@ const DayContent = memo(function DayContent({ date, onMorning }: { date: ISODate
   // what Today shows, and in what order (lib/prefs.ts): Fitness leads when it is on; with it off the day's own content does
   const parts = todayParts(usePrefs());
   const fitness = parts.includes('fitness');
-  const now = useNowMinutes();
-  const habits = !parts.includes('habits') ? null : loaded ? <HabitsTop key="habits" date={date} log={log} /> : <section key="habits" className="habits day-habits is-skel" aria-hidden="true" />;
+  // the held day's clock (useDeferred): past midnight on a day still on screen it is that day's last minute, so "Close
+  // yesterday" never offers the day before the one the person is still in
+  const now = useFaceMinutes();
+  // every section has its own boundary (SectionGuard): one that throws becomes one row, and the rest of Today stays
+  const habits = !parts.includes('habits') ? null : loaded ? (
+    <SectionGuard key="habits" name="Habits" resetKey={date}>
+      <HabitsTop date={date} log={log} />
+    </SectionGuard>
+  ) : (
+    <section key="habits" className="habits day-habits is-skel" aria-hidden="true" />
+  );
   // Plan your day: the slim poster under the training card (no second sun); with Fitness off it leads the page, whole
-  const day = parts.includes('day') && loaded ? <PlanDay key="day" date={date} today={today} log={log} slim={fitness} yesterday={isToday && closeYesterdayDue(log, now) ? <CloseYesterday log={log} /> : null} /> : null;
+  const day =
+    parts.includes('day') && loaded ? (
+      <SectionGuard key="day" name={isToday ? 'Plan your day' : 'The plan'} resetKey={date}>
+        <PlanDay date={date} today={today} log={log} slim={fitness} yesterday={isToday && closeYesterdayDue(log, now) ? <CloseYesterday log={log} /> : null} />
+      </SectionGuard>
+    ) : null;
   // nothing is switched on: one line and the way to the switches, and nothing else on the page
   if (!parts.length)
     return (
@@ -311,22 +326,46 @@ const DayContent = memo(function DayContent({ date, onMorning }: { date: ISODate
 
   return (
     <div className="day-page" data-day={date} data-fitness={fitness ? undefined : 'off'}>
-      {fitness && loaded ? <StatusChip date={date} today={today} onPlan={openPlan} /> : null}
-      {fitness && loaded ? <HeldNote date={date} log={log} /> : null}
+      {fitness && loaded ? (
+        <SectionGuard name="Training status" resetKey={date}>
+          <StatusChip date={date} today={today} onPlan={openPlan} />
+          <HeldNote date={date} log={log} />
+        </SectionGuard>
+      ) : null}
       {/* the day's training is the page's centrepiece: first, above the habits (HeroGauge carries the week's miles). With
           Fitness off the slot holds the evening's Close card only, and the day's own sections lead */}
-      {fitness ? !loaded ? <HeroSkeleton /> : bare ? <FirstRunSlot date={date} log={log} /> : <Hero date={date} log={log} /> : loaded ? <Hero date={date} log={log} closeOnly /> : null}
+      {!loaded ? (
+        fitness ? (
+          <HeroSkeleton />
+        ) : null
+      ) : (
+        <SectionGuard name={fitness ? 'Training' : 'Close the day'} resetKey={date}>
+          {fitness ? bare ? <FirstRunSlot date={date} log={log} /> : <Hero date={date} log={log} /> : <Hero date={date} log={log} closeOnly />}
+        </SectionGuard>
+      )}
       <LiveExtras date={date} loaded={loaded} />
       {/* the day's first decision sits above the repeat taps: Plan your day, then Habits, in both modes (layout standard 2.1) */}
       {[day, habits]}
-      {parts.includes('learned') && loaded && isToday ? <LearnedPrompt today={today} /> : null}
+      {parts.includes('learned') && loaded && isToday ? (
+        <SectionGuard name="What I learned" resetKey={date}>
+          <LearnedPrompt today={today} />
+        </SectionGuard>
+      ) : null}
       {fitness && STRAVA_BUILT && loaded && isToday && !bare && primer.show ? (
         <div className="strava-primer">
           <StravaPrimer onLater={primer.later} />
         </div>
       ) : null}
-      {loaded && date < today ? <TheDayCard date={date} log={log} /> : null}
-      {loaded ? <DayTimeline date={date} log={log} /> : null}
+      {loaded && date < today ? (
+        <SectionGuard name="The day" resetKey={date}>
+          <TheDayCard date={date} log={log} />
+        </SectionGuard>
+      ) : null}
+      {loaded ? (
+        <SectionGuard name="Journal" resetKey={date}>
+          <DayTimeline date={date} log={log} />
+        </SectionGuard>
+      ) : null}
       {loaded ? <EditToday /> : null}
     </div>
   );

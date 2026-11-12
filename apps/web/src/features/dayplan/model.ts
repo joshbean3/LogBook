@@ -70,3 +70,17 @@ export const leftWords = (minutes: number): string => {
   const left = Math.max(0, 1440 - minutes);
   return left < 60 ? `${Math.max(1, Math.round(left))} min left` : `${Math.round(left / 60)} h left`;
 };
+
+/**
+ * A tap can land twice (a double tap, a slow second press). The first changes what is under the finger: the ticked
+ * to-do becomes a done stop where it stood, "Set this goal" gives way to the to-dos, a done stop reopened lets the next
+ * one move up. The second tap would then act on a stop the person never aimed at (un-tick what was just ticked, reopen a
+ * second to-do, open an editor). For `ECHO_MS` after a change made here, a tap on the stop that changed is that echo and
+ * is dropped. `id` is the stop that changed (`data-stop`), or `'*'` when the whole line did.
+ */
+export const ECHO_MS = 500;
+export interface PathChange {
+  id: string;
+  at: number;
+}
+export const isEcho = (last: PathChange | null, stop: string | null | undefined, now: number): boolean => !!last && now >= last.at && now - last.at < ECHO_MS && (last.id === '*' || (!!stop && last.id === stop));
