@@ -267,7 +267,7 @@ export const FitnessDemo = ({ running, still }: DemoProps) => {
           <b>This week</b>
           <span>21 mi · 4 runs</span>
         </p>
-        <div className="tp-week">
+        <div className="tour-wk">
           <div className="tour-week">
             {DAYS.map((d, k) => {
               const r = runs[k];

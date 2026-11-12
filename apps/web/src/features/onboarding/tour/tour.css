@@ -667,15 +667,16 @@
   font: 500 var(--fs-orb) / 1 var(--sans);
   color: var(--ink-2);
 }
-/* the week holds its own toast, over the foot of the days, so it never covers the chart under them */
-.tp-week {
+/* the week holds its own toast, across the foot of the days and the gap under them, so it covers neither a session's
+   name nor the chart */
+.tour-wk {
   position: relative;
 }
 .tour-toast {
   position: absolute;
   left: 0;
   right: 0;
-  bottom: var(--sp-2);
+  bottom: calc(-1 * var(--sp-3));
   width: max-content;
   margin-inline: auto !important;
   margin: 0;
