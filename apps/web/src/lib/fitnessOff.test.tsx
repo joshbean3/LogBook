@@ -103,7 +103,8 @@ const SCREENS: Screen[] = [
   ['Today', () => import('@/features/day/DayView'), '/today', /run|miles|mi\b/i, /What would make today count\?[\s\S]*An idea · from your habits[\s\S]*Set this goal[\s\S]*Habits[\s\S]*What did you learn today\?/],
   ['Progress', () => import('@/features/progress/ProgressView'), '/progress', /running/i, /Habits[\s\S]*Health/],
   ['Goals', () => import('@/features/goals/GoalsView'), '/goals', /Goals/, /Goals/],
-  ['Learned', () => import('@/features/learned/LearnedView'), '/learned', /What I learned/, /What I learned/],
+  // the page of lines, as it stood before Journal took it in: rendered where it lives now
+  ['Learned', () => import('@/features/learned/LearnedView'), '/journal', /What I learned/, /What I learned/],
   ['Journal', () => import('@/features/journal/JournalView'), '/journal', /Journal/, /Journal/],
   ['Settings', () => import('@/features/settings/SettingsView'), '/settings', /Run days[\s\S]*Plans/, /Today shows[\s\S]*Fitness[\s\S]*Habits/],
 ];
@@ -215,7 +216,7 @@ describe('Fitness off: no screen speaks of training', () => {
 
   it('the tour has no Fitness page and no Progress page', async () => {
     const { tourPages } = await import('@/features/onboarding/tour/Tour');
-    expect(tourPages(false).map((p) => p.key)).toEqual(['todos', 'habits', 'goals', 'journal', 'learned', 'ask']);
+    expect(tourPages(false).map((p) => p.key)).toEqual(['todos', 'habits', 'goals', 'journal', 'ask']);
     expect(tourPages(true).map((p) => p.key)).toContain('plan');
     for (const p of tourPages(false)) expect(`${p.where} ${p.title} ${p.lede}`).not.toMatch(WORDS);
   });

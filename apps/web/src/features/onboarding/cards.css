@@ -261,7 +261,7 @@
   transform-origin: left center;
 }
 
-/* learned and journal */
+/* journal */
 .lc-quote {
   font-size: var(--fs-sentence);
   line-height: var(--lh-sentence);

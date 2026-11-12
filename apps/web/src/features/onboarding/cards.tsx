@@ -103,25 +103,17 @@ export const WeekCard = ({ compact = false }: { compact?: boolean }): React.JSX.
   </div>
 );
 
-/** What I learned: today's line in the serif, and the month it goes into. */
-export const LearnedCard = (): React.JSX.Element => (
-  <div className="lc lc-learned" role="img" aria-label="What I learned today: strides are pickups, not sprints. November: 12 things.">
-    <span className="caps lc-eyebrow">Today</span>
+/** Journal: today's line in the serif, and the month it goes into. */
+export const JournalCard = (): React.JSX.Element => (
+  <div className="lc lc-journal" role="img" aria-label="Journal. Today’s line: strides are pickups, not sprints. November: 9 days written.">
+    <span className="caps lc-eyebrow">Today’s line</span>
     <span className="display lc-quote">Strides are pickups, not sprints.</span>
     <span className="lc-month" aria-hidden="true">
       <span className="lc-month-name">November</span>
       <span className="lc-month-meta">
-        <span className="lc-num">12</span> things · <span className="lc-num">9</span> days
+        <span className="lc-num">9</span> days written
       </span>
     </span>
-  </div>
-);
-
-/** The journal's "Remember when": one of your own entries coming back, in your words. */
-export const JournalCard = (): React.JSX.Element => (
-  <div className="lc lc-journal" role="img" aria-label="Remember when: a year ago today you ran your first 10 miles and wrote, legs fine, head tired.">
-    <span className="caps lc-eyebrow">Remember when · A year ago</span>
-    <span className="display lc-quote">You ran your first 10 miles and wrote: “Legs fine, head tired.”</span>
   </div>
 );
 

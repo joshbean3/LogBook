@@ -444,7 +444,6 @@
    compete with the screen's own Next */
 .tg-cta,
 .tg-set,
-.tour-learn-save,
 .ta-apply {
   padding: var(--sp-2) var(--sp-4);
   border-radius: var(--r-pill);
@@ -515,8 +514,7 @@
 }
 /* the demo's fields: Paper with the field edge (guide 6.14), Inter 17 */
 .tg-field,
-.tj-field,
-.tour-learn-field {
+.tj-field {
   min-height: 44px;
   padding: var(--sp-2) var(--sp-3);
   border-radius: var(--r-control);
@@ -525,101 +523,53 @@
   font: 400 var(--fs-row) / var(--lh-row) var(--sans);
   color: var(--ink);
 }
-.tg-set,
-.tour-learn-save {
+.tg-set {
   justify-self: end;
 }
 
-/* Journal */
-.tj-cal {
-  display: grid;
-  gap: var(--sp-2);
-  padding: var(--sp-3);
-  border-radius: var(--r-tile);
+/* Journal: the dusk poster (ui/poster, the kit's own, drawn at 72 percent so the whole card reads as one picture) and
+   the line attached under it, in one Paper card as on the tab */
+/* the card is taller before the line is kept (the field and its button) than after (one row): the stage keeps the taller
+   height, so the steps under it never move */
+.tstage.tj {
+  min-height: 24.25rem;
+}
+.tj-card {
+  border-radius: var(--r-card);
   background: var(--surface);
   box-shadow: var(--shadow-1);
+  overflow: hidden;
 }
-.tj-grid {
+.tj-poster {
+  zoom: 0.72;
+}
+/* inside the card the poster has no edge of its own: the card carries the corners and the shadow */
+.tj-po {
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+.tj-compose {
   display: grid;
-  grid-template-columns: repeat(7, 1fr);
-  gap: var(--sp-1);
-}
-.tj-cell {
-  display: grid;
-  place-items: center;
-  aspect-ratio: 1;
-  max-height: 30px;
-  border-radius: var(--r-control);
-  background: var(--cloud);
-}
-/* today in a calendar is a Night Ink ring (plan 1.3, D14), as the real Journal draws it */
-.tj-cell.tis-today {
-  box-shadow: inset 0 0 0 1.5px var(--ink);
-  background: var(--surface);
-}
-.tj-day {
-  display: grid;
-  gap: var(--sp-2);
-  margin-top: var(--sp-3);
-  justify-items: center;
-}
-/* "Write today's entry": a secondary, Paper with its edge */
-.tj-write {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--sp-2);
-  padding: var(--sp-2) var(--sp-4);
-  border-radius: var(--r-pill);
-  background: var(--surface);
-  box-shadow: inset 0 0 0 1px var(--edge);
-  font: 600 var(--fs-sub) / var(--lh-sub) var(--sans);
-  color: var(--ink);
+  gap: var(--sp-3);
+  padding: var(--sp-3) var(--sp-4) var(--sp-4);
 }
 .tj-field {
-  justify-self: stretch;
+  display: block;
 }
-.tj-done {
-  justify-self: end;
-  font: 600 var(--fs-sub) / var(--lh-sub) var(--sans);
-  color: var(--accent-text);
-  padding: var(--sp-1) var(--sp-2);
-}
-.tj-memory {
-  margin: var(--sp-2) 0 0;
-  font: italic 420 var(--fs-sentence-sm) / var(--lh-row) var(--serif);
-  color: var(--j-ink);
-}
-
-/* Learned */
-.tour-learn {
-  display: grid;
-  align-content: start;
-  gap: var(--sp-3);
-}
-.tour-learn-q {
-  font: italic 420 var(--fs-sentence) / var(--lh-sentence) var(--serif);
-  color: var(--ink);
-}
-.tour-learn-field em {
-  font-style: normal;
-  color: var(--ink-2);
-}
-.tour-learn-saved {
-  display: grid;
+/* after the line is kept, the same spot is the way to say more: one quiet row */
+.tj-more {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   gap: var(--sp-2);
-  padding: var(--sp-4);
-  border-radius: var(--r-tile);
-  background: var(--surface);
-  box-shadow: var(--shadow-1);
-}
-.tour-learn-saved p {
-  margin: 0;
-  font: 400 var(--fs-row) / var(--lh-row) var(--sans);
+  min-height: 44px;
+  padding: var(--sp-3) var(--sp-4);
+  font: 600 var(--fs-sub) / var(--lh-sub) var(--sans);
   color: var(--ink);
 }
-.tour-learn-another {
-  margin-top: var(--sp-1);
-  font: 500 var(--fs-foot) / var(--lh-foot) var(--sans);
+.tj-more svg {
+  flex: none;
   color: var(--ink-2);
 }
 

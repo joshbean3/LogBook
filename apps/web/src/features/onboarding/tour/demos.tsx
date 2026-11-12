@@ -1,13 +1,13 @@
-import { ArrowRight, Check, Plus } from 'lucide-react';
+import { ArrowRight, Check, ChevronRight, Plus } from 'lucide-react';
 import { Disc } from '@/ui/Disc';
-import { Orb } from '@/ui/Orb';
+import { Poster, WeekLights, type WeekLight } from '@/ui/poster';
 import { AnimatePresence, motion } from 'motion/react';
 import { springs } from '@/lib/motion';
 import { Finger, Stage, Steps, useLoop, useTyped } from './engine';
 
 /**
  * One short film per part of Logbook, each a miniature of the real screen with the real labels (mapped from the code:
- * PlanDay, OrbRow, GoalSheets, the journal calendar, LearnedParts, Week, ProgressView, Dock and the assistant sheet). Each loops while its
+ * PlanDay, OrbRow, GoalSheets, the Journal poster and its line, Week, ProgressView, Dock and the assistant sheet). Each loops while its
  * page is on screen; under Reduce Motion (`still`) it holds its finished frame and every step is lit.
  *
  * A demo is a list of beats (ms). `b` is the beat on screen; everything it shows is read off `b`, so a loop is a pure
@@ -172,100 +172,66 @@ export const GoalsDemo = ({ running, still }: DemoProps) => {
 };
 
 // ---------- Journal ----------
-/** The days of the month written so far: each gets its dot (a flat Disc in the journal's tones, never an Orb). */
-const WRITTEN = [true, true, false, true, true, true, false, true, true, true, true, false, true];
-const JOUR_BEATS = [900, 650, 260, 1900, 600, 260, 1400, 900] as const;
+/** The six days before tonight, as the poster's lights: three already written. */
+const JOUR_WEEK: readonly WeekLight[] = [
+  { letter: 'F', lit: false },
+  { letter: 'S', lit: true },
+  { letter: 'S', lit: false },
+  { letter: 'M', lit: true },
+  { letter: 'T', lit: false },
+  { letter: 'W', lit: true },
+];
+const JOUR_BEATS = [900, 650, 260, 1900, 600, 260, 1500, 700, 1100] as const;
+/**
+ * The Journal tab's top, as it is: the dusk poster with the week's lights, and under it the line, already started. The
+ * line is finished, tonight lights, and the same spot offers "Write more about today". The poster is the kit's own
+ * (ui/poster), drawn small; the field and the button sit outside it at the demo's size, where the finger can find them.
+ */
 export const JournalDemo = ({ running, still, plain }: DemoProps) => {
-  const line = plain ? 'Long walk by the river with Sam.' : 'Long run by the river with Sam.';
+  // the field's first words are the real starters (features/learned/starter.ts)
+  const starter = plain ? 'Today I learned' : 'On my run today I learned';
+  const rest = plain ? ' a short walk after lunch clears my head.' : ' strides wake the legs up.';
   const b = useLoop(JOUR_BEATS, running && !still, JOUR_BEATS.length - 1);
-  const writing = at(b, 3, 6);
-  const typed = useTyped(line, writing && !still, b >= 4);
-  const written = still || b >= 6;
+  const typing = at(b, 3, 6);
+  const typed = useTyped(rest, typing && !still, b >= 4);
+  const kept = still || b >= 6;
   return (
     <>
       <Stage className="tj">
-        <div className="tj-cal">
-          <span className="caps">November</span>
-          <div className="tj-grid">
-            {WRITTEN.map((on, i) => (
-              <span key={i} className="tj-cell">
-                {on ? <Orb size={14} state="still" variant={(['sky', 'dusk', 'sun', 'tide'] as const)[i % 4]} /> : null}
-              </span>
-            ))}
-            <span className="tj-cell tis-today">
-              {written ? (
-                <motion.span initial={still ? false : { scale: 0, rotate: -20 }} animate={{ scale: 1, rotate: 0 }} transition={springs.complete}>
-                  <Orb size={16} state="still" variant="sky" />
-                </motion.span>
-              ) : null}
-            </span>
+        <div className="tj-card">
+          <div className="tj-poster">
+            <Poster
+              ground="dusk"
+              className="tj-po"
+              titleAs="p"
+              titleSize={kept ? 'goal' : 'lead'}
+              title={kept ? `${starter}${rest}` : 'What did you learn today?'}
+              meta={kept ? 'Tonight’s line is kept.' : 'One line is enough.'}
+              scene={<WeekLights days={JOUR_WEEK} tonight={kept ? 'lit' : 'waiting'} />}
+              band={kept ? { label: 'This week', words: '4 days written' } : { label: 'This week · 3 days written', words: 'Tonight’s line lights the fourth' }}
+            />
           </div>
-        </div>
-        <div className="tj-day">
-          {written ? (
-            <p className="tj-memory">“{line}”</p>
-          ) : writing ? (
-            <>
-              <span className="tj-field">
-                {typed}
-                <i className="tcaret" />
-              </span>
-              <span className="tj-done" data-spot="done">
-                done
-              </span>
-            </>
+          {kept ? (
+            <motion.div className="tj-more" data-spot="more" initial={still ? false : { opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={springs.settle}>
+              <span>Write more about today</span>
+              <ChevronRight size={18} />
+            </motion.div>
           ) : (
-            <span className="tj-write" data-spot="write">
-              <Plus size={16} />
-              Write today’s
-            </span>
+            <div className="tj-compose">
+              <span className="tj-field" data-spot="field">
+                {starter}
+                {typed}
+                {b >= 2 ? <i className="tcaret" /> : null}
+              </span>
+              <span className="tg-set" data-spot="save">
+                Finish the line
+              </span>
+            </div>
           )}
         </div>
-        <Finger spot={at(b, 1, 3) ? 'write' : at(b, 4, 6) ? 'done' : null} down={b === 2 || b === 5} />
+        <Finger spot={at(b, 1, 3) ? 'field' : at(b, 4, 6) ? 'save' : b === 7 ? 'more' : null} down={b === 2 || b === 5} />
       </Stage>
-      <Steps items={['Tap today on the calendar', 'Write a line or two', 'Done, and the day gets its dot']} on={still ? -1 : b < 3 ? 0 : b < 6 ? 1 : 2} />
-    </>
-  );
-};
-
-// ---------- Learned ----------
-const LRN_BEATS = [800, 650, 260, 1900, 600, 260, 1500, 900] as const;
-export const LearnedDemo = ({ running, still, plain }: DemoProps) => {
-  const line = plain ? 'A short walk after lunch clears my head.' : 'Strides before a race wake the legs up.';
-  const b = useLoop(LRN_BEATS, running && !still, LRN_BEATS.length - 1);
-  const typing = at(b, 3, 6);
-  const typed = useTyped(line, typing && !still, b >= 4);
-  const saved = still || b >= 6;
-  return (
-    <>
-      <Stage className="tour-learn">
-        <b className="tour-learn-q">What did you learn today?</b>
-        {saved ? (
-          <motion.div className="tour-learn-saved" initial={still ? false : { opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={springs.settle}>
-            <span className="caps">Today</span>
-            <p>{line}</p>
-            <span className="tour-learn-another">Add another</span>
-          </motion.div>
-        ) : (
-          <>
-            <span className="tour-learn-field" data-spot="field">
-              {typing || b >= 4 ? (
-                <>
-                  {typed}
-                  <i className="tcaret" />
-                </>
-              ) : (
-                <em>One thing, in a sentence or two</em>
-              )}
-            </span>
-            <span className="tour-learn-save" data-spot="save">
-              Save
-            </span>
-          </>
-        )}
-        <Finger spot={at(b, 1, 3) ? 'field' : at(b, 4, 6) ? 'save' : null} down={b === 2 || b === 5} />
-      </Stage>
-      <Steps items={['Tap the field', 'One thing, in a sentence or two', 'Save keeps it, by month, to come back to later']} on={still ? -1 : b < 3 ? 0 : b < 6 ? 1 : 2} />
+      <Steps items={['Tap the line. It is started for you', 'Finish it, and tonight lights', 'Write more when there is more to say']} on={still ? -1 : b < 3 ? 0 : b < 7 ? 1 : 2} />
     </>
   );
 };
