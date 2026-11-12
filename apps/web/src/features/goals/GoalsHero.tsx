@@ -17,6 +17,7 @@ import { useMarkDone } from './Steps';
 import { Burst } from './game';
 import { listed, todayBand, wallMinutes } from './GoalsHero.logic';
 import { localGoalIdea, type GoalIdea } from './goalsIdea.local';
+import { ideaGoal } from './goalIdea';
 import './goalsPage.css';
 
 /** A goal's words inside a longer label, without its own full stop. */
@@ -33,7 +34,9 @@ const useSetIdea = (today: ISODate) => {
   return (idea: GoalIdea) => {
     const from = idea.carry;
     haptics.drop();
-    set.mutate({ level: 'day', period: today, text: from ? from.text : idea.text, why: from?.why ?? null, ...(from ? { steps: from.steps.map((s) => ({ ...s })) } : { chose: 'own' as const }) });
+    // cut to what the server takes (goalIdea.ts), as Today's own "Set this goal" does: a carried goal is never refused whole
+    const fit = ideaGoal({ source: idea.source, text: from ? from.text : idea.text, label: idea.caption, ...(from ? { from } : {}) });
+    set.mutate({ level: 'day', period: today, text: fit.text, why: fit.why, ...(from ? { steps: fit.steps } : { chose: 'own' as const }) });
     toast(from ? 'Carried over to today' : 'Goal set', {
       label: 'Undo',
       fn: () => {
