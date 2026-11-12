@@ -18,7 +18,8 @@ export interface StopSegments {
  * rest are 'ahead'. With everything done there is no 'next'.
  */
 export const stopStates = (done: readonly boolean[]): StopState[] => {
-  const next = done.indexOf(false);
+  // anything that is not done is open (a flag that came back missing or null), so the first open item is always lit
+  const next = done.findIndex((d) => !d);
   return done.map((d, i) => (d ? 'done' : i === next ? 'next' : 'ahead'));
 };
 
@@ -35,8 +36,10 @@ export const pathSegments = (states: readonly StopState[], { lead = true }: { le
   }));
 };
 
+/** A share held between 0 and 1; anything that is not a number (NaN, a missing value) is 0. */
+export const unit = (f: number): number => (typeof f === 'number' && !Number.isNaN(f) ? Math.min(1, Math.max(0, f)) : 0);
 /** The sun's place from a count: done over total, 0 to 1. Nothing to count is 0 (the sun at rest on the horizon). */
-export const sunProgress = (done: number, total: number): number => (total > 0 ? Math.min(1, Math.max(0, done / total)) : 0);
+export const sunProgress = (done: number, total: number): number => (total > 0 ? unit(done / total) : 0);
 
 // ---------- the week's lights (the dusk scene), in a 358 x 156 drawing ----------
 

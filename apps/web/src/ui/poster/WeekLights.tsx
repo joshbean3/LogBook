@@ -36,7 +36,8 @@ const WAITING = Array.from({ length: 22 }, (_, k) => (k / 22) * Math.PI * 2);
  * 'lit' while the scene is up, the light scales to 1.12 and back once and its rings bloom (a fade under Reduce Motion).
  * Presentational: put it in a dusk poster's `scene`.
  */
-export const WeekLights = ({ days, tonight, tonightLabel = 'Tonight', label }: WeekLightsProps) => {
+export const WeekLights = ({ days: list, tonight, tonightLabel = 'Tonight', label }: WeekLightsProps) => {
+  const days = list ?? [];
   const id = useId().replace(/:/g, '');
   // the save: tonight turned from waiting to lit while this scene was up
   const [prev, setPrev] = useState(tonight);

@@ -40,8 +40,10 @@ const PLACE = ['far', 'mid', 'near'] as const;
  * its words, so long goals and large text never clip. A hill with words and no plus shows a filled mark (a goal is set),
  * one with `plus` the Paper plus (the invitation), one with only a caption a dotted ring. Presentational.
  */
-export const FarHills = ({ title = 'Further out', hills, label = 'Further out', className = '' }: FarHillsProps) => {
+export const FarHills = ({ title = 'Further out', hills: all, label = 'Further out', className = '' }: FarHillsProps) => {
   const id = useId().replace(/:/g, '');
+  // the picture has three hills: a list that came back longer is cut to three, a shorter or missing one draws what it has
+  const hills = (all ?? []).slice(0, CRESTS.length);
   return (
     <section className={`fh ${className}`.trim()} aria-label={label}>
       <div className="fh-sky">
