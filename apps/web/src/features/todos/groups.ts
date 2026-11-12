@@ -1,15 +1,22 @@
-import type { ISODate, Todo } from '@logbook/shared';
+import { today as clockToday, type ISODate, type Todo } from '@logbook/shared';
 
 // ---------- which list a to-do belongs to on a given day ----------
 
-/** Everything that existed on `date` and was still open, or got done that day. */
-export const liveOn = (todos: Todo[] | undefined, date: ISODate) => (todos ?? []).filter((x) => x.createdOn <= date && (!x.doneOn || x.doneOn >= date) && (!x.deletedOn || x.deletedOn > date));
+/**
+ * Everything that existed on `date` and was still open, or got done that day.
+ *
+ * A to-do can carry a day that has not come yet on this phone: it was written in a time zone ahead of this one (a flight
+ * west, a second device). It exists all the same, so from today (`now`) on it counts as written today: without this it
+ * was hidden, on Today and in All to-dos, until the date caught up with it.
+ */
+export const liveOn = (todos: Todo[] | undefined, date: ISODate, now: ISODate = clockToday()) =>
+  (todos ?? []).filter((x) => (x.createdOn <= date || (x.createdOn > now && date >= now)) && (!x.doneOn || x.doneOn >= date) && (!x.deletedOn || x.deletedOn > date));
 
 /** Today's working list: Today items, plus any Later item whose day has come. */
 export const inToday = (x: Todo, date: ISODate) => x.bucket === 'today' || (x.bucket === 'later' && !!x.due && x.due <= date);
 
 /** What is open in Today's list on `date`: the number on the stat strip. */
-export const todayOpenOn = (todos: Todo[] | undefined, date: ISODate) => liveOn(todos, date).filter((x) => (!x.doneOn || x.doneOn > date) && inToday(x, date));
+export const todayOpenOn = (todos: Todo[] | undefined, date: ISODate, now?: ISODate) => liveOn(todos, date, now).filter((x) => (!x.doneOn || x.doneOn > date) && inToday(x, date));
 
 const cmpStr = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
 /** High first, then the hand-set order, then age. */
@@ -28,8 +35,8 @@ export interface TodoGroupSpec {
 }
 
 /** The four lists for a day, each already in display order. */
-export const groupsOn = (todos: Todo[] | undefined, date: ISODate): TodoGroupSpec[] => {
-  const all = liveOn(todos, date);
+export const groupsOn = (todos: Todo[] | undefined, date: ISODate, now?: ISODate): TodoGroupSpec[] => {
+  const all = liveOn(todos, date, now);
   const open = all.filter((x) => x.doneOn !== date);
   return [
     // the day's list is in the order it was put in by hand (Today's top three are its first three); a flag is a label
