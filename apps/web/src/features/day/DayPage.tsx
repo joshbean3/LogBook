@@ -13,7 +13,7 @@ import { Pressable } from '@/ui/Pressable';
 import { useSheet } from '@/ui/Sheet';
 import { NAV_EVENT, type NavEventDetail } from '@/ui/nav';
 import { useOpenHabitsHistory } from '../habits/HabitsHistory';
-import { LearnedPrompt } from '../learned/LearnedPrompt';
+import { TonightRow } from '../journal/TonightRow';
 import { useOpenTodayShows } from '../settings/TodayShows';
 import { Composer } from '../journal/JournalDaySection';
 import { HABIT_STARTERS, HabitsMeta, OrbRow } from '../habits/OrbRow';
@@ -365,8 +365,8 @@ const DayContent = memo(function DayContent({ date, onMorning }: { date: ISODate
       {/* the day's first decision sits above the repeat taps: Plan your day, then Habits, in both modes (layout standard 2.1) */}
       {[day, habits]}
       {parts.includes('learned') && loaded && isToday ? (
-        <SectionBoundary name="today.learned" resetKey={date}>
-          <LearnedPrompt today={today} />
+        <SectionBoundary name="today.journal" resetKey={date}>
+          <TonightRow today={today} />
         </SectionBoundary>
       ) : null}
       {fitness && STRAVA_BUILT && loaded && isToday && !bare && primer.show ? (

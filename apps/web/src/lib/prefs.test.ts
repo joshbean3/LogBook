@@ -7,7 +7,7 @@ import { FITNESS_METRICS, metricDef } from '@/features/progress/metrics';
 import { matchRoute, resolveRoute, shownTabs } from '@/ui/nav';
 import type { Bootstrap, MonthBundle } from '@/api/types';
 import { disclaimer } from './copy';
-import { adoptStoredPrefs, DEFAULT_PREFS, fitnessOn, getPrefs, hasStoredPrefs, isFitnessPath, normalizePrefs, onPrefsChange, parseStoredPrefs, resetPrefsForTest, seedPrefs, setFitness, setTodaySection, todayParts } from './prefs';
+import { adoptStoredPrefs, DEFAULT_PREFS, fitnessOn, getPrefs, hasStoredPrefs, isFitnessPath, normalizePrefs, onPrefsChange, parseStoredPrefs, resetPrefsForTest, seedPrefs, setFitness, setTodaySection, TODAY_SECTIONS, todayParts } from './prefs';
 
 const WORDS = /\b(run|runs|running|ran|lift|lifts|mile|miles|mi|plan|plans|planned|training|workout|workouts|strava|fitness)\b/i;
 
@@ -94,7 +94,17 @@ describe('what is stored is read at the boundary (edge cases)', () => {
 });
 
 describe('what Today shows', () => {
-  it('with Fitness on the training card leads, then Plan your day, Habits and the What I learned prompt', () => {
+  it('names its sections as a person reads them: the last is Journal, one line is enough, under the key it always had', () => {
+    expect(TODAY_SECTIONS.map((s) => [s.id, s.title, s.sub])).toEqual([
+      ['habits', 'Habits', 'The tiles you tap each day'],
+      ['day', 'Plan your day', 'Today’s goal and to-dos'],
+      ['learned', 'Journal', 'One line is enough'],
+    ]);
+    // no switch still names the tab that Journal took in, and a copy stored under the old label's key still reads
+    for (const s of TODAY_SECTIONS) expect(`${s.title} ${s.sub}`).not.toMatch(/learn/i);
+    expect(parseStoredPrefs('{"fitness":true,"today":{"learned":false}}')?.today.learned).toBe(false);
+  });
+  it('with Fitness on the training card leads, then Plan your day, Habits and the Journal row', () => {
     expect(todayParts(DEFAULT_PREFS)).toEqual(['fitness', 'day', 'habits', 'learned']);
   });
   it('with Fitness off the day’s own content leads: Plan your day, then Habits, then the prompt', () => {
@@ -107,9 +117,9 @@ describe('what Today shows', () => {
 });
 
 describe('Fitness off: the tab, the routes and the data', () => {
-  it('draws five tabs, in the same order, without Fitness', () => {
-    expect(shownTabs(true).map((t) => t.label)).toEqual(['Today', 'Goals', 'Learned', 'Fitness', 'Progress', 'Journal']);
-    expect(shownTabs(false).map((t) => t.label)).toEqual(['Today', 'Goals', 'Learned', 'Progress', 'Journal']);
+  it('draws four tabs, in the same order, without Fitness', () => {
+    expect(shownTabs(true).map((t) => t.label)).toEqual(['Today', 'Goals', 'Fitness', 'Progress', 'Journal']);
+    expect(shownTabs(false).map((t) => t.label)).toEqual(['Today', 'Goals', 'Progress', 'Journal']);
   });
 
   it('knows which routes are Fitness', () => {

@@ -161,7 +161,7 @@ describe('Today’s day page at its edges', () => {
     expect(html).toMatch(/Not loaded[\s\S]*Check your connection\.[\s\S]*Try again/);
   }, 60_000);
 
-  it('the What I learned row reads its count from any answer, or from none', async () => {
+  it('the Journal row reads its count from any answer, or from none', async () => {
     at('2026-11-12T10:00:00');
     for (const stats of [undefined, null, {}, { recent: null }, { recent: 'x' }, { recent: { a: 1 } }, { recent: [D] }]) {
       const html = await render((qc) => qc.setQueryData(['learnings', 'stats'], stats));

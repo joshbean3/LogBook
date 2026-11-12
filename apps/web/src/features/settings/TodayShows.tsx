@@ -1,14 +1,14 @@
 import type * as React from 'react';
 import { setTodaySection, TODAY_SECTIONS, usePrefs, type TodaySection } from '@/lib/prefs';
 import { Row } from '@/ui';
-import { GoalsIcon, HabitIcon, LearnedIcon } from '@/ui/icons';
+import { GoalsIcon, HabitIcon, JournalIcon } from '@/ui/icons';
 import { Footnote } from '@/ui/layout';
 import { useSheet } from '@/ui/Sheet';
 import { Switch, Tile, type RowIcon } from './parts';
 import './settings.css';
 
 /** The glyph of each Today section. */
-const ICON: Record<TodaySection, RowIcon> = { habits: HabitIcon, day: GoalsIcon, learned: LearnedIcon };
+const ICON: Record<TodaySection, RowIcon> = { habits: HabitIcon, day: GoalsIcon, learned: JournalIcon };
 
 /** One line under the list: the training card is not a row here, it follows the Fitness switch. Nothing with Fitness off. */
 export const todayShowsFoot = (fitness: boolean): string | undefined => (fitness ? 'The training card shows while Fitness is on.' : undefined);
