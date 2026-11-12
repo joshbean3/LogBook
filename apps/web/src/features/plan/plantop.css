@@ -1,110 +1,118 @@
-/* ---------- Plan's top (PlanTop.tsx): the plan card across the top, then the week day by day (Week.tsx's header, its
-   one line and the pager). Today has no section of its own: today's row in the week carries it (layout plan P1). ---------- */
+/* ---------- Fitness, around the week (guide 6.5a, "Fitness"): the plan row under the days, the month's header with its
+   pager, and the two quiet ways about (the hint line, the way back to the week). The week's own parts (its card, the line
+   of days, the fold) are in plan.css. ---------- */
 
-/* ---------- the plan card: Plan's hero (`.card.is-hero.has-glow`: 20 all round, r 24, the screen's one sunrise glow); the
-   caption, the plan's name in the serif, where it stands in Dusk, the weeks-done row, the chevron ---------- */
+/* ---------- the plan row: one quiet row under the line of days, never the page's lead. An icon (a dashed plus with no
+   plan), the plan's name, where it stands in Dusk, the chevron ---------- */
 .pt-plan-wrap {
-  margin: 0 var(--gutter);
+  margin: var(--sp-4) var(--gutter) 0;
+  padding-bottom: calc(var(--sp-6) + max(var(--chrome-h) + var(--safe-b), var(--kb)));
 }
 .pt-plan-wrap.is-wait {
-  min-height: 132px;
+  min-height: var(--row-h-2);
 }
-.pt-plan.pressable {
+.pt-row.pressable {
   display: flex;
   align-items: center;
   gap: var(--sp-3);
   width: 100%;
   min-width: 0;
+  min-height: var(--row-h-2);
+  padding: var(--sp-2) var(--pad-hero) var(--sp-2) var(--sp-4);
   color: var(--ink);
   text-align: left;
   font: inherit;
 }
-.pt-plan-main {
+.pt-row-ic {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--haze);
+  color: var(--ink-2);
+}
+.pt-row-ic.is-add {
+  background: none;
+  border: 1.5px dashed var(--field-edge);
+}
+.pt-row-main {
   display: grid;
   flex: 1 1 auto;
   min-width: 0;
 }
-.pt-eyebrow {
-  margin-bottom: var(--sp-1);
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
+/* the name and where it stands wrap before they are cut (a11y-03) */
+.pt-row-name {
+  font: 600 var(--fs-row) / var(--lh-row) var(--sans);
+  overflow-wrap: break-word;
 }
-/* the name and where it stands are the card's point: they wrap (the name to two lines) before they are cut (a11y-03) */
-.pt-plan-name {
-  display: -webkit-box;
-  overflow: hidden;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-  /* held at the section titles' 34 px cap at a larger text size, so the card never outgrows the screen's title */
-  font: 600 min(var(--fs-section), 34px) / min(var(--lh-section), 40px) var(--serif);
-  letter-spacing: 0;
-  color: var(--ink);
-  overflow-wrap: anywhere;
-}
-.pt-plan-state {
-  margin-top: var(--sp-1);
-  font: 500 var(--fs-sub) / var(--lh-sub) var(--sans);
+.pt-row.is-empty .pt-row-name {
   color: var(--ink-2);
-  text-wrap: pretty;
 }
-.pt-plan-state.is-act {
-  color: var(--accent-text);
-  font-weight: 600;
-}
-/* the weeks-done row: a 6 px mark per week, done Deep Sky, ahead the quiet dot, this week a 1.5 px Night Ink ring; it
-   wraps to a second row on a long plan rather than shrinking the marks */
-.pt-marks {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--sp-1) var(--sp-1);
-  margin-top: var(--sp-3);
-}
-.pt-marks i {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--dot-ahead);
-}
-.pt-marks i.is-done {
-  background: var(--deep-sky);
-}
-.pt-marks i.is-now {
-  background: var(--surface);
-  box-shadow: 0 0 0 1.5px var(--ink);
+.pt-row-state {
+  font: 500 var(--fs-sub) / var(--lh-sub) var(--sans);
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-2);
 }
 .pt-chev {
   flex: none;
   color: var(--ink-3);
 }
-.pt-plan-ic {
-  flex: none;
-  display: grid;
-  place-items: center;
-  width: var(--hit);
-  height: var(--hit);
-  border-radius: var(--r-icon);
-  border: 1.5px dashed var(--line-strong);
-  color: var(--ink-3);
-}
-.pt-plan.is-empty .pt-plan-name {
-  color: var(--ink-2);
-}
-.pt-plan:focus-visible {
+.pt-row:focus-visible {
   outline: 1.5px solid var(--focus-edge);
-  outline-offset: 2px;
+  outline-offset: -2px;
   box-shadow: var(--focus-ring);
 }
-@media (max-width: 359px) {
-  .pt-plan-name {
-    font-size: var(--fs-head);
-    line-height: var(--lh-head);
-  }
+
+/* ---------- the one-time hint: how to reach other weeks and the month. One quiet line, the whole of it a 44 pt target
+   that dismisses it ---------- */
+.pl-hint.pressable {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  width: calc(100% - 2 * var(--gutter));
+  min-height: var(--hit);
+  margin: 0 var(--gutter);
+  padding: 0;
+  color: var(--ink-2);
+  font: 500 var(--fs-foot) / var(--lh-foot) var(--sans);
+  text-align: left;
+}
+.pl-hint > span {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.pl-hint > svg {
+  flex: none;
+  color: var(--ink-3);
+}
+.plan-root > .pl-hint + .pl-panes {
+  margin-top: var(--sp-1);
 }
 
-/* ---------- the week's header (and the month's: the same form): its name and dates, the pager (two bare Deep Sky chevrons,
-   F8's section-header form) ---------- */
-/* the name never clips; the dates beside it give way first, and only while the header also shows Today */
+/* ---------- the month's header: its name and miles, the pager (two bare Deep Sky chevrons, F8's section-header form),
+   and over it the way back to the week ---------- */
+.pl-back.pressable,
+.pl-home.pressable {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  min-height: var(--hit);
+  padding: 0 var(--sp-2) 0 0;
+  color: var(--accent-text);
+  font: 600 var(--fs-sub) / var(--lh-sub) var(--sans);
+}
+.pl-back.pressable {
+  margin-top: calc(-1 * var(--sp-3));
+}
+.pl-back:focus-visible,
+.pl-home:focus-visible {
+  outline: 1.5px solid var(--focus-edge);
+  outline-offset: -2px;
+  box-shadow: var(--focus-ring);
+}
+/* the name never clips; the miles beside it give way first, and only while the header also shows Today */
 .pl-wk-head .lb-title {
   flex: none;
   max-width: 62%;
@@ -114,49 +122,8 @@
     display: none;
   }
 }
-/* The week's header is one row on every week and at every width: the arrows stay at the row's end, so a second tap on ›
-   lands on › again (at 390 "Next week" used to wrap them onto a row of their own). The dates beside the name give way
-   first: under 360 always (styles/layout.css), and up to 419 while the header also shows Today; the line under the header
-   carries them then. The name itself wraps only as the last resort (a week across two months at 320, a larger text size),
-   and the arrows hold to its first line. */
-.pl-week-head.lb-head {
-  flex-wrap: nowrap;
-}
-.pl-week-head .lb-title {
-  flex: 0 1 auto;
-  max-width: none;
-  text-wrap: balance;
-}
-@media (max-width: 419px) {
-  .pl-week-head.is-away .lb-meta {
-    display: none;
-  }
-}
-/* at 320 a week named by its dates ("Nov 23 to 29") and `‹ Today ›` share 288 px: the week's name takes the card-title
-   size there (22/28), as the plan's name above it does. At a larger text size it stops at 30 (on a 38 line, the same
-   proportion), where those dates take two lines beside `‹ Today ›` (at 34 they took three) */
-@media (max-width: 359px) {
-  .pl-week-head .lb-title {
-    font-size: clamp(22px, var(--fs-head), 30px);
-    line-height: clamp(28px, var(--lh-head), 38px);
-  }
-}
-/* at a larger text size the name needs the row: the dates go to the line under it at every width */
-html[data-text-xl] .pl-week-head .lb-meta {
-  display: none;
-}
-/* The week's arrows keep their 44 pt boxes above the header's foot (12 over the row, none under it; the chevrons stay level
-   with the week's name), so the line's row can start where the header ends and Add's box never meets theirs. */
-.pl-week-head .lb-slot {
-  align-self: flex-start;
-  margin: calc(-1 * var(--sp-3)) 0 0 auto;
-}
-.pl-week-head .pl-step.pressable,
-.pl-week-head .pl-step-now.pressable {
-  padding-top: var(--sp-3);
-}
 /* The month's header, while it also shows Today on a screen under 420: its miles go under its name and the arrows keep
-   the first row (they used to drop to a row of their own, as the week's did). */
+   the first row. */
 @media (max-width: 419px) {
   .pl-mo-head.is-away .lb-slot {
     order: 2;
@@ -187,7 +154,7 @@ html[data-text-xl] .pl-week-head .lb-meta {
   width: var(--hit);
   border-radius: var(--r-pill);
 }
-/* back to this week: a quiet Deep Sky word between the chevrons, only while another week shows */
+/* back to this month: a quiet Deep Sky word between the chevrons, only while another month shows */
 .pl-step-now.pressable {
   padding: 0 var(--sp-1);
   font: 600 var(--fs-sub) / 1 var(--sans);
@@ -199,75 +166,8 @@ html[data-text-xl] .pl-week-head .lb-meta {
   outline-offset: -2px;
   box-shadow: var(--focus-ring);
 }
-/* the week's bar: its one line ("23 mi · 4 runs.", read in passing) and, at its end, Add. The bar starts where the header
-   ends (the arrows' boxes end there too, so the two targets never overlap); the line's first row sits 12 under the header,
-   level with Add's words, and its last row 12 above the week's rows */
-.pl-wk-bar {
-  display: flex;
-  align-items: flex-start;
-  gap: var(--sp-3);
-  min-width: 0;
-  margin-top: calc(-1 * var(--sp-3));
-}
-.pl-wk-line {
-  flex: 1 1 auto;
-  min-width: 0;
-  margin: var(--sp-3) 0;
-  overflow: hidden;
-  font: 500 var(--fs-sub) / var(--lh-sub) var(--sans);
-  font-variant-numeric: tabular-nums;
-  color: var(--ink-2);
-  text-wrap: pretty;
-}
-.pl-wk-line b {
-  font-weight: 600;
-  color: var(--ink-2);
-}
-.pl-wk-range {
-  display: none;
-}
-@media (max-width: 359px) {
-  .pl-wk-range {
-    display: inline;
-  }
-}
-@media (max-width: 419px) {
-  .pl-wk-head.is-away + .pl-wk-bar .pl-wk-range {
-    display: inline;
-  }
-}
-html[data-text-xl] .pl-wk-range {
-  display: inline;
-}
-/* Add: the quiet level (guide 6.2, 6.3's "+ Set"): Deep Sky words Inter 600 with an 18 px plus, no bezel, 44 tall to the
-   thumb, at the bar's trailing edge over the rows it adds to. Its box is the line's first row with the 12 over and under
-   it (44 at the default text size, taller at a larger one), so its words stay level with that row at every text size */
-.pl-add.pressable {
-  flex: none;
-  display: inline-flex;
-  align-items: center;
-  gap: var(--sp-1);
-  min-height: max(var(--hit), calc(var(--lh-sub) + 2 * var(--sp-3)));
-  padding: 0 0 0 var(--sp-3);
-  border: 0;
-  background: none;
-  color: var(--accent-text);
-  font: 600 var(--fs-sub) / var(--lh-sub) var(--sans);
-  white-space: nowrap;
-}
-.pl-add > svg {
-  flex: none;
-}
-.pl-add:disabled {
-  color: var(--ink-2);
-}
-.pl-add:focus-visible {
-  outline: 1.5px solid var(--focus-edge);
-  outline-offset: -2px;
-  box-shadow: var(--focus-ring);
-}
 @media (prefers-reduced-motion: reduce) {
-  .pt-plan.pressable,
+  .pt-row.pressable,
   .pl-step.pressable {
     transition: none;
   }

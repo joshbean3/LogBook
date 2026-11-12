@@ -1,11 +1,11 @@
 import { addMonths, fmtDate, heroSession, label as nameOf, mondayOf, monthOf, monthStart, num, parseISO, sessionKey, sessionStatus, shiftDays, tone, weekSummary, type Tone } from '@logbook/shared';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { memo, useMemo } from 'react';
 import { Pressable } from '@/ui/Pressable';
 import { SectionHeader } from '@/ui/layout';
 import { useLog, type Log } from '../log/useLog';
 import { dayMiles, weekMiles } from '../sessions/miles';
 import { LoadFail, useMonthsFailed } from './LoadFail';
-import { StepNav } from './Week';
 import { heroBlock } from './Blocks';
 
 /**
@@ -17,6 +17,23 @@ import { heroBlock } from './Blocks';
  * A day's mark says its session type by shape as well as color (a bar, a longer bar, two dashes, three dots, a block, a
  * dot), the key under the grid names each, and a week's accessible name says each day in words.
  */
+
+/** The pager pill in the month's header: previous, `Today` when the month shown is not this one, next. */
+export const StepNav = ({ away, onStep, onHome }: { away: boolean; onStep: (dir: -1 | 1) => void; onHome: () => void }) => (
+  <span className="pl-wk-nav">
+    <Pressable className="pl-step" press="scale" data-step="-1" onPress={() => onStep(-1)} label="Previous month">
+      <ChevronLeft size={18} aria-hidden="true" />
+    </Pressable>
+    {away ? (
+      <Pressable className="pl-step-now" press="scale" onPress={onHome} label="Today. Go to this month">
+        Today
+      </Pressable>
+    ) : null}
+    <Pressable className="pl-step" press="scale" data-step="1" onPress={() => onStep(1)} label="Next month">
+      <ChevronRight size={18} aria-hidden="true" />
+    </Pressable>
+  </span>
+);
 
 const DOW = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
 const tenth = (v: number) => num(Math.round(v * 10) / 10);
@@ -72,7 +89,7 @@ const weekDaysWords = (log: Log, mon: string) =>
     .join('. ');
 
 /** One month page. `still`: a neighbour not yet live, the same pixels with no Pressables (PlanView; feel review 2 D). */
-export const MonthPage = memo(function MonthPage({ first, onWeek, onStep, onThisMonth, still }: { first: string; onWeek: (mon: string) => void; onStep: (dir: -1 | 1) => void; onThisMonth: () => void; still?: boolean }) {
+export const MonthPage = memo(function MonthPage({ first, onWeek, onStep, onThisMonth, onBack, still }: { first: string; onWeek: (mon: string) => void; onStep: (dir: -1 | 1) => void; onThisMonth: () => void; /** Back to the week view (the way in was the date in the title area). */ onBack: () => void; still?: boolean }) {
   const weeks = monthWeeks(first);
   const months = useMemo(() => [...new Set([monthOf(weeks[0]!), monthOf(first), monthOf(shiftDays(weeks.at(-1)!, 6))])], [first]); // eslint-disable-line react-hooks/exhaustive-deps
   const log = useLog(months);
@@ -94,7 +111,11 @@ export const MonthPage = memo(function MonthPage({ first, onWeek, onStep, onThis
   return (
     <div className="pl-mpage">
       <section className="pl-sec pl-month-sec" aria-label={fmtDate('month', first)}>
-        <SectionHeader className={`pl-wk-head pl-mo-head ${away ? 'is-away' : ''}`.trim()} title={fmtDate('month', first).replace(/ \d{4}$/, '')} meta={meta} action={<StepNav unit="month" away={away} onStep={onStep} onHome={onThisMonth} />} />
+        <Pressable className="pl-back" press="dim" disabled={still} onPress={onBack} label="Back to the week">
+          <ChevronLeft size={18} aria-hidden="true" />
+          Week
+        </Pressable>
+        <SectionHeader className={`pl-wk-head pl-mo-head ${away ? 'is-away' : ''}`.trim()} title={fmtDate('month', first).replace(/ \d{4}$/, '')} meta={meta} action={<StepNav away={away} onStep={onStep} onHome={onThisMonth} />} />
         {!ready && fail.failed && !still ? (
           <LoadFail what="Couldn’t load this month." onRetry={fail.retry} />
         ) : (

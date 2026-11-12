@@ -32,19 +32,125 @@
 .pl-pane.is-off {
   visibility: hidden;
 }
-/* each page carries the gutter and the page's bottom padding (inside the cur page, so its min-height includes it) */
+/* each page carries the gutter; the page's bottom padding is the plan row's, under the pager (plantop.css) */
 .pl-wpage,
 .pl-mpage {
-  padding: 0 16px calc(24px + max(var(--chrome-h) + var(--safe-b), var(--kb)));
+  padding: 0 var(--gutter);
   min-width: 0;
 }
 .pl-note {
-  padding: 0 16px 24px;
+  padding: var(--sp-4) var(--gutter) 0;
 }
 
-/* ---------- the page's rhythm: the two top cards, the held banner, Today, then the panes' sections 28 apart ---------- */
+/* ---------- the page's rhythm: the bar's gap, then the week (its card, the line of days 12 under it), the plan row ---------- */
 .plan-root > .pl-panes {
-  margin-top: var(--section);
+  margin-top: 0;
+}
+.plan-root > .held + .pl-panes,
+.plan-root > .held + .pl-hint {
+  margin-top: var(--sp-4);
+}
+
+/* ---------- the week (Week.tsx, guide 6.5a "Fitness"): the card, then the line of days in a card of its own ---------- */
+/* a second session today is its own compact card under the first, as on Today */
+.pl-lead > .second-session {
+  margin-top: var(--sp-3);
+}
+/* another week's card: the summary's words, the same horizon and band, and under the hill the way back to this week */
+.pl-wkcard .hz-name {
+  margin: 0;
+}
+.pl-wkcard .pl-wk-ctl {
+  padding-block: var(--sp-1);
+}
+.pl-ahead.card {
+  margin-top: var(--sp-3);
+  padding: 0;
+  overflow: hidden;
+  background: var(--surface);
+  border: var(--card-border);
+  box-shadow: var(--shadow-1);
+}
+/* the session's name is the stop's headline (the --fs-row role), its detail one step quieter */
+.pl-ahead .pth-title {
+  font: 600 var(--fs-row) / var(--lh-row) var(--sans);
+}
+.pl-ahead .pth-stop.is-add .pth-title {
+  font-weight: 500;
+}
+/* the fold at the card's foot: three small rings where the line's nodes sit, the words, the count, the chevron */
+.pl-fold.pressable {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-height: var(--row-h);
+  padding: var(--sp-2) var(--pad-hero) var(--sp-2) 0;
+  border-top: 1px solid var(--line);
+  color: var(--ink-2);
+  font: 500 var(--fs-body) / var(--lh-body) var(--sans);
+  text-align: left;
+}
+.pl-fold-dots {
+  flex: none;
+  display: flex;
+  justify-content: center;
+  gap: var(--sp-1);
+  width: 64px; /* brand-ok: the path's rail (poster.css --pth-rail), so the rings sit under the line */
+}
+.pl-fold-dots i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 1.5px var(--ink-3);
+}
+.pl-fold-title {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.pl-fold-value {
+  flex: none;
+  margin: 0 var(--sp-2);
+  font-variant-numeric: tabular-nums;
+}
+.pl-fold-chev {
+  flex: none;
+  transition: transform var(--dur-fast) var(--ease-out);
+}
+.pl-fold.is-open .pl-fold-chev {
+  transform: rotate(180deg);
+}
+.pl-fold:focus-visible {
+  outline: 1.5px solid var(--focus-edge);
+  outline-offset: -2px;
+  box-shadow: var(--focus-ring);
+}
+.pl-earlier {
+  border-top: 1px solid var(--line);
+  animation: pl-earlier-in var(--dur-fast) var(--ease-out);
+}
+@keyframes pl-earlier-in {
+  from {
+    opacity: 0;
+  }
+}
+/* at a larger text size the count goes under the words, so neither is cut */
+html[data-text-xl] .pl-fold.pressable {
+  flex-wrap: wrap;
+}
+html[data-text-xl] .pl-fold-title {
+  flex-basis: calc(100% - 64px - 18px); /* brand-ok: the rail and the chevron */
+}
+html[data-text-xl] .pl-fold-value {
+  order: 3;
+  margin-left: 64px; /* brand-ok: the path's rail */
+}
+@media (prefers-reduced-motion: reduce) {
+  .pl-fold-chev {
+    transition: none;
+  }
+  .pl-earlier {
+    animation-duration: var(--dur-reduce);
+  }
 }
 .pl-sec + .pl-sec {
   margin-top: var(--section);
