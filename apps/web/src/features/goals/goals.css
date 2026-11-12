@@ -1103,6 +1103,7 @@
 /* the line under a log cut to its newest changes: a footnote under the last day's group (kit.css) */
 .k-foot.g-log-more {
   margin: var(--sp-2) var(--pad-card) 0;
+  font-variant-numeric: tabular-nums;
 }
 .g-log-empty {
   display: grid;
