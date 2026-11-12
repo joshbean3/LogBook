@@ -161,13 +161,30 @@ describe('Today’s day page at its edges', () => {
     expect(html).toMatch(/Not loaded[\s\S]*Check your connection\.[\s\S]*Try again/);
   }, 60_000);
 
-  it('the What I learned row reads its count from any answer, or from none', async () => {
+  it('the Journal row reads the month’s lines in any shape, or none: an invitation, or the line itself', async () => {
     at('2026-11-12T10:00:00');
-    for (const stats of [undefined, null, {}, { recent: null }, { recent: 'x' }, { recent: { a: 1 } }, { recent: [D] }]) {
-      const html = await render((qc) => qc.setQueryData(['learnings', 'stats'], stats));
-      expect(html).toContain('What did you learn today?');
-      expect(html).toContain(Array.isArray((stats as { recent?: unknown } | null | undefined)?.recent) ? 'Tonight’s line is kept' : 'One line is enough');
+    const KEY = ['learnings', 'list', { month: '2026-11', q: null }];
+    const pages = (learnings: unknown) => ({ pages: [{ learnings, next: null }], pageParams: [null] });
+    // nothing loaded, an answer that is not a list, a list with no line for today: the row invites
+    for (const list of [undefined, { pages: [null], pageParams: [null] }, pages(null), pages('x'), pages([]), pages([null, { id: 1 }, { date: D }]), pages([{ id: 'y', date: shiftDays(D, -1), text: 'Yesterday’s.', createdAt: '', editedAt: null }])]) {
+      const html = await render((qc) => qc.setQueryData(KEY, list));
+      expect(html).toMatch(/Journal[\s\S]*Tonight’s line[\s\S]*One line is enough/);
+      expect(html).not.toContain('Write more');
     }
+    // today has its line (two: the first written is the headline): the row is the line, with Write more at its end
+    const kept = await render((qc) =>
+      qc.setQueryData(
+        KEY,
+        pages([
+          { id: 'b', date: D, text: 'A second line.', createdAt: `${D}T21:00:00.000Z`, editedAt: null },
+          { id: 'a', date: D, text: 'Easy days build the base.', createdAt: `${D}T20:00:00.000Z`, editedAt: null },
+        ]),
+      ),
+    );
+    expect(kept).toMatch(/Journal[\s\S]*Easy days build the base\.[\s\S]*Tonight’s line is kept[\s\S]*Write more/);
+    expect(kept).not.toContain('One line is enough');
+    // the old tab's name is nowhere on Today
+    expect(kept).not.toMatch(/What I learned|What did you learn/);
   }, 60_000);
 
   it('goals in a shape the app never wrote do not take the page down', async () => {

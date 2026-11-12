@@ -1,0 +1,16 @@
+/* The Journal row at the foot of Today (TonightRow.tsx). Once the line is kept the row's title is the line itself: two
+   lines at most, then "Write more" in the quiet link's style before the chevron. */
+.jn-tonight.is-kept .lrow-title {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+}
+.jn-tonight-more {
+  flex: none;
+  font: 600 var(--fs-sub) / var(--lh-sub) var(--sans);
+  color: var(--accent-text);
+  white-space: nowrap;
+}
