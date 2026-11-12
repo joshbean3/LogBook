@@ -82,8 +82,9 @@ export const GoalsHero = ({ today, now, hit }: { today: ISODate; now: number; hi
             sessions: fitness ? (month.data?.sessions ?? []).filter((s) => s.date === today && !(s as { deletedAt?: string | null }).deletedAt) : [],
             habits: (boot.data?.habits ?? []).filter((h) => !h.archivedOn),
             fitness,
+            minutes: new Date(now).getHours() * 60 + new Date(now).getMinutes(),
           }),
-    [goal, goals.data, today, list, fitness, month.data, boot.data],
+    [goal, goals.data, today, list, fitness, month.data, boot.data, now],
   );
 
   // the goal arriving while the page is open (never one that loads set): its words rise into the title, once

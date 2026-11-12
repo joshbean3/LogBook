@@ -51,7 +51,7 @@ describe('Further out: three hills, far to near', () => {
   });
 });
 
-describe('the suggested goal (the page’s local stand-in)', () => {
+describe('the suggested goal, through the shared rule', () => {
   const base: IdeaInput = {
     goals: [],
     today: T,
@@ -65,12 +65,12 @@ describe('the suggested goal (the page’s local stand-in)', () => {
     const y = g('day', '2026-11-11', 'Finish the notes.', 'partly');
     expect(localGoalIdea({ ...base, goals: [y] })).toMatchObject({ source: 'yesterday', caption: 'An idea · from yesterday', text: 'Finish the notes', carry: y });
     // a goal that was hit is not carried
-    expect(localGoalIdea({ ...base, goals: [g('day', '2026-11-11', 'x', 'done')] })?.source).toBe('todo');
+    expect(localGoalIdea({ ...base, goals: [g('day', '2026-11-11', 'x', 'done')] })?.source).toBe('todos');
   });
 
   it('then the top open to-do, then today’s session, then the habits', () => {
-    expect(localGoalIdea(base)).toMatchObject({ source: 'todo', caption: 'An idea · from your to-dos', text: 'Renew passport' });
-    expect(localGoalIdea({ ...base, todos: [] })).toMatchObject({ source: 'fitness', caption: 'An idea · from Fitness', text: 'Bike 40 min today' });
+    expect(localGoalIdea(base)).toMatchObject({ source: 'todos', caption: 'An idea · from your to-dos', text: 'Renew passport' });
+    expect(localGoalIdea({ ...base, todos: [] })).toMatchObject({ source: 'fitness', caption: 'An idea · from Fitness', text: 'Bike 40 min, before lunch' });
     expect(localGoalIdea({ ...base, todos: [], sessions: [] })).toMatchObject({ source: 'habits', caption: 'An idea · from your habits', text: 'All 7 habits, done by 9' });
     expect(localGoalIdea({ ...base, todos: [], sessions: [], habits: [] })).toBeNull();
   });

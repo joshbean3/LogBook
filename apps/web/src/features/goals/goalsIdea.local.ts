@@ -1,14 +1,14 @@
 import { shiftDays, type Aim, type ISODate, type Session } from '@logbook/shared';
+import { goalIdea, type IdeaSource } from './goalIdea';
 import { goalOf } from './model';
 
 /*
- * A stand-in, local to the Goals page, for the shared suggested-goal function (features/goals/goalIdea.ts, written with
- * Today's Plan your day). Same order, same shape of answer. At merge the page (GoalsHero.tsx) points at the shared one
- * and this file and its test go.
+ * The Goals page's way into the shared suggested-goal function (features/goals/goalIdea.ts): it gathers what the page
+ * has loaded and hands back the idea in the shape the poster reads.
  */
 
 /** Where an idea came from, as the band's caption says it: "An idea · from yesterday". */
-export type IdeaSource = 'yesterday' | 'todo' | 'fitness' | 'habits';
+export type { IdeaSource };
 export interface GoalIdea {
   text: string;
   source: IdeaSource;
@@ -17,13 +17,6 @@ export interface GoalIdea {
   /** Yesterday's goal, when the idea is to carry it over: its why and its steps come with it. */
   carry?: Aim;
 }
-
-const CAPTION: Record<IdeaSource, string> = {
-  yesterday: 'An idea · from yesterday',
-  todo: 'An idea · from your to-dos',
-  fitness: 'An idea · from Fitness',
-  habits: 'An idea · from your habits',
-};
 
 /** A goal's words without the full stop a sentence ends in. */
 const bare = (t: string) => t.trim().replace(/[.\s]+$/, '');
@@ -46,19 +39,17 @@ export interface IdeaInput {
   /** The habits in use. */
   habits: readonly { name: string }[];
   fitness: boolean;
+  /** Minutes after midnight, for the words that say when. */
+  minutes?: number;
 }
 
 /**
- * One suggested goal for today, from the person's own data, in this order: yesterday's goal when it was not finished, the
- * top open to-do, today's session (only with Fitness on), the habits. Null when there is nothing to go on. Pure.
+ * One suggested goal for today, from the person's own data: the shared rule (goalIdea.ts, the one Today's Plan your day
+ * uses), fed from what the Goals page has loaded, so both screens offer the same idea in the same words. Pure.
  */
-export const localGoalIdea = ({ goals, today, todos, sessions, habits, fitness }: IdeaInput): GoalIdea | null => {
-  const y = goalOf(goals, 'day', shiftDays(today, -1));
-  if (y && y.status !== 'done') return { text: bare(y.text), source: 'yesterday', caption: CAPTION.yesterday, carry: y };
-  const todo = todos.find((t) => t.text.trim());
-  if (todo) return { text: bare(todo.text), source: 'todo', caption: CAPTION.todo };
+export const localGoalIdea = ({ goals, today, todos, sessions, habits, fitness, minutes }: IdeaInput): GoalIdea | null => {
   const sess = fitness ? sessions.find((s) => s.kind !== 'rest' && !s.mark) : undefined;
-  if (sess) return { text: `${sessionWords(sess)} today`, source: 'fitness', caption: CAPTION.fitness };
-  if (habits.length) return { text: habits.length === 1 ? `${bare(habits[0]!.name)}, done by 9` : `All ${habits.length} habits, done by 9`, source: 'habits', caption: CAPTION.habits };
-  return null;
+  const idea = goalIdea({ yesterday: goalOf(goals, 'day', shiftDays(today, -1)), todos, fitness, session: sess ? sessionWords(sess) : null, habits: habits.length, ...(minutes == null ? {} : { minutes }) });
+  if (!idea) return null;
+  return { text: bare(idea.text), source: idea.source, caption: idea.label, ...(idea.from ? { carry: idea.from } : {}) };
 };
