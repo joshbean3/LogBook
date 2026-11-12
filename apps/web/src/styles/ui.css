@@ -901,6 +901,10 @@ textarea.in {
   overscroll-behavior-y: contain;
   touch-action: pan-y;
   display: grid;
+  /* one column as wide as the sheet, never as wide as the longest word in it: a name or a pasted link with no spaces
+     wraps, and the controls under it stay on screen */
+  grid-template-columns: minmax(0, 1fr);
+  overflow-wrap: break-word;
   gap: 14px;
   align-content: start;
   padding: 2px 16px calc(16px + var(--safe-b));

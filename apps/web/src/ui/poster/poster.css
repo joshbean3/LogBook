@@ -376,14 +376,19 @@
 .pth-text {
   flex: 1 1 auto;
   display: grid;
+  /* one column that may be narrower than its longest word: a name with no spaces wraps inside the row, never under the
+     chevron or past the card's edge */
+  grid-template-columns: minmax(0, 1fr);
   min-width: 0;
 }
 .pth-main > :not(.pth-text):not(.pth-chev) {
   flex: 1 1 auto;
   min-width: 0;
 }
-.pth-title {
-  overflow-wrap: break-word;
+.pth-title,
+.pth-sub,
+.pth-cap {
+  overflow-wrap: anywhere;
 }
 .pth-tag,
 .pth-cap {
