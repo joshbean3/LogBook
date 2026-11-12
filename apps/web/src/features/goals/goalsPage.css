@@ -9,6 +9,8 @@
 .pressable.gx-title {
   display: block;
   width: 100%;
+  /* a goal of one letter is still a 44 pt target */
+  min-width: var(--hit);
   margin: calc(-1 * var(--sp-2)) 0;
   padding: var(--sp-2) 0;
   border: 0;
