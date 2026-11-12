@@ -3,6 +3,7 @@ import { ChevronRight, Plus, X } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { fitHeight } from '@/lib/fitHeight';
 import { haptics } from '@/lib/haptics';
 import { fadeIn, springs, useReduced } from '@/lib/motion';
 import { IconButton } from '@/ui';
@@ -106,10 +107,9 @@ const countWords = (n: number) => (n === 1 ? '1 entry' : `${n} entries`);
 /** The writer grows with the words up to about half the screen, then scrolls inside itself. */
 const growField = (el: HTMLTextAreaElement | null) => {
   if (!el) return;
-  el.style.height = 'auto';
   const max = Math.round(window.innerHeight * 0.5);
-  el.style.height = `${Math.min(el.scrollHeight, max)}px`;
-  el.style.overflowY = el.scrollHeight > max ? 'auto' : 'hidden';
+  // measured without moving the page under the keys (lib/fitHeight.ts)
+  el.style.overflowY = fitHeight(el, max) > max ? 'auto' : 'hidden';
 };
 
 /**

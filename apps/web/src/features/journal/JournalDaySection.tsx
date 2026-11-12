@@ -3,6 +3,7 @@ import { Check, Pencil, Share, Trash2 } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { useJournalList, whenShown } from '@/api/queries';
+import { fitHeight } from '@/lib/fitHeight';
 import { haptics } from '@/lib/haptics';
 import { crossfade } from '@/lib/motion';
 import { useToday } from '@/lib/useToday';
@@ -242,9 +243,7 @@ export const Composer = ({ date, today, rows = 3, placeholder, prompt, onSaved, 
   // the field grows with the words, never scrolls inside itself
   useLayoutEffect(() => {
     const el = ref.current;
-    if (!el) return;
-    el.style.height = 'auto';
-    el.style.height = `${el.scrollHeight}px`;
+    if (el) fitHeight(el);
   }, [text, ref]);
   useEffect(() => {
     if (!saved) return;

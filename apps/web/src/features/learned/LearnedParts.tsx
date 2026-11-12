@@ -2,7 +2,8 @@ import type * as React from 'react';
 import { fmtDate, LEARNING_MAX, shiftDays, type Learning } from '@logbook/shared';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useTabScroller } from '@/app/NavController';
-import { revealField } from '@/lib/keyboard';
+import { fitHeight } from '@/lib/fitHeight';
+import { revealField, revealFloor } from '@/lib/keyboard';
 import { Button } from '@/ui/primitives';
 import { Pressable } from '@/ui/Pressable';
 import { useSheet } from '@/ui/Sheet';
@@ -25,12 +26,32 @@ export const useGrow = (ref: React.RefObject<HTMLTextAreaElement | null>, text: 
   useLayoutEffect(() => {
     const el = ref.current;
     if (!el) return;
-    el.style.height = 'auto';
-    el.style.height = `${el.scrollHeight}px`;
+    // measured without moving the page under the keys (lib/fitHeight.ts)
+    fitHeight(el);
     const grew = el.scrollHeight > last.current;
     last.current = el.scrollHeight;
     if (grew && foot?.current && document.activeElement === el) revealField(foot.current);
   }, [ref, text, rows, foot]);
+};
+
+/**
+ * In a sheet the Save foot is pinned over the body's last lines, and the browser only keeps the caret inside the body: as
+ * the words grew, the line being typed went behind Save (and the count under the field with it). While the caret is at
+ * the end of the words, every change puts the field's last line (and the count, once it shows) back above the foot and
+ * the keyboard, at once: a smooth scroll would be cut short by the next key.
+ */
+const useFollowTyping = (ref: React.RefObject<HTMLTextAreaElement | null>, text: string) => {
+  useLayoutEffect(() => {
+    const el = ref.current;
+    const body = el?.closest<HTMLElement>('.sheet-body');
+    if (!el || !body || document.activeElement !== el || el.readOnly || el.selectionEnd < el.value.length - 1) return;
+    const next = el.nextElementSibling;
+    const last = next instanceof HTMLElement && next.classList.contains('ln-limit') ? next : el;
+    const foot = [...body.querySelectorAll<HTMLElement>('.sheet-foot')].find((f) => !f.contains(el) && getComputedStyle(f).position === 'sticky');
+    const kb = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--kb')) || 0;
+    const over = last.getBoundingClientRect().bottom - revealFloor(body.getBoundingClientRect().bottom, window.innerHeight, kb, foot ? foot.getBoundingClientRect().top : null);
+    if (over > 0) body.scrollTop += over;
+  }, [ref, text]);
 };
 
 /** From 900 characters, how many of the 1,000 are used; and a line when a paste was cut to fit. */
@@ -64,20 +85,29 @@ interface SheetGate {
  * the sheet any way (Close, a flick, the scrim) keeps a change, as the rest of the app saves as you go. For one of
  * today's lines the foot also offers "Add another line": a day may hold more than one, and this is where the next starts.
  */
-const LearningSheet = ({ item, today, gate }: { item: Learning; today: string; gate: SheetGate }) => {
+const LearningSheet = ({ item, today, gate, initial, reopen }: { item: Learning; today: string; gate: SheetGate; initial?: string; reopen: (words: string) => void }) => {
   const sheet = useSheet();
   const { edit } = useLearnedMutations(today);
+  const toast = useToast();
   const ref = useRef<HTMLTextAreaElement>(null);
-  const [text, setText] = useState(item.text);
+  const [text, setText] = useState(initial ?? item.text);
   const [editing, setEditing] = useState(false);
   const [cut, setCut] = useState(false);
   useGrow(ref, text);
+  useFollowTyping(ref, text);
   const v = text.trim();
   const latest = useRef(v);
   latest.current = v;
   const keep = () => {
     const words = latest.current;
-    if (!gate.gone && words && words !== item.text) edit.mutate({ item, text: words });
+    if (gate.gone || !words || words === item.text) return;
+    // a change the server refuses keeps its words: Try again opens them again. A line that is gone (deleted on another
+    // device, a 404) cannot be changed any more, so its words open as a new line for the same day
+    edit.mutateAsync({ item, text: words }).catch((e: unknown) => {
+      const status = (e as { status?: unknown } | null)?.status;
+      const gone = status === 404 || status === 410;
+      toast('Couldn’t save that.', { label: 'Try again', fn: () => (gone ? sheet.open(addSpec(item.date, today, words)) : reopen(words)) });
+    });
   };
   gate.save = keep;
   const save = () => {
@@ -159,7 +189,8 @@ const sheetWords = (date: string, today: string) => ({
 export const useOpenLearning = (today: string) => {
   const sheet = useSheet();
   const { del } = useLearnedMutations(today);
-  return (item: Learning) => {
+  /** `initial`: words of a change that did not save, back in the field. */
+  const open = (item: Learning, initial?: string) => {
     const gate: SheetGate = {};
     sheet.open({
       ...sheetWords(item.date, today),
@@ -177,10 +208,11 @@ export const useOpenLearning = (today: string) => {
           }}
         />
       ),
-      body: <LearningSheet item={item} today={today} gate={gate} />,
+      body: <LearningSheet item={item} today={today} gate={gate} initial={initial} reopen={(words) => open(item, words)} />,
       onClose: () => gate.save?.(),
     });
   };
+  return (item: Learning) => open(item);
 };
 
 /**
@@ -195,9 +227,13 @@ const AddSheet = ({ date, today, initial = '' }: { date: string; today: string; 
   const [text, setText] = useState(initial);
   const [cut, setCut] = useState(false);
   useGrow(ref, text);
+  useFollowTyping(ref, text);
   const v = text.trim();
+  /** Save was pressed: a second press while the sheet closes saves nothing more. */
+  const sent = useRef(false);
   const save = () => {
-    if (!v) return;
+    if (!v || sent.current) return;
+    sent.current = true;
     add.mutateAsync({ date, text: v }).catch(() => toast('Couldn’t save that.', { label: 'Try again', fn: () => sheet.open(addSpec(date, today, v)) }));
     sheet.close();
   };
@@ -243,6 +279,17 @@ export const useAddLearning = (today: string) => {
   const sheet = useSheet();
   return (date: string) => sheet.open(addSpec(date, today));
 };
+
+/** A load that failed: says so, with Try again. Never an empty state, and never a dead end. */
+export const LoadError = ({ title, onRetry, busy }: { title: string; onRetry: () => void; busy?: boolean }) => (
+  <section className="k-card ln-error" role="alert">
+    <p className="k-row-title">{title}</p>
+    <p className="k-foot">Check the connection, then try again.</p>
+    <Button size="sm" className="ln-error-btn" onClick={onRetry} disabled={busy}>
+      Try again
+    </Button>
+  </section>
+);
 
 /** One line as words; a tap opens it. `clamp`: at most six lines (the sheet has the rest). */
 export const Line = ({ item, onOpen, className = '', clamp }: { item: Learning; onOpen: (l: Learning) => void; className?: string; clamp?: boolean }) => (
@@ -293,12 +340,13 @@ const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 
 export const monthName = (m: string) => MONTHS[Number(m.slice(5, 7)) - 1] ?? m;
 
 /** Load the next page when `end` comes within a screen of view. */
-export const useLoadMore = (end: React.RefObject<HTMLElement | null>, q: { hasNextPage: boolean; isFetchingNextPage: boolean; fetchNextPage: () => unknown }) => {
+export const useLoadMore = (end: React.RefObject<HTMLElement | null>, q: { hasNextPage: boolean; isFetchingNextPage: boolean; isFetchNextPageError?: boolean; fetchNextPage: () => unknown }) => {
   const scroller = useTabScroller();
-  const { hasNextPage, isFetchingNextPage, fetchNextPage } = q;
+  const { hasNextPage, isFetchingNextPage, isFetchNextPageError, fetchNextPage } = q;
   useEffect(() => {
     const el = end.current;
-    if (!el || !hasNextPage || isFetchingNextPage) return;
+    // a page that failed is not asked for again by scrolling: the list offers Try again in its place
+    if (!el || !hasNextPage || isFetchingNextPage || isFetchNextPageError) return;
     const io = new IntersectionObserver((es) => es.some((e) => e.isIntersecting) && void fetchNextPage(), { root: scroller.current, rootMargin: '0px 0px 600px 0px' });
     io.observe(el);
     return () => io.disconnect();

@@ -9,9 +9,9 @@ import { PageSection } from '@/ui/layout';
 import { Pressable } from '@/ui/Pressable';
 import { DateGutter, PagerButtons, SectionEmpty } from '@/ui/primitives';
 import { Skeleton, SkeletonGroup } from '@/ui/Skeleton';
-import { FILL_DAYS, Line, monthName, plural, useAddLearning, useOpenLearning } from './LearnedParts';
+import { FILL_DAYS, Line, LoadError, monthName, plural, useAddLearning, useOpenLearning } from './LearnedParts';
 import { monthDays, neighbours } from './month';
-import { useLearningMonths, useLearnings } from './queries';
+import { rowsOf, useKeepQueued, useLearningMonths, useLearnings } from './queries';
 import '../goals/kit.css';
 import './learned.css';
 
@@ -26,6 +26,7 @@ export default function LearnedMonth(): React.JSX.Element {
   const today = useToday();
   const params = useRouteParams();
   const [month, setMonth] = useState(() => (/^\d{4}-\d{2}-01$/.test(params.month ?? '') ? params.month!.slice(0, 7) : today.slice(0, 7)));
+  useKeepQueued();
   const list = useLearnings({ month });
   const months = useLearningMonths().data ?? [];
   const summary = months.find((m) => m.month === month);
@@ -33,11 +34,12 @@ export default function LearnedMonth(): React.JSX.Element {
   const addFor = useAddLearning(today);
   // the whole month before the list is trusted: a month over one page (200) loads the rest at once, with a skeleton row
   // at the end until it has
-  const { hasNextPage, isFetchingNextPage, fetchNextPage } = list;
+  // a page that failed is not asked for again on its own (that would never stop): the page says so, with Try again
+  const { hasNextPage, isFetchingNextPage, isFetchNextPageError, fetchNextPage } = list;
   useEffect(() => {
-    if (hasNextPage && !isFetchingNextPage) void fetchNextPage();
-  }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
-  const rows = useMemo(() => list.data?.pages.flatMap((p) => p.learnings) ?? [], [list.data]);
+    if (hasNextPage && !isFetchingNextPage && !isFetchNextPageError) void fetchNextPage();
+  }, [hasNextPage, isFetchingNextPage, isFetchNextPageError, fetchNextPage]);
+  const rows = useMemo(() => rowsOf(list.data), [list.data]);
   const fillFrom = shiftDays(today, -(FILL_DAYS - 1));
   const days = useMemo(() => monthDays(month, today, rows, fillFrom), [month, today, rows, fillFrom]);
   const kept = days.filter((d) => d.items.length);
@@ -68,10 +70,7 @@ export default function LearnedMonth(): React.JSX.Element {
     <div className="page ln-page ln-month-page" ref={top}>
       <PushedBar title={name} eyebrow={month.slice(0, 4)} trailing={pager} />
       {list.isError && !list.data ? (
-        <section className="k-card ln-error" role="alert">
-          <p className="k-row-title">Couldn’t load {name}.</p>
-          <p className="k-foot">Check the connection, then go back and open it again.</p>
-        </section>
+        <LoadError title={`Couldn’t load ${name}.`} onRetry={() => void list.refetch()} busy={list.isFetching} />
       ) : list.isPending ? (
         <SkeletonGroup label="Loading" className="group ln-mdays-skel">
           {[0, 1, 2].map((i) => (
@@ -81,7 +80,7 @@ export default function LearnedMonth(): React.JSX.Element {
             </div>
           ))}
         </SkeletonGroup>
-      ) : !started ? (
+      ) : !started && !rows.length ? (
         <section className="k-card ln-none">
           <p className="k-row-title">Not started yet</p>
           <p className="k-foot">{name} has not started yet.</p>
@@ -112,7 +111,7 @@ export default function LearnedMonth(): React.JSX.Element {
                   </li>
                 ),
               )}
-              {hasNextPage ? (
+              {hasNextPage && !isFetchNextPageError ? (
                 <li className="date-row ln-mday" aria-hidden="true">
                   <Skeleton w={40} h={44} r="control" />
                   <Skeleton w="70%" h={18} />
@@ -124,6 +123,7 @@ export default function LearnedMonth(): React.JSX.Element {
           )}
         </PageSection>
       )}
+      {isFetchNextPageError ? <LoadError title={`Couldn’t load the rest of ${name}.`} onRetry={() => void fetchNextPage()} busy={isFetchingNextPage} /> : null}
       {isFetchingNextPage ? (
         <p className="sr-only" aria-live="polite">
           Loading the rest of {name}

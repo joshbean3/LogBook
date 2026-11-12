@@ -1,7 +1,7 @@
 import { recallDay, type RecallItem } from '@logbook/shared';
 import { Bell, Copy, Download, EyeOff, Loader2, Share, Shuffle } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useNav } from '@/app/NavController';
 import { useJournalList } from '@/api/queries';
@@ -14,7 +14,7 @@ import { useSheet } from '@/ui/Sheet';
 import { useToast } from '@/ui/Toast';
 import { PressButton } from './PressButton';
 import { useAiConsent } from './queries';
-import { plainLine, recallKey, useRecall, useRecallActions, writtenByAi } from './recall';
+import { plainLine, recallItemOf, recallKey, useRecall, useRecallActions, writtenByAi } from './recall';
 import { shareImage } from '../share/shareOut';
 import { drawRecall, recallText } from './recallShare';
 import './recall.css';
@@ -104,7 +104,8 @@ export const RecallCard = ({ today, onOpenDay }: { today: string; onOpenDay: (da
   const sheet = useSheet();
   const qc = useQueryClient();
   const reduce = useReduced();
-  const item = q.data?.item ?? null;
+  const raw = q.data?.item;
+  const item = useMemo(() => recallItemOf(raw), [raw]);
   const { recall } = useAiConsent();
   const byAi = !!item && recall && writtenByAi(item, today);
   /** The words on the card: Claude's line only with the switch on, else the entry's own opening. */

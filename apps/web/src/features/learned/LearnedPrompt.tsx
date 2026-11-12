@@ -5,7 +5,7 @@ import { useNav } from '@/app/NavController';
 import { LearnedIcon } from '@/ui/icons';
 import { SectionHeader } from '@/ui/layout';
 import { Row } from '@/ui/primitives';
-import { useLearningStats } from './queries';
+import { keptOn, rowsOf, useLearnings, useLearningStats } from './queries';
 
 /**
  * Today's way into What I learned (a Today section, lib/prefs.ts): one row that asks the day's question and opens the
@@ -15,9 +15,10 @@ import { useLearningStats } from './queries';
 export const LearnedPrompt = ({ today }: { today: ISODate }): React.JSX.Element => {
   const nav = useNav();
   const stats = useLearningStats();
-  // an older server has no stats (404), and any other answer may lack the list: then today simply has no line yet
-  const recent: unknown = stats.data?.recent;
-  const wrote = Array.isArray(recent) && recent.includes(today);
+  // the month's lines are read from what is already loaded; they are only asked for when the stats do not name the days
+  // (a server from before they did), so the row is right there too
+  const list = useLearnings({ month: today.slice(0, 7) }, !!stats.data && !Array.isArray(stats.data.recent));
+  const wrote = keptOn(today, stats.data, rowsOf(list.data));
   const sub = wrote ? 'Tonight’s line is kept' : 'One line is enough';
   return (
     <section className="day-learned" aria-label="What I learned">

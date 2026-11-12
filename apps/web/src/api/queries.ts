@@ -794,7 +794,13 @@ const matchesList = (e: JournalEntry, q: string, fav: boolean) => (!fav || e.fav
 
 export const useJournalMutations = () => {
   const qc = useQueryClient();
-  const bump = () => {
+  /**
+   * Refetch after a write the server has answered. A write that is only queued (`write` answers null: offline, a 500, a
+   * 429, a timeout) asks for nothing: the server's lists do not have it yet and would take it off the page, and the
+   * outbox refetches these keys itself when the write lands.
+   */
+  const bump = (answer?: unknown) => {
+    if (answer === null) return;
     void qc.invalidateQueries({ queryKey: ['journal'] });
     void qc.invalidateQueries({ queryKey: keys.daily });
   };
@@ -817,7 +823,7 @@ export const useJournalMutations = () => {
         patchMonth(qc, month, (b) => ({ ...b, journal: b.journal.map((x) => (x.id === tmp.id ? saved : x)) }));
         patchJournalLists(qc, (l) => l.map((x) => (x.id === tmp.id ? saved : x)));
       }
-      bump();
+      bump(saved);
       return saved ?? tmp;
     },
     onError: (_e, v) => {
@@ -836,8 +842,7 @@ export const useJournalMutations = () => {
         return l.some((x) => x.id === entry.id) ? l.map((x) => (x.id === entry.id ? n : x)) : [n, ...l];
       });
       qc.setQueryData<Daily>(keys.daily, (d) => (d && d.memory?.id === entry.id ? { ...d, memory: next(d.memory) } : d));
-      await write(`/journal/${entry.id}`, 'PATCH', { text, fav }, [keys.month(monthOf(entry.date)), ['journal']]);
-      bump();
+      bump(await write(`/journal/${entry.id}`, 'PATCH', { text, fav }, [keys.month(monthOf(entry.date)), ['journal']]));
     },
     onError: (_e, v) => {
       invalidateMonth(qc, monthOf(v.entry.date));
@@ -849,8 +854,7 @@ export const useJournalMutations = () => {
       patchMonth(qc, monthOf(entry.date), (b) => ({ ...b, journal: b.journal.filter((x) => x.id !== entry.id) }));
       void qc.cancelQueries({ queryKey: ['journal'] });
       patchJournalLists(qc, (l) => l.filter((x) => x.id !== entry.id));
-      await write(`/journal/${entry.id}`, 'DELETE', undefined, [keys.month(monthOf(entry.date)), ['journal']]);
-      bump();
+      bump(await write(`/journal/${entry.id}`, 'DELETE', undefined, [keys.month(monthOf(entry.date)), ['journal']]));
     },
     onError: (_e, v) => {
       invalidateMonth(qc, monthOf(v.date));
@@ -862,8 +866,7 @@ export const useJournalMutations = () => {
       patchMonth(qc, monthOf(entry.date), (b) => ({ ...b, journal: [...b.journal.filter((x) => x.id !== entry.id), entry] }));
       void qc.cancelQueries({ queryKey: ['journal'] });
       patchJournalLists(qc, (l, q, fav) => (matchesList(entry, q, fav) ? [entry, ...l.filter((x) => x.id !== entry.id)] : l));
-      await write(`/journal/${entry.id}/restore`, 'POST', undefined, [keys.month(monthOf(entry.date)), ['journal']]);
-      bump();
+      bump(await write(`/journal/${entry.id}/restore`, 'POST', undefined, [keys.month(monthOf(entry.date)), ['journal']]));
     },
   });
   const another = useMutation({

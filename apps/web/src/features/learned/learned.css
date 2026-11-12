@@ -478,6 +478,11 @@ textarea.ln-entry-in:focus {
   margin-top: var(--sp-2);
   padding: 0 var(--sp-5);
 }
+/* under a month's days (the rest of the month did not load): a card apart from the list above it */
+.ln-month-page > .lb-sec + .ln-error,
+.ln-past > .ln-month + .ln-error {
+  margin-top: var(--sp-3);
+}
 
 /* ---------- Larger Text (above 150 percent, html[data-text-xl]): nothing clips, rows grow (guide 11) ---------- */
 /* a month's row: the count goes under the month, and the month wraps before it would be cut */
