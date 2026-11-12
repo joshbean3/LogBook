@@ -161,6 +161,15 @@ describe('Today’s day page at its edges', () => {
     expect(html).toMatch(/Not loaded[\s\S]*Check your connection\.[\s\S]*Try again/);
   }, 60_000);
 
+  it('the What I learned row reads its count from any answer, or from none', async () => {
+    at('2026-11-12T10:00:00');
+    for (const stats of [undefined, null, {}, { recent: null }, { recent: 'x' }, { recent: { a: 1 } }, { recent: [D] }]) {
+      const html = await render((qc) => qc.setQueryData(['learnings', 'stats'], stats));
+      expect(html).toContain('What did you learn today?');
+      expect(html).toContain(Array.isArray((stats as { recent?: unknown } | null | undefined)?.recent) ? 'Tonight’s line is kept' : 'One line is enough');
+    }
+  }, 60_000);
+
   it('goals in a shape the app never wrote do not take the page down', async () => {
     at('2026-11-12T10:00:00');
     const html = await render((qc) => qc.setQueryData(['goals'], [null, { id: 'g0' }, goal(D, null), goal(shiftDays(D, -1), 42), { ...goal(shiftDays(D, -2), 'Older'), steps: 'no' }]));
