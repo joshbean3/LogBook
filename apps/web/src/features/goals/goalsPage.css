@@ -1,0 +1,133 @@
+/* ======================================================================================================================
+   The Goals page (design A2): today's goal as the poster and "Further out" as three hills. The card, the scene, the band
+   and the hills are the shared kit's (ui/poster: po-, fh-). Here: the page's own parts around them (gx-).
+   ====================================================================================================================== */
+
+/* ---------- the goal as the title: its words are the button that opens the goal ---------- */
+/* 8 above and under the words give a one-line title a 50 pt target, taken back by the margin so the title stays where the
+   kit sets it. Four lines at most: the rest is in the goal's sheet */
+.pressable.gx-title {
+  display: block;
+  width: 100%;
+  margin: calc(-1 * var(--sp-2)) 0;
+  padding: var(--sp-2) 0;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  letter-spacing: inherit;
+  color: inherit;
+  text-align: left;
+}
+.gx-title-in {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 4;
+  line-clamp: 4;
+  overflow: hidden;
+  text-wrap: balance;
+  overflow-wrap: anywhere;
+}
+/* the band names the next to-do in the person's own words: a long one wraps (two lines at most) instead of running off
+   the card */
+.gx .po-words-b {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+/* the meta line sits over the button's lower padding, so it stays readable and the title keeps the tap */
+.gx .po-meta {
+  position: relative;
+  pointer-events: none;
+}
+
+/* ---------- the goal's own check, under the band: "Not done yet" and the coin ---------- */
+.gx-status {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  min-height: 48px; /* brand-ok: geometry, the kit's 48 pt check */
+}
+.gx-status-words {
+  display: grid;
+  gap: 1px; /* brand-ok: geometry, the row template's hairline gap between two lines */
+  min-width: 0;
+}
+.gx-status-main {
+  font: 500 var(--fs-row) / var(--lh-row) var(--sans);
+  color: var(--ink-2);
+}
+.gx.is-done .gx-status-main {
+  font-weight: 600;
+  color: var(--ink);
+}
+.gx-status-sub {
+  font: 500 var(--fs-sub) / var(--lh-sub) var(--sans);
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-3);
+}
+/* the coin, and the burst thrown from its center when the goal turns done */
+.gx-check {
+  position: relative;
+  flex: none;
+  display: grid;
+  place-items: center;
+}
+.gx-status-open.btn {
+  flex: none;
+  padding-right: 0;
+}
+
+/* ---------- "Further out": the caption on the sky opens what is coming up ---------- */
+/* a 44 pt target around the caps caption, taken back by the margin so the caption stays where the kit sets it */
+.pressable.gx-far-title {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  min-height: var(--hit);
+  margin: calc(-1 * var(--sp-3)) calc(-1 * var(--sp-4)) calc(-1 * var(--sp-4));
+  padding: var(--sp-3) var(--sp-4) var(--sp-4);
+  border: 0;
+  background: transparent;
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  color: inherit;
+}
+
+/* ---------- the moments: a goal's words arriving (the poster's title, a hill's words) ---------- */
+@keyframes gx-rise {
+  from {
+    opacity: 0;
+    transform: translateY(var(--sp-3));
+  }
+}
+@keyframes gx-fade {
+  from {
+    opacity: 0;
+  }
+}
+.gx-title.is-new .gx-title-in {
+  animation: gx-rise var(--dur) var(--ease-out) both;
+}
+.gx-take {
+  display: block;
+  animation: gx-rise var(--dur) var(--ease-out) both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .gx-title.is-new .gx-title-in,
+  .gx-take {
+    animation: gx-fade var(--dur-reduce) linear both;
+  }
+}
+
+/* ---------- Larger Text (above 150 percent): the status words and the coin keep one row; the words wrap ---------- */
+html[data-text-xl] .gx-status-main,
+html[data-text-xl] .gx-status-sub {
+  overflow-wrap: anywhere;
+}
