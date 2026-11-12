@@ -1,6 +1,6 @@
 import type { Aim } from '@logbook/shared';
 import { describe, expect, it } from 'vitest';
-import { goalsOf } from './shape';
+import { eventsOf, goalsOf } from './shape';
 
 const g = (over: Record<string, unknown> = {}) => ({ id: 'g1', level: 'day', period: '2026-11-12', text: 'Ship it', original: null, why: null, status: 'open', reflection: null, steps: [], createdAt: '2026-11-12T08:00:00Z', updatedAt: '2026-11-12T08:00:00Z', closedAt: null, ...over });
 
@@ -55,5 +55,27 @@ describe('goals as the app reads them, whatever the server or the saved copy hol
 
   it('keeps a week that does not start on a Monday (it can still be answered) and a provisional id', () => {
     expect(goalsOf([g({ id: 'tmp-goal-week-2026-11-11', level: 'week', period: '2026-11-11' })])).toHaveLength(1);
+  });
+});
+
+describe('the log of what happened to goals, whatever the server answers', () => {
+  const e = (over: Record<string, unknown> = {}) => ({ id: 'e1', goalId: 'g1', level: 'day', period: '2026-11-12', kind: 'set', text: 'Ship it', at: '2026-11-12T08:00:00.000Z', ...over });
+
+  it('hands a clean answer back as it came', () => {
+    const page = { events: [e(), e({ id: 'e2', kind: 'done', text: null })], more: true };
+    expect(eventsOf(page)).toBe(page);
+  });
+
+  it('reads an answer with no list as an empty log', () => {
+    for (const raw of [null, undefined, 'oops', [], { events: null }, { events: 'x' }]) expect(eventsOf(raw)).toEqual({ events: [], more: false });
+  });
+
+  it('leaves out an event it cannot show: a kind, a level or a period it does not know, no time, a time that is not one', () => {
+    const rows = [null, e({ id: 'a', kind: 'carried' }), e({ id: 'b', level: 'decade' }), e({ id: 'c', at: 'yesterday' }), e({ id: 'd', at: null }), e({ id: undefined }), e({ id: 'f', period: 7 }), e({ id: 'g', period: 'someday' }), e({ id: 'ok', text: 42 })];
+    const out = eventsOf({ events: rows, more: 'yes' });
+    expect(out.events.map((x) => x.id)).toEqual(['ok']);
+    // words that are not text are no words
+    expect(out.events[0]!.text).toBeNull();
+    expect(out.more).toBe(false);
   });
 });

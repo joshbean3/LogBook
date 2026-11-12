@@ -1,4 +1,4 @@
-import { isISODate, shiftDays, type Aim, type GoalLevel, type GoalStatus, type GoalStep } from '@logbook/shared';
+import { isISODate, shiftDays, type Aim, type GoalEvent, type GoalEventKind, type GoalLevel, type GoalStatus, type GoalStep } from '@logbook/shared';
 
 /*
  * Goals as the app reads them, at the one place they come in (api/queries.ts: the server's answer, the copy saved on the
@@ -98,4 +98,37 @@ export const goalsOf = (raw: unknown): Aim[] => {
     out.push(g);
   }
   return clean ? (raw as Aim[]) : out;
+};
+
+// ---------- the log ----------
+
+const KINDS: readonly string[] = ['set', 'sharpened', 'kept', 'edited', 'done', 'partly', 'missed', 'reopened', 'cleared', 'step', 'unstep'] satisfies readonly GoalEventKind[];
+
+/** Can the log show this row: a kind and a level it has words for, a period it can name, and a time that is one? */
+const eventOk = (e: unknown): e is GoalEvent => {
+  if (!e || typeof e !== 'object') return false;
+  const x = e as Record<string, unknown>;
+  return (
+    typeof x.id === 'string' &&
+    !!x.id &&
+    KINDS.includes(x.kind as string) &&
+    LEVELS.includes(x.level as string) &&
+    periodOk(x.level as GoalLevel, x.period) &&
+    typeof x.at === 'string' &&
+    !Number.isNaN(new Date(x.at).getTime())
+  );
+};
+
+/**
+ * A page of the log (`GET /goals/events`), whatever was answered. A clean page comes back as it came. Otherwise: no list
+ * reads as an empty log, and an event the log has no words for (a kind from a newer server, a time that is not a time) is
+ * left out, so the sheet and History draw the rest instead of falling over on one row.
+ */
+export const eventsOf = (raw: unknown): { events: GoalEvent[]; more: boolean } => {
+  const page = raw && typeof raw === 'object' && !Array.isArray(raw) ? (raw as { events?: unknown; more?: unknown }) : null;
+  if (!page || !Array.isArray(page.events)) return { events: [], more: false };
+  const rows = page.events as unknown[];
+  const clean = rows.every((e) => eventOk(e) && (e.text === null || typeof e.text === 'string')) && typeof page.more === 'boolean';
+  if (clean) return page as { events: GoalEvent[]; more: boolean };
+  return { events: rows.filter(eventOk).map((e) => (e.text === null || typeof e.text === 'string' ? e : { ...e, text: null })), more: page.more === true };
 };

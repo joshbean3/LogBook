@@ -1,5 +1,5 @@
 import type { Aim, GoalLevel } from '@logbook/shared';
-import { NoData } from '@/ui/primitives';
+import { Button, NoData } from '@/ui/primitives';
 import { LEVEL, scoreOf } from './model';
 import './goals.css';
 
@@ -43,5 +43,19 @@ export const ScoreStrip = ({ goals, today }: { goals: readonly Aim[]; today: str
         );
       })}
     </ul>
+  </section>
+);
+
+/**
+ * A list that did not load, with nothing saved to show in its place: what did not load, what to do, and Try again (off
+ * while the request is out, so a second tap cannot start a second one).
+ */
+export const LoadError = ({ title, onRetry, busy }: { title: string; onRetry: () => void; busy?: boolean }) => (
+  <section className="k-card g-error" role="alert">
+    <p className="k-row-title">{title}</p>
+    <p className="k-foot">Check the connection, then try again.</p>
+    <Button size="sm" className="g-error-btn" onClick={onRetry} disabled={busy}>
+      Try again
+    </Button>
   </section>
 );

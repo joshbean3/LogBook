@@ -1,5 +1,5 @@
 import { askAndWait, type JobAnswer } from '@/features/assistant/poll';
-import { goalOfRow, goalsOf } from '@/features/goals/shape';
+import { eventsOf, goalOfRow, goalsOf } from '@/features/goals/shape';
 import { type Attachment, addMonths, mondayOf, monthOf, monthsBetween, shiftDays, today, type Activity, type Habit, type HabitCheck, type JournalEntry, type LiftSet, type Link, type LinkVerdict, type MorningDayOverride, type MorningSettings, type PickResult, type PlanBlock, type Quote, type Session, type SessionInput, type SessionMark, type Todo, type TodoBucket, type TodoColor, type TodoGroup, type TodoPriority, type Aim, type GoalEvent, type GoalLevel, type GoalStatus, type GoalStep, type AssistantApplied, type AssistantProposal, type AssistantReply, type TemplateInput, type DayBands, type DayPlan, cleanBands, emptyBands, type SavedTrainingProfile, type TrainingProfile, type TrainingStatus, type TrainingStatusKind, type ISODate } from '@logbook/shared';
 import { useIsMutating, useMutation, useQueries, useQuery, useQueryClient, type QueryClient, type UseMutationResult } from '@tanstack/react-query';
 import { useMemo } from 'react';
@@ -1069,7 +1069,7 @@ const aimOf = (g: unknown, shown: Aim): Aim => goalOfRow(g) ?? shown;
 // Goals badge, Today's card, the tab), which looped about once a second (goals-03)
 export const useGoals = () => useQuery({ queryKey: goalsKey, queryFn: async () => aimsOf(await api<unknown>('/goals')), select: aimsOf, staleTime: 30_000, retryOnMount: false });
 export const useGoalEvents = (goal?: string, enabled = true) =>
-  useQuery({ queryKey: ['goal-events', goal ?? 'all'], queryFn: () => api<{ events: GoalEvent[]; more: boolean }>(`/goals/events${goal ? `?goal=${encodeURIComponent(goal)}` : '?limit=300'}`), staleTime: 15_000, enabled });
+  useQuery({ queryKey: ['goal-events', goal ?? 'all'], queryFn: async () => eventsOf(await api<unknown>(`/goals/events${goal ? `?goal=${encodeURIComponent(goal)}` : '?limit=300'}`)), select: eventsOf, staleTime: 15_000, enabled });
 
 export const useGoalMutations = () => {
   const qc = useQueryClient();

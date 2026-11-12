@@ -1100,6 +1100,10 @@
 .g-logday + .g-logday {
   margin-top: var(--section);
 }
+/* the line under a log cut to its newest changes: a footnote under the last day's group (kit.css) */
+.k-foot.g-log-more {
+  margin: var(--sp-2) var(--pad-card) 0;
+}
 .g-log-empty {
   display: grid;
   gap: 4px;

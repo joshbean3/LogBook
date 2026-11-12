@@ -69,6 +69,12 @@ export const setWords = (level: GoalLevel, period: string, today: ISODate) => {
   return LEVEL[level].set;
 };
 
+/**
+ * What a list draws from its request: its rows once there is data (a failed refresh keeps showing them), a plain line
+ * and Try again when it failed with nothing to show, the loading shape otherwise. Never an empty list for a failure.
+ */
+export const loadState = (q: { data?: unknown; isError: boolean }): 'ready' | 'failed' | 'loading' => (q.data !== undefined ? 'ready' : q.isError ? 'failed' : 'loading');
+
 export const goalOf = (goals: readonly Aim[] | undefined, level: GoalLevel, period: string) => goals?.find((g) => g.level === level && g.period === period) ?? null;
 
 const dayMs = 864e5;

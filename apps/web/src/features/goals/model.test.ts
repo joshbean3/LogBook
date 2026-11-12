@@ -1,6 +1,6 @@
 import { shiftDays, type Aim } from '@logbook/shared';
 import { describe, expect, it } from 'vitest';
-import { askOf, dayEnd, scoreOf, suggestRequest, timeUsed } from './model';
+import { askOf, dayEnd, scoreOf, suggestRequest, timeUsed, loadState } from './model';
 
 const goal = (level: Aim['level'], period: string, status: Aim['status'] = 'open', steps: Aim['steps'] = []): Aim => ({ id: `${level}-${period}`, level, period, text: 'x', original: null, why: null, status, reflection: null, steps, createdAt: '', updatedAt: '', closedAt: null });
 // a Sunday: this week began on Monday Nov 2
@@ -79,5 +79,16 @@ describe('the question the sheet asks', () => {
 
   it('never promises habits or 90 days', () => {
     expect(suggestRequest('week', '2026-11-02', T)).not.toMatch(/habit|90 days/);
+  });
+});
+
+describe('what a list shows while it has nothing to show yet', () => {
+  it('is ready as soon as there is data, even while a refetch fails', () => {
+    expect(loadState({ data: [], isError: false })).toBe('ready');
+    expect(loadState({ data: [], isError: true })).toBe('ready');
+  });
+  it('says it failed, with nothing to show, instead of loading forever or reading as empty', () => {
+    expect(loadState({ data: undefined, isError: true })).toBe('failed');
+    expect(loadState({ data: undefined, isError: false })).toBe('loading');
   });
 });
