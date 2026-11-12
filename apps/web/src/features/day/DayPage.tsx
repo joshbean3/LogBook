@@ -3,6 +3,7 @@ import { ChevronRight, Lock } from 'lucide-react';
 import type * as React from 'react';
 import { lazy, memo, Suspense, useCallback, useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import { useGoals, useHabitMutations, useTodos } from '@/api/queries';
+import { SectionBoundary } from '@/app/ErrorBoundary';
 import { STRAVA_BUILT } from '@/lib/features';
 import { todayParts, usePrefs } from '@/lib/prefs';
 import { hideSplash } from '@/lib/native';
@@ -297,9 +298,9 @@ const DayContent = memo(function DayContent({ date, onMorning }: { date: ISODate
   const parts = todayParts(usePrefs());
   const fitness = parts.includes('fitness');
   const now = useNowMinutes();
-  const habits = !parts.includes('habits') ? null : loaded ? <HabitsTop key="habits" date={date} log={log} /> : <section key="habits" className="habits day-habits is-skel" aria-hidden="true" />;
+  const habits = !parts.includes('habits') ? null : loaded ? <SectionBoundary key="habits" name="today.habits"><HabitsTop date={date} log={log} /></SectionBoundary> : <section key="habits" className="habits day-habits is-skel" aria-hidden="true" />;
   // Plan your day: the slim poster under the training card (no second sun); with Fitness off it leads the page, whole
-  const day = parts.includes('day') && loaded ? <PlanDay key="day" date={date} today={today} log={log} slim={fitness} yesterday={isToday && closeYesterdayDue(log, now) ? <CloseYesterday log={log} /> : null} /> : null;
+  const day = parts.includes('day') && loaded ? <SectionBoundary key="day" name="today.plan"><PlanDay date={date} today={today} log={log} slim={fitness} yesterday={isToday && closeYesterdayDue(log, now) ? <CloseYesterday log={log} /> : null} /></SectionBoundary> : null;
   // nothing is switched on: one line and the way to the switches, and nothing else on the page
   if (!parts.length)
     return (
@@ -311,22 +312,22 @@ const DayContent = memo(function DayContent({ date, onMorning }: { date: ISODate
 
   return (
     <div className="day-page" data-day={date} data-fitness={fitness ? undefined : 'off'}>
-      {fitness && loaded ? <StatusChip date={date} today={today} onPlan={openPlan} /> : null}
-      {fitness && loaded ? <HeldNote date={date} log={log} /> : null}
+      {fitness && loaded ? <SectionBoundary name="today.status"><StatusChip date={date} today={today} onPlan={openPlan} /></SectionBoundary> : null}
+      {fitness && loaded ? <SectionBoundary name="today.held"><HeldNote date={date} log={log} /></SectionBoundary> : null}
       {/* the day's training is the page's centrepiece: first, above the habits (HeroGauge carries the week's miles). With
           Fitness off the slot holds the evening's Close card only, and the day's own sections lead */}
-      {fitness ? !loaded ? <HeroSkeleton /> : bare ? <FirstRunSlot date={date} log={log} /> : <Hero date={date} log={log} /> : loaded ? <Hero date={date} log={log} closeOnly /> : null}
+      <SectionBoundary name="today.hero">{fitness ? !loaded ? <HeroSkeleton /> : bare ? <FirstRunSlot date={date} log={log} /> : <Hero date={date} log={log} /> : loaded ? <Hero date={date} log={log} closeOnly /> : null}</SectionBoundary>
       <LiveExtras date={date} loaded={loaded} />
       {/* the day's first decision sits above the repeat taps: Plan your day, then Habits, in both modes (layout standard 2.1) */}
       {[day, habits]}
-      {parts.includes('learned') && loaded && isToday ? <LearnedPrompt today={today} /> : null}
+      {parts.includes('learned') && loaded && isToday ? <SectionBoundary name="today.learned"><LearnedPrompt today={today} /></SectionBoundary> : null}
       {fitness && STRAVA_BUILT && loaded && isToday && !bare && primer.show ? (
         <div className="strava-primer">
           <StravaPrimer onLater={primer.later} />
         </div>
       ) : null}
-      {loaded && date < today ? <TheDayCard date={date} log={log} /> : null}
-      {loaded ? <DayTimeline date={date} log={log} /> : null}
+      {loaded && date < today ? <SectionBoundary name="today.day-card"><TheDayCard date={date} log={log} /></SectionBoundary> : null}
+      {loaded ? <SectionBoundary name="today.timeline"><DayTimeline date={date} log={log} /></SectionBoundary> : null}
       {loaded ? <EditToday /> : null}
     </div>
   );

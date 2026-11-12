@@ -1,4 +1,5 @@
 import type * as React from 'react';
+import { SectionBoundary } from '@/app/ErrorBoundary';
 import type { Learning, LearningMonth } from '@logbook/shared';
 import { BookOpen, ChevronRight, Search, X } from 'lucide-react';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
@@ -299,14 +300,14 @@ export default function LearnedView(): React.JSX.Element {
       <NavBar caps={{ cur: dayCaption(today, today) }} title={{ cur: 'What I learned' }} gap={16} trailing={total > 0 && !searchOpen ? <SearchButton key="search" onPress={startSearch} /> : undefined} />
       {searching ? null : (
         <div className="k-stack">
-          {loading ? <LearnedPosterSkeleton /> : <LearnedPoster today={today} items={todays} lines={lines} total={total} onOpen={open} />}
+          {loading ? <LearnedPosterSkeleton /> : <SectionBoundary name="learned.poster"><LearnedPoster today={today} items={todays} lines={lines} total={total} onOpen={open} /></SectionBoundary>}
           {failed ? <LoadError what="list" onRetry={retry} busy={list.isFetching || stats.isFetching || months.isFetching} /> : null}
         </div>
       )}
       {field}
       {searching ? (
         needle ? (
-          <Found q={needle} today={today} onOpen={open} />
+          <SectionBoundary name="learned.found"><Found q={needle} today={today} onOpen={open} /></SectionBoundary>
         ) : (
           <Searching />
         )
@@ -315,9 +316,9 @@ export default function LearnedView(): React.JSX.Element {
           <Skeleton w="100%" h={44} />
         </SkeletonGroup>
       ) : months.data?.length ? (
-        <Archive months={months.data} today={today} />
+        <SectionBoundary name="learned.archive"><Archive months={months.data} today={today} /></SectionBoundary>
       ) : null}
-      {hasEchoes && !searchOpen ? <Echoes today={today} onOpen={open} /> : null}
+      {hasEchoes && !searchOpen ? <SectionBoundary name="learned.echoes"><Echoes today={today} onOpen={open} /></SectionBoundary> : null}
     </div>
   );
 }

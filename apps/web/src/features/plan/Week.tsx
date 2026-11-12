@@ -1,6 +1,7 @@
 import { fmtDate, mondayOf, monthOf, shiftDays } from '@logbook/shared';
 import { ChevronDown } from 'lucide-react';
 import { memo, useEffect, useId, useMemo, useState } from 'react';
+import { SectionBoundary } from '@/app/ErrorBoundary';
 import { Pressable } from '@/ui/Pressable';
 import { PathLine, PathStop } from '@/ui/poster';
 import { Skeleton } from '@/ui/Skeleton';
@@ -147,12 +148,12 @@ export const WeekPage = memo(function WeekPage({ mon, onThisWeek, still }: { mon
           )
         ) : (
           <>
-            {here ? <TrainingCard date={log.today} log={log} /> : <WeekCard mon={mon} log={log} live={!still} onThisWeek={onThisWeek} />}
-            <DaysLine mon={mon} log={log} still={!!still} />
+            <SectionBoundary name="fitness.card">{here ? <TrainingCard date={log.today} log={log} /> : <WeekCard mon={mon} log={log} live={!still} onThisWeek={onThisWeek} />}</SectionBoundary>
+            <SectionBoundary name="fitness.days"><DaysLine mon={mon} log={log} still={!!still} /></SectionBoundary>
           </>
         )}
         {/* the plan, a quiet row under the days: its name and where it stands, or the way to build one */}
-        <PlanFoot />
+        <SectionBoundary name="fitness.plan"><PlanFoot /></SectionBoundary>
       </section>
     </div>
   );
