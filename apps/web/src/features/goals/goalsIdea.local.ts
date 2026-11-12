@@ -41,15 +41,25 @@ export interface IdeaInput {
   fitness: boolean;
   /** Minutes after midnight, for the words that say when. */
   minutes?: number;
+  /** What has not arrived yet (a request still out). A source that failed is not loading: the idea comes from what is left. */
+  loading?: { todos?: boolean; sessions?: boolean; habits?: boolean };
 }
 
 /**
  * One suggested goal for today, from the person's own data: the shared rule (goalIdea.ts, the one Today's Plan your day
  * uses), fed from what the Goals page has loaded, so both screens offer the same idea in the same words. Pure.
  */
-export const localGoalIdea = ({ goals, today, todos, sessions, habits, fitness, minutes }: IdeaInput): GoalIdea | null => {
+/** The order the shared rule tries the sources in (goalIdea.ts): the first that has something wins. */
+const RANK: Record<IdeaSource, number> = { yesterday: 0, todos: 1, fitness: 2, habits: 3 };
+
+export const localGoalIdea = ({ goals, today, todos, sessions, habits, fitness, minutes, loading }: IdeaInput): GoalIdea | null => {
   const sess = fitness ? sessions.find((s) => s.kind !== 'rest' && !s.mark) : undefined;
   const idea = goalIdea({ yesterday: goalOf(goals, 'day', shiftDays(today, -1)), todos, fitness, session: sess ? sessionWords(sess) : null, habits: habits.length, ...(minutes == null ? {} : { minutes }) });
-  if (!idea) return null;
+  // "Set this goal" sets what the band says in one tap, so the band must not change under the finger: while a source
+  // that would win over this idea is still loading (the to-dos over the session, the session over the habits), there is
+  // no idea yet, and the poster asks in the person's own words until it has arrived
+  const rank = idea ? RANK[idea.source] : 4;
+  const waiting = (loading?.todos && rank > RANK.todos) || (fitness && loading?.sessions && rank > RANK.fitness) || (loading?.habits && rank > RANK.habits);
+  if (!idea || waiting) return null;
   return { text: bare(idea.text), source: idea.source, caption: idea.label, ...(idea.from ? { carry: idea.from } : {}) };
 };

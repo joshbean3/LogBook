@@ -2,7 +2,7 @@ import type { Aim } from '@logbook/shared';
 import { describe, expect, it } from 'vitest';
 import { hillsOf, inviteWords } from './further';
 import { localGoalIdea, type IdeaInput } from './goalsIdea.local';
-import { eveningNow, todayBand } from './GoalsHero.logic';
+import { eveningNow, listed, todayBand, wallMinutes } from './GoalsHero.logic';
 
 // a Thursday: the week began on Monday Nov 9
 const T = '2026-11-12';
@@ -79,6 +79,58 @@ describe('the suggested goal, through the shared rule', () => {
     expect(localGoalIdea({ ...base, todos: [], fitness: false })?.source).toBe('habits');
     expect(localGoalIdea({ ...base, todos: [], sessions: [{ ...base.sessions[0]!, mark: 'done' }] })?.source).toBe('habits');
     expect(localGoalIdea({ ...base, todos: [], sessions: [{ ...base.sessions[0]!, kind: 'rest' }] })?.source).toBe('habits');
+  });
+});
+
+describe('the suggested goal while the day is still loading', () => {
+  const base: IdeaInput = {
+    goals: [],
+    today: T,
+    todos: [{ text: 'Renew passport' }],
+    sessions: [{ kind: 'cross', type: 'Bike', title: null, miles: null, minutes: 40, mark: null }],
+    habits: [{ name: 'Read' }],
+    fitness: true,
+  };
+
+  it('offers nothing while a source that would win is still loading: the idea never changes under the button', () => {
+    // the to-dos have not arrived: the session must not be offered, then swapped for a to-do
+    expect(localGoalIdea({ ...base, todos: [], loading: { todos: true } })).toBeNull();
+    // the plan has not arrived: the habits must not be offered, then swapped for the session
+    expect(localGoalIdea({ ...base, todos: [], sessions: [], loading: { sessions: true } })).toBeNull();
+    expect(localGoalIdea({ ...base, todos: [], sessions: [], habits: [], loading: { habits: true } })).toBeNull();
+  });
+
+  it('offers at once what nothing still loading can outrank', () => {
+    const y = g('day', '2026-11-11', 'Finish the notes', 'missed');
+    expect(localGoalIdea({ ...base, goals: [y], todos: [], loading: { todos: true, sessions: true, habits: true } })?.source).toBe('yesterday');
+    expect(localGoalIdea({ ...base, loading: { sessions: true, habits: true } })?.source).toBe('todos');
+    expect(localGoalIdea({ ...base, todos: [], loading: { habits: true } })?.source).toBe('fitness');
+  });
+
+  it('does not wait for the plan with Fitness off', () => {
+    expect(localGoalIdea({ ...base, todos: [], sessions: [], fitness: false, loading: { sessions: true } })?.source).toBe('habits');
+  });
+
+  it('offers what is left once a source has failed to load (it is no longer loading)', () => {
+    expect(localGoalIdea({ ...base, todos: [], loading: { todos: false } })?.source).toBe('fitness');
+  });
+});
+
+describe('the day’s to-dos as the poster counts them', () => {
+  it('leaves out a to-do with no words, so the band never reads "Next:" and nothing', () => {
+    const list = listed([{ text: '   ', done: false }, { text: 'Book dentist', done: false }, { text: '\n\t', done: true }]);
+    expect(list).toEqual([{ text: 'Book dentist', done: false }]);
+    expect(todayBand(list, [])).toMatchObject({ label: 'Today · 0 of 1 to-dos done', words: 'Next: Book dentist' });
+    expect(todayBand(listed([{ text: ' ', done: false }]), [])).toEqual({ label: 'Today', words: 'No to-dos yet', total: 0, done: 0 });
+  });
+});
+
+describe('the clock the idea reads', () => {
+  it('is the minutes on the wall since the day began, clamped to the day', () => {
+    const midnight = new Date(`${T}T00:00:00`).getTime();
+    expect(wallMinutes(T, midnight + 10 * 3600e3)).toBe(600);
+    expect(wallMinutes(T, midnight - 5 * 60e3)).toBe(0);
+    expect(wallMinutes(T, midnight + 30 * 3600e3)).toBe(1439);
   });
 });
 

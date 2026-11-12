@@ -3,7 +3,7 @@ import { Bell } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { useNav } from '@/app/NavController';
 import { useBootstrap, useGoals } from '@/api/queries';
-import { useToday } from '@/lib/useToday';
+import { subscribeToday, useToday } from '@/lib/useToday';
 import { dayCaption, NavBar } from '@/ui/NavBar';
 import { Button } from '@/ui/primitives';
 import { Skeleton, SkeletonGroup } from '@/ui/Skeleton';
@@ -108,6 +108,11 @@ export default function GoalsView(): React.JSX.Element {
   const nav = useNav();
   const goals = useGoals();
   const minutes = useNowMinutes();
+  // the date is polled every 30 s and the clock ticks on the minute: at midnight the clock would read 00:00 against
+  // yesterday's date for up to half a minute ("Today’s goal · 24 h left" on a day that is over). Each new minute asks the
+  // date store to look again (subscribing reads the clock at once), so the day turns with the minute that turns it
+  const minute = Math.floor(minutes);
+  useEffect(() => subscribeToday(() => undefined), [minute]);
   const now = new Date(`${today}T00:00:00`).getTime() + minutes * 60e3;
   const list = goals.data ?? [];
   const cur = currentGoals(list, today);
