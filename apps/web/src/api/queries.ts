@@ -5,7 +5,7 @@ import { useMemo } from 'react';
 import { STRAVA_BUILT } from '@/lib/features';
 import { STRAVA_GAP_MS } from '@/lib/gesture';
 import { BadShapeError, parseBootstrap } from './bootstrap';
-import { aimOf as readAim, aimsOf, todosOf } from './shapes';
+import { aimOf as readAim, aimsOf, monthBundleOf, todosOf } from './shapes';
 import { api, ApiError, LONG_TIMEOUT_MS, NetworkError } from './client';
 import { outbox, write } from './outbox';
 import type { Bootstrap, Daily, ExportBundle, MonthBundle, OnboardingAnswers, OnboardingResult, TemplateApplied } from './types';
@@ -43,7 +43,8 @@ export const fetchBootstrap = async (): Promise<Bootstrap> => {
 };
 export const useBootstrap = (opts: { enabled?: boolean } = {}) => useQuery({ queryKey: keys.bootstrap, queryFn: fetchBootstrap, staleTime: 60_000, enabled: opts.enabled ?? true });
 
-export const fetchMonth = (m: string) => api<MonthBundle>(`/months/${m}`);
+// checked on the way in (api/shapes.ts): every tab draws from the months, so one in a bad shape must never reach the cache
+export const fetchMonth = (m: string): Promise<MonthBundle> => api<unknown>(`/months/${m}`).then((raw) => monthBundleOf(raw, m));
 export const useMonth = (m: string) => useQuery({ queryKey: keys.month(m), queryFn: () => fetchMonth(m), staleTime: 30_000 });
 
 const versions = new WeakMap<object, number>();

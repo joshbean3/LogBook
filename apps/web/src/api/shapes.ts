@@ -1,4 +1,6 @@
-import type { Aim, GoalStep, Todo } from '@logbook/shared';
+import type { Activity, Aim, CoachRead, GoalStep, HabitCheck, JournalEntry, LiftSet, Session, Todo } from '@logbook/shared';
+import { BadShapeError } from './bootstrap';
+import type { MonthBundle } from './types';
 
 /**
  * What the app reads from the server and from its saved copy, checked where it comes in (to-dos and goals). A list that
@@ -84,4 +86,51 @@ export const aimsOf = (raw: unknown): Aim[] => {
     if (a) out.push(a);
   }
   return same ? (raw as Aim[]) : out;
+};
+
+// ---------- a month ----------
+const num = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
+const MARKS: readonly unknown[] = ['done', 'floor', 'skip', 'sick'];
+const list = <T>(v: unknown, row: (x: Record<string, unknown>) => T | null): T[] => (Array.isArray(v) ? v.flatMap((x) => (isObj(x) ? (row(x) ?? []) : [])) : []);
+
+const sessionOf = (x: Record<string, unknown>): Session | null =>
+  words(x.id) && isDay(x.date) && words(x.kind)
+    ? ({
+        ...x,
+        position: num(x.position) ? x.position : 0,
+        type: typeof x.type === 'string' ? x.type : null,
+        title: typeof x.title === 'string' ? x.title : null,
+        details: typeof x.details === 'string' ? x.details : null,
+        miles: num(x.miles) ? x.miles : null,
+        minutes: num(x.minutes) ? x.minutes : null,
+        mark: MARKS.includes(x.mark) ? x.mark : null,
+      } as unknown as Session)
+    : null;
+const activityOf = (x: Record<string, unknown>): Activity | null =>
+  words(x.id) && isDay(x.date) && words(x.kind)
+    ? ({ ...x, time: typeof x.time === 'string' ? x.time : null, name: typeof x.name === 'string' ? x.name : '', miles: num(x.miles) ? x.miles : 0, movingSec: num(x.movingSec) ? x.movingSec : 0, elevFt: num(x.elevFt) ? x.elevFt : 0, polyline: typeof x.polyline === 'string' ? x.polyline : null } as unknown as Activity)
+    : null;
+const checkOf = (x: Record<string, unknown>): HabitCheck | null => (words(x.habitId) && isDay(x.date) ? ({ ...x, done: !!x.done, note: typeof x.note === 'string' ? x.note : null } as unknown as HabitCheck) : null);
+const liftOf = (x: Record<string, unknown>): LiftSet | null => (words(x.id) && isDay(x.date) && typeof x.exercise === 'string' ? (x as unknown as LiftSet) : null);
+const entryOf = (x: Record<string, unknown>): JournalEntry | null => (words(x.id) && isDay(x.date) && typeof x.text === 'string' ? ({ ...x, createdAt: typeof x.createdAt === 'string' ? x.createdAt : '' } as unknown as JournalEntry) : null);
+const coachOf = (x: Record<string, unknown>): CoachRead | null => (isDay(x.date) && typeof x.key === 'string' && typeof x.text === 'string' ? (x as unknown as CoachRead) : null);
+
+/**
+ * A month as the app reads it. The whole app draws from the months (every tab builds its snapshot from them), so one that
+ * is not a month is refused like a failed request (the last good copy stays, and a screen with none says "Not loaded"):
+ * shown as an empty month it would look as if the plan were gone. Inside a month, a list that is missing reads as empty,
+ * a row that cannot be read is left out, and a field in a shape the app never wrote takes its plain default.
+ */
+export const monthBundleOf = (raw: unknown, month: string): MonthBundle => {
+  if (!isObj(raw) || !Array.isArray(raw.sessions)) throw new BadShapeError('month');
+  return {
+    month: typeof raw.month === 'string' ? raw.month : month,
+    sessions: list(raw.sessions, sessionOf),
+    checks: list(raw.checks, checkOf),
+    lifts: list(raw.lifts, liftOf),
+    activities: list(raw.activities, activityOf),
+    morningDays: (isObj(raw.morningDays) ? raw.morningDays : {}) as MonthBundle['morningDays'],
+    journal: list(raw.journal, entryOf),
+    coach: list(raw.coach, coachOf),
+  };
 };
