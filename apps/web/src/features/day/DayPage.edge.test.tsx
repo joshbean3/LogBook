@@ -149,6 +149,18 @@ describe('Today’s day page at its edges', () => {
     expect(some).toMatch(/An idea · from your to-dos[\s\S]*Call the bank/);
   }, 60_000);
 
+  it('a month that could not be read says so, with Try again: never a skeleton that stays', async () => {
+    at('2026-11-12T10:00:00');
+    const html = await render((qc) => {
+      // a cold start on a bad connection: the day's month failed and nothing is saved for it
+      qc.removeQueries({ queryKey: ['month', '2026-11'] });
+      // a static render has no mount: the query stays as it failed, as it does on screen once its tries are spent
+      qc.setQueryDefaults(['month'], { retryOnMount: false });
+      qc.getQueryCache().build(qc, { queryKey: ['month', '2026-11'] }).setState({ status: 'error', fetchStatus: 'idle', error: new Error('offline'), errorUpdateCount: 3, fetchFailureCount: 3 });
+    });
+    expect(html).toMatch(/Not loaded[\s\S]*Check your connection\.[\s\S]*Try again/);
+  }, 60_000);
+
   it('goals in a shape the app never wrote do not take the page down', async () => {
     at('2026-11-12T10:00:00');
     const html = await render((qc) => qc.setQueryData(['goals'], [null, { id: 'g0' }, goal(D, null), goal(shiftDays(D, -1), 42), { ...goal(shiftDays(D, -2), 'Older'), steps: 'no' }]));

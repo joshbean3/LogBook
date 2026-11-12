@@ -1,8 +1,8 @@
 import { fmtDate, mondayOf, monthOf, shiftDays, type ISODate } from '@logbook/shared';
-import { ChevronRight, Lock } from 'lucide-react';
+import { ChevronRight, CloudOff, Lock } from 'lucide-react';
 import type * as React from 'react';
 import { lazy, memo, Suspense, useCallback, useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
-import { useGoals, useHabitMutations, useTodos } from '@/api/queries';
+import { useGoals, useHabitMutations, useMonth, useTodos } from '@/api/queries';
 import { STRAVA_BUILT } from '@/lib/features';
 import { todayParts, usePrefs } from '@/lib/prefs';
 import { hideSplash } from '@/lib/native';
@@ -87,6 +87,27 @@ const HeroSkeleton = () => (
     <span className="skel hero-skel-c" />
   </div>
 );
+
+/**
+ * The page before its month is in. While the month is on its way: the skeleton, in the sections' own boxes. When it could
+ * not be read (a cold start on a bad connection, a server that is down) and nothing is saved for it: one row that says so,
+ * with Try again. A skeleton never stays for good: without this the page sat on it until the app was closed.
+ */
+const NotLoaded = ({ date, fitness, habits }: { date: ISODate; fitness: boolean; habits: boolean }) => {
+  const month = useMonth(monthOf(date));
+  if (month.isError && !month.isFetching)
+    return (
+      <section className="day-guard" aria-label="The day">
+        <SectionEmpty icon={<CloudOff size={18} aria-hidden="true" />} title="Not loaded" line="Check your connection." action={{ label: 'Try again', onPress: () => void month.refetch() }} />
+      </section>
+    );
+  return (
+    <>
+      {fitness ? <HeroSkeleton /> : null}
+      {habits ? <section className="habits day-habits is-skel" aria-hidden="true" /> : null}
+    </>
+  );
+};
 
 /**
  * The sentence: the owner's quote, one quiet serif line right under the large "Today" title (DayView puts it there) when
@@ -301,13 +322,12 @@ const DayContent = memo(function DayContent({ date, onMorning }: { date: ISODate
   // yesterday" never offers the day before the one the person is still in
   const now = useFaceMinutes();
   // every section has its own boundary (SectionGuard): one that throws becomes one row, and the rest of Today stays
-  const habits = !parts.includes('habits') ? null : loaded ? (
-    <SectionGuard key="habits" name="Habits" resetKey={date}>
-      <HabitsTop date={date} log={log} />
-    </SectionGuard>
-  ) : (
-    <section key="habits" className="habits day-habits is-skel" aria-hidden="true" />
-  );
+  const habits =
+    parts.includes('habits') && loaded ? (
+      <SectionGuard key="habits" name="Habits" resetKey={date}>
+        <HabitsTop date={date} log={log} />
+      </SectionGuard>
+    ) : null;
   // Plan your day: the slim poster under the training card (no second sun); with Fitness off it leads the page, whole
   const day =
     parts.includes('day') && loaded ? (
@@ -335,9 +355,7 @@ const DayContent = memo(function DayContent({ date, onMorning }: { date: ISODate
       {/* the day's training is the page's centrepiece: first, above the habits (HeroGauge carries the week's miles). With
           Fitness off the slot holds the evening's Close card only, and the day's own sections lead */}
       {!loaded ? (
-        fitness ? (
-          <HeroSkeleton />
-        ) : null
+        <NotLoaded date={date} fitness={fitness} habits={parts.includes('habits')} />
       ) : (
         <SectionGuard name={fitness ? 'Training' : 'Close the day'} resetKey={date}>
           {fitness ? bare ? <FirstRunSlot date={date} log={log} /> : <Hero date={date} log={log} /> : <Hero date={date} log={log} closeOnly />}
