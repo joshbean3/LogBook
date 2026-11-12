@@ -3,6 +3,7 @@ import { counts, fmtDate, LEARNING_MAX, sessionStatus, type Learning } from '@lo
 import { Check } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { useGoals } from '@/api/queries';
+import { fitHeight } from '@/lib/fitHeight';
 import { haptics } from '@/lib/haptics';
 import { revealField, useKeyboardOpen } from '@/lib/keyboard';
 import { Poster, WeekLights } from '@/ui/poster';
@@ -63,10 +64,7 @@ const Entry = ({ today, starter }: { today: string; starter: Starter }) => {
   useEffect(() => {
     const el = ref.current;
     if (!el || !box.current || typeof ResizeObserver === 'undefined') return;
-    const ro = new ResizeObserver(() => {
-      el.style.height = 'auto';
-      el.style.height = `${el.scrollHeight}px`;
-    });
+    const ro = new ResizeObserver(() => void fitHeight(el));
     ro.observe(box.current);
     return () => ro.disconnect();
   }, []);

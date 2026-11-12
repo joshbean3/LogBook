@@ -2,7 +2,8 @@ import type * as React from 'react';
 import { fmtDate, LEARNING_MAX, shiftDays, type Learning } from '@logbook/shared';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useTabScroller } from '@/app/NavController';
-import { revealField } from '@/lib/keyboard';
+import { fitHeight } from '@/lib/fitHeight';
+import { revealField, revealFloor } from '@/lib/keyboard';
 import { Button } from '@/ui/primitives';
 import { Pressable } from '@/ui/Pressable';
 import { useSheet } from '@/ui/Sheet';
@@ -25,12 +26,32 @@ export const useGrow = (ref: React.RefObject<HTMLTextAreaElement | null>, text: 
   useLayoutEffect(() => {
     const el = ref.current;
     if (!el) return;
-    el.style.height = 'auto';
-    el.style.height = `${el.scrollHeight}px`;
+    // measured without moving the page under the keys (lib/fitHeight.ts)
+    fitHeight(el);
     const grew = el.scrollHeight > last.current;
     last.current = el.scrollHeight;
     if (grew && foot?.current && document.activeElement === el) revealField(foot.current);
   }, [ref, text, rows, foot]);
+};
+
+/**
+ * In a sheet the Save foot is pinned over the body's last lines, and the browser only keeps the caret inside the body: as
+ * the words grew, the line being typed went behind Save (and the count under the field with it). While the caret is at
+ * the end of the words, every change puts the field's last line (and the count, once it shows) back above the foot and
+ * the keyboard, at once: a smooth scroll would be cut short by the next key.
+ */
+const useFollowTyping = (ref: React.RefObject<HTMLTextAreaElement | null>, text: string) => {
+  useLayoutEffect(() => {
+    const el = ref.current;
+    const body = el?.closest<HTMLElement>('.sheet-body');
+    if (!el || !body || document.activeElement !== el || el.readOnly || el.selectionEnd < el.value.length - 1) return;
+    const next = el.nextElementSibling;
+    const last = next instanceof HTMLElement && next.classList.contains('ln-limit') ? next : el;
+    const foot = [...body.querySelectorAll<HTMLElement>('.sheet-foot')].find((f) => !f.contains(el) && getComputedStyle(f).position === 'sticky');
+    const kb = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--kb')) || 0;
+    const over = last.getBoundingClientRect().bottom - revealFloor(body.getBoundingClientRect().bottom, window.innerHeight, kb, foot ? foot.getBoundingClientRect().top : null);
+    if (over > 0) body.scrollTop += over;
+  }, [ref, text]);
 };
 
 /** From 900 characters, how many of the 1,000 are used; and a line when a paste was cut to fit. */
@@ -73,6 +94,7 @@ const LearningSheet = ({ item, today, gate, initial, reopen }: { item: Learning;
   const [editing, setEditing] = useState(false);
   const [cut, setCut] = useState(false);
   useGrow(ref, text);
+  useFollowTyping(ref, text);
   const v = text.trim();
   const latest = useRef(v);
   latest.current = v;
@@ -205,6 +227,7 @@ const AddSheet = ({ date, today, initial = '' }: { date: string; today: string; 
   const [text, setText] = useState(initial);
   const [cut, setCut] = useState(false);
   useGrow(ref, text);
+  useFollowTyping(ref, text);
   const v = text.trim();
   /** Save was pressed: a second press while the sheet closes saves nothing more. */
   const sent = useRef(false);

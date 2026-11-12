@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from 'vitest';
 vi.mock('@/api/client', () => ({ api: vi.fn() }));
 vi.mock('@/api/outbox', () => ({ write: vi.fn() }));
 
-import { plainLine, writtenByAi } from './recall';
+import { plainLine, recallItemOf, writtenByAi } from './recall';
 
 const item = (over: Partial<RecallItem & { ai?: boolean }> = {}): RecallItem & { ai?: boolean } => ({
   kind: 'journal',
@@ -42,5 +42,24 @@ describe('Remember when: the plain line and the AI mark', () => {
     // the server's own word wins
     expect(writtenByAi(item({ ai: true }), TODAY)).toBe(true);
     expect(writtenByAi(item({ ai: false, summary: 'Sam, on Mar 30 you logged easy miles.' }), TODAY)).toBe(false);
+  });
+});
+
+/** The card reads `item.date`, `item.summary` and `item.excerpt` without asking: an item in another shape must not reach it. */
+describe('Remember when: what an answer is read as', () => {
+  it('keeps a whole item, with safe defaults for what an older server leaves out', () => {
+    expect(recallItemOf(item())).toEqual(item());
+    expect(recallItemOf({ kind: 'learning', id: 'l1', date: '2024-02-29', summary: 'On Feb 29, 2024 you learned: “x”' })).toEqual({ kind: 'learning', id: 'l1', date: '2024-02-29', excerpt: '', summary: 'On Feb 29, 2024 you learned: “x”', boosted: false });
+    expect(recallItemOf(item({ ai: true }))?.ai).toBe(true);
+  });
+
+  it('shows no card for anything that is not an item', () => {
+    const bad: unknown[] = [null, undefined, 'x', 3, [], {}, { ...item(), kind: 'quote' }, { ...item(), id: 7 }, { ...item(), date: 'Feb 30' }, { ...item(), date: null }, { ...item(), summary: undefined, excerpt: undefined }];
+    for (const v of bad) expect(recallItemOf(v)).toBeNull();
+    // no summary but an excerpt: the plain line can still be made
+    const it = recallItemOf({ ...item(), summary: null });
+    expect(it && plainLine(it, TODAY)).toBe('On Mar 30 you wrote: “Easy miles and a quiet evening.”');
+    expect(it && writtenByAi(it, TODAY)).toBe(false);
+    expect(recallItemOf({ ...item({ date: '2024-02-29' }), summary: '' })).toMatchObject({ ai: false, summary: 'Easy miles and a quiet evening. Legs felt fine after Sunday.' });
   });
 });

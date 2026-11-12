@@ -1,4 +1,4 @@
-import { recallDay, type RecallItem, type RecallKind, type RecallState } from '@logbook/shared';
+import { isISODate, recallDay, type RecallItem, type RecallKind, type RecallState } from '@logbook/shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, LONG_TIMEOUT_MS } from '@/api/client';
 import { write } from '@/api/outbox';
@@ -8,6 +8,23 @@ import { write } from '@/api/outbox';
  * day (GET /journal/recall), so every open shows the same one and Claude writes each summary once.
  */
 export const recallKey = (date: string) => ['recall', date] as const;
+
+/**
+ * Today's item as far as it can be drawn: a kind, an id, a real day, and words to show (the reminder, or the excerpt the
+ * plain line is made from). Null for anything else, from the server or from the copy kept on the device: the card reads
+ * these fields without asking, and nothing to remember is no card, never a broken page.
+ */
+export const recallItemOf = (v: unknown): (RecallItem & { ai?: boolean }) | null => {
+  if (!v || typeof v !== 'object' || Array.isArray(v)) return null;
+  const o = v as Record<string, unknown>;
+  if ((o.kind !== 'journal' && o.kind !== 'learning') || typeof o.id !== 'string' || !o.id || !isISODate(o.date)) return null;
+  const excerpt = typeof o.excerpt === 'string' ? o.excerpt : '';
+  const summary = typeof o.summary === 'string' ? o.summary : '';
+  if (!excerpt && !summary) return null;
+  // no reminder came with it: the entry's own words stand in, and they are nobody's writing but the person's
+  const ai = summary ? o.ai : false;
+  return { kind: o.kind, id: o.id, date: o.date, excerpt, summary: summary || excerpt, ...(typeof ai === 'boolean' ? { ai } : {}), boosted: o.boosted === true };
+};
 
 /* Both calls can wait on the assistant writing the summary, so they get the long limit, not the default 20 s. */
 
