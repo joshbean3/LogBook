@@ -31,6 +31,17 @@ describe('deep links', () => {
     expect(deepLinkPath(url)).toBeNull();
   });
 
+  it('a malformed link never throws and never yields a path with a doubled slash', () => {
+    for (const url of ['logbook://today/%', 'logbook://learned/%E0%A4%A', 'logbook:////today', 'logbook://today//2026-11-10///morning', 'logbook://', 'logbook:', 'logbook:///', 'logbook://today/\u202E', `logbook://${'a'.repeat(5000)}`]) {
+      let path: string | null = 'unset';
+      expect(() => (path = deepLinkPath(url))).not.toThrow();
+      if (path !== null) expect(path).toMatch(/^\/(?!\/)[^?]*$/);
+      if (path !== null) expect(String(path).includes('//')).toBe(false);
+    }
+    expect(deepLinkPath('logbook:////today')).toBe('/today');
+    expect(deepLinkPath('logbook://today/%')).toBe('/today');
+  });
+
   it('drops the query string (a release build has no account connection to return from)', () => {
     expect(deepLinkPath('logbook://settings?strava=connected')).toBe('/settings');
     expect(deepLinkPath('logbook://goals?x=1#y')).toBe('/goals');

@@ -33,9 +33,12 @@ export const Shell = ({ pages, pushed }: { pages: Record<TabId, ReactNode>; push
   const st = useNavState();
   // with Fitness off its tab is not mounted and not drawn; the five that remain share the capsule evenly
   const tabs = shownTabs(useFitness());
+  // the tab on screen is always one the capsule draws: should the state ever name one that is not shown (Fitness, the
+  // moment it is switched off; NavController.fitnessOff then moves the state itself), Today stands in, never a blank page
+  const active: TabId = tabs.some((t) => t.id === st.active) ? st.active : 'today';
   // a tab root mounts on its first activation or in idle after the first content paint, then stays mounted
   const mounted = useRef(new Set<TabId>());
-  mounted.current.add(st.active);
+  mounted.current.add(active);
   const [, mountAll] = useReducer((n: number) => n + 1, 0);
   useEffect(() => {
     let idle = 0;
@@ -57,34 +60,34 @@ export const Shell = ({ pages, pushed }: { pages: Record<TabId, ReactNode>; push
   // The tab being left stays painted (under the new one, which is on top while active) for the cut's frame and takes
   // visibility: hidden + inert in the task after that frame: both are inherited, so each costs a style recalc of the whole
   // subtree, and the cut's frame then pays only for the tab it shows (§9.1 budget; nothing on screen differs).
-  const prevActive = useRef(st.active);
+  const prevActive = useRef(active);
   const [leaving, setLeaving] = useState<TabId | null>(null);
-  if (prevActive.current !== st.active) {
+  if (prevActive.current !== active) {
     setLeaving(prevActive.current);
-    prevActive.current = st.active;
+    prevActive.current = active;
   }
   useEffect(() => {
     if (!leaving) return;
     let to = 0;
     const raf = requestAnimationFrame(() => (to = window.setTimeout(() => {
-      tabEl(st.active)?.removeAttribute('data-preparing');
+      tabEl(active)?.removeAttribute('data-preparing');
       setLeaving(null);
     }, 0)));
     return () => {
       cancelAnimationFrame(raf);
       clearTimeout(to);
     };
-  }, [leaving, st.active]);
+  }, [leaving, active]);
   return (
     <div className="shell">
       <CelebrateLayer />
       <div className="tabs-host">
         {tabs.map((t) => (
-          <TabSection key={t.id} ctl={ctl} tab={t.id} state={st.tabs[t.id]} active={st.active === t.id} leaving={leaving === t.id && st.active !== t.id} mounted={mounted.current.has(t.id)} page={pages[t.id]} pushed={pushed} />
+          <TabSection key={t.id} ctl={ctl} tab={t.id} state={st.tabs[t.id]} active={active === t.id} leaving={leaving === t.id && active !== t.id} mounted={mounted.current.has(t.id)} page={pages[t.id]} pushed={pushed} />
         ))}
       </div>
       <Dock today={st.tabs.today.path}>
-        <TabBar ctl={ctl} active={st.active} tabs={tabs} />
+        <TabBar ctl={ctl} active={active} tabs={tabs} />
       </Dock>
       <StatusPill />
     </div>

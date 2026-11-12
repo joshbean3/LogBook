@@ -159,11 +159,24 @@ const VALID: Record<string, (v: string) => boolean> = {
 const INVALID_TO: Record<string, string> = { '/learned': '/learned', '/today': '/today', '/settings': '/settings', '/plan': '/plan', '/morning': '/today', '/progress': '/progress', '/journal': '/journal', '/reads': '/settings' };
 
 // ---------- the matcher ----------
+/**
+ * A URL's path as the table reads it: no query, one leading slash, no trailing one, and no doubled slash anywhere. A path
+ * that begins `//` would be read by the browser as another site's address (history refuses it, and the whole app fell
+ * over); anything that is not text is the root.
+ */
 const clean = (path: string) => {
-  let p = path.split(/[?#]/)[0] || '/';
-  if (!p.startsWith('/')) p = `/${p}`;
+  let p = (typeof path === 'string' ? path : '').split(/[?#]/)[0] || '/';
+  p = `/${p}`.replace(/\/{2,}/g, '/');
   if (p.length > 1) p = p.replace(/\/+$/, '');
   return p;
+};
+/** A path segment as written; one that is not valid percent-encoding is kept as it is (it then fails its param's check). */
+const decode = (seg: string) => {
+  try {
+    return decodeURIComponent(seg);
+  } catch {
+    return seg;
+  }
 };
 /** Match one pattern: null, or its params (an unmatched optional param is absent). Never validates. */
 const matchPattern = (pattern: string, path: string): Record<string, string> | null => {
@@ -182,7 +195,7 @@ const matchPattern = (pattern: string, path: string): Record<string, string> | n
         if (opt) continue;
         return null;
       }
-      out[name] = decodeURIComponent(x);
+      out[name] = decode(x);
       continue;
     }
     if (x !== p) return null;

@@ -141,3 +141,30 @@ describe('bad route parameters fall back to the tab (shell-23)', () => {
     expect(matchRoute('/journal/reads/nope')).toMatchObject({ kind: 'redirect', redirect: '/journal' });
   });
 });
+
+/** Edge cases: a URL from anywhere (a link, a typed address, a saved place) never throws and never names another site. */
+describe('a malformed URL', () => {
+  it('a doubled slash is one slash: the path can never be read as another site’s address', () => {
+    expect(matchRoute('//today')).toMatchObject({ kind: 'root', tab: 'today', root: '/today' });
+    expect(resolveRoute('///today//2026-10-24/').path).toBe('/today/2026-10-24');
+    expect(resolveRoute('//evil.example/plan').path).toBe('/today');
+    for (const p of ['//', '///', '//today', '/settings//training', '//settings///reads//read']) expect(resolveRoute(p).path.includes('//')).toBe(false);
+  });
+  it('bad percent-encoding does not throw: it fails its param’s check and goes to the tab', () => {
+    expect(() => matchRoute('/today/%')).not.toThrow();
+    expect(resolveRoute('/today/%').path).toBe('/today');
+    expect(resolveRoute('/today/%E0%A4%A').path).toBe('/today');
+    expect(resolveRoute('/learned/%ZZ').path).toBe('/learned');
+    expect(resolveRoute('/progress/metric/%').path).toBe('/progress');
+  });
+  it('nothing, a query alone, a fragment alone and a value that is not text all resolve to a page', () => {
+    for (const p of ['', '?', '#', '?x=1#y', ' ', '/%20', '/\u202Etoday', '/' + 'a'.repeat(5000)]) expect(['root', 'pushed']).toContain(resolveRoute(p).kind);
+    for (const p of [undefined, null, 5, {}, []]) expect(resolveRoute(p as unknown as string).path).toBe('/today');
+  });
+  it('every route resolves, with Fitness on and off, in at most a few hops', () => {
+    for (const r of ROUTES) {
+      const path = r.pattern.replace(':date?', '').replace(':date', '2026-10-24').replace(':mon', '2026-10-26').replace(':month', '2026-11-01').replace(':section', 'app').replace(':id', 'sleep').replace(':tab?', '').replace('/*', '').replace('*', 'nope');
+      expect(['root', 'pushed', 'full']).toContain(resolveRoute(path).kind);
+    }
+  });
+});
