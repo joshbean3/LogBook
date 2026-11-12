@@ -9,14 +9,14 @@ import { useLearningStats } from './queries';
 
 /**
  * Today's way into What I learned (a Today section, lib/prefs.ts): one row that asks the day's question and opens the
- * Learned tab, where the answer is written. Once today has one it says so. Built from the list row every screen uses; the
- * Learned page's own prompt card is not copied here.
+ * Learned tab, where the line is written. Its second line is the poster's own ("One line is enough"; once today has its
+ * line, "Tonight's line is kept"). Built from the list row every screen uses; the Learned poster is not copied here.
  */
 export const LearnedPrompt = ({ today }: { today: ISODate }): React.JSX.Element => {
   const nav = useNav();
   const stats = useLearningStats();
   const wrote = (stats.data?.recent ?? []).includes(today);
-  const sub = wrote ? 'Saved today. Add another.' : 'Write one thing down';
+  const sub = wrote ? 'Tonight’s line is kept' : 'One line is enough';
   return (
     <section className="day-learned" aria-label="What I learned">
       <SectionHeader title="What I learned" />

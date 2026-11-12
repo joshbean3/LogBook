@@ -52,3 +52,28 @@ describe('the Learned field', () => {
     expect(send).not.toHaveBeenCalled();
   });
 });
+
+describe('an untouched draft', () => {
+  it('is untouched until the person changes it, and clearing the field counts as a change', () => {
+    const draft = createDraft();
+    expect(draft.touched()).toBe(false);
+    draft.set('');
+    expect(draft.touched()).toBe(true);
+    expect(draft.get()).toBe('');
+  });
+
+  it('is untouched again after a save, and touched when a rejected save gives the words back', async () => {
+    const draft = createDraft();
+    draft.set('On the bike today I learned to start slow.');
+    submitDraft(draft, () => Promise.reject(new Error('500')), () => undefined);
+    expect(draft.touched()).toBe(false);
+    await settle();
+    expect(draft.touched()).toBe(true);
+    expect(draft.get()).toBe('On the bike today I learned to start slow.');
+    let told = 0;
+    draft.subscribe(() => told++);
+    draft.reset();
+    draft.reset();
+    expect(told).toBe(1);
+  });
+});

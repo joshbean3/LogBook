@@ -87,7 +87,7 @@ export default function LearnedMonth(): React.JSX.Element {
           <p className="k-foot">{name} has not started yet.</p>
         </section>
       ) : (
-        <PageSection title="By day" meta={count ? `${plural(count, 'thing')} on ${plural(dayCount, 'day')}` : current ? 'Nothing kept yet' : 'Nothing kept'} first>
+        <PageSection title="By day" meta={count ? `${plural(count, 'line')} on ${plural(dayCount, 'day')}` : current ? 'Nothing kept yet' : 'Nothing kept'} first>
           {days.length ? (
             <ol className="group ln-mdays">
               {days.map((d) =>
