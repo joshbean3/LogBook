@@ -32,14 +32,46 @@
 .pl-pane.is-off {
   visibility: hidden;
 }
-/* each page carries the gutter and the page's bottom padding (inside the cur page, so its min-height includes it) */
+/* each page carries the gutter. A page is as tall as what it holds (`dp-intrinsic`): the lower half of Fitness sits right
+   under it. Its last card's shadow needs room inside the pager, which clips to its own height while it moves (below): the
+   12 here is that room, taken back from the section gap under it */
 .pl-wpage,
 .pl-mpage {
-  padding: 0 var(--gutter) calc(var(--sp-6) + max(var(--chrome-h) + var(--safe-b), var(--kb)));
+  padding: 0 var(--gutter) var(--sp-3);
   min-width: 0;
 }
+/* the shell gives every paged root the end-of-scroll padding (app/shell.css, by these class names): on Fitness the
+   scroll ends under the pagers now, so the pages give it up and .pl-below takes it */
+.tab-scroll .plan-root :is(.pl-wpage, .pl-mpage) {
+  padding-bottom: var(--sp-3);
+}
+/* while a pager moves its height follows the swipe (PlanView `fitPager`): the page coming in shows its whole height, not
+   the height of the page being left, and the pager clips both to the height written on it */
+.plan-root .dp[data-fit] {
+  overflow: clip;
+}
+.plan-root .dp[data-fit] > .dp-track > .dp-page[data-role='prev'],
+.plan-root .dp[data-fit] > .dp-track > .dp-page[data-role='next'] {
+  height: auto;
+  overflow: visible;
+}
+
+/* ---------- under the pagers, on the page itself: Progress, Trends, the plan row. The page's gutter and its bottom
+   end-of-scroll padding (the shell's --scroll-pad-b: clear of the dock and its fade) are here now ---------- */
+.pl-below {
+  padding: 0 var(--gutter) var(--scroll-pad-b);
+  min-width: 0;
+}
+/* the first section under the week: 32 from the week's last card (12 of it is the page's own foot, above) */
+.pl-below > .lb-sec:first-child {
+  margin-top: calc(var(--section) - var(--sp-3));
+}
+/* the plan row: a section's distance under Trends, so it reads as its own thing and not as one more tile */
+.pl-below > .pt-plan-wrap {
+  margin-top: var(--section);
+}
 .pl-note {
-  padding: 0 var(--gutter) var(--sp-6);
+  padding: var(--sp-6) 0 0;
 }
 
 /* ---------- the page's rhythm: the bar's gap, then the week (its card, the line of days 12 under it), the plan row ---------- */

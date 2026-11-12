@@ -145,40 +145,40 @@ describe('a running bucket while it is read', () => {
   });
 });
 
-describe('strength', () => {
+describe('workouts', () => {
   const PLAN_L = { '2026-11-03': 1, '2026-11-10': 1, '2026-11-12': 1 };
   const DID: Record<string, [number, number, number]> = { '2026-10-20': [1, 9, 8800], '2026-10-22': [1, 9, 9100], '2026-10-27': [1, 0, 0], '2026-11-10': [1, 9, 9270] };
 
   it('reads this week against its plan in 1W, with what it was made of', () => {
     const week = lift('3M', PLAN_L, DID).buckets.at(-1)!;
-    expect(liftRest(rangeSpan('1W', T), [], week, T, true)).toEqual({ big: '1', context: 'of 2 sessions this week', take: '9 sets, 9,270 lb moved' });
+    expect(liftRest(rangeSpan('1W', T), [], week, T, true)).toEqual({ big: '1', context: 'of 2 workouts this week', take: '9 sets, 9,270 lb moved' });
     const bare = lift('3M', {}, { '2026-11-10': [1, 0, 0] }).buckets.at(-1)!;
-    expect(liftRest(rangeSpan('1W', T), [], bare, T, true)).toEqual({ big: '1', context: 'session this week', take: 'No sets yet' });
+    expect(liftRest(rangeSpan('1W', T), [], bare, T, true)).toEqual({ big: '1', context: 'workout this week', take: 'No sets yet' });
     const body = lift('3M', {}, { '2026-11-10': [1, 4, 0] }).buckets.at(-1)!;
     expect(liftRest(rangeSpan('1W', T), [], body, T, true).take).toBe('4 sets');
   });
 
-  it('reads the range in a long view: its sessions and the usual week', () => {
+  it('reads the range in a long view: its workouts and the usual week', () => {
     const { span, buckets } = lift('3M', PLAN_L, DID);
     // 3 sessions over the 3 finished weeks since the first lift (Oct 19, Oct 26 and Nov 2)
-    expect(liftRest(span, buckets, buckets.at(-1)!, T, false)).toEqual({ big: '4', context: 'sessions in 3 months', take: '1 a week on average' });
+    expect(liftRest(span, buckets, buckets.at(-1)!, T, false)).toEqual({ big: '4', context: 'workouts in 3 months', take: '1 a week on average' });
     const one = lift('1M', {}, { '2026-11-10': [1, 9, 9270] });
-    expect(liftRest(one.span, one.buckets, one.buckets.at(-1)!, T, false)).toEqual({ big: '1', context: 'session since Oct 12', take: '9 sets · 9,270 lb' });
+    expect(liftRest(one.span, one.buckets, one.buckets.at(-1)!, T, false)).toEqual({ big: '1', context: 'workout since Oct 12', take: '9 sets · 9,270 lb' });
     const none = lift('1M', {}, {});
-    expect(liftRest(none.span, none.buckets, none.buckets.at(-1)!, T, false).take).toBe('No lifts in this range');
+    expect(liftRest(none.span, none.buckets, none.buckets.at(-1)!, T, false).take).toBe('No workouts in this range');
   });
 
-  it('says a bucket while it is read: sessions, days, sets and pounds', () => {
+  it('says a bucket while it is read: workouts, days, sets and pounds', () => {
     const { span, buckets } = lift('3M', PLAN_L, DID);
-    expect(liftAt(span.unit, buckets.at(-4)!, T)).toEqual({ big: '2', context: 'sessions', take: 'Oct 19 to 25 · 18 sets · 17.9K lb' });
-    expect(liftAt(span.unit, buckets.at(-3)!, T)).toEqual({ big: '1', context: 'session', take: 'Oct 26 to Nov 1 · No sets logged' });
-    expect(liftAt(span.unit, buckets.at(-2)!, T)).toEqual({ big: '0', context: 'sessions', take: 'Nov 2 to 8 · No lifts' });
-    expect(liftAt(span.unit, buckets.at(-1)!, T)).toEqual({ big: '1', context: 'session so far', take: 'This week · 9 sets · 9,270 lb · 1 to go' });
-    expect(liftWords(span.unit, buckets.at(-1)!, T)).toBe('This week: 1 lift session, 9 sets, 1 still planned');
+    expect(liftAt(span.unit, buckets.at(-4)!, T)).toEqual({ big: '2', context: 'workouts', take: 'Oct 19 to 25 · 18 sets · 17.9K lb' });
+    expect(liftAt(span.unit, buckets.at(-3)!, T)).toEqual({ big: '1', context: 'workout', take: 'Oct 26 to Nov 1 · No sets logged' });
+    expect(liftAt(span.unit, buckets.at(-2)!, T)).toEqual({ big: '0', context: 'workouts', take: 'Nov 2 to 8 · No workouts' });
+    expect(liftAt(span.unit, buckets.at(-1)!, T)).toEqual({ big: '1', context: 'workout so far', take: 'This week · 9 sets · 9,270 lb · 1 to go' });
+    expect(liftWords(span.unit, buckets.at(-1)!, T)).toBe('This week: 1 workout, 9 sets, 1 still planned');
     const days = lift('1W', PLAN_L, DID);
-    expect(liftAt(days.span.unit, days.buckets[3]!, T)).toEqual({ big: '1', context: 'session planned', take: 'Thu, Nov 12' });
-    expect(liftWords(days.span.unit, days.buckets[3]!, T)).toBe('Thu, Nov 12: 1 lift session planned');
-    expect(liftAt(days.span.unit, days.buckets[5]!, T)).toEqual({ big: '0', context: 'sessions', take: 'Sat, Nov 14 · Nothing planned' });
+    expect(liftAt(days.span.unit, days.buckets[3]!, T)).toEqual({ big: '1', context: 'workout planned', take: 'Thu, Nov 12' });
+    expect(liftWords(days.span.unit, days.buckets[3]!, T)).toBe('Thu, Nov 12: 1 workout planned');
+    expect(liftAt(days.span.unit, days.buckets[5]!, T)).toEqual({ big: '0', context: 'workouts', take: 'Sat, Nov 14 · Nothing planned' });
   });
 });
 

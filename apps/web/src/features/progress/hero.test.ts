@@ -2,7 +2,7 @@ import { shiftDays, type Activity, type LiftSet, type Session } from '@logbook/s
 import { describe, expect, it } from 'vitest';
 import { buildSnapshot } from '@/api/snapshot';
 import type { MonthBundle } from '@/api/types';
-import { chartKeyOf, liftLog, liftRange, readingOn, runRange } from './hero';
+import { chartEmpty, chartKeyOf, chartMode, liftLog, liftRange, readingOn, runRange, todayView } from './hero';
 
 const run = (date: string, miles: number): Activity => ({ id: `a-${date}`, date, time: null, name: 'Run', sportType: 'Run', kind: 'run', miles, movingSec: miles * 480, elevFt: 0, avgHr: 150, maxHr: null, cadence: null, laps: null, perfAt: null, polyline: null });
 const sess = (date: string, extra: Partial<Session> = {}): Session => ({ id: `s-${date}-${extra.kind ?? 'run'}`, date, position: 0, kind: 'run', type: 'Easy', title: null, details: null, miles: 5, minutes: null, blockId: null, movedFrom: null, mark: null, ...extra });
@@ -117,5 +117,96 @@ describe('a reading belongs to the chart it was made on', () => {
     expect(readingOn({ chart: m3, i: 5 }, chartKeyOf('lift', { range: '3M', unit: 'week', from: '2026-08-17' }))).toBeNull();
     expect(readingOn({ chart: m3, i: 5 }, chartKeyOf('run', { range: '3M', unit: 'week', from: '2026-08-24' }))).toBeNull();
     expect(m3).not.toBe(all);
+  });
+});
+
+describe('workouts are lift and cross sessions, as the training card counts them', () => {
+  const lift = (d: string, extra: Partial<Session> = {}) => sess(d, { kind: 'lift', type: null, miles: null, title: 'Strength A', ...extra });
+  const bike = (d: string, extra: Partial<Session> = {}) => sess(d, { kind: 'cross', type: null, miles: null, title: 'Bike 40', minutes: 40, ...extra });
+  const act = (date: string, kind: 'lift' | 'cross', name: string): Activity => ({ ...run(date, 0), id: `x-${date}-${kind}`, kind, name, sportType: kind === 'cross' ? 'Ride' : 'WeightTraining', movingSec: 1800 });
+
+  it('counts a cross session on the chart: the card says "Workouts this week, 0 of 3" and so does the chart', () => {
+    // this week: a lift (missed), a bike marked done, a bike still ahead; a skipped one is left out
+    const snap = snapOf(T, [], [lift('2026-11-09'), bike('2026-11-10', { mark: 'done' }), bike('2026-11-13'), bike('2026-11-14', { mark: 'skip' })]);
+    const week = liftRange(snap, T, '3M', null).buckets.at(-1)!;
+    expect(week).toMatchObject({ planned: 3, done: 1, ahead: 1 });
+    expect(liftRange(snap, T, '1W', null).buckets.map((b) => [b.done, b.ahead])).toEqual([[0, 0], [1, 0], [0, 0], [0, 0], [0, 1], [0, 0], [0, 0]]);
+  });
+
+  it('counts a synced ride with nothing on the plan as a workout done that day', () => {
+    const snap = snapOf(T, [act('2026-11-10', 'cross', 'Evening Ride')], []);
+    expect(liftRange(snap, T, '3M', null).buckets.at(-1)).toMatchObject({ planned: 0, done: 1, sets: 0 });
+  });
+
+  it('lists cross sessions with the lifts, and keeps the day’s sets with its lift', () => {
+    const sq = (date: string, n: number): LiftSet => ({ id: `l-${date}-${n}`, date, exercise: 'Squat', weight: 100, reps: 5 }) as LiftSet;
+    const snap = snapOf(
+      T,
+      [act('2026-11-04', 'cross', 'Evening Ride')],
+      [bike('2026-11-13'), bike('2026-11-10', { mark: 'done', position: 0 }), lift('2026-11-10', { position: 1 }), bike('2026-11-09', { mark: 'done' })],
+      [sq('2026-11-10', 1), sq('2026-11-10', 2), sq('2026-11-09', 1)],
+    );
+    expect(liftLog(snap, T, '2026-11-02').map((x) => [x.date, x.status, x.summary])).toEqual([
+      ['2026-11-13', 'planned', 'Bike 40 · 40 min'],
+      ['2026-11-10', 'done', 'Bike 40 · Marked done'],
+      // the sets are the lift's, though it is the day's second session
+      ['2026-11-10', 'done', 'Strength A · Squat · 2 sets · 1,000 lb'],
+      ['2026-11-09', 'done', 'Bike 40 · Marked done'],
+      // sets on a day whose only session is a ride: a row of their own, as before
+      ['2026-11-09', 'done', 'Lifted · Squat · 1 set · 500 lb'],
+      // a ride synced with nothing on the plan: its own name
+      ['2026-11-04', 'done', 'Evening Ride · 30 min'],
+    ]);
+  });
+});
+
+describe('the one switch: which chart Fitness shows (chartMode)', () => {
+  const both = { run: true, lift: true };
+  it('shows the pick made today, on the chart or on any training card', () => {
+    expect(chartMode({ picked: 'workouts', today: 'runs', has: both })).toEqual({ mode: 'lift', switchable: true });
+    expect(chartMode({ picked: 'runs', today: 'workouts', has: both })).toEqual({ mode: 'run', switchable: true });
+  });
+  it('with no pick, opens on what today’s card is about; on a rest day, on runs', () => {
+    expect(chartMode({ picked: null, today: 'workouts', has: both }).mode).toBe('lift');
+    expect(chartMode({ picked: null, today: 'runs', has: both }).mode).toBe('run');
+    expect(chartMode({ picked: null, today: null, has: both }).mode).toBe('run');
+  });
+  it('never shows a chart of nothing: a mode with nothing in it is not offered, whatever was picked', () => {
+    expect(chartMode({ picked: 'workouts', today: 'workouts', has: { run: true, lift: false } })).toEqual({ mode: 'run', switchable: false });
+    expect(chartMode({ picked: 'runs', today: null, has: { run: false, lift: true } })).toEqual({ mode: 'lift', switchable: false });
+    // someone who only lifts opens on Workouts on a rest day too, with no switch
+    expect(chartMode({ picked: null, today: null, has: { run: false, lift: true } })).toEqual({ mode: 'lift', switchable: false });
+    expect(chartMode({ picked: null, today: null, has: { run: false, lift: false } })).toEqual({ mode: 'run', switchable: false });
+  });
+  it('while months are still loading, keeps what was asked for instead of flipping away and back', () => {
+    expect(chartMode({ picked: 'workouts', today: null, has: { run: true, lift: false }, settled: false }).mode).toBe('lift');
+    expect(chartMode({ picked: null, today: 'workouts', has: { run: false, lift: false }, settled: false }).mode).toBe('lift');
+    expect(chartMode({ picked: null, today: null, has: { run: true, lift: false }, settled: false }).mode).toBe('run');
+  });
+
+  it('reads today’s own view as the card does: a run first, then a lift or a cross session, else neither', () => {
+    const lift = (d: string, extra: Partial<Session> = {}) => sess(d, { kind: 'lift', type: null, miles: null, ...extra });
+    expect(todayView(snapOf(T, [], [sess(T), lift(T)]), T)).toBe('runs');
+    expect(todayView(snapOf(T, [], [lift(T)]), T)).toBe('workouts');
+    expect(todayView(snapOf(T, [], [sess(T, { kind: 'cross', miles: null })]), T)).toBe('workouts');
+    // a skipped run is not what the day is about; a rest day and an empty day are neither
+    expect(todayView(snapOf(T, [], [sess(T, { mark: 'skip' }), lift(T)]), T)).toBe('workouts');
+    expect(todayView(snapOf(T, [], [sess(T, { kind: 'rest', miles: null })]), T)).toBeNull();
+    expect(todayView(snapOf(T, [], []), T)).toBeNull();
+    // a run done off the plan
+    expect(todayView(snapOf(T, [run(T, 3)], []), T)).toBe('runs');
+  });
+});
+
+describe('Progress with no history (chartEmpty)', () => {
+  it('is one quiet row that says what will draw here, never an empty frame', () => {
+    expect(chartEmpty(false)).toEqual({ title: 'Your weeks draw here', line: 'After your first run or workout.', connect: false });
+  });
+  it('offers the way to connect a source only where one is on offer', () => {
+    expect(chartEmpty(true).connect).toBe(true);
+  });
+  it('is plain copy: no dash, nothing that reads as not set', () => {
+    const e = chartEmpty(false);
+    expect(`${e.title} ${e.line}`).not.toMatch(/[\u2014\u2013]|not set|no data|none/i);
   });
 });

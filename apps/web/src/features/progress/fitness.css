@@ -1,0 +1,31 @@
+/* ---------- Fitness, the lower half (FitnessProgress.tsx; guide 6.5a "Fitness"): Progress, then Trends. Two sections on
+   the page, 32 above each title and 12 under it (the layout kit's PageSection), in the page's 16 gutter ---------- */
+
+/* ---------- the chart as a plain card (HeroChart `lead={false}`): the training card is this page's hero, so the chart has
+   no glow, a card's 16 padding and radius, and its headline at the value size (layout standard 6.4: --fs-stat-live in a
+   hero, --fs-value elsewhere). Everything else in the card is the chart as it was ---------- */
+.card.ph.ph-plain .ph-big {
+  font: 650 var(--fs-value) / var(--lh-value) var(--sans);
+  letter-spacing: var(--tr-value);
+  font-variant-numeric: tabular-nums;
+}
+/* the range control: 12 in from the card's edges, as in the hero (4 past this card's 16 padding) */
+.card.ph.ph-plain .ph-range {
+  margin-inline: calc(var(--sp-3) - var(--pad-card));
+}
+/* one kind of training only: no switch, so the headline is the card's first line */
+.card.ph.no-seg .ph-head,
+.card.ph.no-seg .skel-group.ph-wait {
+  margin-top: 0;
+}
+
+/* ---------- Trends: the tiles that have something to show. An odd count never leaves a tile beside a hole: the first
+   tile takes the row (the week's miles over pace and lifts; the night's sleep over the two heart numbers) ---------- */
+.fp-tiles > :first-child:nth-last-child(odd) {
+  grid-column: 1 / -1;
+}
+/* the body's numbers: one group, a card's gap under the trend tiles */
+.pg-tiles + .fp-body,
+.pg-empty + .fp-body {
+  margin-top: var(--gap);
+}

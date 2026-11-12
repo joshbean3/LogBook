@@ -3,40 +3,19 @@ import { mondayOf } from '@logbook/shared';
 import { useNav } from '@/app/NavController';
 import { haptics } from '@/lib/haptics';
 import { STRAVA_BUILT } from '@/lib/features';
-import { Button, EmptyState, Segmented, Skeleton, SkeletonGroup } from '@/ui';
+import { Button, EmptyState, SectionEmpty, Segmented, Skeleton, SkeletonGroup } from '@/ui';
 import { RangeControl } from '@/ui/charts';
+import { ProgressIcon } from '@/ui/icons';
 import { usePageShown } from '@/ui/nowBudget';
+import { setHeroView, useHeroView } from '../day/heroView';
 import type { Log } from '../log/useLog';
-import { chartKeyOf, HERO_MODES, liftRange, readingOn, runRange, type HeroMode, type LiftView, type Reading, type RunView } from './hero';
+import { chartEmpty, chartKeyOf, chartMode, liftRange, MODE_WORD, readingOn, runRange, todayView, VIEW_OF, type HeroMode, type LiftView, type Reading, type RunView } from './hero';
 import { LiftList } from './LiftList';
 import { RangeBars, type BarMark } from './RangeBars';
 import { firstShown, PROGRESS_RANGES, RANGE_WORDS, UNIT_WORD, type ProgressRange } from './ranges';
 import { liftAt, liftRest, liftWords, readoutWords, runAt, runRest, runWords, type Readout } from './readout';
 import { useOpenWeek } from './sheets';
 import './hero.css';
-
-// ---------- the chosen chart: a per-viewer convenience, remembered on this device ----------
-const MODE_KEY = 'logbook.progress.hero';
-const readMode = (): HeroMode => {
-  try {
-    const v = localStorage.getItem(MODE_KEY);
-    return HERO_MODES.includes(v as HeroMode) ? (v as HeroMode) : 'run';
-  } catch {
-    return 'run';
-  }
-};
-const useMode = () => {
-  const [m, setM] = useState<HeroMode>(readMode);
-  const set = (v: HeroMode) => {
-    setM(v);
-    try {
-      localStorage.setItem(MODE_KEY, v);
-    } catch {
-      /* private mode: this session only */
-    }
-  };
-  return [m, set] as const;
-};
 
 // ---------- the first-use hint: until a finger has read the chart once, remembered on this device ----------
 const HINT_KEY = 'logbook.progress.scrubbed';
@@ -121,16 +100,23 @@ type View = ({ mode: 'run' } & RunView) | ({ mode: 'lift' } & LiftView);
 const UNIT_TITLE = { day: 'Daily', week: 'Weekly', month: 'Monthly' } as const;
 
 /**
- * The hero (guide 6.4, layout standard 6.4): one card, read top down. Running / Strength first, in the quiet tone (the range
- * control below is the card's one Sky thumb); then the headline, the largest and darkest thing on the screen, with its
+ * The Progress chart (guide 6.4, layout standard 6.4): one card, read top down. Runs / Workouts first, when both have
+ * something to show, in the quiet tone (the range control below is the card's one Sky thumb); then the headline with its
  * context on the same line; one takeaway line under it; then the chart and, under the plot it changes, the range control.
  *
- * Both charts are the same bars (`RangeBars`), one per day, week or month of the range: miles run, or lift sessions done.
+ * Runs / Workouts is the one switch the training card's pill also moves (`features/day/heroView.ts`, `chartMode`): a
+ * change here changes the card's band, and a change there changes this chart. It holds for the day.
+ *
+ * Both charts are the same bars (`RangeBars`), one per day, week or month of the range: miles run, or workouts done.
  * History shows only what was done. The plan shows only for what is still ahead: the days to come in 1W and the rest of the
  * bucket holding today, as a dashed outline. In 1W the headline reads this week against its plan, in words. The card has
  * the same parts in every range and in both modes, so the range control never moves when the range changes. Dragging
- * across the plot reads one bucket in the headline; a tap on a running week opens it. Strength's workouts are date rows in
- * a card of their own, 12 under the hero (a card holds one unit, and three text sizes at most).
+ * across the plot reads one bucket in the headline; a tap on a running week opens it. The workouts themselves are date
+ * rows in a card of their own, 12 under the chart (a card holds one unit, and three text sizes at most).
+ *
+ * `lead` (the old Progress tab): the card is the screen's hero, with the glow and the 44 px headline, and with nothing to
+ * draw it is the screen's empty state. On Fitness the training card leads, so this is a plain card with the headline at
+ * the value size, and with nothing to draw it is one quiet row, never an empty frame.
  *
  * `startFailed`: where history starts could not be learned (neither from the server nor from the months on this phone).
  * The All range then says so, with Try again and the other ranges still a tap away; it is never drawn from today.
@@ -147,6 +133,7 @@ export const HeroChart = ({
   onConnect,
   failed,
   onRetry,
+  lead = true,
 }: {
   log: Log;
   t: string;
@@ -159,9 +146,10 @@ export const HeroChart = ({
   onConnect: (() => void) | null;
   failed?: boolean;
   onRetry?: () => void;
+  lead?: boolean;
 }) => {
   const nav = useNav();
-  const [mode, setMode] = useMode();
+  const picked = useHeroView(t, t);
   // what is being read, with the chart it was read on (hero.ts `readingOn`: a reading never outlives its chart)
   const [scrub, setScrub] = useState<Reading | null>(null);
   const [opened, setOpened] = useState<Reading | null>(null);
@@ -169,7 +157,7 @@ export const HeroChart = ({
   const openWeek = useOpenWeek(t);
   const snap = log.snap;
   const loaded = useCallback((m: string) => snap.loaded(m), [snap]);
-  // strength reaches back to its own first day when it has one (a logged set), else to where running began
+  // workouts reach back to their own first day when they have one (a logged set), else to where running began
   const liftStart = liftFirst ?? first;
 
   // the last 13 weeks, whatever the range: this week's numbers, and whether there is anything before it yet
@@ -181,8 +169,19 @@ export const HeroChart = ({
   const recentGaps = recentRun.buckets.some((b) => b.missing);
   const runBefore = recentRun.buckets.some((b) => !b.current && (b.planned > 0 || b.done > 0)) || (!!first && first < recentRun.span.from);
   const liftBefore = recentLift.buckets.some((b) => !b.current && (b.planned > 0 || b.done > 0)) || (!!liftFirst && liftFirst < recentLift.span.from);
+  // the chosen range, for both modes (each day is read once per snapshot: hero.ts): what each has decides the mode
+  const chosenRun = useMemo(() => runRange(snap, t, range, first, loaded), [snap, t, range, first, loaded]);
+  const chosenLift = useMemo(() => liftRange(snap, t, range, liftStart, loaded), [snap, t, range, liftStart, loaded]);
+  const something = (bs: Array<{ missing: boolean; planned: number; done: number }>) => bs.some((b) => !b.missing && (b.planned > 0 || b.done > 0));
+  // a mode exists when it has anything, done or planned, ever (in the loaded months); the one switch picks between those
+  const has = {
+    run: runBefore || week.planned > 0 || week.done > 0 || something(chosenRun.buckets),
+    lift: liftBefore || liftWeek.planned > 0 || liftWeek.done > 0 || something(chosenLift.buckets),
+  };
+  const own = useMemo(() => todayView(snap, t), [snap, t]);
+  const { mode, switchable } = chartMode({ picked, today: own, has, settled: !recentGaps });
   // the chosen range, and this week by day
-  const chosen = useMemo<View>(() => (mode === 'run' ? { mode, ...runRange(snap, t, range, first, loaded) } : { mode, ...liftRange(snap, t, range, liftStart, loaded) }), [mode, snap, t, range, first, liftStart, loaded]);
+  const chosen = useMemo<View>(() => (mode === 'run' ? { mode, ...chosenRun } : { mode, ...chosenLift }), [mode, chosenRun, chosenLift]);
   const days = useMemo<View>(() => (mode === 'run' ? { mode, ...runRange(snap, t, '1W', first, loaded) } : { mode, ...liftRange(snap, t, '1W', liftStart, loaded) }), [mode, snap, t, first, liftStart, loaded]);
   // anything before this week: in the last 13 weeks, by where history starts, or in the chosen range itself (a long range
   // can reach runs the other two do not know of: back after months away, on a server that cannot say where history starts)
@@ -208,52 +207,55 @@ export const HeroChart = ({
     haptics.select();
     setScrub(null);
     setOpened(null);
-    setMode(m);
+    // the one switch: the training card's pill follows (features/day/heroView.ts)
+    setHeroView(t, t, VIEW_OF[m]);
   };
   const changeRange = (r: ProgressRange) => {
     setScrub(null);
     setOpened(null);
     onRange(r);
   };
-  // two segmented controls share the card: the one that is not the range control is quiet (guide 6.3 amendment, F9)
-  const seg = (
+  // two segmented controls share the card: the one that is not the range control is quiet (guide 6.3 amendment, F9).
+  // It is there only when both have something to show; the words are the training card's pair
+  const seg = switchable ? (
     <Segmented
       className="ph-seg"
       tone="quiet"
-      label="Running or strength"
+      label="Runs or workouts"
       value={mode}
       onChange={changeMode}
       options={[
-        ['run', 'Running'],
-        ['lift', 'Strength'],
+        ['run', MODE_WORD.run],
+        ['lift', MODE_WORD.lift],
       ]}
     />
-  );
-  const title = mode === 'run' ? 'Running' : 'Strength';
+  ) : null;
+  const title = MODE_WORD[mode];
+  const cardCls = lead ? 'card is-hero has-glow ph' : `card ph ph-plain${switchable ? '' : ' no-seg'}`;
   const rangeRow = <RangeControl className="ph-range" value={range} options={PROGRESS_RANGES} words={RANGE_WORDS} onChange={changeRange} label="Range" />;
 
-  // ---------- nothing planned and nothing done, ever (in the loaded months): the screen's empty state ----------
-  const any = before || (mode === 'run' ? week.planned > 0 || week.done > 0 : liftWeek.planned > 0 || liftWeek.done > 0) || view.buckets.some((p) => p.done > 0 || p.planned > 0);
-  if (!recentGaps && !any) {
+  // ---------- nothing planned and nothing done, ever (in the loaded months) ----------
+  if (!recentGaps && !has.run && !has.lift) {
     const strava = STRAVA_BUILT && !!onConnect;
+    // on Fitness: one quiet row in the chart's place, never an empty frame (the week above it is where a session is added)
+    if (!lead) {
+      const e = chartEmpty(strava);
+      return <SectionEmpty className="ph-none" icon={<ProgressIcon size={18} />} title={e.title} line={e.line} action={e.connect ? { label: 'Connect', onPress: onConnect!, voiceLabel: 'Connect Strava' } : undefined} />;
+    }
+    // the old Progress tab: the screen's empty state
     return (
-      <section className="card is-hero has-glow ph" aria-label={title}>
-        {seg}
-        <EmptyState
-          className="ph-empty"
-          ghost={<BarsGhost />}
-          verb={mode === 'run' && strava ? { label: 'Connect Strava', onPress: onConnect! } : { label: 'Plan a week', onPress: () => nav.go('/plan') }}
-        >
-          {mode === 'run' ? 'Plan a week and run it. Your miles show up here.' : 'No lifts yet. Add a lift day to your plan and log its sets.'}
+      <section className={cardCls} aria-label={title}>
+        <EmptyState className="ph-empty" ghost={<BarsGhost />} verb={strava ? { label: 'Connect Strava', onPress: onConnect! } : { label: 'Plan a week', onPress: () => nav.go('/plan') }}>
+          Plan a week and run it. Your miles show up here.
         </EmptyState>
       </section>
     );
   }
 
-  // strength's workouts: a card of their own under the hero (layout standard 2.7), so the hero is the same card in both modes
+  // the workouts themselves: a card of their own under the chart (layout standard 2.7), so the chart is the same card in both modes
   const list =
     mode === 'lift' ? (
-      <section className="card ll-card" aria-label="Lift workouts">
+      <section className="card ll-card" aria-label="Workouts, one by one">
         <LiftList log={log} t={t} />
       </section>
     ) : null;
@@ -262,7 +264,7 @@ export const HeroChart = ({
   if (!firstWeek && range === 'All' && startFailed && onRetry) {
     return (
       <>
-        <section className="card is-hero has-glow ph" aria-label={title}>
+        <section className={cardCls} aria-label={title}>
           {seg}
           <EmptyState className="ph-empty" verb={{ label: 'Try again', onPress: onRetry }}>
             Couldn’t load your whole history. Check your connection.
@@ -277,7 +279,7 @@ export const HeroChart = ({
   if (pending && before) {
     return (
       <>
-        <section className="card is-hero has-glow ph" aria-label={title}>
+        <section className={cardCls} aria-label={title}>
           {seg}
           <SkeletonGroup label={`Loading ${RANGE_WORDS[range].toLowerCase()}`} className="ph-wait">
             <Skeleton w={176} h={46} r="control" />
@@ -310,11 +312,11 @@ export const HeroChart = ({
         : liftRest(span, view.buckets, liftWeek, t, byWeek, liftStart);
   const marks: BarMark[] = view.buckets.map((b) => ({ key: b.key, value: b.done, ahead: b.ahead, current: b.current, future: b.future, missing: b.missing }));
   const words = (i: number) => (view.mode === 'run' ? runWords(unit, view.buckets[i]!, t) : liftWords(unit, view.buckets[i]!, t));
-  const chartLabel = `${UNIT_TITLE[unit]} ${view.mode === 'run' ? 'miles' : 'lift sessions'}, ${RANGE_WORDS[span.range].toLowerCase()}.`;
+  const chartLabel = `${UNIT_TITLE[unit]} ${view.mode === 'run' ? 'miles' : 'workouts'}, ${RANGE_WORDS[span.range].toLowerCase()}.`;
   // where the bars start: at the first day the app knows of (a run or a lift), so a quiet week since then is drawn and read
   const logStart = [first, liftFirst].filter((d): d is string => !!d).sort()[0] ?? null;
 
-  // a tap on a running day or week opens its week; a month has no sheet of its own, and the strength rows below open theirs
+  // a tap on a running day or week opens its week; a month has no sheet of its own, and the workout rows below open theirs
   const openAt =
     view.mode !== 'run' || unit === 'month'
       ? undefined
@@ -328,7 +330,7 @@ export const HeroChart = ({
 
   return (
     <>
-      <section className="card is-hero has-glow ph" aria-label={title}>
+      <section className={cardCls} aria-label={title}>
         {seg}
         <Head r={readout} hold={reading} />
         <RangeBars
@@ -338,7 +340,7 @@ export const HeroChart = ({
           label={chartLabel}
           words={words}
           from={firstShown(span, view.buckets, logStart)}
-          // nothing to draw yet: lift sessions count in ones, miles in fives
+          // nothing to draw yet: workouts count in ones, miles in fives
           idle={view.mode === 'lift' ? 2 : undefined}
           hint={hint.hint ? `Drag across to see each ${UNIT_WORD[unit]}` : null}
           hintRead={hint.read}

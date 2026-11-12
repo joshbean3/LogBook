@@ -4,7 +4,8 @@ import type * as React from 'react';
 import { Activity, startTransition, useCallback, useEffect, useLayoutEffect, useReducer, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
 import { SectionBoundary } from '@/app/ErrorBoundary';
-import { useHomeControl, useNav, useRootRequest, useRouteParams, useTabScroller } from '@/app/NavController';
+import { useHomeControl, useIsActiveTab, useNav, useRootRequest, useRouteParams, useTabScroller } from '@/app/NavController';
+import { usePageShown } from '@/ui/nowBudget';
 import { crossfadeSlow, ease } from '@/lib/motion';
 import { useToday } from '@/lib/useToday';
 import type { ContextMenuItem } from '@/ui/ContextMenu';
@@ -15,6 +16,7 @@ import { Note } from '@/ui/primitives';
 import { useOpenCalendar } from '../day/Calendar';
 import { STRAVA_BUILT } from '@/lib/features';
 import { useLog } from '../log/useLog';
+import { FitnessProgress } from '../progress/FitnessProgress';
 import { usePlanBlock } from './Blocks';
 import { HeldBanner } from './Held';
 import { X } from 'lucide-react';
@@ -22,18 +24,36 @@ import { Pressable } from '@/ui/Pressable';
 import { MonthPage } from './Month';
 import { markNavHintSeen, navHintSeen } from './navHint';
 import { followToday, fromParams, monthOfWeek, weekForMonth } from './planRoute';
-import { PlanBlockCtx } from './PlanTop';
+import { PlanCard } from './PlanTop';
 import { WeekPage } from './Week';
 import './plan.css';
 
 /**
- * Fitness (guide 6.5a, "Fitness"; docs/feel.md §7, contracts §A.3 page-root): the NavBar (caps: today's date in Week, as
- * on the other tabs, `OCTOBER 2026` in Month, bound to the month pager's progress; the caps date is a button, with its
- * small calendar glyph: it shows the month, and from the month goes back to the week; title `Fitness`, tap → this week /
- * this month, hold → `Go to a week…`); then the held banner and a one-time hint line; then two mounted panes: the week
- * pager (`DayPager step='week'`, full-bleed, each page that week's card and its line of days: Week.tsx) and the month
- * pager (`step='month'`); then the plan row (PlanTop). Weeks move by a sideways swipe anywhere on the page. No chart on
- * the page. Switching is a 200 ms crossfade of the two panes (both in the DOM during it). No haptic on any of it.
+ * Fitness (guide 6.5a, "Fitness"; docs/feel.md §7, contracts §A.3 page-root): what is next, then how it is going, on one
+ * page. Top to bottom:
+ *
+ * 1. The NavBar (caps: today's date in Week, as on the other tabs, `OCTOBER 2026` in Month, bound to the month pager's
+ *    progress; the caps date is a button, with its small calendar glyph: it shows the month, and from the month goes back
+ *    to the week; title `Fitness`, tap → this week / this month, hold → `Go to a week…`), the held banner and a one-time
+ *    hint line.
+ * 2. Two mounted panes: the week pager (`DayPager step='week'`, full-bleed, each page that week's card and its line of
+ *    days: Week.tsx) and the month pager (`step='month'`). Switching is a 200 ms crossfade of the two panes (both in the
+ *    DOM during it). No haptic on any of it.
+ * 3. Under the panes and outside both pagers, on the page itself: Progress (the chart) and Trends
+ *    (features/progress/FitnessProgress.tsx), then the plan row (PlanTop). They are about ranges and the plan, not about
+ *    the week on show, so they neither slide nor redraw when the week or the view changes.
+ *
+ * The gestures, now that a pager and a chart share the page: a sideways swipe that starts on the week (its card, its
+ * stops, the title row) moves a week; a sideways drag that starts on the chart reads the chart, and can never page,
+ * because the chart is not inside the pager; a sideways swipe on anything else under the pager does nothing (paging a
+ * week that has scrolled off the top would change the page where nobody is looking). Up and down scrolls from anywhere.
+ *
+ * The pagers are as tall as the page they show (`dp-intrinsic`), so the lower half sits right under the week. Weeks are
+ * not all the same height: while a pager moves, its height follows the swipe from the page being left to the page coming
+ * in (`fitPager`), so the lower half glides to its new place under the finger and nothing jumps when the swipe commits.
+ *
+ * Opening the tab starts at the top, at today's card; coming back from a metric page pushed over it returns to where
+ * the person was (the tab's scroller is never touched by a pop).
  *
  * `view` and the anchor (the Monday, the first of the month) are page state: read once from the route, mirrored into the
  * URL with `nav.replace` on every commit, changed from outside only through `useRootRequest` (a cut sets them before the
@@ -50,6 +70,33 @@ interface St {
   /** The pane fading out (both are in the DOM; this one is absolute over the top of the incoming one). */
   leaving: View | null;
 }
+
+/**
+ * A pager's height while it moves: from the page being left to the page coming in, by how far the swipe has gone, so what
+ * sits under the pager follows the finger and a commit (the roles swap, x jumps to 0) changes no pixel. At rest the
+ * height is the page's own. `data-fit` (plan.css) lets the neighbour show its whole height and clips the pager to the
+ * height written here.
+ */
+const fitPager = (pane: HTMLElement | null, x: number) => {
+  const dp = pane?.querySelector<HTMLElement>('.dp');
+  if (!dp) return;
+  const w = dp.clientWidth;
+  const p = w ? Math.max(-1, Math.min(1, -x / w)) : 0;
+  const cur = dp.querySelector<HTMLElement>(':scope > .dp-track > .dp-page[data-role="cur"]');
+  const nb = p ? dp.querySelector<HTMLElement>(`:scope > .dp-track > .dp-page[data-role="${p > 0 ? 'next' : 'prev'}"]`) : null;
+  // the neighbour's own height is its page's (the slot itself is as tall as the track)
+  const to = nb?.firstElementChild instanceof HTMLElement ? nb.firstElementChild.offsetHeight : 0;
+  if (!p || !cur || !to) {
+    if (dp.style.height) {
+      dp.style.height = '';
+      delete dp.dataset.fit;
+    }
+    return;
+  }
+  const from = cur.offsetHeight;
+  dp.dataset.fit = '';
+  dp.style.height = `${Math.round(from + (to - from) * Math.abs(p))}px`;
+};
 
 /** Months from `a` to `b` (firsts of months). */
 const monthsApart = (a: string, b: string) => (+b.slice(0, 4) - +a.slice(0, 4)) * 12 + (+b.slice(5, 7) - +a.slice(5, 7));
@@ -336,6 +383,31 @@ export default function PlanView(): React.JSX.Element {
     if (aOut) aOut.onfinish = done;
     else done();
   });
+
+  // ---------- the pagers' height follows the swipe ----------
+  useLayoutEffect(() => {
+    const offs = [
+      weekH.x.on('change', (x) => fitPager(weekPane.current, x)),
+      monthH.x.on('change', (x) => fitPager(monthPane.current, x)),
+      // at rest the pager is as tall as its page, whatever the last frame of the slide wrote
+      weekH.moving.on('change', (m) => !m && fitPager(weekPane.current, weekH.x.get())),
+      monthH.moving.on('change', (m) => !m && fitPager(monthPane.current, monthH.x.get())),
+    ];
+    return () => offs.forEach((f) => f());
+  }, [weekH, monthH]);
+
+  // ---------- opening the tab starts at the top ----------
+  // Tabs keep their scroll (a tab change is a cut). This page is long now, and what a person opens it for is today's
+  // card: when Fitness comes on screen from another tab with nothing pushed over it, it is at the top. A pop back from a
+  // metric page is not that (the tab never left the screen): it returns to where the person was.
+  const shown = usePageShown();
+  const activeTab = useIsActiveTab();
+  const wasActive = useRef(activeTab);
+  useLayoutEffect(() => {
+    const came = activeTab && !wasActive.current;
+    wasActive.current = activeTab;
+    if (came && shown && scroller.current) scroller.current.scrollTop = 0;
+  }, [activeTab, shown, scroller]);
 
   // ---------- home, requests, the title ----------
   const goHome = useCallback(() => {
@@ -678,30 +750,35 @@ export default function PlanView(): React.JSX.Element {
           <X size={16} aria-hidden="true" />
         </Pressable>
       ) : null}
-      {/* each page ends with the plan row (PlanFoot reads the plan from here) */}
-      <PlanBlockCtx.Provider value={block}>
       <div className="pl-panes">
         <section ref={weekPane} className={`pl-pane pl-week-pane ${paneCls('week')}`} inert={hidden('week')} aria-hidden={hidden('week')} aria-label="Week">
           <Activity mode={mode('week')}>
-            <DayPager className="pl-wpager" date={mon} step="week" handle={weekH} onCommit={commitWeek} render={renderWeek} label="Week" prevLabel="Previous week" nextLabel="Next week" />
+            <DayPager className="pl-wpager dp-intrinsic" date={mon} step="week" handle={weekH} onCommit={commitWeek} render={renderWeek} label="Week" prevLabel="Previous week" nextLabel="Next week" />
             {view === 'week' ? stashBox : null}
           </Activity>
         </section>
         {monthOn ? (
           <section ref={monthPane} className={`pl-pane pl-month-pane ${paneCls('month')}`} inert={hidden('month')} aria-hidden={hidden('month')} aria-label="Month">
             <Activity mode={mode('month')}>
-              <DayPager className="pl-mpager" date={first} step="month" handle={monthH} onCommit={commitMonth} render={renderMonth} label="Month" prevLabel="Previous month" nextLabel="Next month" />
+              <DayPager className="pl-mpager dp-intrinsic" date={first} step="month" handle={monthH} onCommit={commitMonth} render={renderMonth} label="Month" prevLabel="Previous month" nextLabel="Next month" />
               {view === 'month' ? stashBox : null}
             </Activity>
           </section>
         ) : null}
       </div>
-      </PlanBlockCtx.Provider>
-      {strava?.error ? (
-        <div className="pl-note">
-          <Note kind="warn">{strava.error}</Note>
-        </div>
-      ) : null}
+      {/* how it is going, then the plan: on the page, under the pagers and outside them */}
+      <div className="pl-below">
+        <FitnessProgress />
+        {/* the plan, the page's last row: its name and where it stands, or the way to build one */}
+        <SectionBoundary name="fitness.plan">
+          <PlanCard block={block} />
+        </SectionBoundary>
+        {strava?.error ? (
+          <div className="pl-note">
+            <Note kind="warn">{strava.error}</Note>
+          </div>
+        ) : null}
+      </div>
     </div>
   );
 }
