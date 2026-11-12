@@ -103,6 +103,13 @@ describe('the route table', () => {
     ['/setup', '/signup'],
     ['/today/banana', '/today'],
     ['/today/2026-02-30', '/today'],
+    // a real date at the calendar's edge: the day after it is not a date the app can print (the page crashed on it)
+    ['/today/9999-12-31', '/today'],
+    ['/today/9999-12-31/morning', '/today'],
+    ['/today/0000-01-01', '/today'],
+    ['/today/0001-01-01', '/today'],
+    ['/today/1899-12-31', '/today'],
+    ['/today/2200-01-01', '/today'],
     ['/today/banana/morning', '/today'],
     ['/plan/week/2026-10-27', '/plan'],
     ['/plan/month/2026-10-23', '/plan'],

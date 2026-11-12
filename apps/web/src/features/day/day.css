@@ -668,6 +668,8 @@
   flex: 1;
   min-width: 0;
   display: grid;
+  /* the track may shrink, so a long name is cut with its ellipsis inside the card, not drawn under the ring */
+  grid-template-columns: minmax(0, 1fr);
 }
 /* the session's name in a row: Inter 600 at the row size, as the plan has it (Inter Tight is for captions only) */
 .ss-stamp {
@@ -2433,6 +2435,14 @@
 .day-learned .lrow-title {
   white-space: normal;
   overflow: visible;
+}
+/* a section that broke (SectionGuard): one row in the section's place, a section's gap above it */
+.day-guard {
+  margin-top: var(--section);
+  min-width: 0;
+}
+.day-page > .day-guard:first-child {
+  margin-top: 0;
 }
 /* every section is off: one calm line and the way to the switches */
 .day-none {

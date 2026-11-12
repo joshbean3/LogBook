@@ -15,7 +15,9 @@ import { useLearningStats } from './queries';
 export const LearnedPrompt = ({ today }: { today: ISODate }): React.JSX.Element => {
   const nav = useNav();
   const stats = useLearningStats();
-  const wrote = (stats.data?.recent ?? []).includes(today);
+  // an older server has no stats (404), and any other answer may lack the list: then today simply has no line yet
+  const recent: unknown = stats.data?.recent;
+  const wrote = Array.isArray(recent) && recent.includes(today);
   const sub = wrote ? 'Tonight’s line is kept' : 'One line is enough';
   return (
     <section className="day-learned" aria-label="What I learned">

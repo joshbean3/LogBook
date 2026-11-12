@@ -2,6 +2,7 @@ import { awaitingReview, fmtDate, GOAL_STEPS_MAX, label as sessionLabel, shiftDa
 import { useQueryClient } from '@tanstack/react-query';
 import { ArrowRight, ArrowUp, Check, ChevronRight, CloudOff, Moon, RotateCcw, Target, Trash2 } from 'lucide-react';
 import { memo, useEffect, useId, useMemo, useRef, useState } from 'react';
+import { isWriteRejected } from '@/api/outbox';
 import { newTodoId, useGoalMutations, useGoals, useTodoGroups, useTodoMutations, useTodos } from '@/api/queries';
 import { haptics } from '@/lib/haptics';
 import { revealField, useKeyboardOpen } from '@/lib/keyboard';
@@ -15,10 +16,10 @@ import { useSheet } from '@/ui/Sheet';
 import { useToast } from '@/ui/Toast';
 import { useHold } from '@/ui/useHold';
 import { useIsLive } from '../day/live';
-import { useNowMinutes } from '../day/useNow';
+import { useFaceMinutes } from '../day/useDeferred';
 import { useCelebrate } from '../goals/Celebrate';
 import { celebrateOnce } from '../goals/game';
-import { goalIdea, type GoalIdea } from '../goals/goalIdea';
+import { goalIdea, ideaGoal, type GoalIdea } from '../goals/goalIdea';
 import { useOpenGoal } from '../goals/GoalSheets';
 import { goalOf, STATUS_WORD } from '../goals/model';
 import { ReviewRow } from '../goals/ReviewRow';
@@ -30,7 +31,7 @@ import { PriorityFlag } from '../todos/PriorityDots';
 import { parseQuickAdd } from '../todos/quickAdd';
 import { goneOn, TodoListSheet, understoodOf, useTodoActions } from '../todos/TodoList';
 import { TodoSheet } from '../todos/TodoSheet';
-import { cardsFor, countWords, focusOf, leftWords, pathOf } from './model';
+import { cardsFor, countWords, focusOf, isEcho, leftWords, pathOf, type PathChange } from './model';
 import './dayplan.css';
 
 /** The day after the page's day is "Tomorrow" only on today's page; on a day ahead it is that day's next day. */
@@ -70,7 +71,9 @@ export const PlanDay = memo(function PlanDay({ date, today, log, slim, yesterday
   const groups = useTodoGroups();
   const reduce = useReduced();
   const live = useIsLive(date);
-  const minutes = useNowMinutes();
+  // the clock of the day on the page: while the tab holds yesterday past midnight (a draft, an open sheet), that day is at
+  // its last minute, never "24 h left" of a day that is over
+  const minutes = useFaceMinutes();
   const open = useOpenGoal();
   const sheet = useSheet();
   const toast = useToast();
@@ -90,6 +93,12 @@ export const PlanDay = memo(function PlanDay({ date, today, log, slim, yesterday
   const cards = useMemo(() => focusOf(cardsFor(todos.data, null, date, today)), [todos.data, date, today]);
   const path = useMemo(() => pathOf(cards), [cards]);
   const [adding, setAdding] = useState(false);
+  // a to-do the server refused for good: its words go back into the field, as typed, so nothing written is lost
+  const [refused, setRefused] = useState<string | null>(null);
+  const onRefused = (typed: string) => {
+    setRefused(typed);
+    setAdding(true);
+  };
 
   // the goal turned done (its sheet, the Goals tab): the moment plays once
   const wasStatus = useRef(goal?.status);
@@ -122,6 +131,13 @@ export const PlanDay = memo(function PlanDay({ date, today, log, slim, yesterday
     },
     [],
   );
+  // what a tap here last changed under the finger, and where that tap landed, so its echo (a double tap) is dropped
+  // (`isEcho`). A change made from the keyboard has no place and no echo.
+  const changed = useRef<PathChange | null>(null);
+  const tapAt = useRef<{ x: number; y: number } | null>(null);
+  const moved = (id: string) => {
+    changed.current = tapAt.current ? { id, at: performance.now(), ...tapAt.current } : null;
+  };
   const tick = (x: Todo) => {
     if (checking) return;
     // the key moment's one haptic
@@ -129,6 +145,8 @@ export const PlanDay = memo(function PlanDay({ date, today, log, slim, yesterday
     setChecking(x.id);
     flush.current = () => {
       flush.current = null;
+      // the stop turns into a done stop where it stood: a second tap there is not "Mark not done"
+      moved(stopId(x));
       act.done(x, date <= today ? date : today);
       setChecking(null);
     };
@@ -144,7 +162,9 @@ export const PlanDay = memo(function PlanDay({ date, today, log, slim, yesterday
   /** "Set this goal": the idea becomes the day's goal in one tap (yesterday's comes with its why and its steps), with Undo. */
   const setIdea = (it: GoalIdea) => {
     haptics.toggle();
-    set.mutate({ level: 'day', period: date, text: it.text, why: it.from?.why ?? null, steps: it.from ? it.from.steps.map((s) => ({ ...s })) : [] });
+    // the buttons give way to the to-dos: a second tap would land on one of them
+    moved('*');
+    set.mutate({ level: 'day', period: date, ...ideaGoal(it) });
     toast('Goal set', {
       label: 'Undo',
       fn: () => {
@@ -315,7 +335,7 @@ export const PlanDay = memo(function PlanDay({ date, today, log, slim, yesterday
   for (const c of path.done) {
     if (c.kind !== 'todo') continue;
     const x = c.todo;
-    stops.push(<PathStop key={x.id} id={stopId(x)} state="done" title={x.text} onPress={() => act.reopen(x)} label={`Done: ${x.text}. Mark not done`} />);
+    stops.push(<PathStop key={x.id} id={stopId(x)} state="done" title={x.text} onPress={() => (moved('*'), act.reopen(x))} label={`Done: ${x.text}. Mark not done`} />);
   }
   path.open.forEach((c, i) => {
     if (c.kind !== 'todo') return;
@@ -349,7 +369,7 @@ export const PlanDay = memo(function PlanDay({ date, today, log, slim, yesterday
     stops.push(
       adding ? (
         <PathStop key="add" id="add" state="add">
-          <AddField date={date} today={today} onClose={() => setAdding(false)} />
+          <AddField date={date} today={today} onClose={() => setAdding(false)} refused={refused} onTaken={() => setRefused(null)} onRefused={onRefused} />
         </PathStop>
       ) : (
         <PathStop key="add" id="add" state={first ? 'next' : 'add'} title="Add a to-do" onPress={() => setAdding(true)} trailing={end} />
@@ -378,7 +398,29 @@ export const PlanDay = memo(function PlanDay({ date, today, log, slim, yesterday
         band={band}
         path={
           stops.length ? (
-            <div className="pd-path" {...hold.handlers} onPointerDownCapture={aim} onFocusCapture={aim}>
+            <div
+              className="pd-path"
+              {...hold.handlers}
+              onPointerDownCapture={aim}
+              onFocusCapture={aim}
+              onClickCapture={(e) => {
+                // the click that follows a hold is the hold's to swallow; then a tap's echo is ours
+                hold.handlers.onClickCapture(e);
+                if (e.isPropagationStopped()) return;
+                // Enter, Space and VoiceOver click with no pointer behind them (`detail` 0): never an echo
+                if (e.detail === 0) {
+                  tapAt.current = null;
+                  return;
+                }
+                const stop = e.target instanceof Element ? e.target.closest<HTMLElement>('.pth-stop') : null;
+                if (isEcho(changed.current, stop?.dataset.stop, performance.now(), e.clientX, e.clientY)) {
+                  e.stopPropagation();
+                  e.preventDefault();
+                  return;
+                }
+                tapAt.current = { x: e.clientX, y: e.clientY };
+              }}
+            >
               <PathLine label={setGoal ? title : 'To-dos'}>{stops}</PathLine>
             </div>
           ) : undefined
@@ -407,13 +449,26 @@ export const PlanDay = memo(function PlanDay({ date, today, log, slim, yesterday
  * What the field read from the marks shows as it is typed, and a to-do that lands on another day says where it went, with
  * a way to see it. Return adds and keeps the field for the next one; leaving the field adds what is there and closes it.
  */
-const AddField = ({ date, today, onClose }: { date: ISODate; today: ISODate; onClose: () => void }) => {
+const AddField = ({ date, today, onClose, refused, onTaken, onRefused }: { date: ISODate; today: ISODate; onClose: () => void; /** Words the server refused: the field takes them back. */ refused: string | null; onTaken: () => void; onRefused: (typed: string) => void }) => {
   const { add } = useTodoMutations();
   const groups = useTodoGroups();
   const sheet = useSheet();
   const toast = useToast();
   const hintId = useId();
-  const [draft, setDraft] = useState('');
+  const [draft, setDraftState] = useState('');
+  // what is in the field right now, for the moments no render sits between (a blur and the unmount it causes)
+  const typed = useRef('');
+  const setDraft = (v: string) => {
+    typed.current = v;
+    setDraftState(v);
+  };
+  // the refused words come back as soon as the field is empty (never over something being typed)
+  useEffect(() => {
+    if (refused === null || typed.current) return;
+    setDraft(refused);
+    onTaken();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [refused, draft]);
   // nothing moves for the keyboard by itself: the field's row is scrolled clear of it when it opens, again when the
   // keyboard has come up, on a later focus, and after each Return (the new to-do pushes the field down a row)
   const field = useRef<HTMLDivElement>(null);
@@ -429,7 +484,12 @@ const AddField = ({ date, today, onClose }: { date: ISODate; today: ISODate; onC
   const commit = (close: boolean) => {
     if (parsed.text) {
       const forDay = date !== today && parsed.bucket === 'today' ? { bucket: 'later' as const, due: date } : { bucket: parsed.bucket, due: parsed.due };
-      add.mutate({ id: newTodoId(), text: parsed.text, date: today, priority: parsed.priority, groupId: parsed.groupId ?? null, ...forDay });
+      const asTyped = draft.trim();
+      // a server that is slow, down or out of reach keeps the to-do and sends it later (the outbox); only a refusal for
+      // good comes back here, and then the words return to the field
+      add.mutateAsync({ id: newTodoId(), text: parsed.text, date: today, priority: parsed.priority, groupId: parsed.groupId ?? null, ...forDay }).catch((e: unknown) => {
+        if (isWriteRejected(e)) onRefused(asTyped);
+      });
       // it did not land on this page (a day or Someday was named): say where it went
       const elsewhere = forDay.bucket === 'someday' || (forDay.bucket === 'later' && forDay.due !== date);
       if (elsewhere) {
@@ -444,6 +504,18 @@ const AddField = ({ date, today, onClose }: { date: ISODate; today: ISODate; onC
     if (close || !parsed.text) onClose();
     else reveal();
   };
+  // the field went away with words still in it and no blur to add them (its page was taken off screen): they are added,
+  // as leaving the field always does. The check waits a task, so a field that is only being drawn again adds nothing.
+  const leave = useRef(commit);
+  leave.current = commit;
+  useEffect(() => {
+    const el = field.current;
+    return () => {
+      setTimeout(() => {
+        if (typed.current.trim() && el && !el.isConnected) leave.current(true);
+      }, 0);
+    };
+  }, []);
   return (
     <div ref={field} className="pd-add">
       <input
@@ -462,7 +534,11 @@ const AddField = ({ date, today, onClose }: { date: ISODate; today: ISODate; onC
           if (e.key === 'Enter') {
             e.preventDefault();
             commit(false);
-          } else if (e.key === 'Escape') onClose();
+          } else if (e.key === 'Escape') {
+            // Escape leaves without adding
+            typed.current = '';
+            onClose();
+          }
         }}
       />
       {understood ? (

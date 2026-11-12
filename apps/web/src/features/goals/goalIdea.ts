@@ -1,4 +1,4 @@
-import type { Aim } from '@logbook/shared';
+import { GOAL_STEPS_MAX, type Aim, type GoalStep } from '@logbook/shared';
 
 /**
  * The suggested goal: one idea for today's goal, taken from the person's own day. Pure, so Today's Plan your day and the
@@ -52,10 +52,31 @@ export const habitsIdea = (n: number, minutes: number) => {
 
 export const goalIdea = ({ yesterday, todos, fitness = true, session, habits = 0, minutes = 9 * 60 }: IdeaInput): GoalIdea | null => {
   const idea = (source: IdeaSource, text: string, from?: Aim): GoalIdea => ({ source, text, label: ideaLabel(source), ...(from ? { from } : {}) });
-  if (yesterday && yesterday.status !== 'done' && yesterday.text.trim()) return idea('yesterday', yesterday.text.trim(), 'id' in yesterday ? yesterday : undefined);
-  const top = todos?.find((t) => t.text.trim());
-  if (top) return idea('todos', top.text.trim());
+  // words that are missing or not words (a row in an old shape) are no idea, never a crash
+  const words = (v: unknown) => (typeof v === 'string' ? v.trim() : '');
+  if (yesterday && yesterday.status !== 'done' && words(yesterday.text)) return idea('yesterday', words(yesterday.text), 'id' in yesterday ? yesterday : undefined);
+  const top = todos?.find((t) => words(t?.text));
+  if (top) return idea('todos', words(top.text));
   if (fitness && session?.trim()) return idea('fitness', `${session.trim()}, ${sessionWhen(minutes)}`);
   if (habits > 0) return idea('habits', habitsIdea(habits, minutes));
   return null;
+};
+
+/** What the server takes for a goal (packages/shared schemas: zGoalPut, zGoalStep). */
+const TEXT_MAX = 400;
+const WHY_MAX = 300;
+const STEP_MAX = 120;
+
+/**
+ * The idea as the goal that is saved when "Set this goal" is tapped: its words, and for yesterday's goal its why and its
+ * steps. Everything is cut to what the server takes (400 for the words, 300 for the why, five steps of 120), so a goal
+ * carried over from an older build or another device is never refused whole for one long line.
+ */
+export const ideaGoal = (it: GoalIdea): { text: string; why: string | null; steps: GoalStep[] } => {
+  const steps = (Array.isArray(it.from?.steps) ? it.from.steps : [])
+    .filter((s) => s && typeof s.id === 'string' && typeof s.text === 'string' && s.text.trim())
+    .slice(0, GOAL_STEPS_MAX)
+    .map((s) => ({ id: s.id.slice(0, 40), text: s.text.trim().slice(0, STEP_MAX), done: !!s.done }));
+  const why = typeof it.from?.why === 'string' ? it.from.why.trim().slice(0, WHY_MAX) : '';
+  return { text: it.text.trim().slice(0, TEXT_MAX), why: why || null, steps };
 };

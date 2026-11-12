@@ -139,8 +139,11 @@ export interface RouteMatch {
 
 // ---------- params ----------
 const ISO = /^\d{4}-\d{2}-\d{2}$/;
+/** The days a URL may name. A date far outside a lifetime is never a day someone logged, and at the calendar's own edges (year 0, year 9999) the day before or after it cannot be printed, which took the page down. */
+const DAY_MIN = '1900-01-01';
+const DAY_MAX = '2199-12-31';
 const isIsoDay = (s: string) => {
-  if (!ISO.test(s)) return false;
+  if (!ISO.test(s) || s < DAY_MIN || s > DAY_MAX) return false;
   const d = new Date(`${s}T12:00:00Z`);
   return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === s;
 };
