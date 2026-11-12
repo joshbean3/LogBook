@@ -166,7 +166,7 @@ export const parsePlist = (xml) => {
   return value();
 };
 
-const HEALTH_PURPOSE = 'Orby reads your sleep, heart rate variability and resting heart rate from Apple Health to show them on Progress. Readings are saved to your Orby account.';
+const HEALTH_PURPOSE = 'Orby reads your sleep, heart rate variability and resting heart rate from Apple Health to show you how they change over time. Readings are saved to your Orby account.';
 const PHOTO_ADD_PURPOSE = 'Save the cards you share to your photo library.';
 const HEALTH_TYPES = ['heartRateVariabilitySDNN', 'restingHeartRate', 'sleepAnalysis'];
 const COLLECTED = {

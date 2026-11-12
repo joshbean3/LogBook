@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
-import { HEALTH_READS, HEALTH_READS_LINE, HEALTH_TRUST, importDoneWords, importWords, savedWords } from './healthCopy';
+import { HEALTH_READS, HEALTH_READS_LINE, HEALTH_SAVED_NOTE, HEALTH_TRUST, healthPitch, healthPlace, importDoneWords, importWords, savedWords } from './healthCopy';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const files = (dir: string) =>
@@ -27,8 +27,17 @@ describe('what Settings says about Apple Health', () => {
     expect(importWords(null)).toBe('Reading Apple Health…');
   });
   it('words the import’s end by the span that arrived', () => {
-    expect(importDoneWords('Since Aug 2026')).toBe('Since Aug 2026: sleep, heart rate variability and resting heart rate are on Progress. Orby keeps up each time you open it.');
-    expect(importDoneWords(null)).toBe('Sleep, heart rate variability and resting heart rate are on Progress. Orby keeps up each time you open it.');
+    expect(importDoneWords('Since Aug 2026')).toBe('Since Aug 2026: sleep, heart rate variability and resting heart rate are in Fitness, under Trends. Orby keeps up each time you open it.');
+    expect(importDoneWords(null)).toBe('Sleep, heart rate variability and resting heart rate are in Fitness, under Trends. Orby keeps up each time you open it.');
+  });
+  it('says where the numbers are shown, and with Fitness off names no training and no tab that is gone', () => {
+    expect(healthPlace(true)).toBe('in Fitness, under Trends');
+    expect(healthPlace(false)).toBe('in Settings, under Apple Health');
+    expect(importDoneWords('Since Aug 2026', false)).toBe('Since Aug 2026: sleep, heart rate variability and resting heart rate are in Settings, under Apple Health. Orby keeps up each time you open it.');
+    expect(healthPitch(true)).toEqual({ title: 'Your sleep and your heart, beside your training.', sub: 'Orby reads three things from Apple Health and shows them in Fitness.' });
+    expect(healthPitch(false)).toEqual({ title: 'Your sleep and your heart, day by day.', sub: 'Orby reads three things from Apple Health and shows them in Settings.' });
+    for (const s of [healthPlace(true), healthPlace(false), importDoneWords(null), importDoneWords(null, false), healthPitch(true).sub, healthPitch(false).title, healthPitch(false).sub, HEALTH_SAVED_NOTE]) expect(s).not.toMatch(/Progress/);
+    for (const s of [healthPlace(false), importDoneWords(null, false), healthPitch(false).title, healthPitch(false).sub, HEALTH_SAVED_NOTE]) expect(s).not.toMatch(/\b(training|fitness|run|plan)\b/i);
   });
   it('says what was saved from the server’s counts and no more', () => {
     const counts = (hrv: number, rhr: number, sleep: number) => ({ counts: { samples: { hrv, resting_hr: rhr }, days: 0, sleep, workouts: 0 }, span: { from: null, to: null } });

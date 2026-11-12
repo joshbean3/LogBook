@@ -14,7 +14,7 @@ import { haptics } from '@/lib/haptics';
 import { Health, healthMode, hm, summarizeNight, type ReadingCheck } from '@/lib/health';
 import { LEGAL, openExternal } from '@/lib/siteLinks';
 import { Button, Pressable, useSheet, useToast } from '@/ui';
-import { HEALTH_READS, HEALTH_READS_LINE, HEALTH_READS_SHORT, HEALTH_REVOKE_PATH, HEALTH_TRUST, importDoneWords, importWords, savedWords } from './healthCopy';
+import { HEALTH_READS, HEALTH_READS_LINE, HEALTH_READS_SHORT, HEALTH_REVOKE_PATH, HEALTH_SAVED_NOTE, HEALTH_TRUST, healthPitch, importDoneWords, importWords, savedWords } from './healthCopy';
 import { rememberHealthDevice } from './healthDevice';
 import { SCard } from './parts';
 
@@ -170,6 +170,8 @@ const ConnectPanel = (): React.JSX.Element => {
   const qc = useQueryClient();
   const toast = useToast();
   const [busy, setBusy] = useState(false);
+  // where the numbers will show (Fitness, or Settings with Fitness off), said without naming training when it is off
+  const pitch = healthPitch(useFitness());
   const connect = async () => {
     if (!Health) return;
     setBusy(true);
@@ -195,8 +197,8 @@ const ConnectPanel = (): React.JSX.Element => {
   return (
     <div className="ahc">
       <HealthHero />
-      <h3 className="ahc-title">Your sleep and your heart, beside your training.</h3>
-      <p className="ahc-sub">Orby reads three things from Apple Health and shows them on Progress.</p>
+      <h3 className="ahc-title">{pitch.title}</h3>
+      <p className="ahc-sub">{pitch.sub}</p>
       <ul className="card ahc-unlocks">
         {HEALTH_READS.map(([title, sub], i) => (
           <li key={title}>
@@ -208,7 +210,7 @@ const ConnectPanel = (): React.JSX.Element => {
           </li>
         ))}
       </ul>
-      <p className="ahc-note">Readings are saved to your Orby account on Orby’s server, so Progress can show them. Orby reads as much history as you share, up to a year, then keeps up each time you open it.</p>
+      <p className="ahc-note">{HEALTH_SAVED_NOTE}</p>
       {/* pinned to the sheet's foot, so Connect is on screen at 667 pt tall without a scroll (ios-21) */}
       <div className="ahc-actions sheet-foot">
         <Button variant="primary" block onClick={() => void connect()} disabled={busy}>
@@ -247,6 +249,7 @@ const ImportPanel = (): React.JSX.Element => {
     if (sync.phase === 'done') void qc.invalidateQueries({ queryKey: healthStatusKey });
   }, [sync.phase, qc]);
   const since = server.data ? savedWords(server.data).since : null;
+  const fitness = useFitness();
   return (
     <div className="ahc ahi">
       <div className="ahi-dial">
@@ -259,7 +262,7 @@ const ImportPanel = (): React.JSX.Element => {
         {done
           ? sync.phase === 'error'
             ? `${syncErrorWords(sync.detail) ?? 'Something stopped the import.'} It picks up where it left off next time.`
-            : importDoneWords(since)
+            : importDoneWords(since, fitness)
           : 'This takes a moment. You can leave this open or close it.'}
       </p>
       <div className="ahc-actions">
