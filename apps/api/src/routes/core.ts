@@ -124,6 +124,8 @@ export const coreRoutes = (db: DB) => {
       trainWhen: readSetting(db, userId, 'trainWhen') ?? null,
       // what is switched on (Fitness, Today's sections), as PUT /me/prefs saved it (null before)
       prefs: readSetting(db, userId, 'prefs') ?? null,
+      // the Orbs store, as PUT /me/rewards merged it (null before). Its presence is how a phone knows it may sync.
+      rewards: readSetting(db, userId, 'rewards') ?? null,
       serverTime: nowISO(),
     });
   });

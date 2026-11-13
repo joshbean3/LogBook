@@ -22,3 +22,5 @@ export * from './trainingStatus.js';
 export * from './timeline.js';
 export * from './daytags.js';
 export * from './health.js';
+export * from './rewards.js';
+export * from './challenges.js';
