@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import type { ReactNode } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
@@ -107,5 +109,16 @@ describe('the welcome pager’s posters', () => {
     expect(count(html, 'lb-orb ')).toBe(1);
     const all = pictures.map(([, el]) => renderToStaticMarkup(el)).join('');
     expect(count(all, 'lb-orb')).toBe(0);
+  });
+});
+
+describe('the poster kit’s band', () => {
+  // the band's words are set with the `font` shorthand, which resets the line's even figures: a count that changes on
+  // the band ("0 of 3 done" to "1 of 3 done") must ask for them again (guide 4.4)
+  it('keeps even figures on its words', () => {
+    const css = readFileSync(join(__dirname, '../../ui/poster/poster.css'), 'utf8');
+    const rule = css.slice(css.indexOf('.po-words-b {'), css.indexOf('}', css.indexOf('.po-words-b {')));
+    expect(rule).toContain('font: 650');
+    expect(rule.indexOf('font-variant-numeric: tabular-nums')).toBeGreaterThan(rule.indexOf('font: 650'));
   });
 });
