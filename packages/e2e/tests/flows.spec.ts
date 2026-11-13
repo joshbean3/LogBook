@@ -54,30 +54,45 @@ test('to-do: add one, and it is still there after a reload', async ({ page }) =>
   await expect(page.getByText(text).first()).toBeVisible();
 });
 
-test('journal: write an entry, then edit it', async ({ page }) => {
+test('journal: finish the line, write more, then edit the entry', async ({ page }) => {
   await signUpByApi(page);
   await go(page, '/journal');
-  const first = `Ran by the river at dawn ${Date.now().toString(36)}.`;
-  await page.getByRole('button', { name: /^Write today/ }).first().click();
-  await page.getByRole('textbox', { name: 'A memory for today' }).fill(first);
-  let saved = savedBy(page, 'POST', /\/api\/journal/);
+  // the line first: the field is already started, and Finish the line keeps it as the poster's title
+  const tag = Date.now().toString(36);
+  const line = `Today I learned the river is loudest at dawn ${tag}.`;
+  await page.getByRole('textbox', { name: 'What did you learn today?' }).fill(line);
+  let saved = savedBy(page, 'POST', /\/api\/learnings/);
+  await page.getByRole('button', { name: 'Finish the line' }).click();
+  await saved;
+  await expect(page.getByRole('button', { name: /Edit tonight’s line$/ })).toContainText(line);
+
+  // then more: the same place opens the entry writer
+  const first = `Ran by the river at dawn ${tag}.`;
+  await page.getByRole('button', { name: /^Write more about today/ }).click();
+  await page.getByRole('textbox', { name: 'Today’s entry' }).fill(first);
+  saved = savedBy(page, 'POST', /\/api\/journal/);
   await page.getByRole('button', { name: 'Save', exact: true }).click();
   await saved;
-  await expect(page.getByText(first).first()).toBeVisible();
+  // the entry is a row under the poster (the tabs stay mounted, so only what is on screen is asked for)
+  const row = page.getByRole('button', { name: new RegExp(`^Entry.*${tag}`) }).filter({ visible: true }).first();
+  await expect(row).toBeVisible();
 
-  // tap the entry in the day's card: it opens for editing in place
-  await page.getByText(first, { exact: true }).first().click();
-  const editor = page.getByRole('textbox').filter({ hasText: first }).first();
+  // tap the row: its sheet, where Edit opens the words
+  await row.click();
+  await page.getByRole('button', { name: 'Edit', exact: true }).click();
+  const editor = page.getByRole('textbox', { name: 'Entry', exact: true });
   await expect(editor).toBeVisible();
   const edited = `${first} Then coffee.`;
   await editor.fill(edited);
   saved = savedBy(page, /^(PUT|PATCH)$/, /\/api\/journal\//);
   await page.getByRole('button', { name: 'Save', exact: true }).click();
   await saved;
-  await expect(page.getByText(edited).first()).toBeVisible();
-  // and the server has the new words
+  await expect(page.getByText(edited).filter({ visible: true }).first()).toBeVisible();
+  // and the server has the new words, and the line
   const list = await page.request.get('/api/journal?q=&limit=200');
   expect(JSON.stringify(await list.json())).toContain(edited);
+  const lines = await page.request.get('/api/learnings?limit=200');
+  expect(JSON.stringify(await lines.json())).toContain(line);
 });
 
 test('offline: a to-do added with no connection is sent when it comes back', async ({ page, context }) => {
