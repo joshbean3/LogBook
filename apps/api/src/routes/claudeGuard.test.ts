@@ -216,6 +216,83 @@ describe('every Claude call site', () => {
   });
 });
 
+describe('the challenge pick, attacked', () => {
+  const ask = (key: string = slot.key, who: Account = me) => who.call('POST', '/api/challenges/pick', { slot: key }, { 'x-local-date': T });
+  const sentBody = () => JSON.stringify(claude.calls.at(-1)!.params);
+  const sentText = () => String(claude.calls.at(-1)!.params.messages[0].content);
+  /** Everything of this account that Strava or the app's own arithmetic made, as it could show up in a request. */
+  const derived = ['9719', '3187', '3254', '06:42', '6.04', '53:07', '"149"', ':149', ':172', '8852', '2714', '2768', 'TrailRun', 'mxn}E', 'gfo}E', 'Zed Stravason', '77312946', 'acc-tok', 'ref-tok', 'avgHr', 'distanceM', 'movingSec'];
+
+  it('words the person typed that name a tracked run are theirs and are sent; nothing worked out from an activity is, and the request is the same with every activity gone', async () => {
+    // a to-do that names a synced run, a session whose title was pasted from an activity, a goal that quotes a mile time
+    const own = ['Share the Foggy Towpath Shuffle from Strava', 'Rainy Riverside Loop 2', 'Run a mile in 6:04 like the Towpath one'];
+    expect((await me.call('POST', '/api/todos', { text: own[0], date: T })).status).toBeLessThan(300);
+    expect((await me.call('POST', '/api/sessions', { date: T, kind: 'cross', type: 'Easy', title: own[1] })).status).toBeLessThan(300);
+    expect((await me.call('PUT', `/api/goals/week/${mondayOf(T)}`, { text: own[2] })).status).toBeLessThan(300);
+    expect((await ask()).status).toBe(200);
+    const body = sentBody();
+    // their own words went, as they typed them
+    for (const words of own) expect(sentText(), words).toContain(words);
+    // and nothing else about the run they name: not how far, how long, how fast, when, or what the watch called it
+    for (const v of derived) expect(body, `derived value ${v} reached the provider`).not.toContain(v);
+    // today's run is done by the activity alone, and the menu still offers it, as it would had nothing been tracked
+    expect(sentText()).toContain('"id":"session:run"');
+    // every row Strava ever gave this account gone: the same request, byte for byte
+    db.delete(activities).where(eq(activities.userId, me.id)).run();
+    db.delete(hrZones).where(eq(hrZones.userId, me.id)).run();
+    db.delete(stravaAccounts).where(eq(stravaAccounts.userId, me.id)).run();
+    expect((await ask()).status).toBe(200);
+    expect(sentBody()).toBe(body);
+  }, 20_000);
+
+  it('no habit, no check, no journal line, no logged set and no status of the day changes a byte of it', async () => {
+    expect((await ask()).status).toBe(200);
+    const before = sentBody();
+    // a habit whose name is a sentence about training, checked off for a week; lines and entries; logged sets
+    const habit = ((await me.call('POST', '/api/habits', { name: 'Kudos on Strava after the Towpath run' })).body as Array<{ id: string; name: string }>).find((h) => h.name.startsWith('Kudos'))!;
+    expect(habit.id).toBeTruthy();
+    for (let i = 0; i < 7; i++) expect((await me.call('PUT', `/api/habits/${habit.id}/days/${shiftDays(T, -i)}`, { done: true })).status).toBeLessThan(300);
+    expect((await me.call('POST', '/api/learnings', { date: T, text: 'Today I learned the towpath floods' })).status).toBeLessThan(300);
+    expect((await me.call('POST', '/api/journal', { date: T, text: 'Ran the foggy towpath, knee sore, slept badly.' })).status).toBeLessThan(300);
+    expect((await me.call('POST', '/api/lifts', { date: T, exercise: 'Zercher squat', weight: 185, reps: 5 })).status).toBeLessThan(300);
+    expect((await ask()).status).toBe(200);
+    expect(sentBody()).toBe(before);
+    for (const v of ['Kudos', 'towpath floods', 'knee sore', 'Zercher', '185', habit.id]) expect(sentBody(), v).not.toContain(v);
+  }, 20_000);
+
+  it('the week’s challenge is asked about with the same care: session names, to-dos and goals, and the same bytes with every activity, habit and line gone', async () => {
+    const { account, slot: week } = await signUpWithSlot(app, 'week', T, 'guard-week');
+    grantAll(db, account.id);
+    const monday = mondayOf(T);
+    // two sessions in the week (the first and the last day of it, so both are in it whatever day today is), a week goal, a to-do
+    for (const [date, title] of [[monday, 'Canal intervals'], [shiftDays(monday, 6), 'Long 9 by the reservoir']] as const) expect((await account.call('POST', '/api/sessions', { date, kind: 'run', type: 'Easy', title, miles: 5 })).status).toBeLessThan(300);
+    expect((await account.call('PUT', `/api/goals/week/${monday}`, { text: 'File the Halvorsen expenses' })).status).toBeLessThan(300);
+    expect((await account.call('POST', '/api/todos', { text: 'Sync the watch after the Reservoir Fartlek', date: T })).status).toBeLessThan(300);
+    const habit = ((await account.call('POST', '/api/habits', { name: 'Ten minutes of mobility' })).body as Array<{ id: string; name: string }>).find((h) => h.name.endsWith('mobility'))!;
+    for (let i = 0; i < 7; i++) await account.call('PUT', `/api/habits/${habit.id}/days/${shiftDays(T, -i)}`, { done: true });
+    await account.call('POST', '/api/learnings', { date: T, text: 'Today I learned to start slower' });
+    // a Strava account, zones, and a tracked run on each day that holds a session: the app would show both as done
+    db.insert(stravaAccounts).values({ userId: account.id, athleteId: '55120077', athleteName: 'Wim Segmentson', accessToken: 'acc-tok-week', refreshToken: 'ref-tok-week', expiresAt: 1999999999, scope: 'read,activity:read_all', connectedAt: new Date().toISOString(), lastSyncAt: null, lastError: null }).run();
+    db.insert(hrZones).values({ userId: account.id, zonesJson: JSON.stringify(ZONES), fetchedAt: new Date().toISOString() }).run();
+    for (const [i, date] of [monday, shiftDays(monday, 6)].entries())
+      db.insert(activities)
+        .values({ id: `1300000055${i}`, userId: account.id, date, time: '18:03', name: 'Reservoir Fartlek', sportType: 'Run', kind: 'run', distanceM: 14484, movingSec: 4521, elapsedSec: 4610, elevM: 88.1, avgHr: 156, maxHr: 181, cadence: 178, polyline: 'qrs}EzzzhUaB', lapsJson: JSON.stringify([[1609, 498, 158]]), deletedAt: null, updatedAt: new Date().toISOString(), perfAt: null, perfFailed: 0 })
+        .run();
+    expect((await ask(week.key, account)).status).toBe(200);
+    const body = sentBody();
+    const text = sentText();
+    for (const words of ['Canal intervals', 'Long 9 by the reservoir', 'File the Halvorsen expenses', 'Sync the watch after the Reservoir Fartlek']) expect(text, words).toContain(words);
+    expect(text).toContain('"id":"sessions"');
+    for (const v of [...derived, '14484', '4521', '4610', '18:03', ':156', ':181', 'qrs}E', 'Wim Segmentson', '55120077', 'mobility', 'start slower', habit.id]) expect(body, `${v} reached the provider`).not.toContain(v);
+    db.delete(activities).where(eq(activities.userId, account.id)).run();
+    db.delete(hrZones).where(eq(hrZones.userId, account.id)).run();
+    db.delete(stravaAccounts).where(eq(stravaAccounts.userId, account.id)).run();
+    for (let i = 0; i < 7; i++) await account.call('PUT', `/api/habits/${habit.id}/days/${shiftDays(T, -i)}`, { done: false });
+    expect((await ask(week.key, account)).status).toBe(200);
+    expect(sentBody()).toBe(body);
+  }, 20_000);
+});
+
 describe('the source', () => {
   const src = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
   const files = (dir: string): string[] => fs.readdirSync(dir, { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? files(path.join(dir, e.name)) : /\.ts$/.test(e.name) && !/\.test\.ts$/.test(e.name) && !dir.endsWith(`${path.sep}test`) ? [path.join(dir, e.name)] : []));
