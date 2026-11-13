@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { DEFAULT_PREFS, type Prefs } from '@/lib/prefs';
 import { TOUR_ALL } from '@/features/onboarding/tour/Tour';
-import { parseSeen, placeOf, TIP_CAPTIONS, TIP_DELAY_MS, TIP_DONE, TIP_EYEBROW, TIP_PLACES, TIP_TOUR, tipDue, tipFor, TIPS_AGAIN, TIPS_KEY, tipsStore, tipWords, type TipBuild, type TipMoment, type TipPlace } from './tips';
+import { parseSeen, placeOf, TIP_CAPTIONS, TIP_DELAY_MS, TIP_DONE, TIP_EYEBROW, TIP_PLACES, TIP_TOUR, tipDue, tipFor, TIPS_AGAIN, TIPS_KEY, tipsStore, tipWords, type TipMoment, type TipPlace } from './tips';
 
 class MemStorage {
   m = new Map<string, string>();
@@ -13,13 +13,24 @@ const throwing = { getItem: () => { throw new Error('storage refused'); }, setIt
 
 const ON: Prefs = DEFAULT_PREFS;
 const OFF: Prefs = { ...DEFAULT_PREFS, fitness: false };
-const BUILDS: TipBuild[] = [
+/** Every line the tips show for an account, in the build under test. */
+const allWords = (prefs: Prefs, mod: { tipFor: typeof tipFor; tipWords: typeof tipWords } = { tipFor, tipWords }) => TIP_PLACES.flatMap((p) => { const t = mod.tipFor(p, prefs); return t ? mod.tipWords(t) : []; });
+/** The rules as another build carries them: the build flags are constants the bundler folds (lib/features.ts). */
+const inBuild = async (flags: { strava: boolean; health: boolean }) => {
+  vi.resetModules();
+  vi.doMock('@/lib/features', () => ({ STRAVA_BUILT: flags.strava, HEALTH_BUILT: flags.health, DEV_TOOLS: false }));
+  const mod = await import('./tips');
+  vi.doUnmock('@/lib/features');
+  return mod;
+};
+const BUILDS = [
   { strava: false, health: false },
   { strava: false, health: true },
   { strava: true, health: false },
   { strava: true, health: true },
 ];
-const allWords = (prefs: Prefs, build: TipBuild) => TIP_PLACES.flatMap((p) => { const t = tipFor(p, prefs, build); return t ? tipWords(t) : []; });
+/** The words that name training (the list src/lib/fitnessOff.test.tsx holds every screen to). */
+const TRAINING = /\b(run|runs|running|ran|runner|lift|lifts|lifting|mile|miles|mi|mileage|plan|plans|planned|training|train|session|sessions|workout|workouts|strava|fitness|pace)\b/i;
 
 describe('which place a path is', () => {
   it('is a tab at its root', () => {
@@ -63,11 +74,12 @@ describe('the words', () => {
     expect(TIP_TOUR).toBe('See it in the tour');
   });
 
-  it('is plain and short: a title fits one line, a second line is one short sentence or two', () => {
-    for (const build of BUILDS)
+  it('is plain and short: a title fits one line, a second line is one short sentence or two', async () => {
+    for (const build of BUILDS) {
+      const mod = await inBuild(build);
       for (const prefs of [ON, OFF])
         for (const p of TIP_PLACES) {
-          const t = tipFor(p, prefs, build);
+          const t = mod.tipFor(p, prefs);
           for (const r of t ? [...t.works, ...t.tracked] : []) {
             // Inter 17 600 in a card at 390: about 32 characters a line
             expect(r.title.length, r.title).toBeLessThanOrEqual(32);
@@ -77,12 +89,14 @@ describe('the words', () => {
             if (r.sub) expect(r.sub, r.sub).toMatch(/\.$/);
           }
         }
+    }
   });
 
-  it('uses no banned word, no em dash, no exclamation mark and no model name, in any build', () => {
-    for (const build of BUILDS)
+  it('uses no banned word, no em dash, no exclamation mark and no model name, in any build', async () => {
+    for (const build of BUILDS) {
+      const mod = await inBuild(build);
       for (const prefs of [ON, OFF])
-        for (const w of [...allWords(prefs, build), ...Object.values(TIPS_AGAIN)]) {
+        for (const w of [...allWords(prefs, mod), ...Object.values(mod.TIPS_AGAIN)]) {
           expect(w, w).not.toMatch(/—|–|!/);
           expect(w, w).not.toMatch(/\b(coach|AI|bot|Logbook|the Orby|Orby app)\b/i);
           expect(w, w).not.toMatch(/\b(Claude|GPT|Gemini|model)\b/i);
@@ -91,21 +105,31 @@ describe('the words', () => {
           expect(w, w).not.toMatch(/\b(workouts?|learnings?|notes?|posts?|logs)\b/i);
           expect(w, w).not.toMatch(/'/);
         }
+    }
   });
 
-  it('names Strava only in a build that has it, and Apple Health in none (it brings no session)', () => {
-    for (const build of BUILDS)
+  it('names Strava only in a build that has it, and Apple Health in none (it brings no session)', async () => {
+    for (const build of BUILDS) {
+      const mod = await inBuild(build);
       for (const prefs of [ON, OFF]) {
-        const text = allWords(prefs, build).join(' ');
-        if (!build.strava) expect(text).not.toMatch(/Strava/i);
-        expect(text).not.toMatch(/Apple Health|HealthKit|\bHealth\b/);
+        const text = allWords(prefs, mod).join(' ');
+        if (!build.strava) expect(text, JSON.stringify(build)).not.toMatch(/Strava/i);
+        expect(text, JSON.stringify(build)).not.toMatch(/Apple Health|HealthKit|\bHealth\b/);
       }
-    expect(tipFor('plan', ON, { strava: true, health: true })!.tracked[0]!.sub).toMatch(/Strava/);
-    expect(tipFor('plan', ON, { strava: false, health: true })!.tracked[0]!.sub).toBe('Mark it done, or log a lift’s sets.');
+      // what makes a session count, in that build's words; Strava is named there and nowhere else
+      const counts = mod.tipFor('plan', ON)!.tracked[0]!;
+      expect(counts.title).toBe('A session counts when it is done');
+      expect(counts.sub).toBe(build.strava ? 'Mark it, log a lift’s sets, or sync a run from Strava.' : 'Mark it done, or log a lift’s sets.');
+      expect(allWords(ON, mod).filter((w) => /Strava/.test(w))).toHaveLength(build.strava ? 1 : 0);
+    }
+    // the build the tests run in has no Strava, as a release has none
+    expect(allWords(ON).join(' ')).not.toMatch(/Strava/i);
   });
 
-  it('says nothing about training with Fitness off', () => {
-    for (const build of BUILDS) expect(allWords(OFF, build).join(' ')).not.toMatch(/\b(fitness|training|sessions?|runs?|running|lifts?|sets|miles?|workouts?|plan|Strava|pace)\b/i);
+  it('says nothing about training with Fitness off', async () => {
+    for (const build of BUILDS) expect(allWords(OFF, await inBuild(build)).join(' ')).not.toMatch(TRAINING);
+    // and the check itself sees training where it is: the Fitness tip
+    expect(allWords(ON).join(' ')).toMatch(TRAINING);
   });
 
   it('leaves out a line about a section of Today that is switched off, and has no tip when nothing is left to say', () => {
@@ -186,10 +210,6 @@ describe('whether a tip is due', () => {
     expect(due({ prefs: { ...ON, today: { habits: false, day: false, learned: true } } })).toBeNull();
   });
 
-  it('carries this build’s words', () => {
-    expect(tipDue(moment({ path: '/plan', build: { strava: true, health: true } }))!.tracked[0]!.sub).toMatch(/Strava/);
-    expect(tipDue(moment({ path: '/plan', build: { strava: false, health: true } }))!.tracked[0]!.sub).not.toMatch(/Strava/);
-  });
 });
 
 describe('the seen store', () => {

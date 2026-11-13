@@ -1,4 +1,4 @@
-import { HEALTH_BUILT, STRAVA_BUILT } from '@/lib/features';
+import { STRAVA_BUILT } from '@/lib/features';
 import type { Prefs, TodaySection } from '@/lib/prefs';
 import type { BrandIconName } from '@/ui/icons';
 import { TABS, type TabId } from '@/ui/nav';
@@ -64,12 +64,11 @@ export const TIP_TOUR = 'See it in the tour';
 /** Settings, beside "How Orby works": the row that shows the tips again, and what it says when tapped. */
 export const TIPS_AGAIN = { title: 'Show the tips again', sub: 'One short card per tab', done: 'Tips will show again' } as const;
 
-/** What a build has (lib/features.ts): a line never names a source the build left out. */
-export interface TipBuild {
-  strava: boolean;
-  health: boolean;
-}
-export const TIP_BUILD: TipBuild = { strava: STRAVA_BUILT, health: HEALTH_BUILT };
+/**
+ * What makes a session count, in this build's words. The build flag is a constant the bundler folds (lib/features.ts), so
+ * a build without Strava does not carry the line that names it (scripts/check-bundle.mjs reads the files that ship).
+ */
+const SESSION_COUNTS = STRAVA_BUILT ? 'Mark it, log a lift’s sets, or sync a run from Strava.' : 'Mark it done, or log a lift’s sets.';
 
 /** A row and the section of Today it is about: with that section switched off (Today shows) the row is left out. */
 type TodayRow = TipRow & { needs?: TodaySection };
@@ -105,10 +104,11 @@ const TODAY_TRACKED: readonly TodayRow[] = [
 const strip = ({ needs: _needs, ...row }: TodayRow): TipRow => row;
 
 /**
- * The tip for a place, for this account and this build, or null when there is none: Fitness with Fitness off, and Today
- * when every section its lines are about is switched off (nothing true is left to say about how it works).
+ * The tip for a place, for this account (and this build: `SESSION_COUNTS`), or null when there is none: Fitness with
+ * Fitness off, and Today when every section its lines are about is switched off (nothing true is left to say about how
+ * it works).
  */
-export const tipFor = (place: TipPlace, prefs: Prefs, build: TipBuild = TIP_BUILD): Tip | null => {
+export const tipFor = (place: TipPlace, prefs: Prefs): Tip | null => {
   if (place === 'today') {
     const shown = (r: TodayRow) => !r.needs || prefs.today[r.needs];
     const works = TODAY_WORKS.filter(shown).map(strip);
@@ -132,7 +132,7 @@ export const tipFor = (place: TipPlace, prefs: Prefs, build: TipBuild = TIP_BUIL
       title: 'Fitness',
       works: [{ icon: 'run', title: 'Today comes first', sub: 'Then the days ahead. Tap one to open it.' }],
       tracked: [
-        { icon: 'check', title: 'A session counts when it is done', sub: build.strava ? 'Mark it, log a lift’s sets, or sync a run from Strava.' : 'Mark it done, or log a lift’s sets.' },
+        { icon: 'check', title: 'A session counts when it is done', sub: SESSION_COUNTS },
         { icon: 'progress', title: 'Progress adds it up', sub: 'Slide along the bars to read one.' },
       ],
     };
@@ -167,7 +167,6 @@ export interface TipMoment {
   replaying: boolean;
   /** A tip already rose since the last tab change: never two in a row. */
   rose: boolean;
-  build?: TipBuild;
 }
 
 /**
@@ -179,7 +178,7 @@ export const tipDue = (m: TipMoment): Tip | null => {
   const place = placeOf(m.path);
   if (!place || m.seen.has(place)) return null;
   if (m.overlays > 0 || m.busy || m.replaying || m.rose) return null;
-  return tipFor(place, m.prefs, m.build);
+  return tipFor(place, m.prefs);
 };
 
 // ---------- the seen store ----------

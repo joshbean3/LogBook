@@ -10,7 +10,7 @@ const text = (s: string) => s.replace(/<[^>]+>/g, ' ').replace(/&#x27;/g, '\'').
 
 describe('a tip’s body', () => {
   it.each(TIP_PLACES)('%s: one card, its rows under the two groups, one Sky button and one quiet link', (place) => {
-    const tip = tipFor(place, DEFAULT_PREFS, { strava: false, health: true })!;
+    const tip = tipFor(place, DEFAULT_PREFS)!;
     const out = html(tip);
     expect(out).toContain(`data-place="${place}"`);
     expect(count(out, 'class="tip-card"')).toBe(1);
