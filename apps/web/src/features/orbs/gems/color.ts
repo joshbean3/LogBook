@@ -57,6 +57,11 @@ export const scale = (hex: string, l: number, c = 1): string => {
   const p = toLab(hex);
   return toHex({ l: p.l * l, a: p.a * c, b: p.b * c });
 };
+/** Toward the light: `t` of the way up to full lightness, keeping `keep` of the chroma (a tint that stays in its hue, where a mix with white would go milky). */
+export const tint = (hex: string, t: number, keep: number): string => {
+  const p = toLab(hex);
+  return toHex({ l: p.l + (1 - p.l) * t, a: p.a * keep, b: p.b * keep });
+};
 /** Turn the hue by `deg` degrees and move the lightness by `dl` (0 to 1): an Orb's own small shift. */
 export const shifted = (hex: string, deg: number, dl: number): string => {
   const p = toLab(hex);
