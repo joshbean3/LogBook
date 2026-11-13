@@ -207,15 +207,25 @@ export const rowView = (c: Challenge | undefined, slot: Slot, f: ChallengeFacts,
  * week challenge on its Monday (an offer) or on any day of its week once it was added. The Orbs page: the week's, then the day's, then a week challenge that was
  * finished today for a week that is over. `views` holds a row per slot key (null: not shown).
  */
-export const rowsFor = (scope: Scope, slots: readonly Slot[], views: Readonly<Record<string, RowView | null | undefined>>, today: ISODate): RowView[] => {
+export const rowsFor = (scope: Scope, slots: readonly Slot[], views: Readonly<Record<string, RowView | null | undefined>>, today: ISODate, offerDay?: ISODate): RowView[] => {
   const monday = mondayOf(today);
   const day = slots.filter((s) => s.kind === 'day' && s.date === today).map((s) => views[s.key]).find(Boolean) ?? null;
   const week = slots.filter((s) => s.kind === 'week' && s.date === monday).map((s) => views[s.key]).find(Boolean) ?? null;
   // an offer shows on Today on its Monday only; one the person added stays in sight all week (it would otherwise live only
   // on the Orbs page from Tuesday, and be forgotten)
-  if (scope === 'today') return day ? [day] : week && (today === monday || week.shown === 'added') ? [week] : [];
+  // (`offerDay`: Monday, or Tuesday in a week whose Monday held a day challenge, `weekOfferDay`)
+  if (scope === 'today') return day ? [day] : week && (today === (offerDay ?? monday) || week.shown === 'added') ? [week] : [];
   const last = slots.filter((s) => s.kind === 'week' && s.date === shiftDays(monday, -7)).map((s) => views[s.key]).find((v) => v?.shown === 'done') ?? null;
   return [week, day, last].filter((v): v is RowView => !!v);
+};
+
+/**
+ * The day Today shows the week challenge's offer: its Monday. In a week whose Monday held a day challenge (Today shows one
+ * row, and the day's had it), the Tuesday: day challenges never fall on two days running, so that row is free.
+ */
+export const weekOfferDay = (challenges: Readonly<Record<string, unknown>>, today: ISODate): ISODate => {
+  const monday = mondayOf(today);
+  return challenges[`challenge:d:${monday}`] ? shiftDays(monday, 1) : monday;
 };
 
 // ---------- the assistant's pick ----------

@@ -5,7 +5,7 @@ import { PREFS_EVENT, useFitness } from '@/lib/prefs';
 import { useToday } from '@/lib/useToday';
 import { challengeFacts, factsReady, habitDaysIn, readCaches } from '../dayFacts';
 import { useOrbsStore } from '../store';
-import { rowView, rowsFor, type RowView, type Scope } from './model';
+import { rowView, rowsFor, weekOfferDay, type RowView, type Scope } from './model';
 
 /**
  * The challenges on this phone, read for the row and the sheet: today's slot and this week's (and last week's, for a week
@@ -30,6 +30,8 @@ export interface Board {
   slots: Slot[];
   live: Record<string, Live>;
   views: Record<string, RowView | null>;
+  /** The day Today shows the week challenge's offer (`weekOfferDay`). */
+  offerDay: ISODate;
   /**
    * This phone's own menu for a slot, now, less what could not be added now: what the assistant's pick is checked
    * against (a pick the phone could not add would take the offer away).
@@ -85,7 +87,8 @@ export const candidates = (store: Rewards | null, today: ISODate): Slot[] => (st
  */
 export const boardOf = (qc: QueryClient, store: Rewards, today: ISODate, fitness: boolean, now: Date = new Date()): Board | null => {
   const slots = candidates(store, today);
-  if (!slots.length) return { today, slots, live: {}, views: {}, menuOf: () => [] };
+  const offerDay = weekOfferDay(store.challenges, today);
+  if (!slots.length) return { today, slots, live: {}, views: {}, offerDay, menuOf: () => [] };
   const monday = mondayOf(today);
   const c = readCaches(qc, fitness, monthsBetween(shiftDays(monday, -28), shiftDays(monday, 6)));
   if (!c || !factsReady(c, today)) return null;
@@ -106,7 +109,7 @@ export const boardOf = (qc: QueryClient, store: Rewards, today: ISODate, fitness
     const past = [4, 3, 2, 1].map((w) => habitDaysIn(c, shiftDays(monday, -7 * w), shiftDays(monday, -7 * w + 6)));
     return menuFor(l.slot, baselineOf(store, today, past), l.facts, store.set.size).filter((o) => canAdd({ ...o, state: 'offered', at: '' }, l.slot, l.facts));
   };
-  return { today, slots, live, views, menuOf };
+  return { today, slots, live, views, offerDay, menuOf };
 };
 
 /**
@@ -132,5 +135,5 @@ export const useChallengeRowViews = (scope: Scope): RowView[] => useChallengeRow
 /** The rows a place shows now, and the day they stand on (what a sheet opened from one of them is read against). */
 export const useChallengeRows = (scope: Scope): { rows: RowView[]; today: ISODate | null } => {
   const board = useBoard();
-  return useMemo(() => ({ rows: board ? rowsFor(scope, board.slots, board.views, board.today) : [], today: board?.today ?? null }), [board, scope]);
+  return useMemo(() => ({ rows: board ? rowsFor(scope, board.slots, board.views, board.today, board.offerDay) : [], today: board?.today ?? null }), [board, scope]);
 };

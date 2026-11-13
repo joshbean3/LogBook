@@ -1,6 +1,6 @@
 import { addChallenge, CHALLENGE_BOUNDS, challengeState, challengeTitle, easierChallenge, emptyRewards, hasEasier, menuFor, offerInto, payFor, reasonAllowed, shiftDays, skipChallenge, withPick, type Baseline, type Challenge, type ChallengeFacts, type DayFacts, type Offer, type Rewards, type Slot } from '@logbook/shared';
 import { describe, expect, it } from 'vitest';
-import { acceptPick, actionsFor, addWords, ASK_FAILED, ASK_WORDS, ASKING, doneWords, eyebrowOf, isPickable, parsePick, payLine, PICKED_CAPTION, progressWords, rowsFor, rowView, sheetLine, shownAs, whatCounts, worthAsking, worthWords, type RowView } from './model';
+import { acceptPick, actionsFor, addWords, weekOfferDay, ASK_FAILED, ASK_WORDS, ASKING, doneWords, eyebrowOf, isPickable, parsePick, payLine, PICKED_CAPTION, progressWords, rowsFor, rowView, sheetLine, shownAs, whatCounts, worthAsking, worthWords, type RowView } from './model';
 import { askPick, mayAskFor, pickCapable } from './pick';
 import { getOrbs, openOrbs, resetOrbsForTest, setOrbs } from '../store';
 
@@ -182,6 +182,15 @@ describe('which row shows, and as what', () => {
     expect(rowsFor('today', [dTue, w, last], { [w.key]: v(w.key, 'week', 'added') }, tue).map((r) => r.key)).toEqual([w.key]);
     expect(rowsFor('today', [dTue, w, last], { [dTue.key]: v(dTue.key, 'day'), [w.key]: v(w.key, 'week', 'added') }, tue).map((r) => r.key)).toEqual([dTue.key]);
     expect(rowsFor('today', slots, {}, MON)).toEqual([]);
+    // a Monday that held a day challenge had no room for the week's offer: Today shows it on Tuesday instead (that week
+    // it was on the Orbs page only, and nobody who stays on Today ever saw it)
+    expect(rowsFor('today', [dTue, w, last], { [w.key]: v(w.key, 'week', 'offered') }, tue, tue).map((r) => r.key)).toEqual([w.key]);
+    expect(rowsFor('today', slots, both, MON, tue).map((r) => r.key)).toEqual([d.key]);
+    expect(rowsFor('today', slots, { [w.key]: both[w.key]! }, MON, tue)).toEqual([]);
+    expect(rowsFor('today', [daySlot(day(2)), w, last], { [w.key]: v(w.key, 'week', 'offered') }, day(2), tue)).toEqual([]);
+    expect(weekOfferDay({}, MON)).toBe(MON);
+    expect(weekOfferDay({ [daySlot(MON).key]: ch({ item: 'goal', target: 1, state: 'skipped' }) }, day(3))).toBe(tue);
+    expect(weekOfferDay({ [daySlot(tue).key]: ch({ item: 'goal', target: 1 }) }, tue)).toBe(MON);
     // the Orbs page: both, the week's first, and last week's when it was finished today
     expect(rowsFor('page', slots, both, MON).map((r) => r.key)).toEqual([w.key, d.key]);
     expect(rowsFor('page', slots, { ...both, [last.key]: v(last.key, 'week', 'done') }, MON).map((r) => r.key)).toEqual([w.key, d.key, last.key]);

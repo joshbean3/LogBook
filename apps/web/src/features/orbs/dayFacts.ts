@@ -293,7 +293,9 @@ export const challengeFacts = (c: Caches, store: Rewards, slot: Slot, today: ISO
       habitDays: habitDaysIn(c, monday, within),
       goal: !weekGoal ? 'none' : weekGoal.status === 'done' ? 'done' : 'open',
       sessions: { planned: sessions, done },
-      paused: paused + (day.held && !store.days[dayOf]?.h ? 1 : 0),
+      // today's own status counts only while today is a day of this week: a status that starts the Monday after does
+      // not reach back into a week that is over (its challenge is read then for its floor)
+      paused: paused + (day.held && dayOf >= monday && dayOf <= end && !store.days[dayOf]?.h ? 1 : 0),
     },
   };
 };

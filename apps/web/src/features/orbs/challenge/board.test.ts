@@ -8,6 +8,7 @@ import { keys } from '@/api/queries';
 import type { Bootstrap, MonthBundle } from '@/api/types';
 import { challengeFacts, readCaches } from '../dayFacts';
 import { openOrbs, resetOrbsForTest, setOrbs } from '../store';
+import { rowsFor } from './model';
 import { boardOf, useBoard, type Board } from './useBoard';
 
 vi.mock('idb-keyval', () => ({ get: async () => undefined, set: async () => undefined, del: async () => undefined, clear: async () => undefined }));
@@ -164,6 +165,65 @@ describe('the menu an answer is checked against', () => {
     const offered: Challenge = { item: 'list', target: 2, base: 0, state: 'offered', at: ADDED.toISOString() };
     const board = boardOf(world([todo('a'), todo('b')], { checks }), store(offered), T, true, clock(T, 12))!;
     expect(board.menuOf(KEY).map((o) => o.item)).toEqual(['list']);
+  });
+});
+
+describe('last week’s challenge, read on the Monday after', () => {
+  const MON = '2026-11-16';
+  const NEXT = shiftDays(MON, 7);
+  const WEEK = `challenge:w:${MON}`;
+  const slot = { key: WEEK, kind: 'week' as const, date: MON, seed: 0 };
+  const days: Challenge = { item: 'days', target: 5, floor: 4, base: 0, state: 'added', at: clock(MON, 9).toISOString() };
+  // four days of that week counted and closed: its floor
+  const s: Rewards = { ...emptyRewards(U, '2026-10-05', undefined, '2026-10-05'), clock: NEXT, days: Object.fromEntries([0, 1, 2, 3].map((i) => [shiftDays(MON, i), { n: 1, a: 1, c: 1 as const }])), challenges: { [WEEK]: days } };
+  const factsWith = (status: Bootstrap['user']['status']) => {
+    const qc = world([]);
+    qc.setQueryData(keys.bootstrap, { ...boot(), user: { ...boot().user, status } });
+    return challengeFacts(readCaches(qc, true, ['2026-10', '2026-11'])!, s, slot, NEXT);
+  };
+  it('pays its floor', () => {
+    const f = factsWith(null);
+    expect(f.week).toMatchObject({ monday: MON, counted: 4, paused: 0 });
+    expect(settleChallenges(s, { [WEEK]: f }, clock(NEXT, 8)).store.once[WEEK]).toEqual({ on: NEXT, n: 10 });
+  });
+  it('a status that starts this Monday does not reach back into it: it was ended with nothing paid', () => {
+    const f = factsWith({ kind: 'sick', from: NEXT, until: null });
+    expect(f.day.held).toBe(true);
+    expect(f.week.paused).toBe(0);
+    const settled = settleChallenges(s, { [WEEK]: f }, clock(NEXT, 8)).store;
+    expect(settled.challenges[WEEK]!.state).toBe('done');
+    expect(settled.once[WEEK]).toEqual({ on: NEXT, n: 10 });
+  });
+  it('a paused day inside the week still ends it, as before', () => {
+    const paused: Rewards = { ...s, days: { ...s.days, [shiftDays(MON, 4)]: { n: 0, a: 0, h: 1, c: 1 } } };
+    const qc = world([]);
+    const f = challengeFacts(readCaches(qc, true, ['2026-10', '2026-11'])!, paused, slot, NEXT);
+    expect(f.week.paused).toBe(1);
+    expect(settleChallenges(paused, { [WEEK]: f }, clock(NEXT, 8)).store.challenges[WEEK]!.state).toBe('void');
+  });
+});
+
+describe('Today’s one row, in a week whose Monday held a day challenge', () => {
+  const MON = '2026-11-16';
+  const TUE = shiftDays(MON, 1);
+  const week: Challenge = { item: 'days', target: 3, floor: 2, base: 0, state: 'offered', at: clock(MON, 9).toISOString() };
+  const today = (s: Rewards, day: string) => {
+    const b = boardOf(world([]), s, day, true, clock(day, 12))!;
+    return rowsFor('today', b.slots, b.views, b.today, b.offerDay).map((r) => r.key);
+  };
+  const base = { ...emptyRewards(U, '2026-10-05', undefined, '2026-10-05'), clock: TUE };
+  it('the week’s offer has Tuesday: on Monday the day’s challenge had the row', () => {
+    const s: Rewards = { ...base, challenges: { [`challenge:w:${MON}`]: week, [`challenge:d:${MON}`]: { item: 'habits', target: 3, base: 0, state: 'offered', at: clock(MON, 9).toISOString() } } };
+    expect(today(s, MON)).toEqual([`challenge:d:${MON}`]);
+    expect(today(s, TUE)).toEqual([`challenge:w:${MON}`]);
+    expect(today(s, shiftDays(MON, 2))).toEqual([]);
+    // skipped on Monday: still Tuesday's
+    expect(today({ ...s, challenges: { ...s.challenges, [`challenge:d:${MON}`]: { ...s.challenges[`challenge:d:${MON}`]!, state: 'skipped' } } }, TUE)).toEqual([`challenge:w:${MON}`]);
+  });
+  it('in any other week it is Monday’s alone, as before', () => {
+    const s: Rewards = { ...base, challenges: { [`challenge:w:${MON}`]: week } };
+    expect(today(s, MON)).toEqual([`challenge:w:${MON}`]);
+    expect(today(s, TUE)).toEqual([]);
   });
 });
 
