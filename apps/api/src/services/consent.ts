@@ -81,13 +81,14 @@ export const mayPickReads = (db: DB, userId: string): boolean => {
 /**
  * The Claude calls a person starts by hand. Remember when and the daily pick run on their own and fall back quietly
  * instead. `shape` is the plan builder's assistant (a few settings from a sentence), apart from `plan` (a whole draft).
+ * `challenge` is "Ask the assistant to pick" on a challenge (one item chosen from the rule's own menu).
  */
-export type AiFlow = 'assistant' | 'plan' | 'goal' | 'shape';
+export type AiFlow = 'assistant' | 'plan' | 'goal' | 'shape' | 'challenge';
 export const CONSENT_REQUIRED = 'Choose what the assistant can use first. Open Settings, Privacy.';
 
 /**
  * The one gate in front of every Claude call a person starts (the assistant, the plan builder in every mode and its
- * settings assistant, the goal review). An account that was never asked (`at: null`) sends nothing: not its data, not typed text, not a file. Throws
+ * settings assistant, the goal review, the challenge pick). An account that was never asked (`at: null`) sends nothing: not its data, not typed text, not a file. Throws
  * 403 `consent_required`; answers the stored choice otherwise, so the caller can leave out what a switch covers.
  */
 export const requireAiPermission = (db: DB, userId: string, _flow: AiFlow): Consent => {
