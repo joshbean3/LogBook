@@ -26,7 +26,7 @@ const SAMPLES: readonly (readonly [string, string])[] = [
   ['po-today-full', 'Goal, full'],
   ['po-goals-empty', 'Goals empty'],
   ['po-goals-filled', 'Goals filled'],
-  ['po-learned', 'Learned'],
+  ['po-learned', 'Journal'],
   ['po-fitness', 'Fitness'],
   ['po-long', 'Long words'],
 ];
@@ -188,7 +188,7 @@ export const PosterGallery = () => {
         ) : null}
         {pick === 'po-learned' ? (
           <>
-            <span className="caps">What I learned (dusk). Tap the button: tonight lights</span>
+            <span className="caps">Journal (dusk). Tap the button: tonight lights</span>
             <div data-testid="po-learned">
               <Poster
                 ground="dusk"

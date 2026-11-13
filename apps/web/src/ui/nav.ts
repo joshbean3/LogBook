@@ -1,13 +1,13 @@
-import { GoalsIcon, JournalIcon, LearnedIcon, FitnessIcon, ProgressIcon, TodayIcon, type BrandIconComponent } from './icons';
+import { GoalsIcon, JournalIcon, FitnessIcon, TodayIcon, type BrandIconComponent } from './icons';
 import { DEV_TOOLS } from '@/lib/features';
 import { fitnessOn, isFitnessPath } from '@/lib/prefs';
 
 /**
- * The navigation model (docs/feel.md §1, contracts §A.1): six tabs, the route table, and `matchRoute`, which turns a URL into
+ * The navigation model (docs/feel.md §1, contracts §A.1): four tabs, the route table, and `matchRoute`, which turns a URL into
  * the tab it lights, the root page it shows and the pushed pages stacked over it. NavController is the only reader that acts
  * on it; everything else asks the controller.
  */
-export type TabId = 'today' | 'goals' | 'learned' | 'plan' | 'progress' | 'journal';
+export type TabId = 'today' | 'goals' | 'plan' | 'journal';
 
 export interface TabDef {
   id: TabId;
@@ -17,20 +17,22 @@ export interface TabDef {
   icon: BrandIconComponent;
 }
 /**
- * Six, in this order (§1.1; Goals is the second tab, What I learned the third; habits live at the top of Today). Icons from
- * the brand set (guide 6.1, 7): sun, rings, bulb, the lift bar, the rising line, the open book. The fourth tab is Fitness
- * (its id and routes keep the name `plan`); with Fitness switched off it is not drawn (`shownTabs`, lib/prefs.ts).
+ * Four, in this order (§1.1; Goals is the second tab, Journal the last; habits live at the top of Today). Icons from the
+ * brand set (guide 6.1, 7): sun, rings, the lift bar, the open book. The third tab is Fitness (its id and routes keep
+ * the name `plan`); with Fitness switched off it is not drawn (`shownTabs`, lib/prefs.ts). Fitness is what is next and
+ * how it is going: it took in the tab that was Progress, whose address (`/progress`) leads here and whose metric pages
+ * (`/progress/metric/:id`) keep their addresses and are pushed over Fitness. Journal is the one place to write: the
+ * day's line and its longer entries. It took in the tab that was What I learned, whose old addresses (`/learned`,
+ * `/learned/:month`) lead here.
  */
 export const TABS: readonly TabDef[] = [
   { id: 'today', root: '/today', label: 'Today', icon: TodayIcon },
   { id: 'goals', root: '/goals', label: 'Goals', icon: GoalsIcon },
-  { id: 'learned', root: '/learned', label: 'Learned', icon: LearnedIcon },
   { id: 'plan', root: '/plan', label: 'Fitness', icon: FitnessIcon },
-  { id: 'progress', root: '/progress', label: 'Progress', icon: ProgressIcon },
   { id: 'journal', root: '/journal', label: 'Journal', icon: JournalIcon },
 ];
 export const tabDef = (id: TabId): TabDef => TABS.find((t) => t.id === id)!;
-/** The tabs the capsule draws: all six, or five with Fitness off. */
+/** The tabs the capsule draws: all four, or three with Fitness off. */
 export const shownTabs = (fitness: boolean): readonly TabDef[] => (fitness ? TABS : TABS.filter((t) => t.id !== 'plan'));
 
 export type RouteKind = 'root' | 'pushed' | 'full' | 'redirect';
@@ -44,8 +46,10 @@ export interface RouteDef {
   depth?: 1 | 2;
   /** The pushed bar's title (§2.6); a function when it depends on params. */
   title?: string | ((params: Readonly<Record<string, string>>) => string);
-  /** Redirect only: the destination; ':x' params are substituted (a missing optional one is dropped with its slash). */
-  to?: string;
+  /** Redirect only: the destination; ':x' params are substituted (a missing optional one is dropped with its slash). A function when the destination is not the params as written. */
+  to?: string | ((params: Readonly<Record<string, string>>) => string);
+  /** A check for one of this route's params, in place of the table-wide one for that name (`VALID`). */
+  valid?: Readonly<Record<string, (v: string) => boolean>>;
 }
 
 export const SETTINGS_SECTIONS = ['you', 'training', 'habits', 'plans', 'connections', 'app', 'data', 'account', 'privacy'] as const;
@@ -53,6 +57,22 @@ export type SettingsSection = (typeof SETTINGS_SECTIONS)[number];
 const SECTION_TITLE: Record<SettingsSection, string> = { you: 'You', training: 'Training', habits: 'Habits', plans: 'Plans', connections: 'Data sources', app: 'App', data: 'Data', account: 'Account', privacy: 'Privacy' };
 
 const METRIC_TITLE: Record<string, string> = { mileage: 'Weekly mileage', pace: 'Run pace', consistency: 'Consistency', lifts: 'Lift volume', sleep: 'Sleep', hrv: 'HRV', rhr: 'Resting HR' };
+
+// ---------- what a param may be ----------
+const ISO = /^\d{4}-\d{2}-\d{2}$/;
+/** The days a URL may name. A date far outside a lifetime is never a day someone logged, and at the calendar's own edges (year 0, year 9999) the day before or after it cannot be printed, which took the page down. */
+const DAY_MIN = '1900-01-01';
+const DAY_MAX = '2199-12-31';
+const isIsoDay = (s: string) => {
+  if (!ISO.test(s) || s < DAY_MIN || s > DAY_MAX) return false;
+  const d = new Date(`${s}T12:00:00Z`);
+  return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === s;
+};
+const isMonday = (s: string) => isIsoDay(s) && new Date(`${s}T12:00:00Z`).getUTCDay() === 1;
+const isFirstOfMonth = (s: string) => isIsoDay(s) && s.endsWith('-01');
+/** A month as Journal names it: `2026-11`, a real month inside the days a URL may name. */
+const isYearMonth = (s: string) => /^\d{4}-\d{2}$/.test(s) && isFirstOfMonth(`${s}-01`);
+const monthTitle = (first: string) => new Intl.DateTimeFormat('en-US', { month: 'long', year: 'numeric', timeZone: 'UTC' }).format(new Date(`${first}T12:00:00Z`));
 
 /** The whole table of §1.2: roots, pushed pages, full screens and redirects, in match order. */
 export const ROUTES: readonly RouteDef[] = [
@@ -66,9 +86,6 @@ export const ROUTES: readonly RouteDef[] = [
   ...(DEV_TOOLS ? [{ pattern: '/dev/ui', owner: 'today', kind: 'pushed', depth: 1, title: 'UI' } as const] : []),
   { pattern: '/goals', owner: 'goals', kind: 'root' },
   { pattern: '/goals/history', owner: 'goals', kind: 'pushed', depth: 1, title: 'History' },
-  { pattern: '/learned', owner: 'learned', kind: 'root' },
-  // a month of What I learned, from the tab's archive ('/learned/2026-11-01': the first of the month, like Plan's months)
-  { pattern: '/learned/:month', owner: 'learned', kind: 'pushed', depth: 1, title: (p) => (p.month ? new Intl.DateTimeFormat('en-US', { month: 'long', year: 'numeric', timeZone: 'UTC' }).format(new Date(`${p.month}T12:00:00Z`)) : 'What I learned') },
   { pattern: '/plan', owner: 'plan', kind: 'root' },
   // the tab's name in a link: the route keeps its old name
   { pattern: '/fitness', owner: null, kind: 'redirect', to: '/plan' },
@@ -76,10 +93,27 @@ export const ROUTES: readonly RouteDef[] = [
   { pattern: '/plan/morning/:date?', owner: 'plan', kind: 'pushed', depth: 1, title: 'This morning' },
   { pattern: '/plan/week/:mon', owner: 'plan', kind: 'root' },
   { pattern: '/plan/month/:month', owner: 'plan', kind: 'root' },
-  { pattern: '/progress', owner: 'progress', kind: 'root' },
-  // a metric's page, pushed from Progress's trend cards (features/progress/metrics.ts names the ids)
-  { pattern: '/progress/metric/:id', owner: 'progress', kind: 'pushed', depth: 1, title: (p) => METRIC_TITLE[p.id ?? ''] ?? 'Progress' },
+  // Progress was a tab of its own; it is the lower half of Fitness now, and its address opens Fitness
+  { pattern: '/progress', owner: null, kind: 'redirect', to: '/plan' },
+  // a metric's page keeps its address and is pushed over Fitness, from its trend tiles (features/progress/metrics.ts
+  // names the ids); it sits over whatever week Fitness shows, so a jump to it never moves the root
+  { pattern: '/progress/metric/:id', owner: 'plan', kind: 'pushed', depth: 1, title: (p) => METRIC_TITLE[p.id ?? ''] ?? 'Fitness' },
+  { pattern: '/progress/*', owner: null, kind: 'redirect', to: '/plan' },
   { pattern: '/journal', owner: 'journal', kind: 'root' },
+  // Journal's old links come before its month page, which would otherwise read their second segment as a month. Reads
+  // moved under Settings; the Library was removed (owner request) and its links land on Journal
+  { pattern: '/journal/reads/:tab?', owner: null, kind: 'redirect', to: '/settings/reads/:tab?' },
+  { pattern: '/journal/library', owner: null, kind: 'redirect', to: '/journal' },
+  { pattern: '/journal/quotes', owner: null, kind: 'redirect', to: '/journal' },
+  { pattern: '/journal/favorites', owner: null, kind: 'redirect', to: '/journal' },
+  // a month of the journal, from the tab's archive ('/journal/2026-11'); anything that is not a real month goes to the tab
+  { pattern: '/journal/:month', owner: 'journal', kind: 'pushed', depth: 1, valid: { month: isYearMonth }, title: (p) => (p.month ? monthTitle(`${p.month}-01`) : 'Journal') },
+  { pattern: '/journal/*', owner: null, kind: 'redirect', to: '/journal' },
+  // What I learned was a tab of its own; it is part of Journal now. Its month pages were named by the first of the
+  // month ('/learned/2026-11-01'): either shape opens that month of the journal
+  { pattern: '/learned', owner: null, kind: 'redirect', to: '/journal' },
+  { pattern: '/learned/:month', owner: null, kind: 'redirect', valid: { month: (v) => isYearMonth(v) || isFirstOfMonth(v) }, to: (p) => `/journal/${(p.month ?? '').slice(0, 7)}` },
+  { pattern: '/learned/*', owner: null, kind: 'redirect', to: '/journal' },
   { pattern: '/welcome/*', owner: null, kind: 'full' },
   { pattern: '/start', owner: null, kind: 'full' },
   { pattern: '/login', owner: null, kind: 'full' },
@@ -89,13 +123,8 @@ export const ROUTES: readonly RouteDef[] = [
   { pattern: '/habits', owner: null, kind: 'redirect', to: '/today' },
   { pattern: '/habits/morning', owner: null, kind: 'redirect', to: '/plan/morning' },
   { pattern: '/reads/:tab?', owner: null, kind: 'redirect', to: '/settings/reads/:tab?' },
-  { pattern: '/journal/reads/:tab?', owner: null, kind: 'redirect', to: '/settings/reads/:tab?' },
   { pattern: '/plan/plans', owner: null, kind: 'redirect', to: '/settings/plans' },
-  // the Library was removed (owner request): its old links land on Journal
-  { pattern: '/journal/library', owner: null, kind: 'redirect', to: '/journal' },
-  { pattern: '/journal/quotes', owner: null, kind: 'redirect', to: '/journal' },
-  { pattern: '/journal/favorites', owner: null, kind: 'redirect', to: '/journal' },
-  { pattern: '/trends', owner: null, kind: 'redirect', to: '/progress' },
+  { pattern: '/trends', owner: null, kind: 'redirect', to: '/plan' },
   { pattern: '/setup', owner: null, kind: 'redirect', to: '/signup' },
   { pattern: '*', owner: null, kind: 'redirect', to: '/today' },
 ];
@@ -138,28 +167,17 @@ export interface RouteMatch {
 }
 
 // ---------- params ----------
-const ISO = /^\d{4}-\d{2}-\d{2}$/;
-/** The days a URL may name. A date far outside a lifetime is never a day someone logged, and at the calendar's own edges (year 0, year 9999) the day before or after it cannot be printed, which took the page down. */
-const DAY_MIN = '1900-01-01';
-const DAY_MAX = '2199-12-31';
-const isIsoDay = (s: string) => {
-  if (!ISO.test(s) || s < DAY_MIN || s > DAY_MAX) return false;
-  const d = new Date(`${s}T12:00:00Z`);
-  return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === s;
-};
-const isMonday = (s: string) => isIsoDay(s) && new Date(`${s}T12:00:00Z`).getUTCDay() === 1;
-const isFirstOfMonth = (s: string) => isIsoDay(s) && s.endsWith('-01');
 /** A param that fails its check sends the URL to its tab's root. */
 const VALID: Record<string, (v: string) => boolean> = {
   date: isIsoDay,
   mon: isMonday,
   month: isFirstOfMonth,
   section: (v) => (SETTINGS_SECTIONS as readonly string[]).includes(v),
-  // a metric page exists only for the metrics Progress draws; Reads has its two lists (shell-23)
+  // a metric page exists only for the metrics Fitness draws; Reads has its two lists (shell-23)
   id: (v) => Object.hasOwn(METRIC_TITLE, v),
   tab: (v) => v === 'read' || v === 'unread',
 };
-const INVALID_TO: Record<string, string> = { '/learned': '/learned', '/today': '/today', '/settings': '/settings', '/plan': '/plan', '/morning': '/today', '/progress': '/progress', '/journal': '/journal', '/reads': '/settings' };
+const INVALID_TO: Record<string, string> = { '/learned': '/journal', '/today': '/today', '/settings': '/settings', '/plan': '/plan', '/morning': '/today', '/progress': '/plan', '/journal': '/journal', '/reads': '/settings' };
 
 // ---------- the matcher ----------
 /**
@@ -225,19 +243,20 @@ export const entryFor = (route: RouteDef, path: string, params: Record<string, s
 
 /**
  * The route a URL belongs to. Validates `:date` and `:mon` (an ISO day; `:mon` a Monday) and `:month` (the first of a
- * month): anything else redirects to that tab's root. A pushed URL implies the pages under it: `/settings/training` is
+ * month on Fitness, a `YYYY-MM` on Journal): anything else redirects to that tab's root. A pushed URL implies the pages under it: `/settings/training` is
  * Settings at depth 1 and Training at depth 2 over the Today root; every implied entry has `idx −1`.
  */
 export const matchRoute = (pathname: string): RouteMatch => {
   const path = clean(pathname);
-  // Fitness is switched off: its tab, its settings pages and its charts all lead to Today (lib/prefs.ts)
+  // Fitness is switched off: its tab, its settings pages, its charts and every address of the tab that was Progress
+  // lead to Today (lib/prefs.ts)
   if (!fitnessOn() && isFitnessPath(path)) return { kind: 'redirect', tab: null, root: '/today', stack: [], params: {}, redirect: '/today' };
   for (const route of ROUTES) {
     const params = matchPattern(route.pattern, path);
     if (!params) continue;
     // validation: a bad param goes to the tab's root (the first segment's), never on to the catch-all
     for (const [k, v] of Object.entries(params)) {
-      const ok = VALID[k];
+      const ok = route.valid?.[k] ?? VALID[k];
       if (ok && !ok(v)) {
         const head = `/${path.split('/')[1] ?? ''}`;
         const to = INVALID_TO[head] ?? '/today';
@@ -245,7 +264,7 @@ export const matchRoute = (pathname: string): RouteMatch => {
       }
     }
     if (route.kind === 'redirect') {
-      const to = fill(route.to!, params);
+      const to = typeof route.to === 'function' ? route.to(params) : fill(route.to!, params);
       return { kind: 'redirect', tab: null, root: to, stack: [], params, redirect: to, route };
     }
     if (route.kind === 'full') return { kind: 'full', tab: null, root: path, stack: [], params, route };

@@ -35,7 +35,7 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 const tokens = JSON.parse(fs.readFileSync(path.join(here, '..', 'tokens.json'), 'utf8'));
 const args = process.argv.slice(2);
 const base = args.find((a) => /^https?:/.test(a)) || 'http://localhost:5220';
-const routes = (args.find((a) => a.startsWith('/')) || '/today,/goals,/learned,/plan,/progress,/journal').split(',');
+const routes = (args.find((a) => a.startsWith('/')) || '/today,/goals,/plan,/journal').split(',');
 const si = args.indexOf('--state');
 const state = si >= 0 ? args[si + 1] : undefined;
 

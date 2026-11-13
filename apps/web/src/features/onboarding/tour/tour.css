@@ -444,7 +444,6 @@
    compete with the screen's own Next */
 .tg-cta,
 .tg-set,
-.tour-learn-save,
 .ta-apply {
   padding: var(--sp-2) var(--sp-4);
   border-radius: var(--r-pill);
@@ -515,8 +514,7 @@
 }
 /* the demo's fields: Paper with the field edge (guide 6.14), Inter 17 */
 .tg-field,
-.tj-field,
-.tour-learn-field {
+.tj-field {
   min-height: 44px;
   padding: var(--sp-2) var(--sp-3);
   border-radius: var(--r-control);
@@ -525,101 +523,57 @@
   font: 400 var(--fs-row) / var(--lh-row) var(--sans);
   color: var(--ink);
 }
-.tg-set,
-.tour-learn-save {
+.tg-set {
   justify-self: end;
 }
 
-/* Journal */
-.tj-cal {
-  display: grid;
-  gap: var(--sp-2);
-  padding: var(--sp-3);
-  border-radius: var(--r-tile);
-  background: var(--surface);
-  box-shadow: var(--shadow-1);
-}
-.tj-grid {
-  display: grid;
-  grid-template-columns: repeat(7, 1fr);
-  gap: var(--sp-1);
-}
-.tj-cell {
-  display: grid;
-  place-items: center;
-  aspect-ratio: 1;
-  max-height: 30px;
-  border-radius: var(--r-control);
-  background: var(--cloud);
-}
-/* today in a calendar is a Night Ink ring (plan 1.3, D14), as the real Journal draws it */
-.tj-cell.tis-today {
-  box-shadow: inset 0 0 0 1.5px var(--ink);
-  background: var(--surface);
-}
-.tj-day {
-  display: grid;
-  gap: var(--sp-2);
-  margin-top: var(--sp-3);
-  justify-items: center;
-}
-/* "Write today's entry": a secondary, Paper with its edge */
-.tj-write {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--sp-2);
-  padding: var(--sp-2) var(--sp-4);
-  border-radius: var(--r-pill);
-  background: var(--surface);
-  box-shadow: inset 0 0 0 1px var(--edge);
-  font: 600 var(--fs-sub) / var(--lh-sub) var(--sans);
-  color: var(--ink);
-}
-.tj-field {
-  justify-self: stretch;
-}
-.tj-done {
-  justify-self: end;
-  font: 600 var(--fs-sub) / var(--lh-sub) var(--sans);
-  color: var(--accent-text);
-  padding: var(--sp-1) var(--sp-2);
-}
-.tj-memory {
-  margin: var(--sp-2) 0 0;
-  font: italic 420 var(--fs-sentence-sm) / var(--lh-row) var(--serif);
-  color: var(--j-ink);
-}
-
-/* Learned */
-.tour-learn {
+/* Journal: the dusk poster (ui/poster, the kit's own, drawn at 70 percent so the whole card reads as one picture) and
+   the line attached under it, in one Paper card as on the tab */
+/* the card is taller before the line is kept (the field and its button) than after (one row). Its place keeps the
+   tallest height it has had (demos.tsx measures it: the picture follows the width, the words the text size), so the
+   steps under it do not move when the line is kept */
+.tj-hold {
   display: grid;
   align-content: start;
-  gap: var(--sp-3);
 }
-.tour-learn-q {
-  font: italic 420 var(--fs-sentence) / var(--lh-sentence) var(--serif);
-  color: var(--ink);
-}
-.tour-learn-field em {
-  font-style: normal;
-  color: var(--ink-2);
-}
-.tour-learn-saved {
-  display: grid;
-  gap: var(--sp-2);
-  padding: var(--sp-4);
-  border-radius: var(--r-tile);
+.tj-card {
+  border-radius: var(--r-card);
   background: var(--surface);
   box-shadow: var(--shadow-1);
+  overflow: hidden;
 }
-.tour-learn-saved p {
-  margin: 0;
-  font: 400 var(--fs-row) / var(--lh-row) var(--sans);
+.tj-poster {
+  zoom: 0.7;
+}
+/* inside the card the poster has no edge of its own: the card carries the corners and the shadow */
+.tj-po {
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+.tj-compose {
+  display: grid;
+  gap: var(--sp-2);
+  padding: var(--sp-3) var(--sp-4);
+}
+/* two lines tall from the start, as the real field is: the words being typed never push the button down */
+.tj-field {
+  display: block;
+  min-height: calc(2 * var(--lh-row) + 2 * var(--sp-2));
+}
+/* after the line is kept, the same spot is the way to say more: one quiet row */
+.tj-more {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-2);
+  min-height: 44px;
+  padding: var(--sp-3) var(--sp-4);
+  font: 600 var(--fs-sub) / var(--lh-sub) var(--sans);
   color: var(--ink);
 }
-.tour-learn-another {
-  margin-top: var(--sp-1);
-  font: 500 var(--fs-foot) / var(--lh-foot) var(--sans);
+.tj-more svg {
+  flex: none;
   color: var(--ink-2);
 }
 
@@ -717,11 +671,16 @@
   font: 500 var(--fs-orb) / 1 var(--sans);
   color: var(--ink-2);
 }
+/* the week holds its own toast, across the foot of the days and the gap under them, so it covers neither a session's
+   name nor the chart */
+.tour-wk {
+  position: relative;
+}
 .tour-toast {
   position: absolute;
   left: 0;
   right: 0;
-  bottom: 12px;
+  bottom: calc(-1 * var(--sp-3));
   width: max-content;
   margin-inline: auto !important;
   margin: 0;
@@ -739,60 +698,52 @@
   color: var(--haze);
 }
 
-/* Progress */
+/* Fitness, the lower half: Progress, under the week. The chart is bars, a week each, as the page draws them */
+.tq {
+  position: relative;
+  margin-top: var(--sp-4);
+  padding-top: var(--sp-3);
+  border-top: 1px solid var(--line);
+}
 .tq-head {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
-  margin: 2px 2px var(--sp-4); /* brand-ok: geometry, the head over the chart */
+  margin: 0 2px var(--sp-3); /* brand-ok: geometry, the head over the chart */
 }
 /* the chart's headline number: Inter 650 with even figures, never Fraunces (guide 6.8) */
 .tq-head b {
-  font: 650 var(--fs-section) / 1 var(--sans);
+  font: 650 var(--fs-head) / 1 var(--sans);
   color: var(--ink);
   font-variant-numeric: tabular-nums;
 }
-/* the actual line in Deep Sky (guide 6.8) */
 .tq-chart {
-  position: relative;
-  height: 140px;
-  margin: 0 var(--sp-2);
-  color: var(--deep-sky);
+  display: flex;
+  align-items: flex-end;
+  gap: var(--sp-1);
+  height: 72px;
+  margin: 0 2px; /* brand-ok: geometry, the bars inside the head's own inset */
 }
-.tq-chart svg {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  overflow: visible;
+/* a week done: a Sky bar with round shoulders (guide 6.8). The one being read turns Deep Sky and the others step back
+   to 70 percent, as on the page: a selection, never a now mark */
+.tq-bar {
+  flex: 1 1 0;
+  min-width: 0;
+  border-radius: var(--r-icon) var(--r-icon) 0 0;
+  background: var(--sky);
+  transition: opacity var(--dur-out) var(--ease-out);
 }
-.tq-spot {
-  position: absolute;
-  width: 6px;
-  height: 6px;
-  margin: -3px 0 0 -3px;
-  border-radius: 50%;
+.tq-chart.tis-reading .tq-bar:not(.tis-lit) {
+  opacity: 0.7;
+}
+.tq-bar.tis-lit {
   background: var(--deep-sky);
+  transition: none;
 }
-/* the scrub rule: a Deep Sky guide line (plan 1.3), never a now-mark. A full-width layer slid by a transform (its
-   percentage is of the chart's width), the line drawn at its leading edge */
-.tq-rule {
-  position: absolute;
-  left: 0;
-  top: -6px;
-  bottom: -6px;
-  width: 100%;
-  pointer-events: none;
-  transition: transform var(--dur-settle) var(--ease-out);
-}
-.tq-rule::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  left: -0.75px;
-  width: 1.5px;
-  background: var(--deep-sky);
+@media (prefers-reduced-motion: reduce) {
+  .tq-bar {
+    transition: none;
+  }
 }
 
 /* the ask bar */

@@ -16,7 +16,7 @@ export const zoneLine = (z: HrZone[] | null | undefined): string | null => {
 };
 
 /**
- * Heart-rate zones, beside Strava (they were the old Trends page's Effort section; Progress reads easy runs by them): the
+ * Heart-rate zones, beside Strava (they were the old Trends page's Effort section; Fitness reads easy runs by them): the
  * zones in one line and where they come from. They ride along with a sync (Connections' `Sync now`).
  */
 export const HrZonesRow = ({ zones, connected }: { zones: HrZone[] | null; connected: boolean }): React.JSX.Element | null => {
@@ -30,7 +30,7 @@ export const HrZonesRow = ({ zones, connected }: { zones: HrZone[] | null; conne
       sub={
         line ? (
           <>
-            <span className="s-zones-line">{line}.</span> From Strava with each sync; Progress reads your easy runs by them.
+            <span className="s-zones-line">{line}.</span> From Strava with each sync; Fitness reads your easy runs by them.
           </>
         ) : (
           'None yet. Sync and they come in with your runs.'

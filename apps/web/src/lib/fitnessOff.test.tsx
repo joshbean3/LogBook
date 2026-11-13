@@ -103,7 +103,8 @@ const SCREENS: Screen[] = [
   ['Today', () => import('@/features/day/DayView'), '/today', /run|miles|mi\b/i, /What would make today count\?[\s\S]*An idea · from your habits[\s\S]*Set this goal[\s\S]*Habits[\s\S]*What did you learn today\?/],
   ['Progress', () => import('@/features/progress/ProgressView'), '/progress', /running/i, /Habits[\s\S]*Health/],
   ['Goals', () => import('@/features/goals/GoalsView'), '/goals', /Goals/, /Goals/],
-  ['Learned', () => import('@/features/learned/LearnedView'), '/learned', /What I learned/, /What I learned/],
+  // the page of lines, as it stood before Journal took it in: rendered where it lives now
+  ['Learned', () => import('@/features/learned/LearnedView'), '/journal', /What I learned/, /What I learned/],
   ['Journal', () => import('@/features/journal/JournalView'), '/journal', /Journal/, /Journal/],
   ['Settings', () => import('@/features/settings/SettingsView'), '/settings', /Run days[\s\S]*Plans/, /Today shows[\s\S]*Fitness[\s\S]*Habits/],
 ];
@@ -213,10 +214,14 @@ describe('Fitness off: no screen speaks of training', () => {
     for (const html of [on, off, habit]) expect(said(html)).not.toMatch(/in a row|streak/i);
   }, 60_000);
 
-  it('the tour has no Fitness page and no Progress page', async () => {
+  it('the tour has no Fitness page (and Progress is part of that page, not one of its own)', async () => {
     const { tourPages } = await import('@/features/onboarding/tour/Tour');
-    expect(tourPages(false).map((p) => p.key)).toEqual(['todos', 'habits', 'goals', 'journal', 'learned', 'ask']);
-    expect(tourPages(true).map((p) => p.key)).toContain('plan');
+    expect(tourPages(false).map((p) => p.key)).toEqual(['todos', 'habits', 'goals', 'journal', 'ask']);
+    // with Fitness on: six pages, one for training, and one place to write
+    expect(tourPages(true).map((p) => p.key)).toEqual(['todos', 'habits', 'goals', 'journal', 'plan', 'ask']);
+    expect(tourPages(true).map((p) => p.where)).toEqual(['Today', 'Today', 'Goals and Today', 'Journal', 'Fitness', 'Every tab']);
+    // no page still sends a person to a tab that is gone
+    for (const p of tourPages(true)) expect(`${p.where} ${p.title} ${p.lede}`).not.toMatch(/\bLearned\b|What I learned|\bProgress\b/);
     for (const p of tourPages(false)) expect(`${p.where} ${p.title} ${p.lede}`).not.toMatch(WORDS);
   });
 

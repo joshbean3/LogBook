@@ -12,7 +12,7 @@ import { Pressable } from '@/ui/Pressable';
 
 const DAY = /^\/today\/(\d{4}-\d{2}-\d{2})/;
 
-/** Under this width the ask bar never folds: the round button would squeeze six tabs to 37 px and hide their words (shell-20). */
+/** Under this width the ask bar never folds: the round button beside the capsule would squeeze the tabs and hide their words (shell-20). */
 const FOLD_MIN_W = 375;
 
 /**

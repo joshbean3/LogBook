@@ -16,7 +16,9 @@
  *   the Fitness row in Settings                   the switch that turns it back on has to say its name.
  *   --allow "..."                                 words the person typed (a to-do, a journal entry, a habit's name): the
  *                                                 app shows what they wrote. Pass each as it is written.
- * Fitness routes must lead to Today: /plan, /fitness, /settings/training, /settings/plans and a running metric page.
+ * Fitness routes must lead to Today: /plan, /fitness, /settings/training, /settings/plans, and every address of the tab
+ * that was Progress (/progress, /trends and each metric page: with Fitness off the habits' trend is in History, on Today,
+ * and the body's numbers are in Settings, under Apple Health).
  */
 import { chromium } from '/opt/node-tools/node_modules/playwright/index.mjs';
 
@@ -46,11 +48,8 @@ const SCREENS = [
   [`/today/${day(0)}/morning`, 9],
   ['/goals', 9],
   ['/goals/history', 9],
-  ['/learned', 9],
-  ['/progress', 9],
-  ['/progress/metric/sleep', 9],
-  ['/progress/metric/consistency', 9],
   ['/journal', 9],
+  [`/journal/${day(0).slice(0, 7)}`, 9],
   ['/settings', 9],
   ['/settings/you', 9],
   ['/settings/habits', 9],
@@ -61,7 +60,7 @@ const SCREENS = [
   ['/settings/account', 9],
   ['/today', 9, 'assistant'],
 ];
-const REDIRECTS = ['/plan', '/fitness', '/plan/week/2026-11-09', '/settings/training', '/settings/plans', '/progress/metric/mileage', '/progress/metric/lifts'];
+const REDIRECTS = ['/plan', '/fitness', '/plan/week/2026-11-09', '/settings/training', '/settings/plans', '/progress', '/trends', '/progress/metric/mileage', '/progress/metric/lifts', '/progress/metric/sleep', '/progress/metric/consistency'];
 
 const browser = await chromium.launch();
 const ctx = await browser.newContext({ storageState: state, hasTouch: true, isMobile: true, viewport: { width: 390, height: 844 } });

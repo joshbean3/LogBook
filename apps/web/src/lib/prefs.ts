@@ -17,7 +17,8 @@ export type TodaySection = 'habits' | 'day' | 'learned';
 export const TODAY_SECTIONS: readonly { id: TodaySection; title: string; sub: string }[] = [
   { id: 'habits', title: 'Habits', sub: 'The tiles you tap each day' },
   { id: 'day', title: 'Plan your day', sub: 'Today’s goal and to-dos' },
-  { id: 'learned', title: 'What I learned', sub: 'Write one thing down' },
+  // the Journal row: tonight's line, then the way to say more (the stored key keeps the name it had as What I learned)
+  { id: 'learned', title: 'Journal', sub: 'One line is enough' },
 ];
 
 export interface Prefs {
@@ -135,7 +136,7 @@ export const useFitness = (): boolean => useSyncExternalStore(subscribe, fitness
 export type TodayPart = 'fitness' | TodaySection;
 /**
  * Today's order (layout standard 2.1), one order in both modes: the training card (Fitness on), Plan your day (the goal
- * and the to-dos), Habits, the What I learned prompt. With Fitness off the top card is simply not there, and Plan your day
+ * and the to-dos), Habits, the Journal row (its key is `learned`). With Fitness off the top card is simply not there, and Plan your day
  * leads the page.
  */
 export const todayParts = (p: Prefs): TodayPart[] => {
@@ -147,8 +148,12 @@ export const useTodayParts = (): TodayPart[] => {
   return todayParts(p);
 };
 
-/** The routes that belong to Fitness: with it off they lead to Today (ui/nav.ts asks). */
-export const isFitnessPath = (path: string): boolean => /^\/(plan|fitness)(\/|$)/.test(path) || path === '/settings/training' || path === '/settings/plans' || /^\/progress\/metric\/(mileage|pace|lifts)$/.test(path) || path === '/habits/morning';
+/**
+ * The routes that belong to Fitness: with it off they lead to Today (ui/nav.ts asks). Progress is part of Fitness, so
+ * every address under `/progress` is one of them, its metric pages included (the old `/trends` too): with Fitness off the
+ * habits' trend is in History, beside the habits, and the body's numbers are in Settings, under Apple Health.
+ */
+export const isFitnessPath = (path: string): boolean => /^\/(plan|fitness|progress|trends)(\/|$)/.test(path) || path === '/settings/training' || path === '/settings/plans' || path === '/habits/morning';
 
 /** Tests only: start from a known state. */
 export const resetPrefsForTest = (p: Prefs | null) => {

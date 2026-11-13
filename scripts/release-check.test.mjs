@@ -88,7 +88,7 @@ test('iOS project: Info.plist, entitlements, privacy manifest, project file and 
 
 test('iOS project: the purpose strings are the agreed ones', () => {
   const info = parsePlist(read('apps/web/ios/App/App/Info.plist'));
-  assert.equal(info.NSHealthShareUsageDescription, 'Orby reads your sleep, heart rate variability and resting heart rate from Apple Health to show them on Progress. Readings are saved to your Orby account.');
+  assert.equal(info.NSHealthShareUsageDescription, 'Orby reads your sleep, heart rate variability and resting heart rate from Apple Health to show you how they change over time. Readings are saved to your Orby account.');
   assert.equal(info.NSPhotoLibraryAddUsageDescription, 'Save the cards you share to your photo library.');
   assert.match(info.NSCameraUsageDescription, /assistant or the plan builder/);
   assert.equal(info.CFBundleURLTypes, undefined);

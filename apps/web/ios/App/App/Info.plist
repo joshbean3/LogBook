@@ -9,7 +9,7 @@
 	<key>NSPhotoLibraryAddUsageDescription</key>
 	<string>Save the cards you share to your photo library.</string>
 	<key>NSHealthShareUsageDescription</key>
-	<string>Orby reads your sleep, heart rate variability and resting heart rate from Apple Health to show them on Progress. Readings are saved to your Orby account.</string>
+	<string>Orby reads your sleep, heart rate variability and resting heart rate from Apple Health to show you how they change over time. Readings are saved to your Orby account.</string>
   <key>CAPACITOR_DEBUG</key>
 	<string>$(CAPACITOR_DEBUG)</string>
 	<key>CFBundleDevelopmentRegion</key>

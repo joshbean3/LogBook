@@ -2,7 +2,7 @@ import { ChevronLeft } from 'lucide-react';
 import { useReducedMotion } from 'motion/react';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Navigate, useLocation, useNavigate } from 'react-router';
-import { AssistantCard, HabitsCard, LearnedCard, MorningCard, WeekCard } from '@/features/onboarding/cards';
+import { AssistantCard, HabitsCard, JournalCard, MorningCard, WeekCard } from '@/features/onboarding/cards';
 import { haptics } from '@/lib/haptics';
 import { useSplashDoneOnPaint } from '@/lib/native';
 import { LEGAL, SUPPORT } from '@/lib/siteLinks';
@@ -21,7 +21,7 @@ export const PAGES = [
   { key: 'morning', card: <MorningCard />, title: 'Your day, lit.', sub: 'Your run, your habits and your notes for today, on one screen.' },
   { key: 'habits', card: <HabitsCard />, title: 'Habits you can tap.', sub: 'Each one is a tile on Today. Tap it when it’s done and the week fills in.' },
   { key: 'plan', card: <WeekCard compact />, title: 'A plan that fits your mornings.', sub: 'Four questions, then your first week, written for you.' },
-  { key: 'learned', card: <LearnedCard />, title: 'One thing a day.', sub: 'What you learned, kept by month, back when you need it.' },
+  { key: 'journal', card: <JournalCard />, title: 'One line a day.', sub: 'What you learned today, in a line. Write more when you want to.' },
   // the assistant is met here, before the page that asks about it (auth-13)
   { key: 'assistant', card: <AssistantCard />, title: 'An assistant that knows your plan.', sub: 'Ask it anything. It can read your plan and change it when you say so.' },
 ] as const;

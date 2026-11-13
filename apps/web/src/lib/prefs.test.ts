@@ -7,7 +7,7 @@ import { FITNESS_METRICS, metricDef } from '@/features/progress/metrics';
 import { matchRoute, resolveRoute, shownTabs } from '@/ui/nav';
 import type { Bootstrap, MonthBundle } from '@/api/types';
 import { disclaimer } from './copy';
-import { adoptStoredPrefs, DEFAULT_PREFS, fitnessOn, getPrefs, hasStoredPrefs, isFitnessPath, normalizePrefs, onPrefsChange, parseStoredPrefs, resetPrefsForTest, seedPrefs, setFitness, setTodaySection, todayParts } from './prefs';
+import { adoptStoredPrefs, DEFAULT_PREFS, fitnessOn, getPrefs, hasStoredPrefs, isFitnessPath, normalizePrefs, onPrefsChange, parseStoredPrefs, resetPrefsForTest, seedPrefs, setFitness, setTodaySection, TODAY_SECTIONS, todayParts } from './prefs';
 
 const WORDS = /\b(run|runs|running|ran|lift|lifts|mile|miles|mi|plan|plans|planned|training|workout|workouts|strava|fitness)\b/i;
 
@@ -94,7 +94,17 @@ describe('what is stored is read at the boundary (edge cases)', () => {
 });
 
 describe('what Today shows', () => {
-  it('with Fitness on the training card leads, then Plan your day, Habits and the What I learned prompt', () => {
+  it('names its sections as a person reads them: the last is Journal, one line is enough, under the key it always had', () => {
+    expect(TODAY_SECTIONS.map((s) => [s.id, s.title, s.sub])).toEqual([
+      ['habits', 'Habits', 'The tiles you tap each day'],
+      ['day', 'Plan your day', 'Today’s goal and to-dos'],
+      ['learned', 'Journal', 'One line is enough'],
+    ]);
+    // no switch still names the tab that Journal took in, and a copy stored under the old label's key still reads
+    for (const s of TODAY_SECTIONS) expect(`${s.title} ${s.sub}`).not.toMatch(/learn/i);
+    expect(parseStoredPrefs('{"fitness":true,"today":{"learned":false}}')?.today.learned).toBe(false);
+  });
+  it('with Fitness on the training card leads, then Plan your day, Habits and the Journal row', () => {
     expect(todayParts(DEFAULT_PREFS)).toEqual(['fitness', 'day', 'habits', 'learned']);
   });
   it('with Fitness off the day’s own content leads: Plan your day, then Habits, then the prompt', () => {
@@ -107,25 +117,30 @@ describe('what Today shows', () => {
 });
 
 describe('Fitness off: the tab, the routes and the data', () => {
-  it('draws five tabs, in the same order, without Fitness', () => {
-    expect(shownTabs(true).map((t) => t.label)).toEqual(['Today', 'Goals', 'Learned', 'Fitness', 'Progress', 'Journal']);
-    expect(shownTabs(false).map((t) => t.label)).toEqual(['Today', 'Goals', 'Learned', 'Progress', 'Journal']);
+  it('draws three tabs, in the same order, without Fitness', () => {
+    expect(shownTabs(true).map((t) => t.label)).toEqual(['Today', 'Goals', 'Fitness', 'Journal']);
+    expect(shownTabs(false).map((t) => t.label)).toEqual(['Today', 'Goals', 'Journal']);
   });
 
   it('knows which routes are Fitness', () => {
     for (const p of ['/plan', '/plan/week/2026-11-09', '/plan/morning', '/fitness', '/settings/training', '/settings/plans', '/progress/metric/mileage', '/progress/metric/pace', '/progress/metric/lifts']) expect(isFitnessPath(p)).toBe(true);
-    for (const p of ['/today', '/goals', '/progress', '/progress/metric/sleep', '/progress/metric/consistency', '/settings', '/settings/habits', '/planet']) expect(isFitnessPath(p)).toBe(false);
+    // Progress is part of Fitness: every address under it is one of Fitness's, the body's numbers and the habits' trend too
+    for (const p of ['/progress', '/progress/', '/progress/metric/sleep', '/progress/metric/hrv', '/progress/metric/rhr', '/progress/metric/consistency', '/progress/metric/nope', '/progress/anything/else', '/trends']) expect(isFitnessPath(p)).toBe(true);
+    for (const p of ['/today', '/goals', '/journal', '/journal/2026-11', '/settings', '/settings/habits', '/settings/connections', '/planet', '/progression', '/progress-report', '/trendsetter']) expect(isFitnessPath(p)).toBe(false);
   });
 
   it('sends every Fitness route to Today while it is off, and back where it was when it is on again', () => {
     expect(resolveRoute('/fitness').path).toBe('/plan');
     expect(matchRoute('/plan').tab).toBe('plan');
+    expect(resolveRoute('/progress')).toMatchObject({ path: '/plan', tab: 'plan' });
+    expect(resolveRoute('/progress/metric/sleep')).toMatchObject({ path: '/progress/metric/sleep', tab: 'plan', kind: 'pushed' });
     setFitness(false);
-    for (const p of ['/plan', '/fitness', '/plan/week/2026-11-09', '/settings/training', '/settings/plans', '/progress/metric/mileage', '/habits/morning']) expect(resolveRoute(p).path).toBe('/today');
-    expect(resolveRoute('/progress/metric/sleep').path).toBe('/progress/metric/sleep');
+    for (const p of ['/plan', '/fitness', '/plan/week/2026-11-09', '/settings/training', '/settings/plans', '/progress/metric/mileage', '/habits/morning', '/progress', '/progress/metric/sleep', '/progress/metric/consistency', '/progress/metric/nope', '/trends']) expect(resolveRoute(p).path).toBe('/today');
     expect(resolveRoute('/settings/habits').path).toBe('/settings/habits');
+    expect(resolveRoute('/journal/2026-11').path).toBe('/journal/2026-11');
     setFitness(true);
     expect(resolveRoute('/plan/week/2026-11-09').path).toBe('/plan/week/2026-11-09');
+    expect(resolveRoute('/progress/metric/sleep').path).toBe('/progress/metric/sleep');
   });
 
   it('leaves training out of what screens read, and deletes nothing', () => {

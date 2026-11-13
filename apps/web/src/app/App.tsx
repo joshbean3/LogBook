@@ -34,11 +34,9 @@ const views = {
   morning: () => import('@/features/morning/MorningView'),
   goals: () => import('@/features/goals/GoalsView'),
   goalHistory: () => import('@/features/goals/GoalHistory'),
-  learned: () => import('@/features/learned/LearnedView'),
-  learnedMonth: () => import('@/features/learned/LearnedMonth'),
   plan: () => import('@/features/plan/PlanView'),
-  progress: () => import('@/features/progress/ProgressView'),
   journal: () => import('@/features/journal/JournalView'),
+  journalMonth: () => import('@/features/journal/JournalMonth'),
   reads: () => import('@/features/reads/ReadsView'),
   settings: () => import('@/features/settings/SettingsView'),
   settingsSection: () => import('@/features/settings/SettingsSection'),
@@ -76,11 +74,9 @@ const view = <P extends object>(load: () => Promise<{ default: React.ComponentTy
 const MorningView = view(views.morning);
 const GoalsView = view(views.goals);
 const GoalHistory = view(views.goalHistory);
-const LearnedView = view(views.learned);
-const LearnedMonth = view(views.learnedMonth);
 const PlanView = view(views.plan);
-const ProgressView = view(views.progress);
 const JournalView = view(views.journal);
+const JournalMonth = view(views.journalMonth);
 const ReadsView = view(views.reads);
 const SettingsView = view(views.settings);
 const SettingsSection = view(views.settingsSection);
@@ -93,18 +89,18 @@ const MetricPage = view(views.metric);
 /** Once the first screen is up: the pushed pages first (a first push never waits), then every other view in idle. */
 const prefetchViews = () => {
   const pushed = () => {
-    for (const v of [MorningView, SettingsView, SettingsSection, ReadsView, LearnedMonth, MetricPage]) void v.preload().catch(() => undefined);
+    for (const v of [MorningView, SettingsView, SettingsSection, ReadsView, JournalMonth, MetricPage]) void v.preload().catch(() => undefined);
   };
   requestAnimationFrame(() => setTimeout(pushed, 0));
   const run = () => {
-    for (const v of [GoalsView, LearnedView, PlanView, ProgressView, JournalView, Welcome, PlansPage, GoalHistory]) void v.preload().catch(() => undefined);
+    for (const v of [GoalsView, PlanView, JournalView, Welcome, PlansPage, GoalHistory]) void v.preload().catch(() => undefined);
   };
   if ('requestIdleCallback' in window) (window as Window & { requestIdleCallback: (cb: () => void, o?: { timeout: number }) => void }).requestIdleCallback(run, { timeout: 2000 });
   else setTimeout(run, 400);
 };
 
 /**
- * Test builds only (VITE_FAKE_CLOCK=1): `?stubs=1` on the first load swaps the six roots and /dev/ui for the stubs the WP1
+ * Test builds only (VITE_FAKE_CLOCK=1): `?stubs=1` on the first load swaps the tab roots and /dev/ui for the stubs the WP1
  * acceptance scripts drive. The build flag is a constant, so in any other build the stubs and their imports are dropped.
  */
 const STUBS_BUILT = import.meta.env.VITE_FAKE_CLOCK === '1';
@@ -122,13 +118,11 @@ const StubRoot = STUBS_BUILT ? lazy(() => import('./dev/StubRoots').then((m) => 
 const StubPushed = STUBS_BUILT ? lazy(() => import('./dev/StubRoots').then((m) => ({ default: m.StubPushed }))) : null;
 const pages =
   STUBS && StubRoot
-    ? { today: <StubRoot tab="today" />, goals: <StubRoot tab="goals" />, learned: <StubRoot tab="learned" />, plan: <StubRoot tab="plan" />, progress: <StubRoot tab="progress" />, journal: <StubRoot tab="journal" /> }
+    ? { today: <StubRoot tab="today" />, goals: <StubRoot tab="goals" />, plan: <StubRoot tab="plan" />, journal: <StubRoot tab="journal" /> }
     : {
         today: <DayView />,
         goals: <GoalsView />,
-        learned: <LearnedView />,
         plan: <PlanView />,
-        progress: <ProgressView />,
         journal: <JournalView />,
       };
 /** The pushed page for an entry: a switch on its route (contracts §A.3). */
@@ -137,12 +131,13 @@ const pushedFor = (e: PushedEntry) => {
   // This morning: the day's from Today, today's from Habits (MorningView falls back to today without a `date` param)
   if (pattern === '/today/:date/morning' || pattern === '/plan/morning/:date?') return <MorningView />;
   if (pattern === '/goals/history') return <GoalHistory />;
-  if (pattern === '/learned/:month') return <LearnedMonth />;
+  if (pattern === '/journal/:month') return <JournalMonth />;
   if (pattern === '/settings/:section' && e.params.section === 'plans') return <PlansPage />;
   if (pattern === '/settings/:section') return <SettingsSection />;
   if (pattern === '/settings') return <SettingsView />;
   if (pattern === '/settings/reads/:tab?') return <ReadsView />;
   if (DEV_TOOLS && pattern === '/dev/ui') return STUBS && StubPushed ? <StubPushed /> : UiGallery ? <UiGallery /> : null;
+  // a metric's page (Fitness's trend tiles): its address is from when Progress was a tab; it is pushed over Fitness
   if (pattern === '/progress/metric/:id') return <MetricPage />;
   return null;
 };

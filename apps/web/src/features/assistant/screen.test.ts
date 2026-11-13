@@ -10,7 +10,9 @@ describe('the screen the assistant was opened from', () => {
     expect(screenOf('plan', '/plan/week/2026-11-09', undefined, '2026-11-08', '2026-11-08')).toEqual({ tab: 'plan', week: '2026-11-09' });
     expect(screenOf('plan', '/plan/month/2026-12', undefined, '2026-11-08', '2026-11-08')).toEqual({ tab: 'plan', month: '2026-12' });
     expect(screenOf('plan', '/plan', undefined, '2026-11-08', '2026-11-08')).toEqual({ tab: 'plan', week: '2026-11-02' });
-    expect(screenOf('progress', '/progress', undefined, '2026-11-08', '2026-11-08')).toEqual({ tab: 'progress' });
+    expect(screenOf('goals', '/goals', undefined, '2026-11-08', '2026-11-08')).toEqual({ tab: 'goals' });
+    // a metric page pushed over Fitness is still Fitness, with the week it shows
+    expect(screenOf('plan', '/plan/week/2026-11-09', '/progress/metric/sleep', '2026-11-08', '2026-11-08')).toEqual({ tab: 'plan', week: '2026-11-09' });
     expect(screenOf('today', '/today', '/settings/you', '2026-11-08', '2026-11-08')).toBeUndefined();
   });
 
@@ -18,6 +20,10 @@ describe('the screen the assistant was opened from', () => {
     expect(screenLabel({ tab: 'today', date: '2026-11-08' })).toBe('Today, Sun Nov 8');
     expect(screenLabel({ tab: 'plan', week: '2026-11-09' })).toBe('Fitness, week of Nov 9');
     expect(screenLabel({ tab: 'plan', month: '2026-12' })).toBe('Fitness, December 2026');
-    expect(screenLabel({ tab: 'learned' })).toBe('Learned');
+    expect(screenLabel({ tab: 'journal' })).toBe('Journal');
+    // a chat opened from the tab that was What I learned (an older build, a stored chat) reads as Journal
+    expect(screenLabel({ tab: 'learned' })).toBe('Journal');
+    // and one opened from the tab that was Progress reads as Fitness
+    expect(screenLabel({ tab: 'progress' })).toBe('Fitness');
   });
 });

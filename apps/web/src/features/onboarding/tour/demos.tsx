@@ -1,13 +1,14 @@
-import { ArrowRight, Check, Plus } from 'lucide-react';
+import { ArrowRight, Check, ChevronRight, Plus } from 'lucide-react';
 import { Disc } from '@/ui/Disc';
-import { Orb } from '@/ui/Orb';
+import { Poster, WeekLights, type WeekLight } from '@/ui/poster';
 import { AnimatePresence, motion } from 'motion/react';
+import { useLayoutEffect, useRef, useState } from 'react';
 import { springs } from '@/lib/motion';
 import { Finger, Stage, Steps, useLoop, useTyped } from './engine';
 
 /**
  * One short film per part of Logbook, each a miniature of the real screen with the real labels (mapped from the code:
- * PlanDay, OrbRow, GoalSheets, the journal calendar, LearnedParts, Week, ProgressView, Dock and the assistant sheet). Each loops while its
+ * PlanDay, OrbRow, GoalSheets, the Journal poster and its line, Fitness's week and its Progress chart, Dock and the assistant sheet). Each loops while its
  * page is on screen; under Reduce Motion (`still`) it holds its finished frame and every step is lit.
  *
  * A demo is a list of beats (ms). `b` is the beat on screen; everything it shows is read off `b`, so a loop is a pure
@@ -172,110 +173,95 @@ export const GoalsDemo = ({ running, still }: DemoProps) => {
 };
 
 // ---------- Journal ----------
-/** The days of the month written so far: each gets its dot (a flat Disc in the journal's tones, never an Orb). */
-const WRITTEN = [true, true, false, true, true, true, false, true, true, true, true, false, true];
-const JOUR_BEATS = [900, 650, 260, 1900, 600, 260, 1400, 900] as const;
+/** The six days before tonight, as the poster's lights: three already written. */
+const JOUR_WEEK: readonly WeekLight[] = [
+  { letter: 'F', lit: false },
+  { letter: 'S', lit: true },
+  { letter: 'S', lit: false },
+  { letter: 'M', lit: true },
+  { letter: 'T', lit: false },
+  { letter: 'W', lit: true },
+];
+const JOUR_BEATS = [900, 650, 260, 1900, 600, 260, 1500, 700, 1100] as const;
+/**
+ * The Journal tab's top, as it is: the dusk poster with the week's lights, and under it the line, already started. The
+ * line is finished, tonight lights, and the same spot offers "Write more about today". The poster is the kit's own
+ * (ui/poster), drawn small; the field and the button sit outside it at the demo's size, where the finger can find them.
+ */
 export const JournalDemo = ({ running, still, plain }: DemoProps) => {
-  const line = plain ? 'Long walk by the river with Sam.' : 'Long run by the river with Sam.';
+  // the field's first words are the real starters (features/learned/starter.ts)
+  const starter = plain ? 'Today I learned' : 'On my run today I learned';
+  const rest = plain ? ' a short walk after lunch clears my head.' : ' strides wake the legs up.';
   const b = useLoop(JOUR_BEATS, running && !still, JOUR_BEATS.length - 1);
-  const writing = at(b, 3, 6);
-  const typed = useTyped(line, writing && !still, b >= 4);
-  const written = still || b >= 6;
+  const typing = at(b, 3, 6);
+  const typed = useTyped(rest, typing && !still, b >= 4);
+  const kept = still || b >= 6;
+  // the card's place holds the tallest height the card has had, so the steps under it stay put when the composer
+  // gives way to one row
+  const hold = useRef<HTMLDivElement>(null);
+  const [held, setHeld] = useState(0);
+  useLayoutEffect(() => {
+    const h = hold.current?.offsetHeight ?? 0;
+    if (h > held) setHeld(h);
+  });
   return (
     <>
       <Stage className="tj">
-        <div className="tj-cal">
-          <span className="caps">November</span>
-          <div className="tj-grid">
-            {WRITTEN.map((on, i) => (
-              <span key={i} className="tj-cell">
-                {on ? <Orb size={14} state="still" variant={(['sky', 'dusk', 'sun', 'tide'] as const)[i % 4]} /> : null}
-              </span>
-            ))}
-            <span className="tj-cell tis-today">
-              {written ? (
-                <motion.span initial={still ? false : { scale: 0, rotate: -20 }} animate={{ scale: 1, rotate: 0 }} transition={springs.complete}>
-                  <Orb size={16} state="still" variant="sky" />
-                </motion.span>
-              ) : null}
-            </span>
+        <div ref={hold} className="tj-hold" style={held ? { minHeight: held } : undefined}>
+          <div className="tj-card">
+            <div className="tj-poster">
+              <Poster
+                ground="dusk"
+                className="tj-po"
+                titleAs="p"
+                titleSize={kept ? 'goal' : 'lead'}
+                title={kept ? `${starter}${rest}` : 'What did you learn today?'}
+                meta={kept ? 'Tonight’s line is kept.' : 'One line is enough.'}
+                scene={<WeekLights days={JOUR_WEEK} tonight={kept ? 'lit' : 'waiting'} />}
+                band={kept ? { label: 'This week', words: '4 days written' } : { label: 'This week · 3 days written', words: 'Tonight’s line lights the fourth' }}
+              />
+            </div>
+            {kept ? (
+              <motion.div className="tj-more" data-spot="more" initial={still ? false : { opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={springs.settle}>
+                <span>Write more about today</span>
+                <ChevronRight size={18} />
+              </motion.div>
+            ) : (
+              <div className="tj-compose">
+                <span className="tj-field" data-spot="field">
+                  {starter}
+                  {typed}
+                  {b >= 2 ? <i className="tcaret" /> : null}
+                </span>
+                <span className="tg-set" data-spot="save">
+                  Finish the line
+                </span>
+              </div>
+            )}
           </div>
         </div>
-        <div className="tj-day">
-          {written ? (
-            <p className="tj-memory">“{line}”</p>
-          ) : writing ? (
-            <>
-              <span className="tj-field">
-                {typed}
-                <i className="tcaret" />
-              </span>
-              <span className="tj-done" data-spot="done">
-                done
-              </span>
-            </>
-          ) : (
-            <span className="tj-write" data-spot="write">
-              <Plus size={16} />
-              Write today’s
-            </span>
-          )}
-        </div>
-        <Finger spot={at(b, 1, 3) ? 'write' : at(b, 4, 6) ? 'done' : null} down={b === 2 || b === 5} />
+        <Finger spot={at(b, 1, 3) ? 'field' : at(b, 4, 6) ? 'save' : b === 7 ? 'more' : null} down={b === 2 || b === 5} />
       </Stage>
-      <Steps items={['Tap today on the calendar', 'Write a line or two', 'Done, and the day gets its dot']} on={still ? -1 : b < 3 ? 0 : b < 6 ? 1 : 2} />
+      <Steps items={['Tap the line. It is started for you', 'Finish it, and tonight lights', 'Write more when you want to']} on={still ? -1 : b < 3 ? 0 : b < 7 ? 1 : 2} />
     </>
   );
 };
 
-// ---------- Learned ----------
-const LRN_BEATS = [800, 650, 260, 1900, 600, 260, 1500, 900] as const;
-export const LearnedDemo = ({ running, still, plain }: DemoProps) => {
-  const line = plain ? 'A short walk after lunch clears my head.' : 'Strides before a race wake the legs up.';
-  const b = useLoop(LRN_BEATS, running && !still, LRN_BEATS.length - 1);
-  const typing = at(b, 3, 6);
-  const typed = useTyped(line, typing && !still, b >= 4);
-  const saved = still || b >= 6;
-  return (
-    <>
-      <Stage className="tour-learn">
-        <b className="tour-learn-q">What did you learn today?</b>
-        {saved ? (
-          <motion.div className="tour-learn-saved" initial={still ? false : { opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={springs.settle}>
-            <span className="caps">Today</span>
-            <p>{line}</p>
-            <span className="tour-learn-another">Add another</span>
-          </motion.div>
-        ) : (
-          <>
-            <span className="tour-learn-field" data-spot="field">
-              {typing || b >= 4 ? (
-                <>
-                  {typed}
-                  <i className="tcaret" />
-                </>
-              ) : (
-                <em>One thing, in a sentence or two</em>
-              )}
-            </span>
-            <span className="tour-learn-save" data-spot="save">
-              Save
-            </span>
-          </>
-        )}
-        <Finger spot={at(b, 1, 3) ? 'field' : at(b, 4, 6) ? 'save' : null} down={b === 2 || b === 5} />
-      </Stage>
-      <Steps items={['Tap the field', 'One thing, in a sentence or two', 'Save keeps it, by month, to come back to later']} on={still ? -1 : b < 3 ? 0 : b < 6 ? 1 : 2} />
-    </>
-  );
-};
-
-// ---------- Plan ----------
+// ---------- Fitness: what is next, then how it is going ----------
 const DAYS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
 const RUNS: Record<number, { t: string; c: string }> = { 1: { t: 'Easy 4', c: 'easy' }, 3: { t: 'Tempo 5', c: 'hard' }, 5: { t: 'Easy 4', c: 'easy' }, 6: { t: 'Long 8', c: 'long' } };
-const PLAN_BEATS = [900, 650, 700, 900, 300, 1500, 900] as const;
-export const PlanDemo = ({ running, still }: DemoProps) => {
-  const b = useLoop(PLAN_BEATS, running && !still, PLAN_BEATS.length - 1);
+const MILES = [14, 16, 15, 18, 12, 19, 21, 20, 23, 22, 25, 24];
+/** Twelve Mondays, a week apart, ending on the latest. */
+const WEEK_OF = MILES.map((_, k) => new Date(2026, 7, 17 + 7 * k).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }));
+const MILES_MAX = 26;
+const FIT_BEATS = [900, 650, 700, 900, 300, 1300, 700, 380, 380, 380, 380, 380, 1200, 900] as const;
+/**
+ * The Fitness tab in two moves, top to bottom as the page reads. What is next: this week's sessions, and a run held and
+ * dragged to another day. How it is going: the Progress chart under them, the weeks as bars, read by sliding along it
+ * (the bar under the finger turns Deep Sky and the headline says its week, as on the page).
+ */
+export const FitnessDemo = ({ running, still }: DemoProps) => {
+  const b = useLoop(FIT_BEATS, running && !still, FIT_BEATS.length - 1);
   const lifted = at(b, 2, 4);
   const moved = still || b >= 4;
   const runs = { ...RUNS };
@@ -283,6 +269,8 @@ export const PlanDemo = ({ running, still }: DemoProps) => {
     runs[4] = runs[3]!;
     delete runs[3];
   }
+  const scrub = at(b, 7, 13) ? 4 + (b - 7) * 1.4 : null;
+  const i = scrub == null ? null : Math.min(MILES.length - 1, Math.round(scrub));
   return (
     <>
       <Stage className="tp">
@@ -290,69 +278,48 @@ export const PlanDemo = ({ running, still }: DemoProps) => {
           <b>This week</b>
           <span>21 mi · 4 runs</span>
         </p>
-        <div className="tour-week">
-          {DAYS.map((d, i) => {
-            const r = runs[i];
-            const ghost = lifted && i === 3;
-            return (
-              <span key={i} className={`tour-day ${lifted && i === 4 ? 'tis-target' : ''}`} data-spot={`day${i}`}>
-                <small>{d}</small>
-                <span className="tour-date">{9 + i}</span>
-                {r && !ghost ? (
-                  <motion.span layout={!still} className={`tour-pill c-${r.c}`} transition={springs.settle}>
-                    {r.t}
-                  </motion.span>
-                ) : (
-                  <span className="tour-rest">{ghost ? '' : 'Rest'}</span>
-                )}
-              </span>
-            );
-          })}
+        <div className="tour-wk">
+          <div className="tour-week">
+            {DAYS.map((d, k) => {
+              const r = runs[k];
+              const ghost = lifted && k === 3;
+              return (
+                <span key={k} className={`tour-day ${lifted && k === 4 ? 'tis-target' : ''}`} data-spot={`day${k}`}>
+                  <small>{d}</small>
+                  <span className="tour-date">{9 + k}</span>
+                  {r && !ghost ? (
+                    <motion.span layout={!still} className={`tour-pill c-${r.c}`} transition={springs.settle}>
+                      {r.t}
+                    </motion.span>
+                  ) : (
+                    <span className="tour-rest">{ghost ? '' : 'Rest'}</span>
+                  )}
+                </span>
+              );
+            })}
+          </div>
+          <AnimatePresence>
+            {at(b, 4, 6) ? (
+              <motion.p className="tour-toast" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={springs.settle}>
+                Moved to Fri <b>Undo</b>
+              </motion.p>
+            ) : null}
+          </AnimatePresence>
         </div>
-        <AnimatePresence>
-          {at(b, 4, 6) || still ? (
-            <motion.p className="tour-toast" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={springs.settle}>
-              Moved to Fri <b>Undo</b>
-            </motion.p>
-          ) : null}
-        </AnimatePresence>
-        <Finger spot={at(b, 1, 3) ? 'day3' : b === 3 ? 'day4' : null} hold={at(b, 2, 4)} carry={lifted ? <span className="tour-pill c-hard tis-lifted">Tempo 5</span> : undefined} />
-      </Stage>
-      <Steps items={['Hold a run until it lifts', 'Drag it to another day and let go', 'Tap any day to open or change it']} on={still ? -1 : b < 2 ? 0 : b < 5 ? 1 : 2} />
-    </>
-  );
-};
-
-// ---------- Progress ----------
-const MILES = [14, 16, 15, 18, 12, 19, 21, 20, 23, 22, 25, 24];
-/** Twelve Mondays, a week apart, ending on the latest. */
-const WEEK_OF = MILES.map((_, k) => new Date(2026, 7, 17 + 7 * k).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }));
-const PROG_BEATS = [900, 600, 380, 380, 380, 380, 380, 1200, 900] as const;
-export const ProgressDemo = ({ running, still }: DemoProps) => {
-  const b = useLoop(PROG_BEATS, running && !still, PROG_BEATS.length - 1);
-  const scrub = at(b, 2, 8) ? 4 + (b - 2) * 1.4 : null;
-  const i = scrub == null ? null : Math.min(MILES.length - 1, Math.round(scrub));
-  const max = 26;
-  const pts = MILES.map((m, k) => `${(k / (MILES.length - 1)) * 100},${100 - (m / max) * 100}`).join(' ');
-  return (
-    <>
-      <Stage className="tq">
-        <p className="tq-head">
-          <span className="caps">{i == null ? 'Last 12 weeks' : `Week of ${WEEK_OF[i]}`}</span>
-          <b>{i == null ? '229 mi' : `${MILES[i]} mi`}</b>
-        </p>
-        <div className="tq-chart">
-          <svg viewBox="0 0 100 100" preserveAspectRatio="none">
-            <polyline points={pts} fill="none" stroke="currentColor" strokeWidth="2.5" vectorEffect="non-scaling-stroke" strokeLinejoin="round" strokeLinecap="round" />
-          </svg>
-          {MILES.map((m, k) => (
-            <span key={k} className="tq-spot" style={{ left: `${(k / (MILES.length - 1)) * 100}%`, top: `${100 - (m / max) * 100}%` }} data-spot={`w${k}`} />
-          ))}
-          {i != null ? <span className="tq-rule" style={{ transform: `translateX(${(i / (MILES.length - 1)) * 100}%)` }} /> : null}
+        <div className="tq">
+          <p className="tq-head">
+            <span className="caps">{i == null ? 'Progress · 12 weeks' : `Week of ${WEEK_OF[i]}`}</span>
+            <b>{i == null ? '229 mi' : `${MILES[i]} mi`}</b>
+          </p>
+          <div className={`tq-chart ${i != null ? 'tis-reading' : ''}`}>
+            {MILES.map((m, k) => (
+              <span key={k} className={`tq-bar ${k === i ? 'tis-lit' : ''}`} style={{ height: `${(m / MILES_MAX) * 100}%` }} data-spot={`w${k}`} />
+            ))}
+          </div>
         </div>
-        <Finger spot={i != null ? `w${i}` : b === 1 ? 'w4' : null} hold={i != null} />
+        <Finger spot={at(b, 1, 3) ? 'day3' : b === 3 ? 'day4' : i != null ? `w${i}` : b === 6 ? 'w4' : null} hold={at(b, 2, 4) || i != null} carry={lifted ? <span className="tour-pill c-hard tis-lifted">Tempo 5</span> : undefined} />
       </Stage>
-      <Steps items={['Press on a chart and slide along it', 'The numbers follow the week under your finger']} on={still ? -1 : b < 3 ? 0 : 1} />
+      <Steps items={['This week: what is next', 'Hold a run and drag it to another day', 'Slide along Progress to read a week']} on={still ? -1 : b < 1 ? 0 : b < 6 ? 1 : 2} />
     </>
   );
 };

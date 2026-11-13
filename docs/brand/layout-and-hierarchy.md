@@ -53,6 +53,8 @@ Each change below is written into `docs/brand/brand-guide.md` in the same words.
 | C25 | 6.7 The week strip | The kind pill is one size on every day and in every state (34 x 22, centered on its column, 8 px under the numeral), with two glyphs inside the same pill on a two-session day, and one fill system: Paper for nothing done yet, Haze for part, Sky for all, hollow for a day that passed with nothing done. Today's pill loses its Deep Sky ring: today is the Sunrise dot. A day with no session keeps the empty slot. The cell is 83 tall (was 81). Owner request: the pills were uneven. |
 | C26 | 6.13 Status row and status sheet; 12.1 Today | The row is the plan pill, with the status pill before it only while a status is on. "On the plan" and "Day by day" are gone (owner request). The plan pill shows the plan's name with its phase and a right chevron. The status sheet opens from the status pill, and in ordinary training from Today's title menu. |
 | C27 | 6.1 The floating dock and tab capsule; 6.13 (new rows); 7; 10.2; 12.1 | The Plan tab is named **Fitness** (the page is Fitness, a plan lives inside it; routes and file names keep `plan`), with the set's run glyph. **Fitness is a switch** in Settings, on by default: off, the tab is not drawn and the five tabs that remain share the capsule evenly, and no screen names training. **Today's sections are switches** too ("Today shows": Habits, Plan your day, What I learned), reached from Settings and from "Edit Today" at the bottom of Today. Layout in 2.3, 2.6, 2.7, 2.9 and 2.11 below. |
+| C28 | 6.1 The floating dock and tab capsule; 6.4; 6.5a; 6.13; 10.2; 12.1 | **What I learned and Journal are one tab, Journal** (owner request: "combine the journal and what i learned", by the logic every screen now follows: one poster that says where things stand and what the next move is, quiet rows below). The capsule is Today, Goals, Fitness, Progress, Journal: five tabs, four with Fitness off, the open book last. A day has one **line** (what I learned, one sentence, the least a day needs) and may have **entries** (longer, as many as wanted); copy says "line" and "entry". Journal's hero is the dusk poster with the week's lights; a light is lit on a day with a line or an entry. The one field under it starts from the day, never blank, with "Finish the line" as the one Sky button; once the line is kept the same spot offers "Write more about today". Remember when is one quiet card under them, no longer the hero, and draws from lines and entries. Months are one list, and a month is a pushed page (`/journal/2026-11`): the month calendar, then the days, each with its line as the headline and its entries under it. `/learned` and `/learned/:month` lead to `/journal` and `/journal/:month`. Today's row and its switch read **Journal · One line is enough** (the stored key stays `learned`). The tour and the welcome pager have one Journal page. Layout in 2.3, 2.5, 2.9, 6.8, 6.9 and 7 below. |
+| C29 | 6.1 The floating dock and tab capsule; 6.4; 6.5a; 6.8; 12.1 | **Progress is part of Fitness** (owner request: "fitness and progress can be combined in the same manner"). Fitness says what is next, then how it is going: today's training card, this week, then a section headed **Progress** (the chart with its ranges and its drag), **Trends** (the tiles, and the body's numbers when Apple Health is connected) and the plan row. The capsule is Today, Goals, Fitness, Journal: four tabs, three with Fitness off. The Progress tab and "Progress" as the name of a place are gone; `/progress` leads to `/plan`, and a metric's page keeps its address (`/progress/metric/:id`) and is pushed over Fitness. Runs / Workouts on the training card and on the chart are one choice, in one pair of words. With no history the chart's place is one quiet row, never an empty frame. Two things on Progress were not training and moved: the habits' consistency chart to Today's Habits, History; and, with Fitness off, sleep, HRV and resting heart rate to Settings, Apple Health. With Fitness off every `/progress` address leads to Today. The tour has one Fitness page. Layout in 2.6, 2.7, 2.9, 2.11, 6.4 and 7 below. |
 
 **Considered and not changed.** The screen title stays at 38/42 (`--fs-title`). Apple's Large Title is 34 and the hero's session name (40) is within 5 percent of the title, but the brand raised the title from 34 to 38 on purpose. The hero card already wins on Today by area (about 360 pt tall against a 42 pt title line), by the glow and by position once the rows above it are compacted (section 2.3). Body text stays 16/24: Apple's own advice is loose leading for long passages, and 16/24 measures 49 characters a line in a card at 390. The 16 px gutter stays at every width. It is inside Apple's 16 to 20 pt system margin, and one gutter keeps every edge aligned.
 
@@ -95,7 +97,7 @@ Each table names the screen's job, its focal point, its one Sky button, what is 
 | Read in passing, above the hero | The title block (date caption, "Today", the quote), the week strip, one row of status pills (the plan pill; the status pill before it only while a status is on). Nothing else sits above the hero. |
 | Order of emphasis | 1. Hero: the session name, the detail line under it, then the band on the far hill: the label ("Runs this week") with its count, the miles, and the view pill at the band's trailing edge. Under the hill's edge, in the same card: the Morning / Afternoon / No time control, then the morning line or the log line. On a day with no run and no workout: the title, one line for what comes next, the dusk scene, the week's totals. 2. Plan your day, directly under the hero: the slim poster (guide 6.5a). The title (the question, or today's goal), the band (one idea and its source, or the to-dos' count), then the line of stops: the lit stop first ("Set this goal", or the next to-do with its check), the top three to-dos, "Add a to-do" and "All to-dos". 3. Habits: the two-column tile grid. 4. Under the line, only while there is some: a review owed, "Close yesterday", and after 5 pm "Set tomorrow's goal". |
 
-**What Today shows, and Fitness off.** Today's sections can be switched (`lib/prefs.ts`; the list is "Today shows", in Settings and behind "Edit Today"). Fitness on, the order is the one above, with one row added last: 4. What I learned, a section header over one list row ("What did you learn today?", the Learned bulb in a Haze tile, a chevron) that opens Learned. Fitness off, the hero, the kind pills, the status row and the second-session card are not drawn and nothing names training: the week strip is the letter and the numeral only (54 tall), and the day's own sections lead, 16 px under the strip: 1. Plan your day, as the full poster with the sun and no section header (the poster's title is the head), 2. Habits, 3. What I learned. Today has one order in both modes: Fitness off only removes the top card. In the evening the Close card still takes the first place, without a session row or a miles stamp. A section switched off leaves no gap: what follows moves up. With every section off the page is one Dusk line ("Nothing is set to show on Today.") and one quiet Deep Sky link that opens the list. **"Edit Today"** is the last thing on the page on every day: one quiet link (6.6), centered, a 44 pt target, a section's gap (32) above it, opening the "Today shows" sheet. A choice of what a screen shows is made on that screen [HIG: Health's Edit beside Pinned, Fitness's Edit Summary]; the Fitness switch is general and lives in Settings only.
+**What Today shows, and Fitness off.** Today's sections can be switched (`lib/prefs.ts`; the list is "Today shows", in Settings and behind "Edit Today"). Fitness on, the order is the one above, with one row added last: 4. the Journal row, one list row at the foot of the day. Before tonight's line: "Tonight's line" over "One line is enough", and a tap opens Journal with the field ready. After: the line itself in the row, with "Write more" trailing. The day's entries stay in the timeline below. Fitness off, the hero, the kind pills, the status row and the second-session card are not drawn and nothing names training: the week strip is the letter and the numeral only (54 tall), and the day's own sections lead, 16 px under the strip: 1. Plan your day, as the full poster with the sun and no section header (the poster's title is the head), 2. Habits, 3. the Journal row. Today has one order in both modes: Fitness off only removes the top card. In the evening the Close card still takes the first place, without a session row or a miles stamp. A section switched off leaves no gap: what follows moves up. With every section off the page is one Dusk line ("Nothing is set to show on Today.") and one quiet Deep Sky link that opens the list. **"Edit Today"** is the last thing on the page on every day: one quiet link (6.6), centered, a 44 pt target, a section's gap (32) above it, opening the "Today shows" sheet. A choice of what a screen shows is made on that screen [HIG: Health's Edit beside Pinned, Fitness's Edit Summary]; the Fitness switch is general and lives in Settings only.
 
 Build:
 
@@ -130,35 +132,42 @@ Build:
 - **History drops the inner "Goals kept" label**, and the section meta says it instead ("History · Goals kept"). Four columns: label 15/500 Dusk, value `--fs-value`, context 13 Dusk. No colored tick before each label. A period with no data shows "None yet", never "–". Why: a section title stacked on a card label is two headers for one thing (section 4.4), and zero or no data is a value [Orby rule H50].
 - Card templates on Goals: the poster, the hills, the inset group (the quiet card, History).
 
-### 2.5 Learned
+### 2.5 Journal
+
+What I learned and Journal are one tab (C28). Every day has one **line** (what I learned, one sentence) and may have **entries** (longer, as many as the person likes); the line is the day's headline and the entries sit under it. Copy says "line" and "entry", never "learning", "note" or "log". The data keeps its two kinds and their names (`learnings`, `journal`); the page reads both and lays them out by day. `/journal` is the tab; a month is `/journal/2026-11`, pushed; `/learned` and `/learned/:month` lead here.
 
 | | |
 |---|---|
-| Job | Write down one line learned today; see the week's lines add up. |
+| Job | Write one line about today; say more when there is more; look back. |
 | Focal point | The dusk poster (brand 6.5a): the question, the week's seven lights, the band. |
-| Sky button | "Finish the line". With only the starter in the field it puts the caret there; with words of the person's own it saves. |
-| Read in passing | The title block; the band's count ("This week · 2 lines kept"). |
-| Order of emphasis | 1. The poster: "What did you learn today?", the lights with tonight's ring waiting, the band, the field started from the day, "Finish the line". After the save: "One more thing you know.", tonight lit, the line as a quote with Saved and Edit. 2. The months that hold a line, one row each. 3. From your archive. |
+| Sky button | "Finish the line". With only the starter in the field it puts the caret there; with words of the person's own it saves. None once the line is kept: "Write more about today" is a quiet row. |
+| Read in passing | The title block; the band's count ("This week · 3 days written"). |
+| Order of emphasis | 1. The poster: "What did you learn today?" (after the line is kept, the line itself as the title, in Fraunces), "One line is enough.", the lights with "Tonight" as the lit next one, the band. 2. The composer, attached under the poster: one field, started from the day, and "Finish the line"; after the line is kept, the same spot is one quiet row, "Write more about today", which opens the entry writer in place. 3. Today's entries, when there are any: quiet rows, newest first. 4. Remember when: one memory from the past, a line or an entry. 5. The archive: the months, newest first ("November · 9 days written"). 6. Search: the magnifier in the nav bar, shown once anything is written. |
 
 Build:
 
-- **The poster replaces the prompt card and the lightbulb tracker.** One card says the question, shows the week and takes the line. Why: the owner chose design A2; the tracker and the card were two things to read before one thing to do.
-- **Counts are lines kept, never days in a row.** A light is a day with a line; the band counts every line (a second line on the same day adds to the count, not a light); a missed day is an unlit light, not a broken chain. No streak word anywhere on the page or in its VoiceOver labels.
-- **The field is started from the day** (brand 6.5a) and its question stays in view while typing: the poster's title at rest, a caption over the field while it has focus. The field and its button stay above the keyboard together.
-- **Month rows are one inset group** 24 under the poster, with no year heading for this year; a month appears once it holds a line. An earlier year is a section under its name and count. There is no "No months yet" row: the poster is the empty state.
-- **One tap away:** Edit (or a tap on the quote) opens the line's sheet: change it, delete it (trash, with Undo), "Add another line" for today. Search all years is the magnifier at the end of the nav bar. A month's row opens its page, where an empty day in the last seven can still be filled in.
+- **One poster says the question, shows the week and takes the line.** Why: the owner chose one poster card per screen (design A2), and two tabs that both meant "write something about your day" left a new person unable to tell which to open. The best reflection apps have one place, never open on a blank field, make the smallest entry enough and reward the save (`reports/Clear next action in lifestyle apps.md`).
+- **A light is a day written.** A day's light is lit when that day has a line or an entry; today both count. The band is gain-framed ("3 days written this week", "Your first line lights tonight"): no streak word, nothing that shows a broken run, on the page or in its VoiceOver labels. A missed day is an unlit light, not a broken chain. The week view and its arrows are gone: the poster's lights are the week, and a tap on a past light opens that day in its month.
+- **The field is never blank.** It opens with the starter ("Today I learned", or the one from the day's run, lift or habits) and its question stays in view while typing: the poster's title at rest, a caption over the field while it has focus. The field and its button stay above the keyboard together. Saving plays the reward: tonight's light fills, with the haptic.
+- **One primary button at any time.** Before the line: "Finish the line", with a small quiet link under the field, "Write a longer entry", for a day that starts with an entry. After: no Sky button, and "Write more about today" opens the entry writer (its draft, the day's quote as a prompt, the 5,000 limit). A paste over the line's 1,000 limit offers "Save as an entry" in place of a cut.
+- **Today's entries are quiet rows** under the composer (6.2): the time, the first lines, the favorite star. A tap opens the entry sheet: edit, share, favorite, delete with Undo.
+- **Remember when is one card, and it is not the hero** (6.9). One memory at a time, a line or an entry, with its consent switch and its "Written by AI" label as they are. The line echoes that were "From your archive" (a year ago, a month ago) show in this card, so there is one object from the past.
+- **Months are one inset group** under Remember when, with no year heading for this year; a month appears once a day in it is written. An earlier year is a section under its name and count. There is no "No months yet" row: the poster is the empty state.
+- **A month is a pushed page** (`/journal/2026-11`): the month calendar on top (a disc on each written day; a tap on a day jumps to it), then the days, newest first. Each day: its date, its line as the headline (a tap opens the line's sheet: edit, delete with Undo), its entries under it (a tap opens the entry sheet). A day with entries and no line shows "Add the line" as a quiet link, never an empty row. An empty past day reached from the calendar opens the composer for that day.
+- **Search is one field** (the magnifier at the end of the nav bar): results from lines and entries together, grouped by day, the match marked. Either kind may fail to load on its own; the other still shows, with one Try again.
+- Card templates on Journal: the poster (with its composer), the inset group (today's entries, the months), the Remember when card.
 
 ### 2.6 Fitness (the Plan tab)
 
-The tab and the page are named **Fitness**: a plan lives inside it ("Your plan", "Make a plan" keep their words). Routes, files and ids keep `plan`; `/fitness` leads to `/plan`. With Fitness switched off (Settings) the tab is not drawn or mounted, and its routes (`/plan…`, `/fitness`, `/settings/training`, `/settings/plans`, the mileage, pace and lifts metric pages) lead to Today.
+The tab and the page are named **Fitness**: a plan lives inside it ("Your plan", "Make a plan" keep their words). Routes, files and ids keep `plan`; `/fitness` leads to `/plan`. Progress is its lower half, not a tab (C29): `/progress` and `/trends` lead to `/plan`, and a metric's page keeps its address (`/progress/metric/sleep`) and is pushed over Fitness. With Fitness switched off (Settings) the tab is not drawn or mounted, and its routes (`/plan…`, `/fitness`, `/settings/training`, `/settings/plans`, and every address under `/progress`, the metric pages included) lead to Today.
 
 | | |
 |---|---|
-| Job | See what is on today and what comes next this week, and change it. |
+| Job | See what is next and change it; then see how it is going. |
 | Focal point | The training card from Today (the hero). On another week, that week's summary card. |
 | Sky button | None on the root. In the summary sheet: "Apply" on a proposal. In the Add sheet: "Add". |
-| Read in passing | The title block (the caps date is the way to the month); the one-time hint line; the plan row. |
-| Order of emphasis | 1. The training card: the session, the week horizon, the band, the log line. 2. The days ahead, as stops on the dotted line. 3. "Add a session", the last stop. 4. "Earlier this week", folded. 5. The plan row. |
+| Read in passing | The title block (the caps date is the way to the month); the one-time hint line; the section titles "Progress" and "Trends". |
+| Order of emphasis | 1. Today's training card: the session, the week horizon, the band with the week's count and its Runs / Workouts pill, the log line. It is the page's one lead object. 2. This week: the days ahead as stops on the dotted line, "Add a session" as the last stop, "Earlier this week" folded. 3. Progress, a titled section: one card with the headline number, the bars, the range row, read by a drag across it. 4. Trends: the tiles (Weekly mileage, Run pace, Lift volume) and, when Apple Health is connected, the body's numbers (Sleep, HRV, Resting HR) as one group under them. 5. The plan row, last. |
 
 Build (the A2 design, guide 6.5a "Fitness"):
 
@@ -166,52 +175,32 @@ Build (the A2 design, guide 6.5a "Fitness"):
 - **Another week is the same card as a summary.** Its name and dates, the week's horizon and band, a quiet "This week" link under the hill. No log line: nothing there can be logged from the card.
 - **The days ahead are stops on one line**, in one card 12 under the hero: gutter 16, the rail 64 wide, each stop at least 48 tall (72 with its caption and line), the whole row one target that opens the session sheet. Every session action (mark done, floor, skip, move, edit, delete) is in that sheet. Days with nothing on are not drawn: the line shows what is on, and "Add a session" ends it (the Add sheet, where the day is chosen). An empty week is one lit stop: "Nothing on this week yet", "Add a session".
 - **Earlier this week folds.** One 56 row at the card's foot, a hairline over it; it opens the days before today in place, as stops with what happened. A week behind shows all its days this way with no fold.
-- **The plan is a quiet row** under the days, 12 below: a 32 px tile (a dashed plus with no plan), the name in Inter 600 17, one Dusk line, a chevron. It opens the plan summary sheet with the assistant inside (6.10), or the builder when there is no plan; a hold offers Open the plan, New plan and All plans. The weeks-done row is in the summary, not here.
-- **No week header, no totals line, no Week / Month switch, no week arrows.** The band counts the week; a sideways swipe anywhere on the page moves a week; the caps date with its calendar glyph opens the month, and from the month goes back ("Week", a quiet link over the month's header, does the same). The title returns to this week. One Dusk line under the title says this once on a device ("Swipe for other weeks. Tap the date for the month."), a 44 pt target that dismisses it; it also goes on the first swipe or the first tap on the date.
+- **The plan is a quiet row**, last on the page, under Trends: a 32 px tile (a dashed plus with no plan), the name in Inter 600 17, one Dusk line, a chevron. It opens the plan summary sheet with the assistant inside (6.10), or the builder when there is no plan; a hold offers Open the plan, New plan and All plans. The weeks-done row is in the summary, not here.
+- **No week header, no totals line, no Week / Month switch, no week arrows.** The band counts the week; a sideways swipe on the card or the week moves a week (the chart under them reads a sideways drag as a reading, never as a page); the caps date with its calendar glyph opens the month, and from the month goes back ("Week", a quiet link over the month's header, does the same). The title returns to this week. One Dusk line under the title says this once on a device ("Swipe for other weeks. Tap the date for the month."), a 44 pt target that dismisses it; it also goes on the first swipe or the first tap on the date.
 - **The Add sheet** (6.12): the day, Run or Lift, the essentials, Add. It opens from the line's last stop, on the day `defaultDay` picks. The session lands on the line at once with a toast and Undo, and the card's band counts it.
+- **The week pages; Progress does not.** The pager (a sideways swipe for other weeks, the date for the month) wraps the training card and This week only. Progress, Trends and the plan row sit under it, outside it: they are about ranges, not about the open week, so they do not slide away or redraw when the week changes, and the Month view replaces the card and the week only. A drag that starts on the chart reads the chart and never pages the week; a swipe anywhere else pages the week [HIG Gestures].
+- **Opening the tab starts at the top** (today's card). Coming back from a metric's page returns to where the person was. The week hint stays one line, shown once.
+- **Progress is one card under its title** (6.4): the headline number with its context ("227 mi in 3 months"; "9.3 of 23 mi · 2 of 4 runs" for 1W), one takeaway line, the bars, the range row (1W, 1M, 3M, 6M, YTD, 12M, All; default 3M; each viewer's last choice is remembered). The card has these parts in every range. Why: Apple's own apps offer period choices on detail charts [HIG Charts]; the row sits under the plot so the number stays at the top of the card, and changing the range keeps one chart style [HIG continuity].
+- **The chart is bars, one per bucket, never more than 26 of them** (brand 6.8): days in 1W, weeks in 1M, 3M and 6M, months in 12M, and in YTD and All once they hold more than 26 weeks. An All longer than 26 months keeps reading by month (12 thin bars a year). Owner request ("much easier to track and view"). Why: a bucket is a total, and totals compare best as lengths from a common baseline [PR Cleveland and McGill 1984; HIG Charts]. A week with nothing is a gap, not a plunge to zero.
+- **History shows what was done; the plan shows only for what is ahead.** Owner request. The days to come in 1W and the rest of the bucket holding today draw the plan as a dashed outline, labeled "Plan". The takeaway says the usual week or month and never grades the past against a plan. In 1W "to go" is what the plan still asks for; a mile or more that the plan did not ask for is said ("9.3 mi ahead of plan, 12.5 mi to go").
+- **Drag across the chart to read a bucket** (brand 6.8, "Reading a bucket"). Owner request. The readout is the headline, above the plot and never under the finger [HIG Charts]. The chart claims a touch only once it is clearly sideways, so the page still scrolls from anywhere. One line under the plot says how until it has been done once.
+- **One switch, one pair of words: Runs / Workouts.** The pill on the training card's band and the choice on the chart are the same stored choice: changing either changes both. "Running / Strength" is gone as a second control. Workouts has the same chart (lift sessions per bucket, sets and pounds in the readout, the same ranges and drag), with its workouts as date rows in a card of their own, 12 under the chart card.
+- **No empty frame.** With no history yet the chart's place is one quiet row ("Your weeks draw here after your first run"), the section form (6.5). Nothing on the page is an empty box.
+- **Trends is one tile template** (6.3), two columns: a value and its unit on one baseline, a context line under it. Each tile opens its metric's page, pushed over Fitness. The body's numbers are one group under the training tiles, shown when Apple Health is connected; "Connect Apple Health" is one row otherwise.
+- Card templates on Fitness: the training card (the poster), the stops card, the chart card; tiles count once (2.1, check 13).
 
-### 2.7 Progress
+### 2.7 Progress (now part of 2.6)
 
-**Fitness off.** No hero chart and no mileage, pace or lifts tile. The page is two sections under the title, the first 16 px under it: **Habits** (the Habits tile at the full width of the row, so the page opens on one whole card and never a tile beside a hole; before any habit is tapped, one section row, "No trend yet") and **Health** (as below). The Habits metric page shows the habits line alone, with no Plan chip.
+Progress is the lower half of Fitness, not a tab (C29). Its chart, its ranges, the drag and the Trends tiles are in 2.6 and 6.4.
 
-| | |
-|---|---|
-| Job | See how training is going: what was done, and what the plan still asks for. |
-| Focal point | The hero card's headline stat. |
-| Sky button | None. |
-| Read in passing | The title block. |
-| Order of emphasis | 1. The hero card: Running / Strength (first row), the headline stat with its context ("227 mi in 3 months"; "9.3 of 23 mi · 2 of 4 runs" for 1W), one takeaway line, the chart, the range row. The card has these parts in every range and in both modes (a first week, with no week before it to compare, is this week by day with no range row yet). In Strength, the workouts card sits 12 under the hero. 2. Trends: one template, two-column tiles. 3. Health: the same tile template; "Connect Apple Health" as one row. |
+**What was on Progress and is not training.** Two things moved, and nothing is lost:
 
-Build (includes the pending owner request):
+- **Habits consistency** (the Habits tile and its chart with ranges): to Today's Habits, History, at the top of the sheet, above the per-habit rows. With Fitness off this is where habit progress lives.
+- **Sleep, HRV and resting heart rate with Fitness off**: Settings, Apple Health shows the three numbers, in the same tiles. With Fitness on they are in Trends (2.6) and Settings shows what it showed.
 
-- **The running chart gets range views 1W, 1M, 3M, 6M, YTD, 12M, All** as one row of seven segments under the plot, inside the hero card (6.4, C4, C7). Default 3M, closest to today's week-by-week view. Each viewer's last choice is remembered (local storage, per viewer). The headline and takeaway follow the range ("227 mi in 3 months", "18.1 mi a week on average"). Why: Apple's own apps offer period choices on detail charts [HIG Charts]. The row sits under the plot so the focal number stays at the top of the card, and changing the range keeps one chart style [HIG continuity].
-- **The hero chart is bars, one per bucket, in every range, and never more than 26 of them** (brand 6.8): days in 1W, weeks in 1M, 3M and 6M, months in 12M, and in YTD and All once they hold more than 26 weeks. The one exception is an All longer than 26 months, which keeps reading by month (12 bars a year, thin and solid Deep Sky): there is no yearly bucket yet. Owner request ("much easier to track and view"). Why: a bucket is a total, and totals compare best as lengths from a common baseline [PR Cleveland and McGill 1984; HIG Charts]. A week with nothing is a gap, not a plunge to zero. Past about 26 marks a phone-width chart cannot be told apart or landed on with a finger, which is where Apple Health also changes unit (week, month, six months by week, year by month) [Peers: Apple Health].
-- **History shows what was done; the plan shows only for what is ahead.** Owner request. The days to come in 1W and the rest of the bucket holding today draw the plan as a dashed outline on top of what is done, labeled "Plan". The takeaway says the usual week or month and never grades the past against a plan; plan adherence is the "Plan kept" tile in Trends (say it once). In 1W "to go" is what the plan still asks for, the miles the dashed bars draw; a mile or more that the plan did not ask for is said ("9.3 mi ahead of plan, 12.5 mi to go"), so "to go" is never read as the headline's difference.
-- **Drag across the chart to read a bucket** (brand 6.8, "Reading a bucket"). Owner request. The readout is the headline, above the plot and never under the finger [HIG Charts]. The chart claims a touch only once it is clearly sideways, so the page still scrolls from anywhere [HIG Gestures]. One line under the plot says how until it has been done once.
-- **No ruler in 1W.** The headline ("9.3 of 23 mi") and the takeaway ("On plan, 14 mi to go") already say the week against its plan, and the dashed bars show what is left (say it once). Without it the card has the same parts in every range, so the range row does not move under a finger that is switching ranges [HIG continuity].
-- **Strength has the same chart**: lift sessions per bucket, with sets and pounds in the readout, the same ranges and the same drag. Its workouts are date rows in a card of their own, 12 under the hero (related cards, 3.2): the hero holds the chart's three text sizes (44, 15 and the 11 px captions) and the workouts card its rows' three (17, 15, 13), where one card held five (4.4). The card has no title: its first line is the stretch label ("This week").
-- **Running / Strength stays as the hero card's first row** (a 2-segment control, 44 tall). It switches only the hero, so it belongs to the hero.
-- **Trends and Health share one tile template** (6.3). This fixes the broken "7 %, 7 days" readout to a value and unit on one baseline ("7%") with a context line ("7 days"). Why: one template per screen lets people read values, not structure [Peers: Apple Health, Fitness].
-- **The Trends empty state uses the section form** (6.5), not a 22 px italic sentence. Why: an empty placeholder must not out-shout the hero.
+### 2.8 Journal (now 2.5)
 
-### 2.8 Journal
-
-| | |
-|---|---|
-| Job | Write today's entry; look back. |
-| Focal point | The Remember when card when it shows (quote inside the Haze wash header). Otherwise, the calendar card. |
-| Sky button | None. "Write today's entry" is a row (it opens the composer). |
-| Read in passing | The title block. |
-| Order of emphasis | 1. Remember when: the quote ("On Oct 11 you wrote: …") is the largest text in it. 2. The calendar card: the range title, the seven days with today ringed, the "Write today's entry" row. 3. Entries: month groups, newest first. |
-
-Build (includes the pending owner requests):
-
-- **Remove the Library part entirely**: the Entries / Library switch, the Library view and everything only it uses. Owner request. Why: a segmented control that switches between whole sections is a tab's job [HIG Segmented controls]. Removing it also removes a row above the focal point.
-- **The quote moves inside the tinted Remember when header**, with the caption and the share button (6.9). Owner request.
-- **"Write today's entry" becomes a hairline row at the foot of the calendar card**: a 32 px Haze icon tile with the pen glyph, title 17/600, subtitle "A line or two is plenty" 15 Dusk. Today it is a box with its own edge inside the card (C5).
-- **The Entries empty state drops its second "Write today's entry" button** and uses the section form (6.5). Why: say it once.
-- **Remove the legend row** ("Entries 1 2 3+ Favorite"). Why: the discs already carry their count as a numeral and the Favorite disc carries its heart (brand 3.3). Peers print no legend for self-labeled marks [Peers: Streaks, Journal].
-- **Entries are date-gutter rows in one card per month** (6.2): weekday and day numeral in the gutter, the first line as title (17/600), two lines of body (15 Dusk), no card per entry. Why: a sequence of like items is a list [NN/g cards, Peers: Day One].
+Journal and What I learned are one tab. Its order of emphasis and its build are in 2.5.
 
 ### 2.9 Settings (and its pushed pages)
 
@@ -225,8 +214,8 @@ Build (includes the pending owner requests):
 
 Build:
 
-- **Today shows** is three switch rows (Habits, Plan your day, What I learned), each with a Haze tile and one line; switches only, nothing to reorder. A footnote says the training card follows Fitness, only while Fitness is on. The same rows are the "Today shows" sheet on Today (2.3): one list, two ways in.
-- **Fitness** is the old Training group under its new name. Its first row is the switch: the run glyph in a Haze tile, "Fitness", one line ("Training plan, runs and lifts"), the switch trailing. On, the training rows follow it (miles, run days, long run, easy pace, Plans). Off, the group is that one row, the You row's subtitle is the account's address, the Strava rows are gone, and nothing else on Settings or its pages names training.
+- **Today shows** is three switch rows (Habits, Plan your day, Journal), each with a Haze tile and one line (Journal's is "One line is enough"); switches only, nothing to reorder. A footnote says the training card follows Fitness, only while Fitness is on. The same rows are the "Today shows" sheet on Today (2.3): one list, two ways in.
+- **Fitness** is the old Training group under its new name. Its first row is the switch: the run glyph in a Haze tile, "Fitness", one line ("Training plan, runs and lifts"), the switch trailing. On, the training rows follow it (miles, run days, long run, easy pace, Plans). Off, the group is that one row, the You row's subtitle is the account's address, the Strava rows are gone, and nothing else on Settings or its pages names training. Off, Apple Health (Data sources) also shows the three numbers it reads (sleep, HRV, resting heart rate), since there is no Fitness tab to show them.
 - **Group titles drop to Fraunces 600 `--fs-head` (22/28), 24 px above and 8 px below** (C2, C12). Today there are ten 26 px titles down one list, each larger than the rows it labels. Why: on a list page the rows are the content, and grouped lists use quieter headers [HIG Lists, iOS 26 inset grouped lists].
 - **Row subtitles are one line.** "7 habits" gets the subtitle "Meditate, Read and 5 more", not three wrapped lines. Why: rows are for scanning; detail is one tap away [HIG Lists].
 - **Delete account sits alone at the end** as a destructive button (brand 6.2), with the version footnote centered under it.
@@ -251,7 +240,7 @@ Build: answers run the full sheet width less the 16 px gutter, capped at `max-in
 | Sky button | "Next", 54 tall, full width, pinned 8 px above the safe area. |
 | Order of emphasis | Intro steps: 1. the sample card, 2. the headline (`--fs-hero`, at most 3 lines at 390), 3. one line (`--fs-body` Dusk), 4. Next, 5. "I have an account" (quiet, 8 px below Next). Question steps: 1. the question (Fraunces `--fs-section`, left aligned), 2. the options as an inset group or chips, 3. Next. |
 
-**The Fitness question.** One question step, right after the name, where the training questions begin: "Do you want Orby to track training?", with two rows in one inset group ("Yes, track training", "No, just my day"), each a Haze tile, a title and one line, a Deep Sky check on the chosen one. Next stays grey until one is chosen. No skips every training step (the goal, the days, the morning), the Fitness and Progress pages of the tour and the plan row of the payoff. It is the only customization first run asks for; Today's sections are not asked here.
+**The Fitness question.** One question step, right after the name, where the training questions begin: "Do you want Orby to track training?", with two rows in one inset group ("Yes, track training", "No, just my day"), each a Haze tile, a title and one line, a Deep Sky check on the chosen one. Next stays grey until one is chosen. No skips every training step (the goal, the days, the morning), the Fitness page of the tour (one page: what is next, then how it is going) and the plan row of the payoff. It is the only customization first run asks for; Today's sections are not asked here.
 
 Build: the progress dots sit 16 px above Next and are display only. Headline and sample are 24 px apart, and headline and its line 8 px apart. Every step's content clears Next by at least 24 px at 320 x 844.
 
@@ -365,7 +354,7 @@ Adjacent text levels must differ by **(a)** a size ratio of 1.2 or more, **(b)**
 
 ### 4.5 Body text
 
-- Reading text (assistant answers, journal entries, learned notes, the plan summary) is `--fs-body` 16/24 at the full card or sheet width. Never put paragraphs in a nested box or two columns. Measured in a card: 37 characters a line at 320, 49 at 390, 55 at 440. At 320 the line must not drop below 36 characters.
+- Reading text (assistant answers, journal entries and lines, the plan summary) is `--fs-body` 16/24 at the full card or sheet width. Never put paragraphs in a nested box or two columns. Measured in a card: 37 characters a line at 320, 49 at 390, 55 at 440. At 320 the line must not drop below 36 characters.
 - On wide screens a paragraph block is capped at `max-inline-size: 36rem`, about 65 to 70 characters [NN/g chunking; PR Dyson and Haselgrove 2001].
 - Three or more lines never use leading under 1.3 times the size [HIG Typography]. Tile names wrap to 2 lines and never truncate (brand 6.6).
 - Paragraphs are 12 apart. Short paragraphs, one idea each (brand 10.1).
@@ -411,7 +400,7 @@ A card you can only name with "and" is two units or a list. A card without (a), 
 | Card, tile | Paper, `--shadow-1`, no border (brand 5.3) | A border; the float shadow |
 | Chrome (dock, round buttons, avatar) | `--shadow-float` | On a content card |
 | Sheet | Paper or the Cloud sheet ground, `--shadow-sheet` | A second sheet on top |
-| Hero emphasis | One per screen: the sunrise glow (Today, Goals, Learned, Plan, Progress) or Journal's Haze wash header | Two devices on one screen; a tint, glow or larger radius on a secondary card |
+| Hero emphasis | One per screen: the sunrise glow (Today, Goals, Fitness) or Journal's dusk poster | Two devices on one screen; a tint, glow or larger radius on a secondary card |
 | Inside a card | `--line` hairlines, inset to the text | A divider between cards (the gap is the divider) |
 | Add slot | A dashed `--line-strong` edge, one per group | Dashed edges as decoration |
 | Secondary button, composer, fields | 1 px `--edge` or `--field-edge` | Any other edge |
@@ -462,10 +451,10 @@ A card you can only name with "and" is two units or a list. A card without (a), 
 | Card order | Caption (optional), headline value with its context, one takeaway line, the plot, then controls. |
 | Headline | Inter 650 tnum: `--fs-stat-live` in a hero, `--fs-value` elsewhere. Unit and context in `--fs-sub` Dusk (brand 6.8). |
 | Takeaway | One sentence, Inter `--fs-sub` Dusk, 4 under the headline ("18.1 mi a week on average"; in 1W "On plan, 14 mi to go"). |
-| Plot | The card's full inner width; 160 tall at 320 pt, 180 at 390 and up. Y labels short, on the trailing side; units in the headline. 1 to 5 horizontal gridlines at round steps (0, 5, 10 mi), `--grid`: the Progress hero draws 1 to 3, fitted so its tallest bar stands in the top fifth of the plot (one line only when the tallest bar is 1: a day with one lift session then stands the plot's whole height). No chart border or plot background. Bars from zero; lines may use a dynamic range. The plot sits 8 under the takeaway (it keeps a caption's height of its own over the tallest bar). |
-| Labels | Direct labels in caption style ("Plan" over the first dashed bar); no legend for 4 series or fewer. X labels in caption style, the set that fits without two touching: endpoints on a line chart; on the Progress hero weekday letters, months (names or initials), dates in 1M, years in a long All, and "Now" under the bucket holding today (brand 6.8 lists them). |
+| Plot | The card's full inner width; 160 tall at 320 pt, 180 at 390 and up. Y labels short, on the trailing side; units in the headline. 1 to 5 horizontal gridlines at round steps (0, 5, 10 mi), `--grid`: the Progress chart (Fitness) draws 1 to 3, fitted so its tallest bar stands in the top fifth of the plot (one line only when the tallest bar is 1: a day with one lift session then stands the plot's whole height). No chart border or plot background. Bars from zero; lines may use a dynamic range. The plot sits 8 under the takeaway (it keeps a caption's height of its own over the tallest bar). |
+| Labels | Direct labels in caption style ("Plan" over the first dashed bar); no legend for 4 series or fewer. X labels in caption style, the set that fits without two touching: endpoints on a line chart; on the Progress chart weekday letters, months (names or initials), dates in 1M, years in a long All, and "Now" under the bucket holding today (brand 6.8 lists them). |
 | Interaction | Drag across the whole plot area to read a point; the readout is the headline above the plot. A swipe up or down that starts on the plot still scrolls the page: the chart takes a touch only after 6 px of mostly sideways travel or a 180 ms press. Nothing critical needs a tap to show. Until the chart has been read once, one line 8 under the plot (Inter `--fs-sub` Dusk) says how. Its words fade the moment the chart is read; its room is given back when the page is next shown, never under the finger. |
-| Range control (Progress) | Seven segments, 1W, 1M, 3M, 6M, YTD, 12M, All, in one row 12 below the plot, 12 in from the card's edges (wider than the 20 px hero padding allows). Track Cloud, pill; thumb Sky; labels Inter 15, Dusk 550 off, Night Ink 650 on; 44 tall. Segment widths: 47.7 at 390, 45.6 at 375, 52.6 at 440; 37.7 at 320, where the named exception (C4) applies. Default 3M. |
+| Range control (Fitness, the Progress chart) | Seven segments, 1W, 1M, 3M, 6M, YTD, 12M, All, in one row 12 below the plot, 12 in from the card's edges (wider than the 20 px hero padding allows). Track Cloud, pill; thumb Sky; labels Inter 15, Dusk 550 off, Night Ink 650 on; 44 tall. Segment widths: 47.7 at 390, 45.6 at 375, 52.6 at 440; 37.7 at 320, where the named exception (C4) applies. Default 3M. |
 | Sparkline | 6.3. |
 
 ### 6.5 Empty states
@@ -497,23 +486,23 @@ Alternatives differ by style, never by size [HIG Buttons]. Labels start with a v
 | Tag | Brand 6.3, 28 tall, not tappable. One per row at most. |
 | Segmented control | Brand 6.3. At most 5 segments, equal widths, text only, noun labels, one preselected. Exception: the range control (6.4). |
 
-### 6.8 The Learned week (the lights)
+### 6.8 The Journal week (the lights)
 
-The lightbulb streak tracker is retired. The week is drawn by the poster kit's lights (brand 6.5a, `ui/poster` `WeekLights`) inside the Learned poster.
+The lightbulb streak tracker is retired. The week is drawn by the poster kit's lights (brand 6.5a, `ui/poster` `WeekLights`) inside the Journal poster.
 
 | Part | Value |
 |---|---|
 | Container | The dusk poster's scene, between the title and the band. Display only. |
 | Days | Seven on a rising dotted line: six days back, oldest left, each with its day letter in caption style; tonight last, labeled "Tonight". |
-| States | Kept: an Apricot light with a soft halo. Missed: a small open Haze ring (shape, not color alone). Tonight, waiting: a dotted Paper ring. Tonight, kept: the largest light, with two rings. No orange mark. |
-| Band | Before: "This week · 2 lines kept" over "Tonight's line lights the third". After: "This week" over "3 lines kept". Lines kept, never days in a row. |
-| VoiceOver | One label: "2 lines kept this week, on Monday and Wednesday. Tonight's line is not written yet." |
+| States | Written (a line or an entry that day): an Apricot light with a soft halo. Missed: a small open Haze ring (shape, not color alone). Tonight, waiting: a dotted Paper ring. Tonight, kept: the largest light, with two rings. No orange mark. |
+| Band | Before: "This week · 2 days written" over "Tonight's line lights the third". After: "This week" over "3 days written". With none yet: "Your first line lights tonight". Days written, never days in a row. |
+| VoiceOver | One label: "2 days written this week, Monday and Wednesday. Tonight's line is not written yet." |
 
 ### 6.9 The Remember when card (pending build)
 
 | Part | Value |
 |---|---|
-| Container | Paper card, r 24, `--shadow-1`, clipped. Journal's hero: no sunrise glow on Journal. |
+| Container | Paper card, r 24, `--shadow-1`, clipped. One card under the composer and today's entries; the dusk poster is Journal's hero, so this card carries no glow. It shows a line or an entry from the past, one at a time. |
 | Header (the tinted part) | A Haze wash (`linear-gradient(180deg, var(--haze), var(--surface))`) holding: the caption "REMEMBER WHEN" (Dusk, 5.65 on Haze) with the share button trailing (a 44 px round Paper button, 18 px glyph); then 8 below, the quote in Fraunces italic 420 `--fs-sentence` 22/28 Night Ink: "On Oct 11 you wrote: “…”", at most 4 lines, then an ellipsis; tapping the quote opens the entry. Padding 16 sides, 12 top, 16 bottom. |
 | Below the header | Optional quiet verbs on Paper, one row, 12 apart, 44 hit. Links on Paper only: Deep Sky on Haze is large text only. |
 
@@ -567,10 +556,8 @@ Brand 6.16 has the parts. The layout:
 |---|---|---|
 | Today | Hero, habits, today's goal, carry-over, top three | Week detail (the band), the other count (the view pill), habit history, the rest of the to-dos, the status sheet (the status pill while a status is on; in ordinary training, the title menu: hold the title or the date), the session |
 | Goals | Today's goal, the review owed, tomorrow's goal in the evening, further out | Goal history ("See all"), the review sheet, each period's goal, "Coming up" (tomorrow and next week) |
-| Learned | The poster (the week's lights, the field or tonight's line), the months that hold a line | Edit, delete and "Add another line" (the line's sheet), search (the nav bar), a month's days and filling in an earlier day (the month's page), From your archive (below the months) |
-| Plan | Your plan, this week's days, "+ Add" | The plan summary with the assistant, a session, the Add sheet (and the full editor behind its "More options"), the month view, other weeks, the morning schedule |
-| Progress | This week or the chosen range, trend and health tiles | A metric's page, a week's sheet, a lift's sheet |
-| Journal | Remember when, this week's calendar, recent entries | An entry in full, the month view, share |
+| Fitness | Today's training card, this week's days, "Add a session", the Progress chart at the chosen range, the trend tiles (and the body's numbers when Apple Health is connected), the plan row | A session, the Add sheet (and the full editor behind its "More options"), earlier this week (the fold), other weeks (a swipe), the month view (the date), the morning schedule, a week's sheet (a bar), a lift's sheet, a metric's page (a tile), the plan summary with the assistant |
+| Journal | The poster (the week's lights, the field or tonight's line), "Write more about today", today's entries, Remember when, the months | The entry writer (it opens in place), a line's sheet (edit, delete with Undo, a second line for the day), an entry's sheet (edit, share, favorite, delete with Undo), search (the nav bar), a month's page (its calendar, its days, writing on a past day), a past day from a light |
 | Settings | Group rows with their current values | Each setting's page; delete account confirms in a sheet |
 | New plan sheet | The preview, the assistant's pill, the goal, run days, weeks and miles | The composer (it opens in place), start and race day, week by week (below the fold) |
 
@@ -628,7 +615,7 @@ const sh = [...sc.querySelectorAll('*')].filter((e) => vis(e) && getComputedStyl
 [...document.querySelectorAll('button, [role=button], a')].filter((e) => vis(e) && e.getBoundingClientRect().top < innerHeight && getComputedStyle(e).backgroundColor === 'rgb(56, 182, 242)').length;
 ```
 
-The runtime brand audit covers contrast, the orange budget, the Orb tiers, one hero and Fraunces use: `node docs/brand/tools/audit.mjs <url> /today,/goals,/learned,/plan,/progress,/journal`.
+The runtime brand audit covers contrast, the orange budget, the Orb tiers, one hero and Fraunces use: `node docs/brand/tools/audit.mjs <url> /today,/goals,/plan,/journal`.
 
 ---
 

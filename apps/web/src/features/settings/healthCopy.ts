@@ -2,7 +2,8 @@ import type { HealthStatus } from '@logbook/shared';
 
 /**
  * What Logbook says about Apple Health, in one place, so Settings can never promise more than 1.0 does: three things are
- * read (sleep, heart rate variability, resting heart rate), they are saved to the account, and Progress shows them.
+ * read (sleep, heart rate variability, resting heart rate), they are saved to the account, and they are shown in Fitness,
+ * under Trends (with Fitness off, lib/prefs.ts: in Settings, under Apple Health).
  */
 
 /** The three things read, each with the one line the connect sheet shows under it. */
@@ -20,11 +21,21 @@ export const HEALTH_TRUST = 'Orby only reads. It never writes to Apple Health an
 /** Where Apple keeps the switch that takes Logbook's access away. */
 export const HEALTH_REVOKE_PATH = 'In the Apple Health app, tap your picture, then Apps, then Orby.';
 
+/** Where the three numbers are shown: Fitness's Trends; with Fitness off, Settings, under Apple Health. */
+export const healthPlace = (fitness: boolean): string => (fitness ? 'in Fitness, under Trends' : 'in Settings, under Apple Health');
+/** The connect sheet's headline and its one line, which never name training with Fitness off. */
+export const healthPitch = (fitness: boolean): { title: string; sub: string } => ({
+  title: fitness ? 'Your sleep and your heart, beside your training.' : 'Your sleep and your heart, day by day.',
+  sub: `Orby reads three things from Apple Health and shows them ${fitness ? 'in Fitness' : 'in Settings'}.`,
+});
+/** Why the readings leave the phone, in the connect sheet. */
+export const HEALTH_SAVED_NOTE = 'Readings are saved to your Orby account on Orby’s server, so Orby can show them. Orby reads as much history as you share, up to a year, then keeps up each time you open it.';
+
 /**
  * The import's last line, worded by what arrived: the span the server holds when it knows it ("Since Aug 2026: sleep,
- * heart rate variability and resting heart rate are on Progress."), else the plain line.
+ * heart rate variability and resting heart rate are in Fitness, under Trends."), else the plain line.
  */
-export const importDoneWords = (since: string | null): string => (since ? `${since}: ${HEALTH_READS_LINE.toLowerCase()} are on Progress. Orby keeps up each time you open it.` : `${HEALTH_READS_LINE} are on Progress. Orby keeps up each time you open it.`);
+export const importDoneWords = (since: string | null, fitness = true): string => `${since ? `${since}: ${HEALTH_READS_LINE.toLowerCase()}` : HEALTH_READS_LINE} are ${healthPlace(fitness)}. Orby keeps up each time you open it.`;
 
 /** "Reading Apple Health: November 2026": the wait, named, with the month being read when the engine says which. */
 export const importWords = (month: Date | null): string => (month ? `Reading Apple Health: ${month.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}` : 'Reading Apple Health…');

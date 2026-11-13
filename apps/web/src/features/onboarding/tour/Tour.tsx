@@ -5,8 +5,8 @@ import { HEALTH_BUILT } from '@/lib/features';
 import { haptics } from '@/lib/haptics';
 import { springs } from '@/lib/motion';
 import { Pressable } from '@/ui';
-import { FitnessIcon, GoalsIcon, HabitIcon, JournalIcon, LearnedIcon, ProgressIcon, TodayIcon } from '@/ui/icons';
-import { AskDemo, GoalsDemo, HabitsDemo, JournalDemo, LearnedDemo, PlanDemo, ProgressDemo, TodosDemo, type DemoProps } from './demos';
+import { FitnessIcon, GoalsIcon, HabitIcon, JournalIcon, TodayIcon } from '@/ui/icons';
+import { AskDemo, FitnessDemo, GoalsDemo, HabitsDemo, JournalDemo, TodosDemo, type DemoProps } from './demos';
 import './tour.css';
 
 /**
@@ -28,15 +28,21 @@ export const TOUR_ALL: readonly Page[] = [
   { key: 'todos', icon: TodayIcon, where: 'Today', title: 'Your three that matter.', lede: 'The first three to-dos are your priorities. Check one off and the next moves up; the rest wait folded below.', Demo: TodosDemo },
   { key: 'habits', icon: HabitIcon, where: 'Today', title: 'Habits you can tap.', lede: 'Each habit is a tile on Today. Tap it when it’s done; the week fills in under it.', Demo: HabitsDemo },
   { key: 'goals', icon: GoalsIcon, where: 'Goals and Today', title: 'One goal a day.', lede: 'Set the one thing that would make today count, then break it into steps. Week, month and year goals live in Goals.', Demo: GoalsDemo },
-  { key: 'journal', icon: JournalIcon, where: 'Journal', title: 'A calendar of days.', lede: 'Tap today to write a line or two. Every day you write gets its own dot, and old ones come back as Remember when.', Demo: JournalDemo },
-  { key: 'learned', icon: LearnedIcon, where: 'Learned', title: 'One thing a day.', lede: 'What you learned, in a line. Kept by month, and some come back later when you need them.', Demo: LearnedDemo },
-  { key: 'plan', icon: FitnessIcon, where: 'Fitness', title: 'A week you can move.', lede: 'Your runs, day by day. Life happens: hold a run and drag it to another day.', Demo: PlanDemo },
-  { key: 'progress', icon: ProgressIcon, where: 'Progress', title: 'Weeks, as lines.', lede: HEALTH_BUILT ? 'Miles and pace, week by week. Connect Apple Health to add sleep, HRV and resting heart rate. Slide along any chart to read a week.' : 'Miles and pace, week by week. Slide along any chart to read a week.', Demo: ProgressDemo },
+  { key: 'journal', icon: JournalIcon, where: 'Journal', title: 'One line a day.', lede: 'What you learned today, in a line. Write more any time. Old days come back as Remember when.', Demo: JournalDemo },
+  // one page for training: what is next (the week), then how it is going (Progress, the lower half of the tab)
+  {
+    key: 'plan',
+    icon: FitnessIcon,
+    where: 'Fitness',
+    title: 'What’s next, and how it’s going.',
+    lede: HEALTH_BUILT ? 'Your sessions, day by day, then your miles, week by week. Connect Apple Health to add sleep, HRV and resting heart rate.' : 'Your sessions, day by day, then your miles, week by week. Life happens: hold a run and drag it to another day.',
+    Demo: FitnessDemo,
+  },
   { key: 'ask', icon: MessageCircle, where: 'Every tab', title: 'Ask, or change anything.', lede: 'The assistant answers questions and makes changes for you, and shows them to you first. It can be wrong, so check anything important.', Demo: AskDemo },
 ];
 
 /** The pages a person sees: all of them, or with Fitness off (lib/prefs.ts) the ones that are not about training. */
-export const tourPages = (fitness: boolean): readonly Page[] => (fitness ? TOUR_ALL : TOUR_ALL.filter((p) => p.key !== 'plan' && p.key !== 'progress'));
+export const tourPages = (fitness: boolean): readonly Page[] => (fitness ? TOUR_ALL : TOUR_ALL.filter((p) => p.key !== 'plan'));
 
 export const Tour = ({ page, onPage, onDone, doneLabel = 'Build my week', fitness = true }: { page: number; onPage: (p: number) => void; onDone: () => void; /** the last page's button */ doneLabel?: string; /** false: the answer to the Fitness question was No */ fitness?: boolean }) => {
   const reduce = !!useReducedMotion();
