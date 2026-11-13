@@ -749,10 +749,11 @@ const SecondSession = memo(function SecondSession({ date, log: real, id }: { dat
   const size = s.kind === 'run' && s.miles ? `${num(s.miles)} mi` : s.minutes ? `${s.minutes} min` : null;
   const sub = [kindWord !== label(s) ? kindWord : null, size, p.key === 'today' || p.key === 'planned' ? null : p.word].filter(Boolean).join(' · ');
   const quiet = (w: Promise<void>) => void w.catch(() => undefined);
-  // the second session's Orbs, at its ring, on the ring's own haptic (a toggle)
+  // the second session's Orbs, at its ring, on the ring's own haptic: a toggle, which this ring fires on the frame its
+  // check is fully in (`MORPH_MS` after the hold completes), so the Orbs wait that long and are never seen before it is felt
   const orbs = () => {
     const key = trainKey(s.kind);
-    if (key) popOrbs({ key, date, n: 3, from: pressRect(), id: s.id, haptic: 'impact' });
+    if (key) popOrbs({ key, date, n: 3, from: pressRect(), id: s.id, delay: MORPH_MS, haptic: 'impact' });
   };
   const items: ContextMenuItem[] = [];
   const byHand = s.mark === 'done' || s.mark === 'floor';
