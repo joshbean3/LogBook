@@ -50,6 +50,23 @@ const localDay = (iso: string | null | undefined): ISODate | null => {
   const d = new Date(iso);
   return Number.isNaN(d.getTime()) ? null : toISO(d);
 };
+/**
+ * The first day a store may count from, given the one it holds. Never before the start date (`RULES.startsOn`): a store
+ * that says earlier (an earlier server cut it to its own date plus one, and a merge keeps the earlier of two) is brought
+ * up to it. A development build with an earlier start under `logbook.dev.orbsStart` (devStart.ts; the key is read only
+ * behind `import.meta.env.DEV`, so `orbsStart()` is the constant in a release build) starts from that day instead, or
+ * from the day the account began when that is later, even when the account's copy on the server says otherwise: that is
+ * how the feature is tried on a seeded account. The server itself never takes a day before the constant.
+ */
+const startFor = (held: ISODate, boot: Bootstrap): ISODate => {
+  const floor = orbsStart();
+  if (floor < RULES.startsOn) {
+    const born = localDay(boot.user.onboardedAt);
+    const want = born && born > floor ? born : floor;
+    return held > want ? want : held < floor ? floor : held;
+  }
+  return held < RULES.startsOn ? RULES.startsOn : held;
+};
 /** Every month the open days, this week and the last four (the challenges' baseline) touch. */
 const monthsFor = (today: ISODate): string[] => monthsBetween(shiftDays(mondayOf(today), -28), shiftDays(mondayOf(today), 6));
 
@@ -118,6 +135,12 @@ export const reconcileNow = (qc: QueryClient, now: Date = new Date()): Gained[] 
   if (!s) {
     void begin(qc, uid, boot);
     return [];
+  }
+  // The first day the store counts from: never before the start date, whatever storage or the account's copy says
+  const startedOn = startFor(s.startedOn, boot);
+  if (startedOn !== s.startedOn) {
+    setOrbs({ ...s, startedOn });
+    s = getOrbs() ?? s;
   }
   // Once per store read from this device, as soon as the server's date is known: nothing in it may be dated after
   // tomorrow (storage that was damaged or edited, or written while the device's date was wrong)

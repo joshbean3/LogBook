@@ -1,6 +1,8 @@
 import { emptyRewards, mergeRewards, parseISO, reconcile, RULES, shiftDays, tidy, totalOf, type DayFacts, type DayRec, type Rewards } from '@logbook/shared';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { makeApp, signUp, type Account, type App } from '../test/helpers.js';
+import type { DB } from '../db/index.js';
+import { writeSetting } from './core.js';
 import { admitRewards, REWARDS_MAX_BYTES } from './me.js';
 
 /**
@@ -21,11 +23,12 @@ const closed = (n: number, k: DayRec['k'] = { habit: n }): DayRec => ({ n, a: n,
 const store = (userId: string, days: Record<string, DayRec>, extra: Partial<Rewards> = {}): Rewards => ({ ...emptyRewards(userId, D0), clock: TODAY, days, ...extra });
 
 let app: App;
+let db: DB;
 let me: Account;
 beforeEach(async () => {
   vi.useFakeTimers({ toFake: ['Date'] });
   vi.setSystemTime(NOW);
-  ({ app } = makeApp());
+  ({ app, db } = makeApp());
   me = await signUp(app, 'orbs@example.com');
 });
 afterEach(() => vi.useRealTimers());
@@ -120,6 +123,13 @@ describe('PUT /me/rewards', () => {
     const other = await signUp(app, 'reverse@example.com');
     for (const b of [...sends].reverse()) await put(other, { ...b, userId: other.id });
     expect({ ...((await boot(other)).rewards as Rewards), userId: me.id }).toEqual(want);
+  });
+  it('a copy an earlier build saved with a start before the rules is mended by the next write', async () => {
+    writeSetting(db, me.id, 'rewards', { ...store(me.id, { [day(1)]: closed(2) }), startedOn: shiftDays(D0, -2) });
+    const r = await put(me, store(me.id, { [day(2)]: closed(1) }));
+    expect(r.body.rewards.startedOn).toBe(D0);
+    expect(Object.keys(r.body.rewards.days)).toEqual([day(1), day(2)]);
+    expect(((await boot(me)).rewards as Rewards).startedOn).toBe(D0);
   });
   it('before the rules begin, the first day that can earn stays the day they begin', async () => {
     const before = parseISO(shiftDays(D0, -3));

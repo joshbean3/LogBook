@@ -1,4 +1,4 @@
-import { buildTemplate, mergeRewards, mondayOf, parseRewards, passwordProblem, tidy, zRewards, type Rewards, NEW_ACCOUNT_MORNING, normalizeMorningSettings, zMePatch, zPrefs, shiftDays, TemplateError, today as serverToday, weekdayOf, zChangePassword, zDeleteAccount, zOnboarding, zTemplateInput, zTrainingPatch, zTrainingProfile, zTrainingStatusInput, zConsentInput, zIntroSeen, type TrainWhenSetting, type TrainingStatus, type ISODate, type TemplateInput } from '@logbook/shared';
+import { buildTemplate, mergeRewards, mondayOf, parseRewards, passwordProblem, RULES, tidy, zRewards, type Rewards, NEW_ACCOUNT_MORNING, normalizeMorningSettings, zMePatch, zPrefs, shiftDays, TemplateError, today as serverToday, weekdayOf, zChangePassword, zDeleteAccount, zOnboarding, zTemplateInput, zTrainingPatch, zTrainingProfile, zTrainingStatusInput, zConsentInput, zIntroSeen, type TrainWhenSetting, type TrainingStatus, type ISODate, type TemplateInput } from '@logbook/shared';
 import { admitRewards, REWARDS_KEY, REWARDS_MAX_BYTES } from '../services/rewardsAdmit.js';
 import { and, asc, eq, isNull, sql } from 'drizzle-orm';
 import { Hono } from 'hono';
@@ -84,7 +84,10 @@ export const meRoutes = (db: DB) => {
     if (body.userId !== userId) throw new ApiError(403, 'That is another account’s record.', 'wrong_account');
     const sent = admitRewards(body, serverToday());
     const rewards = db.transaction(() => {
-      const kept = parseRewards(readSetting<unknown>(db, userId, REWARDS_KEY), userId);
+      const had = parseRewards(readSetting<unknown>(db, userId, REWARDS_KEY), userId);
+      // a copy saved with a start before the rules (an earlier build cut it to the server's date) is mended here: the
+      // merge takes the earlier start of the two, so it would otherwise stand for good
+      const kept = had && had.startedOn < RULES.startsOn ? { ...had, startedOn: RULES.startsOn } : had;
       const next = tidy(kept ? mergeRewards(kept, sent) : sent);
       if (JSON.stringify(next).length > REWARDS_MAX_BYTES) throw new ApiError(413, 'That is too big to save.', 'too_big');
       writeSetting(db, userId, REWARDS_KEY, next);

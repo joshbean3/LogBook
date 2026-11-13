@@ -368,12 +368,21 @@ export const dayLines = (s: Rewards, date: ISODate): Array<{ key: DayKey; n: num
 
 /**
  * How many more Orbs a kind can still pay on a day, by what the store holds now: what a control asks at the moment of a
- * tap, to know whether an Orb should be born there (the sixth to-do of a day gets its check and no Orb). 0 on a closed
- * day and while Orbs are off. A session at its floor leaves room for the difference to a full one.
+ * tap, to know whether an Orb should be born there (the sixth to-do of a day gets its check and no Orb). A session at its
+ * floor leaves room for the difference to a full one.
+ *
+ * 0 for a day that takes nothing: a closed day, with or without a record (two or more behind the store's clock); a day
+ * that has not come; a day before the start, or while Orbs are off; and anything that is not a day. Hand in `now` (every
+ * caller that has a clock should) and the answer is also 0 for yesterday once it has stopped taking taps at 03:00.
  */
-export const roomFor = (s: Rewards, date: ISODate, key: Exclude<DayKey, 'full' | 'back'>): number => {
+export const roomFor = (s: Rewards, date: ISODate, key: Exclude<DayKey, 'full' | 'back'>, now?: Date): number => {
+  if (!s.set.on || !isISODate(date) || shiftDays(date, 0) !== date) return 0;
   const r = s.days[date];
-  if (!s.set.on || r?.c || date < s.startedOn || inOff(s, date)) return 0;
+  if (r?.c || date < s.startedOn || inOff(s, date)) return 0;
+  // closed by the clock: the reconciler never reads a day two or more behind the highest day this store has seen
+  if (date < shiftDays(s.clock, -1)) return 0;
+  // not yet come (by the time when there is one: the clock may be one pass behind on a new morning), or yesterday after 03:00
+  if (now ? !isOpen(date, now, 'tap') : date > s.clock) return 0;
   const have = r?.k?.[key] ?? 0;
   if (key === 'todo') return Math.max(0, RULES.todo.cap * RULES.todo.each - have);
   if (key === 'habit') return Math.max(0, RULES.habit.cap * RULES.habit.each - have);
@@ -1056,23 +1065,26 @@ const rebuiltRec = (f: DayFacts): DayRec | null => {
  * last sent (the day before its clock, and every day since) are not in it, and this device never saw them. Without this
  * yesterday's Orbs, and yesterday itself in the count, were lost every time a phone signed out and in.
  *
- * Those days, and only those, are read from the account's own facts as `rebuild` reads them after a wipe: base Orbs only,
- * closed, marked rebuilt. A day the copy holds is left exactly as it is, and a day that had already closed when the copy
- * was sent is never filled (it was seen, and held nothing: filling it would pay for back-fill). `facts` are for days
- * that no longer take taps; today is left to the reconciler. The same object comes back when there is nothing to fill.
+ * Those days, and only those, are read from the account's own facts, each as the phone that held it would have counted
+ * it (the full day and the comeback included, so signing out and in takes nothing away): closed, except yesterday,
+ * which stays open for a run that syncs late. A day the copy holds is left exactly as it is, and a day that had already
+ * closed when the copy was sent is never filled (it was seen, and held nothing: filling it would pay for back-fill).
+ * `facts` are for days that no longer take taps; today is left to the reconciler. The same object comes back when there
+ * is nothing to fill.
  */
 export const fillFrom = (kept: Rewards, facts: readonly DayFacts[], today: ISODate): Rewards => {
   if (!kept.set.on) return kept;
   const open = shiftDays(kept.clock, -1);
   const from = open > kept.startedOn ? open : kept.startedOn;
+  const yesterday = shiftDays(today, -1);
   let days: Rewards['days'] | null = null;
-  for (const f of facts) {
+  for (const f of [...facts].sort((x, y) => (x.date < y.date ? -1 : x.date > y.date ? 1 : 0))) {
     const d = f.date;
     if (d < from || d >= today || kept.days[d] || days?.[d] || inOff(kept, d)) continue;
-    const rec = rebuiltRec(f);
-    if (!rec) continue;
+    const rec = earnDay(f, undefined, { src: 'tap', back: comebackDue(days ? { ...kept, days } : kept, d) });
+    if (emptyRec(rec)) continue;
     days ??= { ...kept.days };
-    days[d] = rec;
+    days[d] = d < yesterday ? { ...rec, c: 1 } : rec;
   }
   return days ? { ...kept, days } : kept;
 };

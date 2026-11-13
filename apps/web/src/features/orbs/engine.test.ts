@@ -552,13 +552,14 @@ describe('after a wipe', () => {
     k.run();
     await vi.waitFor(() => expect(k.store.getOrbs()).not.toBeNull());
     const s = k.store.getOrbs()!;
-    // yesterday and the day before: base Orbs, closed, marked rebuilt (the full day's +5 is not paid by a rebuild)
-    expect(s.days[Y]).toEqual({ n: 6, a: 4, k: { habit: 3, 'goal:day': 3 }, c: 1, r: 1 });
-    expect(s.days[D2]).toEqual({ n: 1, a: 1, k: { habit: 1 }, c: 1, r: 1 });
+    // yesterday and the day before, as the phone that held them would have counted them: the full day's +5 included.
+    // Yesterday stays open (a run can still sync for it); the day before is closed.
+    expect(s.days[Y]).toEqual({ n: 11, a: 4, k: { habit: 3, 'goal:day': 3, full: 5 } });
+    expect(s.days[D2]).toEqual({ n: 1, a: 1, k: { habit: 1 }, c: 1 });
     // a day the copy holds stands as the copy has it, whatever the facts say now
     expect(s.days[D3]).toEqual({ n: 1, a: 1, k: { habit: 1 }, c: 1 });
     k.run();
-    expect(k.store.getOrbs()!.days[Y]).toEqual({ n: 6, a: 4, k: { habit: 3, 'goal:day': 3 }, c: 1, r: 1 });
+    expect(k.store.getOrbs()!.days[Y]).toEqual({ n: 11, a: 4, k: { habit: 3, 'goal:day': 3, full: 5 } });
     expect(events).toEqual([]);
     expect(toasts).toEqual([]);
   });
@@ -591,7 +592,7 @@ describe('after a wipe', () => {
     k.engine.resetOrbsEngineForTest();
     k.run();
     await vi.waitFor(() => expect(k.store.getOrbs()).not.toBeNull());
-    expect(k.store.getOrbs()!.days[Y]).toEqual({ n: 1, a: 1, k: { habit: 1 }, c: 1, r: 1 });
+    expect(k.store.getOrbs()!.days[Y]).toEqual({ n: 1, a: 1, k: { habit: 1 } });
   });
   it('a first run on the day the account began starts empty, with nothing to read', async () => {
     const k = await launch({ stored: null, boot: boot({ onboardedAt: noon(TODAY, 9).toISOString() }) });
@@ -702,6 +703,61 @@ describe('before the start date', () => {
     k.run();
     expect(k.store.getOrbs()).toMatchObject({ startedOn: RULES.startsOn, days: {} });
     expect(events).toEqual([]);
+  });
+  it('the first day a store counts from is never before the start date, whatever storage or the account’s copy says', async () => {
+    // an earlier server cut the start to its own date plus one (two days before the rules begin) and the phone took it
+    const early = shiftDays(RULES.startsOn, -2);
+    const k = await launch({ stored: { ...existing(), startedOn: early } });
+    k.run();
+    expect(k.store.getOrbs()!.startedOn).toBe(RULES.startsOn);
+    // and a copy from the server that still says so does not bring it back
+    api.mockImplementation(async (path, init) => {
+      if (path === '/me/rewards' && init?.method === 'PUT') return { rewards: { ...(init.json as Rewards), startedOn: early } };
+      throw Object.assign(new Error('Not found'), { status: 404 });
+    });
+    k.intake.takeBootstrap({ rewards: { ...existing(), startedOn: early }, serverTime: new Date().toISOString() });
+    k.run();
+    await vi.advanceTimersByTimeAsync(3000);
+    k.run();
+    await vi.advanceTimersByTimeAsync(3000);
+    k.run();
+    expect(k.store.getOrbs()!.startedOn).toBe(RULES.startsOn);
+    // no ping-pong: the phone tells the server once, and is quiet after
+    const puts = api.mock.calls.filter(([p, init]) => p === '/me/rewards' && init?.method === 'PUT').length;
+    await vi.advanceTimersByTimeAsync(10_000);
+    k.run();
+    await vi.advanceTimersByTimeAsync(10_000);
+    expect(api.mock.calls.filter(([p, init]) => p === '/me/rewards' && init?.method === 'PUT').length).toBe(puts);
+    expect(puts).toBeLessThanOrEqual(2);
+  });
+  it('a development build’s earlier start wins over the account’s copy, back to the day the account began and no further', async () => {
+    const devStart = shiftDays(RULES.startsOn, -10);
+    const born = shiftDays(RULES.startsOn, -6);
+    const copy = existing({ days: { [Y]: { n: 1, a: 1, k: { habit: 1 }, c: 1 } } });
+    // a seeded account, long there: the key's own day
+    const old = await launch({ stored: null });
+    local.setItem('logbook.dev.orbsStart', devStart);
+    old.intake.takeBootstrap({ rewards: copy, serverTime: new Date().toISOString() });
+    old.run();
+    await vi.waitFor(() => expect(old.store.getOrbs()).not.toBeNull());
+    old.run();
+    expect(old.store.getOrbs()!.startedOn).toBe(devStart);
+    expect(old.store.getOrbs()!.days[Y]?.n).toBe(1);
+    // an account made after the key's day: the day it began
+    const young = await launch({ stored: null, boot: boot({ onboardedAt: noon(born, 9).toISOString() }) });
+    local.setItem('logbook.dev.orbsStart', devStart);
+    young.intake.takeBootstrap({ rewards: copy, serverTime: new Date().toISOString() });
+    young.run();
+    await vi.waitFor(() => expect(young.store.getOrbs()).not.toBeNull());
+    young.run();
+    expect(young.store.getOrbs()!.startedOn).toBe(born);
+    // without the key the copy's own start stands
+    const plain = await launch({ stored: null });
+    plain.intake.takeBootstrap({ rewards: copy, serverTime: new Date().toISOString() });
+    plain.run();
+    await vi.waitFor(() => expect(plain.store.getOrbs()).not.toBeNull());
+    plain.run();
+    expect(plain.store.getOrbs()!.startedOn).toBe(RULES.startsOn);
   });
   it('a development build can try it earlier with logbook.dev.orbsStart; the constant itself never moves', async () => {
     const early = shiftDays(RULES.startsOn, -3);

@@ -945,6 +945,37 @@ describe('roomFor: is there an Orb left for this tap?', () => {
     expect(roomFor(s, shiftDays(D0, -1), 'habit')).toBe(0);
     expect(roomFor(applySet(s, { on: false }, at(day(2), 13)), day(2), 'habit')).toBe(0);
   });
+  it('is nothing on a day the clock has closed, though the store holds no record of it', () => {
+    // a habit on days 0, 1, 2 and 5: days 3 and 4 hold nothing, and the clock stands on day 5
+    const s = live(6, (i) => (i === 3 || i === 4 ? null : { habitsDone: 1 }));
+    expect(s.days[day(3)]).toBeUndefined();
+    // two or more behind the clock: closed, record or no record
+    for (const key of ['todo', 'habit', 'goal:day', 'train:run'] as const) expect(roomFor(s, day(3), key), key).toBe(0);
+    // yesterday and today, by the store's clock alone, may still take something
+    expect(roomFor(s, day(4), 'habit')).toBe(8);
+    expect(roomFor(s, day(5), 'habit')).toBe(7);
+  });
+  it('with the time: yesterday takes taps until 03:00 and nothing after, and a day that has not come takes none', () => {
+    const s = live(6, (i) => (i === 4 ? null : { habitsDone: 1 }));
+    expect(roomFor(s, day(4), 'habit', at(day(5), 2, 59))).toBe(8);
+    expect(roomFor(s, day(4), 'habit', at(day(5), 3, 0))).toBe(0);
+    expect(roomFor(s, day(4), 'todo', at(day(5), 12))).toBe(0);
+    expect(roomFor(s, day(4), 'goal:day', at(day(5), 12))).toBe(0);
+    expect(roomFor(s, day(5), 'habit', at(day(5), 12))).toBe(7);
+    // tomorrow's page, and any later day
+    expect(roomFor(s, day(6), 'habit', at(day(5), 12))).toBe(0);
+    expect(roomFor(s, day(40), 'todo', at(day(5), 12))).toBe(0);
+    expect(roomFor(s, day(6), 'habit')).toBe(0);
+    // a new day the reconciler has not looked at yet (the clock is a pass behind): today takes taps
+    expect(roomFor(s, day(6), 'habit', at(day(6), 8))).toBe(8);
+    // and once the clock has passed on, the day two behind it is closed whatever the device's date says
+    expect(roomFor(s, day(3), 'habit', at(day(3), 12))).toBe(0);
+  });
+  it('is nothing for what is not a day', () => {
+    const s = fresh();
+    for (const bad of ['', 'today', '2026-13-40', '2026-02-30', '20261116', 'NaN', '2026-11-16T10:00:00Z']) expect(roomFor(s, bad as ISODate, 'habit', at(D0)), bad).toBe(0);
+    for (const bad of ['', 'today', '2026-02-30']) expect(roomFor(s, bad as ISODate, 'todo'), bad).toBe(0);
+  });
 });
 
 describe('the switches travel in the store', () => {
@@ -988,10 +1019,13 @@ describe('edge cases: a phone that takes the account’s copy', () => {
     const today = day(11);
     const world = [7, 8, 9, 10].map((i) => facts(day(i), { habitsDone: i === 10 ? 1 : 2, habitsLive: 2, habitsLiveDone: i === 10 ? 1 : 2, goalDay: 'done' }));
     const filled = fillFrom(copy, world, today);
-    // the two days that were open, and the day nobody opened the app: base Orbs, closed, marked rebuilt (no full day)
-    expect(filled.days[day(8)]).toEqual({ n: 5, a: 3, k: { habit: 2, 'goal:day': 3 }, c: 1, r: 1 });
-    expect(filled.days[day(9)]).toEqual({ n: 5, a: 3, k: { habit: 2, 'goal:day': 3 }, c: 1, r: 1 });
-    expect(filled.days[day(10)]).toEqual({ n: 4, a: 2, k: { habit: 1, 'goal:day': 3 }, c: 1, r: 1 });
+    // the two days that were open, and the day nobody opened the app: each as the phone that held it would have counted
+    // it, the full day included; closed, except yesterday, which can still take a run that syncs late
+    expect(filled.days[day(8)]).toEqual({ n: 10, a: 3, k: { habit: 2, 'goal:day': 3, full: 5 }, c: 1 });
+    expect(filled.days[day(9)]).toEqual({ n: 10, a: 3, k: { habit: 2, 'goal:day': 3, full: 5 }, c: 1 });
+    expect(filled.days[day(10)]).toEqual({ n: 4, a: 2, k: { habit: 1, 'goal:day': 3 } });
+    const late = reconcile(filled, [facts(day(10), { habitsDone: 1, auto: { run: 'done' } })], at(today, 9)).store;
+    expect(late.days[day(10)]).toEqual({ n: 7, a: 3, k: { habit: 1, 'train:run': 3, 'goal:day': 3 } });
     // a day the copy holds is left exactly as it is, whatever the facts say now
     expect(filled.days[day(7)]).toBe(copy.days[day(7)]);
     expect(countOf(filled, today).days).toBe(11);
@@ -1015,7 +1049,22 @@ describe('edge cases: a phone that takes the account’s copy', () => {
   });
   it('a paused day in the gap is paused, not missed', () => {
     const copy = forSync(lived(10));
-    expect(fillFrom(copy, [facts(day(9), { held: true })], day(11)).days[day(9)]).toEqual({ n: 0, a: 0, c: 1, h: 1, r: 1 });
+    expect(fillFrom(copy, [facts(day(9), { held: true })], day(11)).days[day(9)]).toEqual({ n: 0, a: 0, c: 1, h: 1 });
+  });
+  it('the comeback of a day in the gap is paid as the phone that held it would have paid it, and the week keeps its bonus', () => {
+    // counted Monday; nothing Tuesday to Thursday; back on Friday (the comeback), then signed out; in again on Saturday
+    let phone = live(1, () => ({ habitsDone: 1 }));
+    for (const i of [1, 2, 3]) phone = reconcile(phone, [], at(day(i))).store;
+    phone = reconcile(phone, [facts(day(4), { habitsDone: 1 })], at(day(4))).store;
+    expect(phone.days[day(4)]).toEqual({ n: 4, a: 1, k: { habit: 1, back: 3 } });
+    const filled = fillFrom(forSync(phone), [facts(day(3)), facts(day(4), { habitsDone: 1 })], day(5));
+    expect(filled.days[day(4)]).toEqual({ n: 4, a: 1, k: { habit: 1, back: 3 } });
+    expect(totalOf(filled)).toBe(totalOf(phone));
+    // a week with a filled day in it is paid like any other
+    let week = live(3, () => ({ habitsDone: 1 }));
+    week = fillFrom(forSync(week), [facts(day(1), { habitsDone: 1 }), facts(day(2), { habitsDone: 1 })], day(3));
+    for (const i of [3, 4]) week = reconcile(week, [facts(day(i), { habitsDone: 1 })], at(day(i))).store;
+    expect(reconcile(week, [], at(day(8))).gained).toEqual([{ key: `week:${D0}`, n: 5, date: day(8) }]);
   });
 });
 
