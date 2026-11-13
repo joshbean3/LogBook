@@ -204,7 +204,7 @@ export const JournalPoster = ({ today, lines, lineCounts, entryDays, ever, onOpe
     setRose(!had && kept);
   }
   const band = weekBand(week, ever);
-  const days = useMemo(() => week.days.map((d) => ({ letter: d.letter, lit: d.lit, name: `${fmtDate('dowLong', d.date)}, ${fmtDate('md', d.date)}, ${d.lit ? 'written' : 'nothing written'}. Open the day` })), [week.days]);
+  const days = useMemo(() => week.days.map((d) => ({ letter: d.letter, lit: d.lit, name: `${fmtDate('dowLong', d.date)}, ${fmtDate('md', d.date)}${d.lit ? ', written' : ''}. Open the day` })), [week.days]);
   return (
     <Poster
       ground="dusk"
@@ -213,7 +213,7 @@ export const JournalPoster = ({ today, lines, lineCounts, entryDays, ever, onOpe
       titleSize={kept ? 'goal' : 'lead'}
       title={
         headline ? (
-          <Pressable className={`jn-title${rose ? ' is-new' : ''}`} press="dim" onPress={() => onOpenLine(headline)} label={`${headline.text}. Edit tonight’s line`}>
+          <Pressable className={`jn-title${rose ? ' is-new' : ''}`} press="dim" onPress={() => onOpenLine(headline)} label={`${headline.text.replace(/[.!?…]+$/, '')}. Edit tonight’s line`}>
             <span className="jn-title-in">{headline.text}</span>
           </Pressable>
         ) : (

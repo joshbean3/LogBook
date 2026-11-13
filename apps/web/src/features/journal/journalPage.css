@@ -62,6 +62,12 @@
 .jn-page .recall-head {
   background: none;
 }
+/* and its words are in the journal's own voice at the entries' size (Fraunces italic 17 on 24), so the page keeps four
+   Fraunces sizes with the poster's title the largest (layout standard 4.1) */
+.jn-page .recall-quote {
+  font-size: var(--fs-sentence-sm);
+  line-height: var(--lh-body);
+}
 /* ---------- the line is kept: one quiet row in the composer's place ---------- */
 .jn-more.pressable {
   display: flex;
@@ -199,6 +205,11 @@
   opacity: 0.6;
 }
 
+/* the first thing under a day's caption has no hairline over it */
+.ln-day-caps + .jn-erow.is-inset.pressable {
+  border-top: 0;
+}
+
 /* what was searched for, marked in the words: a Haze ground under them, and their weight (never color alone) */
 .jn-mark {
   background: var(--haze);
@@ -268,4 +279,8 @@
   letter-spacing: 0;
   color: var(--ink-3);
   overflow-wrap: anywhere;
+}
+/* a month's count of lines and entries, a footnote under its days */
+.jn-month-count {
+  margin: var(--sp-2) var(--pad-card) 0;
 }
