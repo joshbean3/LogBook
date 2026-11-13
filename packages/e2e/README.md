@@ -25,6 +25,7 @@ Each test makes its own account (an address at example.com), so they run side by
 8. Forgot password, the reset link from the mail, the new password works and the old one does not. With no mail provider set the API logs the mail; the test reads the link from the API's output (`E2E_API_LOG`, set for you when Playwright starts the servers).
 9. The opening: the sunrise plays on a cold open and a tap runs it out; the same tab opening again gets the quiet fade, and so does the reload after signing out; left alone it gives way when its 2.8 seconds are up; Reduce Motion gets a fade.
 10. Setup, question by question: each answer changes its picture (the greeting, the tabs, the build, the week, the morning's times, the habit tiles), the last question leads to the reveal and never to the tour, the tour opens from the reveal's quiet link and comes back, and Today opens on one first move ("Set this goal").
+11. The welcome pager: three posters of real tabs over the assistant's bar, Get started on every page, the page dots as one adjustable control (arrow keys, a tap), Back from the privacy page to the page that was left, and "I have an account" to sign in and back.
 
 A test that only waits for the page to look right would miss a change the server never got, so every write waits for the server's answer (`savedBy`) before the test reloads.
 

@@ -84,16 +84,13 @@ export const go = async (page: Page, path: string) => {
 export const savedBy = (page: Page, method: string | RegExp, path: RegExp) =>
   page.waitForResponse((r) => (typeof method === 'string' ? r.request().method() === method : method.test(r.request().method())) && path.test(new URL(r.url()).pathname) && r.ok(), { timeout: 30_000 });
 
-/** From the welcome pager to the account form: the four pages, then the privacy page left as it is (nothing allowed). */
+/**
+ * From the welcome pager to the account form: Get started (it is on every page of the pager), then the privacy page
+ * left as it is (nothing allowed).
+ */
 export const startSignUp = async (page: Page) => {
   await page.goto('/');
   await expect(page).toHaveURL(/\/start/);
-  for (let i = 0; i < 6; i++) {
-    const start = page.getByRole('button', { name: 'Get started' });
-    if (await start.isVisible()) break;
-    await page.getByRole('button', { name: 'Next', exact: true }).click();
-    await page.waitForTimeout(350); // the pager settles between pages
-  }
   await page.getByRole('button', { name: 'Get started' }).click();
   // the privacy page: what goes where. Continue without switching anything on.
   await page.getByRole('button', { name: /^(Continue|Not now)$/ }).first().click();

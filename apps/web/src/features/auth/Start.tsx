@@ -2,7 +2,7 @@ import { ChevronLeft } from 'lucide-react';
 import { useReducedMotion } from 'motion/react';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Navigate, useLocation, useNavigate } from 'react-router';
-import { AssistantCard, HabitsCard, JournalCard, MorningCard, WeekCard } from '@/features/onboarding/cards';
+import { DockSample } from '@/features/onboarding/cards';
 import { haptics } from '@/lib/haptics';
 import { useSplashDoneOnPaint } from '@/lib/native';
 import { LEGAL, SUPPORT } from '@/lib/siteLinks';
@@ -11,35 +11,29 @@ import { Pressable } from '@/ui/Pressable';
 import { canGoBack, SiteLink, useAuthStatus } from './AuthScreens';
 import { type PendingChoice, writePendingChoice } from './consent';
 import { markHasAccount } from './flag';
+import { pageAfterTap, pageAt, pageForKey } from './pager';
+import { PAGES } from './pages';
 import { PRIVACY_PROMISE, PrivacyFacts } from './PrivacyFacts';
 import './auth.css';
 import './start.css';
 
-/** The welcome pager's pages: one real Logbook card each, a serif headline in Logbook's voice, one plain line. */
-export const PAGES = [
-  // page 1 says what Logbook is, in one plain line (auth-13)
-  { key: 'morning', card: <MorningCard />, title: 'Your day, lit.', sub: 'Your run, your habits and your notes for today, on one screen.' },
-  { key: 'habits', card: <HabitsCard />, title: 'Habits you can tap.', sub: 'Each one is a tile on Today. Tap it when it’s done and the week fills in.' },
-  { key: 'plan', card: <WeekCard compact />, title: 'A plan that fits your mornings.', sub: 'Four questions, then your first week, written for you.' },
-  { key: 'journal', card: <JournalCard />, title: 'One line a day.', sub: 'What you learned today, in a line. Write more when you want to.' },
-  // the assistant is met here, before the page that asks about it (auth-13)
-  { key: 'assistant', card: <AssistantCard />, title: 'An assistant that knows your plan.', sub: 'Ask it anything. It can read your plan and change it when you say so.' },
-] as const;
-
 /** The pager page the person left for the privacy step, so Back returns to it (auth-22). */
 let lastPage = 0;
+/** The pager was left for the privacy step: coming back is a step change, and focus lands on the page's heading. */
+let cameBack = false;
 
 /**
  * The first screens a new person sees (inspiration §6 Onboarding; critic B7: value before the ask):
  *
- *   /start                     a four-page pager, each page a real Logbook card; one navy pill in a fixed place (Next,
- *                              then Get started) over the page dots, and a quiet "I have an account" under it
+ *   /start                     a three-page pager, each page a real poster of the app over the assistant's bar; the page
+ *                              dots, one Sky button in a fixed place (Get started, on every page) and a quiet "I have an
+ *                              account" under it
  *   /start (state: privacy)    the privacy page, before any account: the question, the promise, what Allow would send
  *                              to Claude and what is not sent, and two buttons, Allow and Not now (nothing is preselected)
  *   /signup                    the account, carrying the answer (it waits on this device until then)
  *
- * The pages swipe (a horizontal scroll-snap track, so the finger owns it) and the pill pages too. The privacy page is its
- * own history entry, so Back returns to the pager.
+ * The pages swipe (a horizontal scroll-snap track, so the finger owns it); the dots are the swipe's equal for the keyboard
+ * and VoiceOver. The privacy page is its own history entry, so Back returns to the pager.
  */
 export const Start = () => {
   useSplashDoneOnPaint();
@@ -59,66 +53,51 @@ export const Start = () => {
   return privacy ? <PrivacyStep /> : <Pager />;
 };
 
+/** A page's words. The other pages' words lie unseen in the same place, so every page's words are as tall as the tallest and the posters above them are all the same height. */
+const Words = ({ at }: { at: number | null }) => (
+  <div className="start-words">
+    {PAGES.map((p, i) =>
+      i === at ? (
+        <div key={p.key} className="start-say start-in s1">
+          <h1 className="start-title display" tabIndex={-1}>
+            {p.title}
+          </h1>
+          <p className="start-sub">{p.sub}</p>
+        </div>
+      ) : (
+        <div key={p.key} className="start-say is-ghost" aria-hidden="true">
+          <div className="start-title display">{p.title}</div>
+          <div className="start-sub">{p.sub}</div>
+        </div>
+      ),
+    )}
+  </div>
+);
+
 const Pager = () => {
   const nav = useNavigate();
   const reduce = useReducedMotion();
   const track = useRef<HTMLDivElement>(null);
   const [page, setPage] = useState(() => Math.min(lastPage, PAGES.length - 1));
-  const last = page === PAGES.length - 1;
-  // a Next press is scrolling the track: the scroll's own positions do not move the dots, the label or the haptic (auth-26)
+  // a press on the dots is scrolling the track: the scroll's own positions do not move the dots or the haptic (auth-26)
   const steering = useRef<number | null>(null);
   // the page the person was on when they left for the privacy step, at once and without a slide (auth-22)
   useLayoutEffect(() => {
     const el = track.current;
     if (el && page) el.scrollTo({ left: page * el.clientWidth, behavior: 'auto' });
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
-  // Fit (auth-12): at a larger text size the demo card is drawn like a picture (laid out at its own width in rem, then
-  // scaled to the page, so nothing inside it collides), and the card with the words shrinks together, down to 60 %,
-  // before anything clips; past that the page scrolls.
-  useLayoutEffect(() => {
-    const el = track.current;
-    if (!el) return;
-    const fit = () => {
-      const root = parseFloat(getComputedStyle(document.documentElement).fontSize) / 16 || 1;
-      for (const pg of el.querySelectorAll<HTMLElement>('.start-page')) {
-        const box = pg.querySelector<HTMLElement>('.start-fit');
-        const card = pg.querySelector<HTMLElement>('.start-card');
-        if (!box || !card) continue;
-        box.style.zoom = '';
-        card.style.zoom = '';
-        card.classList.toggle('as-picture', root > 1);
-        const lc = card.firstElementChild as HTMLElement | null;
-        // the room is the page's (a zoomed element's own % width resolves in its zoomed space, so it is not asked)
-        const room = Math.min(box.clientWidth, 400);
-        if (root > 1 && lc && lc.offsetWidth > room) card.style.zoom = String(Math.floor((room / lc.offsetWidth) * 100) / 100);
-        const cs = getComputedStyle(pg);
-        const tall = pg.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom);
-        const need = box.offsetHeight;
-        box.style.zoom = need > tall && tall > 0 ? String(Math.max(0.6, Math.floor((tall / need) * 100) / 100)) : '';
-      }
-    };
-    fit();
-    // the track for the screen's size; the first page's words for the text size (they grow with it). fit() leaves each box
-    // at the size it found, so its own changes settle in one pass.
-    const ro = new ResizeObserver(fit);
-    ro.observe(el);
-    const words = el.querySelector('.start-words');
-    if (words) ro.observe(words);
-    return () => ro.disconnect();
-  }, []);
-  // a step change by Next moves focus to the new page's heading (a11y-10)
-  const focusHeading = useRef(false);
+  // back from the privacy step: focus lands on the page's heading (a11y-10)
   useEffect(() => {
-    if (!focusHeading.current) return;
-    focusHeading.current = false;
-    track.current?.querySelectorAll<HTMLElement>('.start-title')[page]?.focus({ preventScroll: true });
-  }, [page]);
+    if (!cameBack) return;
+    cameBack = false;
+    track.current?.querySelectorAll<HTMLElement>('h1.start-title')[page]?.focus({ preventScroll: true });
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => () => void (steering.current != null && clearTimeout(steering.current)), []);
   // the dots follow the track, wherever the finger leaves it
   const settle = () => {
     const el = track.current;
     if (!el || !el.clientWidth) return;
-    const i = Math.max(0, Math.min(PAGES.length - 1, Math.round(el.scrollLeft / el.clientWidth)));
+    const i = pageAt(el.scrollLeft, el.clientWidth, PAGES.length);
     if (i !== page) {
       setPage(i);
       haptics.select();
@@ -135,53 +114,77 @@ const Pager = () => {
   };
   const goTo = (i: number) => {
     const el = track.current;
-    if (!el) return;
+    if (!el || i === page) return;
     endSteer();
     // the scroll that follows is ours until it ends (scrollend), or 450 ms at most
     if (!reduce) steering.current = window.setTimeout(endSteer, 450);
     el.scrollTo({ left: i * el.clientWidth, behavior: reduce ? 'auto' : 'smooth' });
-    focusHeading.current = true;
     setPage(i);
     haptics.select();
   };
-  const next = () => {
-    if (!last) return goTo(page + 1);
+  const start = () => {
     lastPage = page;
+    cameBack = true;
     nav('/start', { state: { step: 'privacy' } });
   };
   return (
     <main className="start">
-      <span className="auth-halo rise" aria-hidden="true" />
+      <span className="auth-halo" aria-hidden="true" />
       <header className="start-brand start-in">
         <Lockup />
         <SiteLink href={SUPPORT} className="start-help">
           Help
         </SiteLink>
       </header>
-      <div ref={track} className="start-track" onScroll={onScroll} onScrollEnd={endSteer} aria-roledescription="carousel" aria-label="What Orby does">
-        {PAGES.map((p, i) => (
-          <section key={p.key} className="start-page" aria-roledescription="slide" aria-label={`${i + 1} of ${PAGES.length}`} aria-hidden={i !== page} inert={i !== page}>
-            <div className="start-fit">
-              <div className="start-card start-in">{p.card}</div>
-              <div className="start-words">
-                <h1 className="start-title display start-in s1" tabIndex={-1}>
-                  {p.title}
-                </h1>
-                <p className="start-sub start-in s1">{p.sub}</p>
-              </div>
+      {/* a short screen, or a large text size: the posters and their words scroll under the brand row, over the pinned foot */}
+      <div className="start-stage">
+        <div className="start-stage-in">
+          <div ref={track} className="start-track" onScroll={onScroll} onScrollEnd={endSteer} aria-roledescription="carousel" aria-label="What Orby does">
+            {PAGES.map((p, i) => (
+              <section key={p.key} className="start-page" aria-roledescription="slide" aria-label={`${i + 1} of ${PAGES.length}`} aria-hidden={i !== page} inert={i !== page}>
+                <div className="start-window start-in">
+                  <p.Card live={i === page} />
+                </div>
+                <Words at={i} />
+              </section>
+            ))}
+          </div>
+          {/* the assistant's bar holds still over the posters as they page, as the dock does over a tab: laid out as a
+              page is (the window, then the words' room), so it sits at the foot of every poster's window */}
+          <div className="start-over">
+            <div className="start-over-window start-in">
+              <DockSample />
             </div>
-          </section>
-        ))}
+            <Words at={null} />
+          </div>
+        </div>
       </div>
       <div className="start-foot start-in s2">
-        {/* where you are, not a control: swipe and Next do the paging (a11y-10, auth-23) */}
-        <div className="start-dots" role="img" aria-label={`Page ${page + 1} of ${PAGES.length}`}>
+        {/* where you are, and the swipe's equal: one adjustable control for the keyboard and VoiceOver (a11y-10), and a tap goes on a page */}
+        <div
+          className="start-dots"
+          role="slider"
+          tabIndex={0}
+          aria-label="Page"
+          aria-orientation="horizontal"
+          aria-valuemin={1}
+          aria-valuemax={PAGES.length}
+          aria-valuenow={page + 1}
+          aria-valuetext={`Page ${page + 1} of ${PAGES.length}: ${PAGES[page]!.title}`}
+          onClick={() => goTo(pageAfterTap(page, PAGES.length))}
+          onKeyDown={(e) => {
+            const to = pageForKey(e.key, page, PAGES.length);
+            if (to == null) return;
+            e.preventDefault();
+            goTo(to);
+          }}
+        >
           {PAGES.map((p, i) => (
             <span key={p.key} className={`start-dot ${i === page ? 'on' : ''}`} aria-hidden="true" />
           ))}
         </div>
-        <Pressable className="btn primary block start-cta" onPress={next}>
-          {last ? 'Get started' : 'Next'}
+        <Pressable className="btn primary block start-cta" onPress={start}>
+          Get started
         </Pressable>
         <Pressable className="start-signin" press="dim" onPress={() => nav('/login', { state: { from: 'start' } })}>
           I have an account

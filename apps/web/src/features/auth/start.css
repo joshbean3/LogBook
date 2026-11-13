@@ -1,4 +1,5 @@
-/* ---------- /start, the welcome pager (inspiration §6 Onboarding): real cards, one pill in a fixed place ---------- */
+/* ---------- /start, the welcome pager: three real posters of the app over the assistant's bar, one Sky button in a fixed
+   place. The ground is the dawn wash the app's pages use (auth.css .auth-halo), so the door looks like the house. ---------- */
 .start {
   position: relative;
   isolation: isolate;
@@ -9,12 +10,16 @@
   color: var(--ink);
   overflow: hidden;
 }
-.start-brand {
+/* the top bar, the same on every screen before Today (the questions' .ob-top): 54 under the safe area, its content on
+   the bar's center line, 16 from the edges */
+.start-brand,
+.pv-top {
   flex: none;
   display: flex;
   align-items: center;
   gap: var(--sp-3);
-  padding: calc(var(--sp-5) + var(--safe-t)) var(--gutter) 0;
+  height: calc(54px + var(--safe-t)); /* brand-ok: geometry, the top bar's height (as .ob-top) */
+  padding: calc(6px + var(--safe-t)) var(--gutter) 0; /* brand-ok: geometry, centers a 40 px button in the 54 px bar (as .ob-top) */
 }
 .start-brand .caps {
   color: var(--ink-2);
@@ -24,9 +29,33 @@
   margin-left: auto;
   margin-right: calc(-1 * var(--sp-2));
 }
-.start-track {
+/* the posters and their words. On a screen with room this is as tall as the room and nothing scrolls; on a short screen
+   or at a large text size it scrolls up and down as one page (the track inside it pages sideways) */
+.start-stage {
   flex: 1;
   min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  scrollbar-width: none;
+  /* words that run on under the foot fade out over the last 12 (the pages' own bottom padding), never a sliced line */
+  -webkit-mask-image: linear-gradient(to bottom, var(--ink) calc(100% - var(--sp-3)), transparent);
+  mask-image: linear-gradient(to bottom, var(--ink) calc(100% - var(--sp-3)), transparent);
+}
+.start-stage::-webkit-scrollbar {
+  display: none;
+}
+.start-stage-in {
+  position: relative;
+  flex: 1 0 auto;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.start-track {
+  flex: 1 0 auto;
   display: flex;
   overflow-x: auto;
   overflow-y: hidden;
@@ -38,49 +67,76 @@
 .start-track::-webkit-scrollbar {
   display: none;
 }
-.start-page {
-  flex: 0 0 100%;
-  min-width: 0;
-  scroll-snap-align: start;
-  scroll-snap-stop: always;
+/* a page, and the layer that holds the assistant's bar over the pages: the same column (the poster's window, then the
+   words), so the bar sits at the foot of every window */
+.start-page,
+.start-over {
   display: flex;
   flex-direction: column;
-  /* top-anchored (layout standard 2.11; plan O1): every page's card starts 24 under the brand row, so the card and the
-     headline hold still while you swipe and only the card's height changes */
-  justify-content: flex-start;
-  padding: var(--sp-6) var(--gutter) var(--sp-2);
-  /* the last resort on a short screen at a large text size: the page scrolls rather than clips */
-  overflow-x: hidden;
-  overflow-y: auto;
-  scrollbar-width: none;
-  container: startpage / size;
+  min-width: 0;
+  padding-bottom: var(--sp-3);
 }
-.start-page::-webkit-scrollbar {
-  display: none;
+.start-page {
+  flex: 0 0 100%;
+  scroll-snap-align: start;
+  scroll-snap-stop: always;
 }
-/* the card and the words, shrunk together before anything clips (Pager's fit(), auth-12) */
-.start-fit {
-  width: 100%;
+.start-over {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
 }
-.start-card,
-.start-words {
-  width: 100%;
+/* the poster's window: the poster at its own size from the top, running on under the assistant's bar where the screen is
+   short, as a tab's page does under the dock (a poster is never scaled to fit). It fades out over the 32 above the bar
+   (as under the dock, guide 6.1) and is gone 8 before it. The window is as wide as the screen, so no card's shadow is cut */
+.start-window,
+.start-over-window {
+  flex: 1 1 0;
+  min-height: 16rem;
+  /* no taller than the tallest poster with the bar under it: on a tall screen the bar stays close under the picture */
+  max-height: 34rem;
+  min-width: 0;
+}
+.start-window {
+  overflow: hidden;
+  padding: var(--sp-1) var(--gutter) 0;
+  -webkit-mask-image: linear-gradient(to bottom, var(--ink) calc(100% - var(--ask-h) - var(--sp-8) - var(--sp-2)), transparent calc(100% - var(--ask-h) - var(--sp-2)));
+  mask-image: linear-gradient(to bottom, var(--ink) calc(100% - var(--ask-h) - var(--sp-8) - var(--sp-2)), transparent calc(100% - var(--ask-h) - var(--sp-2)));
+}
+.start-window > .sm {
   max-width: 400px;
   margin-inline: auto;
 }
-/* the headline 24 under the card, the line 8 under the headline: one unit (layout standard 2.11) */
+/* the assistant's bar, in from the edges as the dock is (12, guide 6.1) */
+.start-over-window {
+  display: flex;
+  align-items: flex-end;
+  padding: 0 var(--dock-inset);
+}
+.start-over-window > .sm-dock {
+  max-width: 408px; /* brand-ok: geometry, the 400 poster and the dock's 4 past it on each side */
+  margin-inline: auto;
+}
+/* the words: the headline 24 under the picture, the line 8 under the headline (layout standard 2.11). Every page's words
+   lie in one cell (the other pages' unseen), so the cell is as tall as the tallest and the pictures never change height */
 .start-words {
-  margin-top: var(--sp-6);
+  flex: none;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  width: 100%;
+  max-width: 432px;
+  margin-inline: auto;
+  padding: var(--sp-6) var(--gutter) 0;
 }
-/* at a larger text size the card keeps its proportions: laid out at its own width in rem, then scaled to fit (fit()) */
-.start-card.as-picture {
-  max-width: none;
+.start-say {
+  grid-area: 1 / 1;
+  min-width: 0;
 }
-.start-card.as-picture .lc {
-  width: 22.375rem;
-  max-width: none;
+.start-say.is-ghost {
+  visibility: hidden;
 }
 .start-title {
+  margin: 0;
   font-style: normal;
   font-weight: 650;
   font-size: clamp(30px, var(--fs-title), 44px);
@@ -95,30 +151,37 @@
   outline: none;
 }
 .start-sub {
-  margin-top: var(--sp-2);
+  margin: var(--sp-2) 0 0;
   font-size: var(--fs-row);
   line-height: var(--lh-row);
   color: var(--ink-2);
-  max-width: 34ch;
+  max-width: 36ch;
   overflow-wrap: break-word;
+}
+.start-nw {
+  white-space: nowrap;
 }
 .start-foot {
   flex: none;
   width: 100%;
   max-width: 432px;
   margin-inline: auto;
-  padding: var(--sp-2) var(--gutter) calc(var(--sp-3) + var(--safe-b));
+  padding: 0 var(--gutter) calc(var(--sp-3) + var(--safe-b));
 }
+/* where you are: a 7 px dot in the coin ring's grey, the current one a Night Ink bar. The dots are one control, 44 tall
+   to the thumb (a tap goes on a page) and the swipe's equal for the keyboard and VoiceOver; the 24 px row they draw in
+   stays where it was, 16 above the button (layout standard 2.11) */
 .start-dots {
   display: flex;
   justify-content: center;
   align-items: center;
-  height: 24px;
-  /* 16 above Next (layout standard 2.11; plan O4) */
-  margin-bottom: var(--sp-4);
+  width: fit-content;
+  height: 44px;
+  margin: -10px auto 6px; /* brand-ok: geometry, the 44 px target around the 24 px row of dots, 16 above the button */
+  padding: 0 var(--sp-3);
+  border-radius: var(--r-pill);
+  -webkit-tap-highlight-color: transparent;
 }
-/* where you are, not a control (swipe and Next do the paging): a 7 px dot in the coin ring's grey, the current one a
-   Night Ink bar (mockups/welcome.png) */
 .start-dot {
   width: 20px;
   height: 24px;
@@ -141,7 +204,7 @@
   height: 54px;
   font-size: var(--fs-row);
 }
-/* the quiet way in for someone who already has an account: a Deep Sky quiet link, 44 to the thumb, 8 under Next */
+/* the quiet way in for someone who already has an account: a Deep Sky quiet link, 44 to the thumb, 8 under the button */
 .start-signin {
   appearance: none;
   border: 0;
@@ -159,22 +222,11 @@
   border-radius: var(--r-pill);
 }
 
-/* ---------- the privacy page, before any account ---------- */
+/* ---------- the privacy page, before any account: the look of a question screen (the same top bar, the question at the
+   section size in the same place, the same ground, the pair of answers where the Sky button sits) ---------- */
 .start-privacy {
   overflow-y: auto;
   overscroll-behavior-y: contain;
-}
-/* a long, scrolling page with a pinned pair: the dawn wash at the top and plain Cloud under the answers, so the fade into
-   the pinned pair meets the ground with no seam (the welcome's warm sunrise stays on the pager and sign in) */
-.start-privacy .auth-halo {
-  background: var(--dawn);
-}
-.start-privacy .auth-halo::after {
-  content: none;
-}
-.pv-top {
-  flex: none;
-  padding: calc(var(--sp-2) + var(--safe-t)) var(--gutter) 0;
 }
 .start .pv-back.icon-btn {
   position: relative;
@@ -196,9 +248,10 @@
   width: 100%;
   max-width: 432px;
   margin-inline: auto;
-  padding: var(--sp-6) var(--gutter) var(--sp-4);
+  padding: var(--sp-4) var(--gutter) var(--sp-4);
 }
-/* the question: Fraunces 600 at the section size, left aligned (layout standard 2.11; plan O7, O8) */
+/* the question: Fraunces 600 at the section size, left aligned, 16 under the top bar as every question in setup is
+   (layout standard 2.11; plan O7, O8) */
 .pv-title {
   margin: 0;
   font-style: normal;
@@ -211,8 +264,13 @@
 .pv-title:focus {
   outline: none;
 }
+/* the one line under the question: Dusk at the secondary size, as under every question in setup */
 .pv-promise {
+  max-width: 40ch;
+  font-size: var(--fs-sub);
+  line-height: var(--lh-sub);
   color: var(--ink-2);
+  text-wrap: pretty;
 }
 .start-privacy .pv-facts {
   margin-top: var(--sp-3);
@@ -244,6 +302,8 @@
      a faded line of the list never sits against the footnote's first line */
   background: linear-gradient(to bottom, transparent, var(--bg) var(--sp-6));
   padding-top: var(--sp-8);
+  /* the pair rests where the questions' button does: 16 above the safe area */
+  padding-bottom: calc(var(--sp-4) + var(--safe-b));
   pointer-events: none;
 }
 .pv-foot .pv-answers {
@@ -268,7 +328,7 @@ html[data-text-xl] .pv-foot {
   min-width: 0;
 }
 
-/* the staged entrance: the card at 0 ms, the words at 80, the foot at 160 (CSS opacity keyframes) */
+/* the staged entrance: the poster at 0 ms, the words at 80, the foot at 160 (CSS keyframes: opacity and a short rise) */
 @keyframes start-in {
   from {
     opacity: 0;
@@ -298,7 +358,7 @@ html[data-text-xl] .pv-foot {
 }
 
 @media (max-width: 359px), (max-height: 700px) {
-  /* a small phone: the title holds at 34 px so the longest ones keep two lines (the pager's fit() does the rest) */
+  /* a small phone: the title holds at 34 px and the line steps down, so the poster keeps the room */
   .start-title {
     font-size: clamp(30px, var(--fs-title), 34px);
     line-height: clamp(34px, var(--lh-title), 38px);
@@ -306,6 +366,16 @@ html[data-text-xl] .pv-foot {
   .start-sub {
     font-size: var(--fs-sub);
     line-height: var(--lh-sub);
+  }
+}
+@media (max-height: 620px) {
+  /* the shortest phones: the picture gives up a little so the headline and its line are read without a scroll */
+  .start-window,
+  .start-over-window {
+    min-height: 13rem;
+  }
+  .start-words {
+    padding-top: var(--sp-4);
   }
 }
 @media (prefers-reduced-motion: reduce) {
