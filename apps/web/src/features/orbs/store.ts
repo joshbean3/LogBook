@@ -1,4 +1,4 @@
-import { adoptSet, applySet, compact, countOf, DEFAULT_SET, levelOf, markSeen as markSeenIn, mergeRewards, newKeys as newKeysOf, orbsOn, parseRewards, pendingMoments as pendingMomentsOf, tidy, today as clockToday, totalOf, type Challenge, type Count, type ISODate, type Level, type Moment, type RewardSet, type Rewards } from '@logbook/shared';
+import { adoptSet, applySet, compact, countOf, DEFAULT_SET, levelOf, markSeen as markSeenIn, mergeRewards, newKeys as newKeysOf, orbsOn, parseRewards, pendingMoments as pendingMomentsOf, roomFor, tidy, today as clockToday, totalOf, type Challenge, type Count, type ISODate, type Level, type Moment, type RewardSet, type Rewards } from '@logbook/shared';
 import { useSyncExternalStore } from 'react';
 import { isLeaving, lastUserId } from '@/lib/account';
 import { useToday } from '@/lib/useToday';
@@ -189,6 +189,14 @@ export const setSwitches = (patch: Partial<Omit<RewardSet, 'at'>>) => {
   }
   emit();
 };
+
+/**
+ * How many more Orbs a kind can pay on a day, by what the store holds now (`roomFor`): asked by a control at the moment of
+ * a tap, to know whether an Orb should be born there. 0 while Orbs are off or not ready. The store follows the caches, and
+ * some controls write a beat after the tap (a habit's check goes out once the row has been still, about 0.7 s): several
+ * quick taps on one kind all see the same answer, so a control that can be tapped in a burst counts its own.
+ */
+export const orbRoom = (key: Parameters<typeof roomFor>[2], date: ISODate): number => (store && switches.on ? roomFor(store, date, key) : 0);
 
 /** Mark a keepsake or a goal's moment seen: it stops being a "New" row and leaves the queue of big moments. */
 export const markSeen = (key: string) => updateOrbs((s) => markSeenIn(s, key, clockToday()));

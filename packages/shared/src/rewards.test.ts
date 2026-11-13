@@ -27,6 +27,7 @@ import {
   pendingMoments,
   rebuild,
   reconcile,
+  roomFor,
   ruleLine,
   RULES,
   tidy,
@@ -914,6 +915,31 @@ describe('what has been seen, and the big moments', () => {
       { key: 'full', n: 5 },
     ]);
     expect(dayLines(s, day(1))).toEqual([]);
+  });
+});
+
+describe('roomFor: is there an Orb left for this tap?', () => {
+  it('follows the caps of the day as the store holds it', () => {
+    const empty = fresh();
+    expect(roomFor(empty, D0, 'todo')).toBe(5);
+    expect(roomFor(empty, D0, 'habit')).toBe(8);
+    expect(roomFor(empty, D0, 'goal:day')).toBe(3);
+    expect(roomFor(empty, D0, 'train:run')).toBe(3);
+    const s = run(fresh(), facts(D0, { todosDone: 5, habitsDone: 3, goalDay: 'done', train: { run: 'floor', lift: 'done' } })).store;
+    expect(roomFor(s, D0, 'todo')).toBe(0);
+    expect(roomFor(s, D0, 'habit')).toBe(5);
+    expect(roomFor(s, D0, 'goal:day')).toBe(0);
+    // a floor can still become a full session; a third kind earns nothing
+    expect(roomFor(s, D0, 'train:run')).toBe(1);
+    expect(roomFor(s, D0, 'train:lift')).toBe(0);
+    expect(roomFor(s, D0, 'train:cross')).toBe(0);
+  });
+  it('is nothing on a closed day, before the start, and while Orbs are off', () => {
+    const s = live(3, () => ({ habitsDone: 1 }));
+    expect(roomFor(s, D0, 'habit')).toBe(0);
+    expect(roomFor(s, day(2), 'habit')).toBe(7);
+    expect(roomFor(s, shiftDays(D0, -1), 'habit')).toBe(0);
+    expect(roomFor(applySet(s, { on: false }, at(day(2), 13)), day(2), 'habit')).toBe(0);
   });
 });
 

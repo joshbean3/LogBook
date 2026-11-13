@@ -316,6 +316,22 @@ export const dayLines = (s: Rewards, date: ISODate): Array<{ key: DayKey; n: num
   return k ? DAY_KEYS.flatMap((key) => (k[key] ? [{ key, n: k[key]! }] : [])) : [];
 };
 
+/**
+ * How many more Orbs a kind can still pay on a day, by what the store holds now: what a control asks at the moment of a
+ * tap, to know whether an Orb should be born there (the sixth to-do of a day gets its check and no Orb). 0 on a closed
+ * day and while Orbs are off. A session at its floor leaves room for the difference to a full one.
+ */
+export const roomFor = (s: Rewards, date: ISODate, key: Exclude<DayKey, 'full' | 'back'>): number => {
+  const r = s.days[date];
+  if (!s.set.on || r?.c || date < s.startedOn || inOff(s, date)) return 0;
+  const have = r?.k?.[key] ?? 0;
+  if (key === 'todo') return Math.max(0, RULES.todo.cap * RULES.todo.each - have);
+  if (key === 'habit') return Math.max(0, RULES.habit.cap * RULES.habit.each - have);
+  if (key === 'goal:day') return Math.max(0, RULES.goalDay - have);
+  if (have) return Math.max(0, RULES.train.done - have);
+  return TRAIN_KINDS.filter((t) => r?.k?.[trainKey(t)]).length >= RULES.train.kinds ? 0 : RULES.train.done;
+};
+
 // ---------- one day ----------
 
 const habitsLiveDone = (f: DayFacts) => f.habitsLiveDone ?? Math.min(f.habitsDone, f.habitsLive);
