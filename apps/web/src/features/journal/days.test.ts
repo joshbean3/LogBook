@@ -127,9 +127,17 @@ describe('the archive’s months, from lines and entries together', () => {
   });
   it('with no server count: the larger of the days each list knows, newest month first, and no row for nothing', () => {
     const rows = archiveMonths({ lineMonths: [lm('2026-09', 5, 5), lm('2026-11', 1, 1), lm('bad', 3, 3), lm('2026-08', 0, 0)], entries: [entry('a', '2026-09-01'), entry('b', '2026-07-04'), { date: 'nope' }], reach: null, server: null });
+    // nothing says how far the entries reach, so no count of days is sure: each row then tells its lines and entries
     expect(rows).toEqual([
+      { month: '2026-11', days: 1, lines: 1, entries: 0, exact: false },
+      { month: '2026-09', days: 5, lines: 5, entries: 1, exact: false },
+      { month: '2026-07', days: 1, lines: 0, entries: 1, exact: false },
+    ]);
+    // every entry is on the device: a month with only lines or only entries is exact, one with both and no union is not
+    const whole = archiveMonths({ lineMonths: [lm('2026-09', 5, 5), lm('2026-11', 1, 1)], entries: [entry('a', '2026-09-01'), entry('b', '2026-07-04')], reach: '0000-00-00', server: null });
+    expect(whole).toEqual([
       { month: '2026-11', days: 1, lines: 1, entries: 0 },
-      { month: '2026-09', days: 5, lines: 5, entries: 1 },
+      { month: '2026-09', days: 5, lines: 5, entries: 1, exact: false },
       { month: '2026-07', days: 1, lines: 0, entries: 1 },
     ]);
   });

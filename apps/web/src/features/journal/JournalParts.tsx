@@ -73,12 +73,13 @@ export const TodayRows = ({ entries, lines, onOpenEntry, onOpenLine }: { /** Tod
 export const Archive = ({ months, today }: { months: MonthRow[]; today: string }): React.JSX.Element => {
   const nav = useNav();
   const years = useMemo(() => {
-    const out: Array<{ year: string; days: number; months: MonthRow[] }> = [];
+    const out: Array<{ year: string; days: number; exact: boolean; months: MonthRow[] }> = [];
     for (const m of months) {
       const y = m.month.slice(0, 4);
       let cur = out[out.length - 1];
-      if (!cur || cur.year !== y) out.push((cur = { year: y, days: 0, months: [] }));
+      if (!cur || cur.year !== y) out.push((cur = { year: y, days: 0, exact: true, months: [] }));
       cur.days += m.days;
+      if (m.exact === false) cur.exact = false;
       cur.months.push(m);
     }
     return out;
@@ -87,7 +88,7 @@ export const Archive = ({ months, today }: { months: MonthRow[]; today: string }
   const rows = (y: (typeof years)[number]) => (
     <div className="k-rows has-icons ln-months">
       {y.months.map((m) => (
-        <Pressable key={m.month} as="button" className="k-row ln-mrow" press="surface" onPress={() => nav.push(monthPath(m.month))} label={`${monthName(m.month)} ${y.year}, ${daysWritten(m.days)}: ${writtenWords(m.lines, m.entries)}. Open`}>
+        <Pressable key={m.month} as="button" className="k-row ln-mrow" press="surface" onPress={() => nav.push(monthPath(m.month))} label={`${monthName(m.month)} ${y.year}, ${m.exact === false ? '' : `${daysWritten(m.days)}: `}${writtenWords(m.lines, m.entries)}. Open`}>
           <span className="icon-tile" aria-hidden="true">
             <BookOpen size={18} />
           </span>
@@ -95,7 +96,8 @@ export const Archive = ({ months, today }: { months: MonthRow[]; today: string }
             <span className="k-row-title">{monthName(m.month)}</span>
           </span>
           <span className="k-row-end ln-mrow-meta" aria-hidden="true">
-            {daysWritten(m.days)}
+            {/* the days, when they are known for sure; else what is: how many lines and entries */}
+            {m.exact === false ? writtenWords(m.lines, m.entries) : daysWritten(m.days)}
           </span>
           <ChevronRight size={18} aria-hidden="true" className="k-chev" />
         </Pressable>
@@ -106,11 +108,11 @@ export const Archive = ({ months, today }: { months: MonthRow[]; today: string }
     <>
       {years.map((y) =>
         y.year === thisYear ? (
-          <section key={y.year} className="ln-year is-now" aria-label={`${y.year}, ${daysWritten(y.days)}`}>
+          <section key={y.year} className="ln-year is-now" aria-label={y.exact ? `${y.year}, ${daysWritten(y.days)}` : y.year}>
             {rows(y)}
           </section>
         ) : (
-          <KSection key={y.year} title={y.year} meta={daysWritten(y.days)} className="ln-year">
+          <KSection key={y.year} title={y.year} meta={y.exact ? daysWritten(y.days) : undefined} className="ln-year">
             {rows(y)}
           </KSection>
         ),

@@ -149,6 +149,11 @@ export interface MonthRow {
   days: number;
   lines: number;
   entries: number;
+  /**
+   * False when `days` is only the least it can be (the device could not see both lists for the month and the server
+   * gave no count of both): the row then says how many lines and entries, which it does know. Absent: exact.
+   */
+  exact?: boolean;
 }
 
 const isMonth = (m: unknown): m is string => typeof m === 'string' && /^\d{4}-(0[1-9]|1[0-2])$/.test(m);
@@ -183,7 +188,7 @@ export interface ArchiveFacts {
  * The archive's months, newest first: every month with a line or an entry, and how many days were written in it. Where
  * both lists are on the device for a month, the count is exact and follows a save at once. Else it is the server's count
  * of both, when there is one; else the larger of the two the device knows (days with a line, days with an entry), which
- * is never more than was written. A month with nothing written has no row.
+ * is never more than was written and is marked as not exact. A month with nothing written has no row.
  */
 export const archiveMonths = ({ lineMonths, entries, reach, lineDays, server }: ArchiveFacts): MonthRow[] => {
   const months = new Map<string, { L: number; Ld: number; E: number; Ed: Set<string> }>();
@@ -217,8 +222,11 @@ export const archiveMonths = ({ lineMonths, entries, reach, lineDays, server }: 
     const known = lineDays?.get(month);
     const floor = Math.max(x.Ld, x.Ed.size);
     // both lists on the device: the days themselves; else the server's count, never under what the device can see
-    const days = known && reached ? new Set([...known, ...x.Ed]).size : Math.max(floor, s?.days ?? 0);
-    out.push({ month, days: Math.max(1, days), lines, entries: entryCount });
+    const both = !!known && reached;
+    const days = both ? new Set([...known!, ...x.Ed]).size : Math.max(floor, s?.days ?? 0);
+    // one list alone names every day it has: a month the entries reach, with no line in it or no entry, needs no union
+    const exact = both || !!s || (reached && (lines === 0 || x.E === 0));
+    out.push({ month, days: Math.max(1, days), lines, entries: entryCount, ...(exact ? {} : { exact: false }) });
   }
   return out.sort((a, b) => (a.month < b.month ? 1 : -1));
 };
