@@ -137,10 +137,29 @@ export default function OrbsPage(): React.JSX.Element {
     [],
   );
 
-  if (!on || !store) {
+  // the last group needs no store: it is the way forward whatever else the page can show
+  const last = (
+    <PageSection className="orp-set-sec" aria-label="How Orbs work and the switches">
+      <div className="group s-group">
+        <OrbsSwitchRows place="page" onHow={() => nav.push('/orbs/how')} onOrbs={switchOrbs} orbsShown={!leavingOff} />
+      </div>
+    </PageSection>
+  );
+  if (!on) {
     return (
       <div className="page orp-page">
         <PushedBar title="Orbs" />
+      </div>
+    );
+  }
+  // this phone has no store yet (a new sign-in, Reset, a reinstall: it is taken from the account or rebuilt once the
+  // network answers, and offline that can be a while). Never a blank page: the bar, How Orbs work and the switches, and
+  // nothing the page cannot know yet (no total, no "first Orb")
+  if (!store) {
+    return (
+      <div className="page orp-page">
+        <PushedBar title="Orbs" />
+        {last}
       </div>
     );
   }
@@ -221,11 +240,7 @@ export default function OrbsPage(): React.JSX.Element {
         </PageSection>
       ) : null}
 
-      <PageSection className="orp-set-sec" aria-label="How Orbs work and the switches">
-        <div className="group s-group">
-          <OrbsSwitchRows place="page" onHow={() => nav.push('/orbs/how')} onOrbs={switchOrbs} orbsShown={!leavingOff} />
-        </div>
-      </PageSection>
+      {last}
     </div>
   );
 }
