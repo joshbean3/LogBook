@@ -61,13 +61,17 @@ export const diagnostics = (s: Rewards, today: ISODate): Diagnostics => {
 };
 
 const CADENCE = ['off', 'one a week', 'two a week'] as const;
-/** The counts as label and value, for the disclosure. A count with nothing in it says "None yet", never a zero. */
+/**
+ * The counts as label and value, for the disclosure. A count with nothing in it says "None yet", never a zero, and a part
+ * of a line with nothing in it is left out ("2 offered, 1 added": none was finished yet, and nothing says so).
+ */
 export const diagnosticRows = (d: Diagnostics): Array<{ label: string; value: string }> => {
   const c = d.challenges;
+  const parts = [c.offered ? `${c.offered} offered` : '', c.added ? `${c.added} added` : '', c.done ? `${c.done} done` : ''].filter(Boolean);
   return [
-    { label: 'Days counted a week', value: d.perWeek === null ? 'None yet' : `${d.perWeek} over ${d.weeks} ${d.weeks === 1 ? 'week' : 'weeks'}` },
-    { label: 'Counted days with one thing done', value: d.oneShare === null ? 'None yet' : `${d.oneShare} percent (${d.one} of ${d.counted})` },
-    { label: `Challenges, last ${RULES.detailDays} days`, value: c.offered ? `${c.offered} offered, ${c.added} added, ${c.done} done` : 'None yet' },
+    { label: 'Days counted a week', value: !d.perWeek ? 'None yet' : `${d.perWeek} over ${d.weeks} ${d.weeks === 1 ? 'week' : 'weeks'}` },
+    { label: 'Counted days with one thing done', value: !d.one || d.oneShare === null ? 'None yet' : `${Math.max(1, d.oneShare)} percent (${d.one} of ${d.counted})` },
+    { label: `Challenges, last ${RULES.detailDays} days`, value: parts.length ? parts.join(', ') : 'None yet' },
     { label: 'Switches', value: `Orbs ${d.set.on ? 'on' : 'off'}. Shown ${d.set.show ? 'on' : 'off'}. A ${d.set.weekTarget} day week. Challenges ${CADENCE[d.set.cadence]}${d.set.cadence ? `, ${d.set.size}` : ''}.` },
     { label: 'Orbs switched off', value: d.timesOff ? `${d.timesOff} ${d.timesOff === 1 ? 'time' : 'times'}` : 'Never' },
   ];
