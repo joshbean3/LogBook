@@ -1,0 +1,378 @@
+/*
+ * The Orbs page and "How Orbs work" (layout standard 2.13). Every value is a brand token or a size of a drawing. Nothing
+ * here animates: the poster's sun moves by the poster kit's own transition, and a press is the app's one press.
+ *
+ * The page, top to bottom: the poster (the total, the level), the week on Paper under its band, one inset group while it
+ * has rows, the keepsakes, then "How Orbs work" and the switches.
+ */
+
+/* ---------- the poster: the total is the hero stat that changes (guide 4.2) ----------
+   Inter 650 at --fs-stat-live with even figures, held between 44 and 64 px so a very large text size cannot push the
+   picture off the first screen; its unit Inter 500 Dusk, 4 after it. */
+.orp-poster.is-count .po-title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  column-gap: var(--sp-1);
+  font: 650 clamp(44px, var(--fs-stat-live), 64px) / 1 var(--sans);
+  letter-spacing: var(--tr-hero);
+  font-variant-numeric: tabular-nums;
+}
+.orp-unit {
+  font: 500 var(--fs-sub) / var(--lh-sub) var(--sans);
+  letter-spacing: 0;
+  color: var(--ink-2);
+}
+
+/* ---------- the week, on Paper under the band ----------
+   Seven 12 pt marks over their letters, from the poster's own left edge. A counted day is a Deep Sky disc with a check; any
+   other day is an open ring. Today's ring and letter are Night Ink until it counts. */
+.orp-count {
+  display: grid;
+  gap: var(--sp-3);
+}
+.orp-week {
+  display: grid;
+  /* 32 from one mark to the next; the columns narrow to fit a small phone at a very large text size */
+  grid-template-columns: repeat(7, minmax(0, 2rem));
+  justify-content: start;
+}
+/* a day is as wide as its mark or its letter, whichever is wider, and starts at its column's edge: the first mark stands
+   on the poster's own left edge at every text size */
+.orp-day {
+  display: grid;
+  justify-self: start;
+  justify-items: center;
+  gap: var(--sp-1);
+  min-width: 12px;
+}
+.orp-mark {
+  display: grid;
+  place-items: center;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 1.5px var(--pencil);
+  color: var(--white);
+}
+.orp-day.is-on .orp-mark {
+  background: var(--deep-sky);
+  box-shadow: none;
+}
+.orp-day.is-today:not(.is-on) .orp-mark {
+  box-shadow: inset 0 0 0 1.5px var(--ink);
+}
+.orp-letter {
+  font: 600 var(--fs-orb) / var(--lh-orb) var(--sans);
+  color: var(--ink-2);
+}
+.orp-day.is-today .orp-letter {
+  color: var(--ink);
+}
+.orp-monday,
+.orp-line {
+  margin: 0;
+  font: 500 var(--fs-sub) / var(--lh-sub) var(--sans);
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-2);
+  text-wrap: pretty;
+}
+/* the fact line breaks between its facts, never inside one */
+.orp-line-part {
+  white-space: nowrap;
+}
+.orp-monday {
+  font-weight: 600;
+  color: var(--ink);
+}
+/* Monday's line and the fact line are one thought: 4 apart */
+.orp-monday + .orp-line {
+  margin-top: calc(var(--sp-1) - var(--sp-3));
+}
+
+/* ---------- the inset group: today, what is new, the challenges. Only while it has rows ---------- */
+.orp-now {
+  margin-top: var(--gap);
+}
+.orp-now:empty {
+  display: none;
+}
+
+/* ---------- keepsakes: one Paper card, 48 pt discs four across ---------- */
+.orp-keeps-card {
+  padding: var(--sp-5) var(--sp-3) var(--sp-4);
+}
+.orp-keeps {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--sp-4) var(--sp-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+/* a very large text size (html[data-text-xl], app/dynamicType.ts): two across, so a date keeps its line */
+:root[data-text-xl] .orp-keeps {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.orp-keep-cell {
+  display: grid;
+  min-width: 0;
+}
+.orp-keep {
+  display: grid;
+  justify-items: center;
+  align-content: start;
+  gap: var(--sp-1);
+  width: 100%;
+  min-width: 0;
+  min-height: var(--hit);
+  padding: 0;
+  border-radius: var(--r-control);
+  text-align: center;
+}
+.orp-keep-top {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+}
+/* the newest one glows: an Apricot light behind its disc (ui/OrbLight), never on the disc itself */
+.orp-keep-glow {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+}
+.orp-disc {
+  position: relative;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: var(--haze);
+  box-shadow: inset 0 0 0 2px var(--deep-sky);
+  color: var(--ink);
+}
+.orp-disc-n {
+  font: 650 min(var(--fs-row), 20px) / 1 var(--sans);
+  font-variant-numeric: tabular-nums;
+}
+.orp-disc.is-long .orp-disc-n {
+  font-size: min(var(--fs-sub), 16px);
+}
+/* a chapter: the open book over its number */
+.orp-disc.is-both {
+  gap: 1px;
+}
+.orp-disc.is-both .orp-disc-n {
+  font-size: min(var(--fs-foot), 15px);
+}
+/* what comes next: a dashed ring, nothing filled, nothing counted down */
+.orp-disc.is-next {
+  background: transparent;
+  box-shadow: none;
+  border: 1.5px dashed var(--pencil);
+  color: var(--ink-2);
+}
+.orp-keep-date,
+.orp-keep-new {
+  max-width: 100%;
+  font: 500 var(--fs-foot) / var(--lh-foot) var(--sans);
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-2);
+  overflow-wrap: anywhere;
+}
+.orp-keep-new {
+  font-weight: 600;
+  color: var(--ink);
+}
+
+/* ---------- small sheets: a keepsake's words and facts, the day's lines, a choice ---------- */
+.orp-ksheet,
+.orp-today-sheet,
+.orp-choice-sheet {
+  display: grid;
+  gap: var(--sp-4);
+}
+.orp-ksheet-top {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+}
+.orp-ksheet-top > .orp-disc {
+  flex: none;
+}
+.orp-ksheet-line {
+  margin: 0;
+  font: 400 var(--fs-body) / var(--lh-body) var(--sans);
+  color: var(--ink);
+  text-wrap: pretty;
+}
+/* a goal's own words, or the one line a chapter kept: the sentence voice */
+.orp-quote {
+  display: grid;
+  gap: var(--sp-1);
+  margin: 0;
+}
+.orp-quote > blockquote {
+  margin: 0;
+  font: italic 420 var(--fs-sentence) / var(--lh-sentence) var(--display);
+  color: var(--ink);
+  overflow-wrap: anywhere;
+}
+/* label and value rows: a fact, a line of the day (the one list row's sizes, layout standard 6.2) */
+.orp-facts {
+  margin: 0;
+}
+.orp-fact {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  min-height: var(--row-h);
+  padding: var(--sp-2) var(--sp-4);
+}
+.orp-fact > dt {
+  min-width: 0;
+  font: 400 var(--fs-row) / var(--lh-row) var(--sans);
+  color: var(--ink);
+}
+.orp-fact > dd {
+  margin: 0;
+  max-width: 60%;
+  font: 400 var(--fs-row) / var(--lh-row) var(--sans);
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-2);
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+/* the second list in a sheet: its name, at the row's headline size */
+.orp-choice-head {
+  margin: 0 var(--pad-card) calc(-1 * var(--sp-2));
+  font: 600 var(--fs-row) / var(--lh-row) var(--sans);
+  color: var(--ink);
+}
+.orp-chosen {
+  flex: none;
+  color: var(--deep-sky);
+}
+.orp-unchosen {
+  flex: none;
+  width: 20px;
+}
+.orp-choice-sheet > .lb-foot,
+.orp-today-sheet > .lb-foot {
+  margin-top: calc(-1 * var(--sp-2));
+}
+
+/* ---------- How Orbs work: the rule, then plain rows with what each pays at the row's end ---------- */
+.orh-rule {
+  margin: 0;
+  font: italic 420 var(--fs-sentence) / var(--lh-sentence) var(--display);
+  color: var(--ink);
+  text-wrap: balance;
+}
+.orh-about {
+  margin: var(--sp-2) 0 0;
+  font: 500 var(--fs-sub) / var(--lh-sub) var(--sans);
+  color: var(--ink-2);
+  text-wrap: pretty;
+}
+.orh-sec-lead {
+  margin: 0 0 var(--sp-2);
+  font: 500 var(--fs-sub) / var(--lh-sub) var(--sans);
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-2);
+}
+.orh-rows {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+/* a row: words that wrap, never cut, and one value that keeps its place. No table: at a large text size the words take
+   the row's width and the value stays at its end */
+.orh-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  min-height: var(--row-h);
+  padding: var(--sp-3) var(--sp-4);
+}
+.orh-text {
+  flex: 1 1 auto;
+  display: grid;
+  gap: 2px; /* brand-ok: geometry, a title to its own second line */
+  min-width: 0;
+}
+.orh-title {
+  font: 600 var(--fs-row) / var(--lh-row) var(--sans);
+  color: var(--ink);
+  text-wrap: pretty;
+}
+.orh-sub {
+  font: 500 var(--fs-sub) / var(--lh-sub) var(--sans);
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-2);
+  text-wrap: pretty;
+}
+.orh-note {
+  flex: none;
+  font: 500 var(--fs-sub) / var(--lh-sub) var(--sans);
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-2);
+  white-space: nowrap;
+}
+.orh-value {
+  flex: none;
+  min-width: 2ch;
+  text-align: right;
+  font: 650 var(--fs-row) / var(--lh-row) var(--sans);
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+  white-space: nowrap;
+}
+/* "For the curious": a quiet disclosure at the foot, a 44 pt target */
+.orh-curious {
+  margin-top: var(--sp-6);
+}
+.orh-curious-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  min-height: var(--hit);
+  padding: 0 var(--pad-card);
+  border: 0;
+  background: none;
+  font: 600 var(--fs-sub) / var(--lh-sub) var(--sans);
+  color: var(--ink-2);
+}
+.orh-curious-chev.is-open {
+  transform: rotate(180deg);
+}
+.orh-curious-body {
+  display: grid;
+}
+.orh-curious-body .orp-fact {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px; /* brand-ok: geometry, a label to its own value */
+  min-height: 0;
+  padding-block: var(--sp-3);
+}
+.orh-curious-body .orp-fact > dd {
+  max-width: 100%;
+  text-align: left;
+  color: var(--ink);
+}
+.orh-curious-body .orp-fact > dt {
+  color: var(--ink-2);
+}
+.orh-curious-body .orp-fact > dt,
+.orh-curious-body .orp-fact > dd {
+  font-size: var(--fs-sub);
+  line-height: var(--lh-sub);
+}
