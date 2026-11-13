@@ -12,6 +12,7 @@ import { PTR_ARM_PX, PTR_QUIET_MS } from '@/lib/gesture';
 import { haptics } from '@/lib/haptics';
 import { REFRESH, shownTabs, TABS, type PushedEntry, type TabDef, type TabId, type TabState } from '@/ui/nav';
 import { useFitness } from '@/lib/prefs';
+import { useTabTip } from '@/features/tips/useTabTip';
 import { BackButton } from '@/ui/NavBar';
 import { PushedLayer, StackCtx, type StackMotion } from '@/ui/PushedLayer';
 import { pointerClaimed } from '@/ui/useHold';
@@ -39,6 +40,8 @@ export const Shell = ({ pages, pushed }: { pages: Record<TabId, ReactNode>; push
   // a tab root mounts on its first activation or in idle after the first content paint, then stays mounted
   const mounted = useRef(new Set<TabId>());
   mounted.current.add(active);
+  // the first visit to each tab: its tip rises once, over the tab at its root (features/tips)
+  useTabTip({ active, path: st.tabs[active].stack.at(-1)?.path ?? st.tabs[active].path, overlays: st.overlays });
   const [, mountAll] = useReducer((n: number) => n + 1, 0);
   useEffect(() => {
     let idle = 0;
