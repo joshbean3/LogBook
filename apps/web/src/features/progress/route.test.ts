@@ -3,11 +3,11 @@ import { matchRoute } from '@/ui/nav';
 import { isMetricId, METRIC_IDS, METRICS } from './metrics';
 
 describe('the metric page route', () => {
-  it('pushes a metric page over Progress, titled with the metric', () => {
+  it('pushes a metric page over Fitness, titled with the metric', () => {
     const m = matchRoute('/progress/metric/hrv');
     expect(m.kind).toBe('pushed');
-    expect(m.tab).toBe('progress');
-    expect(m.root).toBe('/progress');
+    expect(m.tab).toBe('plan');
+    expect(m.root).toBe('/plan');
     expect(m.stack.map((e) => e.title)).toEqual(['HRV']);
     expect(m.params.id).toBe('hrv');
   });

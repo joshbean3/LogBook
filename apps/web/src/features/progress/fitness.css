@@ -1,0 +1,120 @@
+/* ---------- Fitness, the lower half (FitnessProgress.tsx; guide 6.5a "Fitness"): Progress, then Trends. Two sections on
+   the page, 32 above each title and 12 under it (the layout kit's PageSection), in the page's 16 gutter ---------- */
+
+/* ---------- the chart as a plain card (HeroChart `lead={false}`): the training card is this page's hero, so the chart has
+   no glow, a card's 16 padding and radius, and its headline at the value size (layout standard 6.4: --fs-stat-live in a
+   hero, --fs-value elsewhere). Everything else in the card is the chart as it was ---------- */
+.card.ph.ph-plain .ph-big {
+  font: 650 var(--fs-value) / var(--lh-value) var(--sans);
+  letter-spacing: var(--tr-value);
+  font-variant-numeric: tabular-nums;
+}
+/* the range control: 12 in from the card's edges, as in the hero (4 past this card's 16 padding) */
+.card.ph.ph-plain .ph-range {
+  margin-inline: calc(var(--sp-3) - var(--pad-card));
+}
+/* one kind of training only: no switch, so the headline is the card's first line */
+.card.ph.no-seg .ph-head,
+.card.ph.no-seg .skel-group.ph-wait {
+  margin-top: 0;
+}
+
+/* ---------- Trends: the tiles that have something to show. An odd count never leaves a tile beside a hole: the first
+   tile takes the row (the week's miles over pace and lifts; the night's sleep over the two heart numbers) ---------- */
+.fp-tiles > :first-child:nth-last-child(odd) {
+  grid-column: 1 / -1;
+}
+/* on the narrowest phones a half-width tile has no room for its whole name and a chevron ("Resting HR", "Plan kept"):
+   the name wins. The whole tile is the target, and every tile in the grid opens its page */
+@media (max-width: 359px) {
+  .fp-tiles > :not(:first-child:nth-last-child(odd)) .tile-chev {
+    display: none;
+  }
+}
+/* the body's numbers: a group of their own under the trend tiles, 24 apart (two groups in one section, where tiles in a
+   group are 12 apart), with where they come from as the footnote under them */
+.pg-tiles + .fp-body,
+.pg-empty + .fp-body {
+  margin-top: var(--sp-6);
+}
+
+/* ---------- Workouts, one by one, under the chart: folded to one 56 row (the week's own "Earlier this week" in the same
+   words and weight), the date rows opening in place under a hairline ---------- */
+.card.ll-card.ll-folds {
+  padding: 0;
+  overflow: hidden;
+}
+.ll-fold.pressable {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  width: 100%;
+  min-height: var(--row-h);
+  padding: var(--sp-2) var(--pad-card);
+  color: var(--ink-2);
+  font: 500 var(--fs-row) / var(--lh-row) var(--sans);
+  text-align: left;
+}
+.ll-fold:focus-visible {
+  outline: 1.5px solid var(--focus-edge);
+  outline-offset: -2px;
+  box-shadow: var(--focus-ring);
+}
+.ll-fold-title {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.ll-fold-chev {
+  flex: none;
+  transition: transform var(--dur-fast) var(--ease-out);
+}
+.ll-folds.is-open .ll-fold-chev {
+  transform: rotate(180deg);
+}
+.ll-fold-body {
+  padding: var(--pad-card);
+  border-top: 1px solid var(--line);
+}
+@media (prefers-reduced-motion: reduce) {
+  .ll-fold-chev {
+    transition: none;
+  }
+}
+
+/* ---------- the habits chart at the top of History (HabitsChart.tsx): one card. The headline is the readout (the value
+   size with its context beside it, one Dusk line under it), then the plot, then the range control 12 under it ---------- */
+.card.hc {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--sp-3);
+}
+.hc-head {
+  display: grid;
+  gap: var(--sp-1);
+  min-width: 0;
+  margin-bottom: var(--sp-2);
+}
+.hc-big {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  column-gap: var(--sp-2);
+  min-width: 0;
+  font: 650 var(--fs-value) / var(--lh-value) var(--sans);
+  letter-spacing: var(--tr-value);
+  color: var(--ink);
+}
+.hc-big small {
+  font: 500 var(--fs-sub) / var(--lh-sub) var(--sans);
+  letter-spacing: 0;
+  color: var(--ink-2);
+}
+.hc-take {
+  font: 500 var(--fs-sub) / var(--lh-sub) var(--sans);
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-2);
+}
+/* axis words in the kit's caption style, Dusk */
+.hc .ck-ax {
+  fill: var(--ink-2);
+}

@@ -7,6 +7,7 @@ import { healthStatusKey, healthSyncNow, RECONNECT_WORDS, syncErrorWords, useHea
 import { apiOrigin } from '@/lib/native';
 import { useEffect, useState } from 'react';
 import type * as React from 'react';
+import { HealthNumbers } from '@/features/health/HealthNumbers';
 import { BevelDial, GlassTile, HealthHero, Hypnogram, MonitorTile, SourceLine, StageTile, TimeChip } from '@/features/health/HealthParts';
 import { disclaimer } from '@/lib/copy';
 import { useFitness } from '@/lib/prefs';
@@ -118,9 +119,12 @@ export const AppleHealthGroup = (): React.JSX.Element => {
   const live = (connectedHere && !corrupt) || (web && connectedElsewhere);
 
   const saved = s ? savedWords(s) : null;
+  // with Fitness off there is no Fitness tab to show Sleep, HRV and Resting HR on: the three numbers stand here
+  const fitness = useFitness();
 
   return (
-    // no group title over the card: its first row already says "Apple Health" (layout standard 4.4, say it once; S6)
+    <>
+    {/* no group title over the card: its first row already says "Apple Health" (layout standard 4.4, say it once; S6) */}
     <SCard title="" className="ah-sec" foot={connectedHere ? `Syncs when you open Orby and when you pull down on Today. ${HEALTH_TRUST}` : HEALTH_TRUST}>
       <div className="ah-device">
         {/* the heart in the 32 px Haze tile every Settings row leads with (layout standard 6.2): a Deep Sky glyph on Haze,
@@ -158,6 +162,8 @@ export const AppleHealthGroup = (): React.JSX.Element => {
         </Pressable>
       ) : null}
     </SCard>
+    {!fitness && s?.connected ? <HealthNumbers /> : null}
+    </>
   );
 };
 

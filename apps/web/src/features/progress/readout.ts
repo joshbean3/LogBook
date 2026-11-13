@@ -1,7 +1,7 @@
 /**
  * The words on the Progress hero: the headline at rest (the range's total, or this week against its plan), the readout
  * while one bucket is read (its dates, its number and what it was made of), and what VoiceOver hears for each bucket.
- * Running reads in miles and runs, strength in lift sessions and sets. Pure functions over the buckets, so the card and
+ * Runs read in miles and runs, workouts (lift and cross sessions) in workouts and sets. Pure functions over the buckets, so the card and
  * its tests agree. History is never graded against a plan here: the plan is only said for what is still ahead.
  */
 import type { ISODate } from '@logbook/shared';
@@ -89,7 +89,7 @@ const madeOf = (b: Pick<LiftBucket, 'sets' | 'volume'>) => `${setsWord(b.sets)}$
 /** The strength headline at rest: this week against its plan (1W), else the range's sessions and its usual week (`start` as for running). */
 export const liftRest = (span: RangeSpan, buckets: LiftBucket[], week: LiftBucket, today: ISODate, byWeek: boolean, start: ISODate | null = null): Readout => {
   if (byWeek) {
-    const unit = plural(week.planned || week.done, 'session');
+    const unit = plural(week.planned || week.done, 'workout');
     return {
       big: String(week.done),
       context: week.planned > 0 ? `of ${week.planned} ${unit} this week` : `${unit} this week`,
@@ -100,19 +100,19 @@ export const liftRest = (span: RangeSpan, buckets: LiftBucket[], week: LiftBucke
   const usual = span.unit === 'day' ? null : usualOver(buckets, start);
   return {
     big: String(total),
-    context: `${plural(total, 'session')} ${rangeContext(span, today)}`,
-    take: usual ? `${mean1(usual.mean)} a ${UNIT_WORD[span.unit]} on average` : total ? madeOf({ sets: buckets.reduce((s, b) => s + b.sets, 0), volume: buckets.reduce((s, b) => s + b.volume, 0) }) : 'No lifts in this range',
+    context: `${plural(total, 'workout')} ${rangeContext(span, today)}`,
+    take: usual ? `${mean1(usual.mean)} a ${UNIT_WORD[span.unit]} on average` : total ? madeOf({ sets: buckets.reduce((s, b) => s + b.sets, 0), volume: buckets.reduce((s, b) => s + b.volume, 0) }) : 'No workouts in this range',
   };
 };
 
 /** One strength bucket while it is read: its sessions, its dates and what they were made of. */
 export const liftAt = (unit: BucketUnit, b: LiftBucket, today: ISODate): Readout => {
   const dates = bucketDates(unit, b, today);
-  if (b.future) return b.ahead > 0 ? { big: String(b.ahead), context: `${plural(b.ahead, 'session')} planned`, take: dates } : { big: '0', context: 'sessions', take: `${dates} · Nothing planned` };
-  const made = b.sets ? madeOf(b) : b.done ? 'No sets logged' : 'No lifts';
+  if (b.future) return b.ahead > 0 ? { big: String(b.ahead), context: `${plural(b.ahead, 'workout')} planned`, take: dates } : { big: '0', context: 'workouts', take: `${dates} · Nothing planned` };
+  const made = b.sets ? madeOf(b) : b.done ? 'No sets logged' : 'No workouts';
   return {
     big: String(b.done),
-    context: `${plural(b.done, 'session')}${b.current && unit !== 'day' ? ' so far' : ''}`,
+    context: `${plural(b.done, 'workout')}${b.current && unit !== 'day' ? ' so far' : ''}`,
     take: `${dates} · ${made}${b.current && b.ahead > 0 ? ` · ${b.ahead} to go` : ''}`,
   };
 };
@@ -121,6 +121,6 @@ export const liftAt = (unit: BucketUnit, b: LiftBucket, today: ISODate): Readout
 export const liftWords = (unit: BucketUnit, b: LiftBucket, today: ISODate) => {
   const name = bucketTitle(unit, b, today);
   if (b.missing) return `${name}: not loaded yet`;
-  if (b.future) return b.ahead > 0 ? `${name}: ${b.ahead} lift ${plural(b.ahead, 'session')} planned` : `${name}: nothing planned`;
-  return `${name}: ${b.done} lift ${plural(b.done, 'session')}${b.sets ? `, ${setsWord(b.sets)}` : ''}${b.current && b.ahead > 0 ? `, ${b.ahead} still planned` : ''}`;
+  if (b.future) return b.ahead > 0 ? `${name}: ${b.ahead} ${plural(b.ahead, 'workout')} planned` : `${name}: nothing planned`;
+  return `${name}: ${b.done} ${plural(b.done, 'workout')}${b.sets ? `, ${setsWord(b.sets)}` : ''}${b.current && b.ahead > 0 ? `, ${b.ahead} still planned` : ''}`;
 };

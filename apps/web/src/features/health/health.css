@@ -482,3 +482,17 @@
     transition: none;
   }
 }
+
+/* ---------- Your numbers (HealthNumbers.tsx: Settings, Data sources, with Fitness off): the monitor tiles two to a row,
+   an odd first one across it (the night's sleep over the two heart numbers) ---------- */
+.hn-tiles {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--gap-tile);
+}
+.hn-tiles > :first-child:nth-last-child(odd) {
+  grid-column: 1 / -1;
+}
+html[data-text-xl] .hn-tiles {
+  grid-template-columns: minmax(0, 1fr);
+}

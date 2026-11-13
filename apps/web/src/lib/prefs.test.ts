@@ -184,6 +184,7 @@ describe('Fitness off: the words the code writes', () => {
       clean([d.name, d.what, d.why, d.how, d.emptyLine, ...d.variants.map((v) => `${v.chip ?? ''} ${v.lineName ?? ''}`)].join(' '));
     }
     expect(metricDef('consistency', false).variants.map((v) => v.id)).toEqual(['habits']);
-    expect(metricDef('consistency', true).variants.map((v) => v.id)).toEqual(['habits', 'plan']);
+    // with Fitness on it is the plan alone ("Plan kept", a tile on Fitness): the habits' share is on Today's History
+    expect(metricDef('consistency', true).variants.map((v) => v.id)).toEqual(['plan']);
   });
 });

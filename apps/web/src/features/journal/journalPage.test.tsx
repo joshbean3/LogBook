@@ -8,6 +8,13 @@ import { cellLabel, markVariant } from './Calendar';
 import { monthParam } from './JournalMonth';
 import { monthPath } from './JournalParts';
 
+// the day is pinned before any module loads: the today store (lib/useToday.ts) reads the clock once, when it is imported,
+// so a clock set in beforeAll came too late and the page drew the real day (the test failed the day after it was written)
+vi.hoisted(() => {
+  vi.useFakeTimers({ toFake: ['Date'] });
+  vi.setSystemTime(new Date('2026-11-12T20:30:00'));
+});
+
 // the toasts, the menu and the sheets draw into document.body through a portal: a static render has no body, and none of
 // them is open on a first render, so the portal draws nothing here
 vi.mock('react-dom', async (orig) => ({ ...(await orig<typeof import('react-dom')>()), createPortal: () => null }));

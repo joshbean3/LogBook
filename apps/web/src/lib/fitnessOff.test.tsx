@@ -106,7 +106,6 @@ const client = async () => {
 type Screen = [name: string, load: () => Promise<{ default: React.ComponentType }>, path: string, on: RegExp, keeps: RegExp];
 const SCREENS: Screen[] = [
   ['Today', () => import('@/features/day/DayView'), '/today', /run|miles|mi\b/i, /What would make today count\?[\s\S]*An idea · from your habits[\s\S]*Set this goal[\s\S]*Habits[\s\S]*Journal[\s\S]*Tonight’s line/],
-  ['Progress', () => import('@/features/progress/ProgressView'), '/progress', /running/i, /Habits[\s\S]*Health/],
   ['Goals', () => import('@/features/goals/GoalsView'), '/goals', /Goals/, /Goals/],
   ['Journal', () => import('@/features/journal/JournalView'), '/journal', /Journal/, /Journal[\s\S]*What did you learn today\?/],
   ['Settings', () => import('@/features/settings/SettingsView'), '/settings', /Run days[\s\S]*Plans/, /Today shows[\s\S]*Fitness[\s\S]*Habits/],

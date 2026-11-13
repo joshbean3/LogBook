@@ -197,7 +197,11 @@ describe('consent', () => {
     const turn = sentText(c);
     expect(turn).toContain(WORDS);
     expect(turn).toContain('CURRENT SETTINGS: not shared.');
-    for (const secret of ['<data>', 'runDays', 'weeklyMiles', '37', '13', 'tue']) expect(turn).not.toContain(secret);
+    // the turn carries today's date, and a date may hold the same digits as a setting (the test failed on the 13th): the
+    // settings are looked for in what is left once the dates are taken out
+    const undated = turn.replace(/\d{4}-\d{2}-\d{2}/g, '').replace(/\b(?:January|February|March|April|May|June|July|August|September|October|November|December) \d{1,2}(?:, \d{4})?/g, '');
+    for (const secret of ['<data>', 'runDays', 'weeklyMiles', 'tue']) expect(turn).not.toContain(secret);
+    for (const secret of ['37', '13']) expect(undated).not.toContain(secret);
     // and nowhere else in the request
     for (const secret of ['"weeklyMiles":37', '"weeks":13']) expect(c.sent()).not.toContain(secret);
   });
