@@ -25,7 +25,7 @@ const Glyph = ({ glyph, size }: { glyph: KeepsakeGlyph; size: number }): React.J
 /** A keepsake's disc: 48 pt, Haze with a Deep Sky ring, a Night Ink numeral or glyph. A chapter is the open book over its number. */
 export const KeepsakeDisc = ({ numeral, glyph, next }: { numeral?: string; glyph?: KeepsakeGlyph; next?: boolean }): React.JSX.Element => (
   <span className={`orp-disc${next ? ' is-next' : ''}${glyph && numeral ? ' is-both' : ''}${numeral && numeral.length > 3 ? ' is-long' : ''}`} aria-hidden="true">
-    {glyph ? <Glyph glyph={glyph} size={numeral ? 16 : 22} /> : null}
+    {glyph ? <Glyph glyph={glyph} size={numeral ? 15 : 22} /> : null}
     {numeral ? <span className="orp-disc-n">{numeral}</span> : null}
   </span>
 );

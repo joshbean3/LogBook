@@ -214,7 +214,7 @@ describe('the Orbs page a year in', () => {
   it('never says a word the words table forbids, shows no zero, no "best" and nothing that ended', async () => {
     const m = await launch(YEAR_TODAY, yearIn());
     const said = text(renderToStaticMarkup(<m.OrbsPage />));
-    expect(said).not.toMatch(/streak|sprint|quest|points|coins|\bXP\b|\bAI\b|coach|\bbot\b|rest days|\bbest\b|days in a row|—/i);
+    expect(said).not.toMatch(/streak|sprint|quest|points|coins|\bXP\b|\bAI\b|coach|\bbot\b|rest days|\bbest\b|days in a row|\u2014/i);
     expect(said).not.toMatch(/(^|\n)0(\n|$)| 0 /);
   });
   it('the earned Orb’s light is the only Orb drawn: the assistant’s glossy Orb is not on this page', async () => {

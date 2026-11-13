@@ -45,7 +45,7 @@ function Choices<T extends string | number>({ label, value, options, onChange }:
           role="radio"
           aria-checked={o.value === value}
           onClick={() => onChange(o.value)}
-          right={o.value === value ? <Check size={20} className="orp-chosen" aria-hidden="true" /> : <span className="orp-unchosen" aria-hidden="true" />}
+          right={o.value === value ? <Check size={18} className="orp-chosen" aria-hidden="true" /> : <span className="orp-unchosen" aria-hidden="true" />}
         />
       ))}
     </div>

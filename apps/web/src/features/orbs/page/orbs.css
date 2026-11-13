@@ -18,6 +18,10 @@
   letter-spacing: var(--tr-hero);
   font-variant-numeric: tabular-nums;
 }
+/* the band's caption holds the level, a number that changes: even figures */
+.orp-poster .po-label {
+  font-variant-numeric: tabular-nums;
+}
 .orp-unit {
   font: 500 var(--fs-sub) / var(--lh-sub) var(--sans);
   letter-spacing: 0;
@@ -63,7 +67,7 @@
   box-shadow: inset 0 0 0 1.5px var(--ink);
 }
 .orp-letter {
-  font: 600 var(--fs-orb) / var(--lh-orb) var(--sans);
+  font: 600 var(--fs-foot) / var(--lh-foot) var(--sans);
   color: var(--ink-2);
 }
 .orp-day.is-today .orp-letter {
@@ -191,6 +195,10 @@
   color: var(--ink);
 }
 
+.orp-next-line {
+  font-variant-numeric: tabular-nums;
+}
+
 /* ---------- small sheets: a keepsake's words and facts, the day's lines, a choice ---------- */
 .orp-ksheet,
 .orp-today-sheet,
@@ -262,7 +270,7 @@
 }
 .orp-unchosen {
   flex: none;
-  width: 20px;
+  width: 18px;
 }
 .orp-choice-sheet > .lb-foot,
 .orp-today-sheet > .lb-foot {
@@ -308,8 +316,12 @@
   gap: 2px; /* brand-ok: geometry, a title to its own second line */
   min-width: 0;
 }
+.orh .lb-foot {
+  font-variant-numeric: tabular-nums;
+}
 .orh-title {
   font: 600 var(--fs-row) / var(--lh-row) var(--sans);
+  font-variant-numeric: tabular-nums;
   color: var(--ink);
   text-wrap: pretty;
 }

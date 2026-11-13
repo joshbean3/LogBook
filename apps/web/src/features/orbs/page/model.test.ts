@@ -109,7 +109,7 @@ describe('keepsakes', () => {
     expect(keepsakesOf(s, true).map((k) => k.key)).toEqual([`chapter:${MON}`, 'weeks:2', 'goal:year:2026', 'goal:month:2026-11', 'days:10', 'days:1000', 'challenge', 'full', 'first']);
   });
   it('never use a word the words table forbids', () => {
-    expect(JSON.stringify(keepsakesOf(s, true))).not.toMatch(/streak|sprint|points|coins|\bXP\b|\bbest\b|—/i);
+    expect(JSON.stringify(keepsakesOf(s, true))).not.toMatch(/streak|sprint|points|coins|\bXP\b|\bbest\b|\u2014/i);
   });
 });
 

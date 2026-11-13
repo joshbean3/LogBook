@@ -102,7 +102,7 @@ describe('the sections', () => {
   });
   it('use the words table and no others', () => {
     for (const all of [on, off]) {
-      expect(text(all)).not.toMatch(/streak|sprint|quest|points|coins|\bXP\b|\bAI\b|coach|\bbot\b|rest days|\bbest\b|freeze|—/i);
+      expect(text(all)).not.toMatch(/streak|sprint|quest|points|coins|\bXP\b|\bAI\b|coach|\bbot\b|rest days|\bbest\b|freeze|\u2014/i);
       // "kept" is never a noun here, and a count is never a "run"
       expect(text(all)).not.toMatch(/\bkept\b|\bin a run\b/i);
     }
