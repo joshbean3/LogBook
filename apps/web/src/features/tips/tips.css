@@ -1,0 +1,70 @@
+/*
+ * A first-visit tip (layout standard 2.11): the body of the app's own sheet. One Paper card on the sheet's ground, two
+ * groups inside it, each under a caps caption and 16 apart with a hairline between (the kind of content changes), then
+ * the one Sky button and a quiet link 8 under it. Rows are the section row (brand guide 6.11, layout standard 6.2).
+ */
+.tip {
+  display: grid;
+  gap: var(--sp-4);
+}
+.tip-card {
+  display: grid;
+  gap: var(--sp-4);
+  padding: var(--pad-card);
+  border-radius: var(--r-card);
+  background: var(--surface);
+  box-shadow: var(--shadow-1);
+}
+.tip-group {
+  display: grid;
+  gap: var(--sp-2);
+}
+/* the second group starts under a hairline, 16 on each side of it */
+.tip-group + .tip-group {
+  padding-top: var(--sp-4);
+  border-top: 1px solid var(--line);
+}
+.tip-cap {
+  margin: 0;
+}
+.tip-rows {
+  display: grid;
+  gap: var(--sp-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.tip-row {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-3);
+  /* a row is as tall as its tile at least; two lines of words stand a little taller */
+  min-height: var(--tile-ic);
+}
+.tip-text {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  gap: 1px;
+  /* the title's first line sits on the tile's middle when the row is one line */
+  align-self: center;
+}
+.tip-title {
+  font: 600 var(--fs-row) / var(--lh-row) var(--sans);
+  color: var(--ink);
+  text-wrap: balance;
+}
+.tip-sub {
+  font: 500 var(--fs-sub) / var(--lh-sub) var(--sans);
+  color: var(--dusk);
+  text-wrap: pretty;
+}
+/* the button, then the quiet link 8 under it (layout standard 6.6) */
+.tip-foot {
+  display: grid;
+  justify-items: center;
+  gap: var(--sp-2);
+}
+.tip-tour {
+  min-height: var(--hit);
+}
