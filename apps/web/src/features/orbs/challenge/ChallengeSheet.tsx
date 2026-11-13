@@ -1,4 +1,4 @@
-import { addChallenge, challengeState, challengeTitle, easierChallenge, skipChallenge, type Slot } from '@logbook/shared';
+import { addChallenge, challengeState, challengeTitle, easierChallenge, skipChallenge, type ISODate, type Slot } from '@logbook/shared';
 import { useEffect, useRef, useState } from 'react';
 import { useBootstrap } from '@/api/queries';
 import { useReviewAccess } from '@/features/goals/refine';
@@ -32,9 +32,9 @@ const Title = ({ slotKey }: { slotKey: string }) => {
  * assistant chose, under "Picked by the assistant" and its reason. A failure of any kind leaves the challenge as it was,
  * with one quiet line.
  */
-const ChallengeSheet = ({ slotKey }: { slotKey: string }) => {
+const ChallengeSheet = ({ slotKey, day }: { slotKey: string; day?: ISODate }) => {
   const sheet = useSheet();
-  const board = useBoard();
+  const board = useBoard(day);
   const boot = useBootstrap();
   const access = useReviewAccess();
   const [asking, setAsking] = useState<'idle' | 'asking' | 'failed'>('idle');
@@ -136,5 +136,8 @@ const ChallengeSheet = ({ slotKey }: { slotKey: string }) => {
   );
 };
 
-/** Open the sheet for a slot's challenge. */
-export const openChallenge = (sheet: SheetApi, slotKey: string, kind: Slot['kind']) => sheet.open({ eyebrow: eyebrowOf(kind), title: <Title slotKey={slotKey} />, body: <ChallengeSheet slotKey={slotKey} /> });
+/**
+ * Open the sheet for a slot's challenge. `day` is the day the row stands on: Today holds yesterday past midnight, and the
+ * sheet (drawn outside the page) is read against that same day.
+ */
+export const openChallenge = (sheet: SheetApi, slotKey: string, kind: Slot['kind'], day?: ISODate) => sheet.open({ eyebrow: eyebrowOf(kind), title: <Title slotKey={slotKey} />, body: <ChallengeSheet slotKey={slotKey} day={day} /> });

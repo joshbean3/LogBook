@@ -1,10 +1,14 @@
 import { addChallenge, emptyRewards, parseISO, settleChallenges, shiftDays, type Challenge, type Habit, type Rewards, type Todo } from '@logbook/shared';
 import { QueryClient } from '@tanstack/react-query';
-import { describe, expect, it, vi } from 'vitest';
+import { createElement } from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
+import { QueryClientProvider } from '@tanstack/react-query';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { keys } from '@/api/queries';
 import type { Bootstrap, MonthBundle } from '@/api/types';
 import { challengeFacts, readCaches } from '../dayFacts';
-import { boardOf } from './useBoard';
+import { openOrbs, resetOrbsForTest, setOrbs } from '../store';
+import { boardOf, useBoard, type Board } from './useBoard';
 
 vi.mock('idb-keyval', () => ({ get: async () => undefined, set: async () => undefined, del: async () => undefined, clear: async () => undefined }));
 
@@ -148,5 +152,35 @@ describe('the menu an answer is checked against', () => {
     const offered: Challenge = { item: 'list', target: 2, base: 0, state: 'offered', at: ADDED.toISOString() };
     const board = boardOf(world([todo('a'), todo('b')], { checks }), store(offered), T, true, clock(T, 12))!;
     expect(board.menuOf(KEY).map((o) => o.item)).toEqual(['list']);
+  });
+});
+
+describe('the sheet reads the day its row stands on', () => {
+  afterEach(() => {
+    vi.useRealTimers();
+    resetOrbsForTest();
+  });
+  const habits: Challenge = { item: 'habits', target: 3, base: 0, state: 'added', at: ADDED.toISOString() };
+  const boardFor = (day?: string): Board | null => {
+    let seen: Board | null = null;
+    const Probe = () => {
+      seen = useBoard(day);
+      return null;
+    };
+    renderToStaticMarkup(createElement(QueryClientProvider, { client: world([]) }, createElement(Probe)));
+    return seen;
+  };
+  it('past midnight Today still holds the day and shows its row: the sheet opened from it is for that day, not the clock’s (it opened and closed at once)', () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(clock(shiftDays(T, 1), 0, 20));
+    resetOrbsForTest();
+    openOrbs(U);
+    setOrbs(store(habits));
+    // by the clock's own day there is no such slot today
+    expect(boardFor()?.live[KEY]).toBeUndefined();
+    // by the day the row stands on, there is, and it is shown
+    const held = boardFor(T);
+    expect(held?.today).toBe(T);
+    expect(held?.live[KEY]?.view).toMatchObject({ shown: 'added', title: 'Every habit today' });
   });
 });

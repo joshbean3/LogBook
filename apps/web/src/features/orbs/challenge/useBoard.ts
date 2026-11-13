@@ -109,11 +109,17 @@ export const boardOf = (qc: QueryClient, store: Rewards, today: ISODate, fitness
   return { today, slots, live, views, menuOf };
 };
 
-/** The board, kept in step with the store, the caches, the day and the Fitness switch. Null while Orbs are off or nothing has loaded. */
-export const useBoard = (): Board | null => {
+/**
+ * The board, kept in step with the store, the caches, the day and the Fitness switch. Null while Orbs are off or nothing
+ * has loaded. The day is the place's own (`useToday`: inside Today that is the day Today holds, past midnight too). A
+ * sheet is drawn outside its page, so it is handed the day its row stood on (`day`): read by the clock's day it would find
+ * no challenge there after midnight and close under the finger.
+ */
+export const useBoard = (day?: ISODate): Board | null => {
   const qc = useQueryClient();
   const store = useOrbsStore();
-  const today = useToday();
+  const live = useToday();
+  const today = day ?? live;
   const fitness = useFitness();
   const any = useMemo(() => candidates(store, today).length > 0, [store, today]);
   const tick = useCachesTick(qc, any);
@@ -122,7 +128,9 @@ export const useBoard = (): Board | null => {
 };
 
 /** The rows a place shows now (`rowsFor`). */
-export const useChallengeRowViews = (scope: Scope): RowView[] => {
+export const useChallengeRowViews = (scope: Scope): RowView[] => useChallengeRows(scope).rows;
+/** The rows a place shows now, and the day they stand on (what a sheet opened from one of them is read against). */
+export const useChallengeRows = (scope: Scope): { rows: RowView[]; today: ISODate | null } => {
   const board = useBoard();
-  return useMemo(() => (board ? rowsFor(scope, board.slots, board.views, board.today) : []), [board, scope]);
+  return useMemo(() => ({ rows: board ? rowsFor(scope, board.slots, board.views, board.today) : [], today: board?.today ?? null }), [board, scope]);
 };
