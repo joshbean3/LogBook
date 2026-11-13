@@ -156,6 +156,23 @@ export const showChip = (x: number, y: number, anchor: 'end' | 'center'): boolea
   return true;
 };
 
+/**
+ * Take every Orb in the air away at once (a sheet or a menu is on its way up: nothing is drawn over it). Each one's
+ * caller is told it is over, not landed, so the count has it all the same. The chip stays: it is words, by the counter.
+ */
+export const clearOrbs = () => {
+  nodes.forEach((node, index) => {
+    if (!node.live) return;
+    clearTimeout(node.timer);
+    node.el.classList.remove(...MODES);
+    node.live = false;
+    pool.free(index);
+    const end = node.end;
+    node.end = undefined;
+    end?.(false);
+  });
+};
+
 /** How many Orbs are in the air. */
 export const liveOrbs = (): number => pool.live();
 export const LAND_MS = LAND.ms;

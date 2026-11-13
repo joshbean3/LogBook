@@ -3,7 +3,7 @@ import { Check } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
-import { getOrbs, getSwitches } from '@/features/orbs/store';
+import { getOrbs, getSwitches, markSeen } from '@/features/orbs/store';
 import { useReduced } from '@/lib/motion';
 import { restoreFocus } from '@/ui/focus';
 import { holdInert } from '@/ui/inert';
@@ -32,7 +32,12 @@ export const useCelebrate = () => (goal: Aim) => {
   const key = `${goal.id}:${goal.updatedAt}`;
   if (shown === key) return;
   shown = key;
-  const open = () => window.dispatchEvent(new CustomEvent<Aim>(EVENT, { detail: goal }));
+  const open = () => {
+    window.dispatchEvent(new CustomEvent<Aim>(EVENT, { detail: goal }));
+    // this page was the goal's moment. If its Orbs arrive after all (from another phone, or once Orbs are shown again),
+    // the same goal must not be given a second full-screen page: it is marked seen, and counts toward the two in seven days
+    markSeen(`goal:${goal.level}:${goal.period}`);
+  };
   const sw = getSwitches();
   if (!sw.on || !sw.show) return open();
   // the reconciler pays a goal on the frame after it turns done: paid, the moment is the Orbs'

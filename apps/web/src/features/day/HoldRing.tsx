@@ -111,6 +111,41 @@ export const morphRing = (d: RingDrive, reduce = false, lead = false) =>
   });
 
 /**
+ * The click that ends a completing hold belongs to nothing. The card around the ring changes height as it turns to done
+ * (the training card folds its time row away), so by the time the thumb lifts, another control can be under it, and the
+ * browser hands the click to that one: the second session's card opened its sheet under a hold that was only ever a
+ * completion. From the completion until the next press begins, one click that comes from a pointer is swallowed here,
+ * before anything hears it. A click from the keyboard or VoiceOver (`detail` 0) is never this one, and neither is a click
+ * that comes long after the thumb has lifted. Returns the way to stop listening.
+ */
+export const swallowClickAfterHold = (win: Pick<Window, 'addEventListener' | 'removeEventListener'>, now: () => number = () => performance.now()): (() => void) => {
+  let liftedAt: number | null = null;
+  const off = () => {
+    win.removeEventListener('click', click, true);
+    win.removeEventListener('pointerdown', off, true);
+    win.removeEventListener('pointerup', up, true);
+    win.removeEventListener('pointercancel', up, true);
+  };
+  const up = () => {
+    liftedAt = now();
+  };
+  const click = (e: Event) => {
+    off();
+    if ((e as MouseEvent).detail === 0) return;
+    if (liftedAt !== null && now() - liftedAt > STRAY_CLICK_MS) return;
+    e.stopPropagation();
+    e.preventDefault();
+  };
+  win.addEventListener('click', click, true);
+  win.addEventListener('pointerdown', off, true);
+  win.addEventListener('pointerup', up, true);
+  win.addEventListener('pointercancel', up, true);
+  return off;
+};
+/** A touch's click follows its lift within this long. */
+export const STRAY_CLICK_MS = 700;
+
+/**
  * Hold-to-complete (docs/feel.md §3.2, §6.2; contracts §F): the deliberate way to mark a session done by hand. The ring fills
  * while the thumb rests on it (`FILL_MS`, linear); full, the session is done: `haptics.success()` (the day's one, M18) and
  * `onComplete`, and the stroke crossfades into the check (stage 2 of the landing). Let go early and it drains back on
@@ -239,8 +274,15 @@ export const HoldRing = ({ label, onComplete, onTap, size = 48, done: doneProp, 
 
   /** The click that ends a completing hold is not a tap (it would open the sheet over the landing). */
   const quietUntil = useRef(0);
+  const stray = useRef<(() => void) | null>(null);
+  useEffect(() => () => stray.current?.(), []);
   const finish = () => {
     quietUntil.current = performance.now() + 700;
+    // a hold by a pointer: the click its lift makes is no one's, wherever the page has moved to under the thumb
+    if (g.current) {
+      stray.current?.();
+      stray.current = swallowClickAfterHold(window);
+    }
     g.current = null;
     detach();
     setDone(true);

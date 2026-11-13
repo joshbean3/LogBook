@@ -1,8 +1,8 @@
 import type * as React from 'react';
-import { useEffect, useSyncExternalStore } from 'react';
+import { useEffect, useRef, useSyncExternalStore } from 'react';
 import { useNav, useNavState } from '@/app/NavController';
 import { BigMoment } from './BigMoment';
-import { getStatus, setMomentNav, setOverlays, startMoment, subscribeStatus } from './index';
+import { getStatus, leftScreen, setMomentNav, setOverlays, startMoment, subscribeStatus } from './index';
 
 /**
  * Mounted once, in the shell. It starts the moment's listening (the engine's event, the store), tells it how many
@@ -11,8 +11,17 @@ import { getStatus, setMomentNav, setOverlays, startMoment, subscribeStatus } fr
  */
 export const OrbsMoment = (): React.JSX.Element => {
   const nav = useNav();
-  const overlays = useNavState().overlays;
+  const st = useNavState();
+  const overlays = st.overlays;
   useEffect(() => setOverlays(overlays), [overlays]);
+  // another tab, or a page pushed over this one or taken away: an Orb in the air has no counter to fly to there
+  const screen = `${st.active}:${st.tabs[st.active].stack.length}`;
+  const was = useRef(screen);
+  useEffect(() => {
+    if (was.current === screen) return;
+    was.current = screen;
+    leftScreen();
+  }, [screen]);
   useEffect(() => {
     setMomentNav((path) => nav.go(path));
     return startMoment();

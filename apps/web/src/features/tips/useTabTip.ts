@@ -20,9 +20,15 @@ const TOUR_CAP_MS = 1500;
  * lays over Today while it hands off, a sheet or a menu (the nav state says so too; this is the frame it is drawn in), a
  * tab that has not painted or still shows a skeleton, a field with the keys up, an app in the background.
  */
+/**
+ * What is drawn over the app while a tip must wait: the splash, first run's hand-off, a sheet, a menu, and a full-screen
+ * moment (`.cel`: a goal's page or an Orbs big moment, features/goals/Celebrate.tsx). A tip that rose under a moment took
+ * the focus from its "Keep going" to a sheet nobody could see.
+ */
+export const TIP_WAITS_FOR = '.brand-splash, .ob-handoff, .sheet-wrap, .cm-layer, .cel';
 const busyNow = (): boolean => {
   if (document.hidden) return true;
-  if (document.querySelector('.brand-splash, .ob-handoff, .sheet-wrap, .cm-layer')) return true;
+  if (document.querySelector(TIP_WAITS_FOR)) return true;
   if (document.documentElement.classList.contains('kb-open')) return true;
   const a = document.activeElement;
   if (a instanceof HTMLElement && (a.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName))) return true;
