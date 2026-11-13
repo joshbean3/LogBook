@@ -118,7 +118,7 @@ export const LineField = ({ today, starter, more, onLong, onSaving, onSaved, onR
     onSaved?.();
   };
   return (
-    <div ref={box} className="ln-entry">
+    <div ref={box} className={focused ? 'ln-entry is-asking' : 'ln-entry'}>
       <p className="ln-ask caps" aria-hidden="true">
         {QUESTION}
       </p>
