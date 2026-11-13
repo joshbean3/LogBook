@@ -11,7 +11,7 @@ import { readMinutes } from '@/features/day/useNow';
 import { haptics } from '@/lib/haptics';
 import { useSplashDoneOnPaint } from '@/lib/native';
 import { EDGE_PX, FLICK_V, LOCK_PX, lockAxis } from '@/lib/gesture';
-import { crossfade, fadeIn, springs } from '@/lib/motion';
+import { crossfade, fadeIn, reducedFade, springs } from '@/lib/motion';
 import { Pressable } from '@/ui';
 import { DayLetters, GoalPills, HabitPicker, MilesDial, MorningTrack, RaceStrip } from './controls';
 import { blockShape, buildSteps, HABIT_LIMIT, morningFix, raceWarning, DEFAULT_LEAVE, DEFAULT_MILES, DEFAULT_PROFILE, DEFAULT_WAKE, defaultRaceDay, firstWeek, fixLongRun, hm, MILES_MAX, MILES_MIN, ROUTINE_CHIPS, routineFrom, routineNames, routineSettings, routineTotal, safeTemplate, templateProblem, verdictLine, type TrainingProfile } from './model';
@@ -869,7 +869,7 @@ function Payoff({ draft, set, profile, start, today, seen, onOpen, onChange, onT
     back
       ? { initial: false as const }
       : reduce
-        ? { initial: { opacity: 0 }, animate: { opacity: 1 }, transition: { duration: 0.15 } }
+        ? { initial: { opacity: 0 }, animate: { opacity: 1 }, transition: reducedFade }
         : { initial: { opacity: 0, y: 28 }, animate: { opacity: 1, y: 0 }, transition: { ...springs.page, delay: 0.06 + i * 0.09 } };
   return (
     <div className="ob-step ob-payoff ob-reveal">

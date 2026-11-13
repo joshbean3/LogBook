@@ -8,7 +8,7 @@ import { heroScene, type HeroWeek } from '@/features/day/heroWeek';
 import { RangeBars } from '@/features/progress/RangeBars';
 import { bucketRuns, PROGRESS_RANGES, RANGE_WORDS, rangeSpan, type DayRun } from '@/features/progress/ranges';
 import { runAt, runRest, runWords } from '@/features/progress/readout';
-import { springs } from '@/lib/motion';
+import { colorTween, fadeIn, springs } from '@/lib/motion';
 import { RangeControl } from '@/ui/charts';
 import { SectionHeader } from '@/ui/layout';
 import { shownTabs } from '@/ui/nav';
@@ -178,7 +178,7 @@ export const TodayDemo = ({ running, still, plain }: DemoProps) => {
  */
 const DemoSheet = ({ open, eyebrow, title, still, children }: { open: boolean; eyebrow?: string; title: string; still: boolean; children: React.ReactNode }) => (
   <AnimatePresence initial={false}>
-    {open ? <motion.span key="scrim" className="tsheet-scrim" initial={still ? false : { opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }} /> : null}
+    {open ? <motion.span key="scrim" className="tsheet-scrim" initial={still ? false : { opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={colorTween} /> : null}
     {open ? (
       <motion.div key="sheet" className="tsheet" initial={still ? false : { y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={springs.sheet}>
         <span className="tsheet-grip" />
@@ -376,7 +376,7 @@ export const FitnessDemo = ({ running, still }: DemoProps) => {
             </DemoSheet>
             <AnimatePresence>
               {b === 9 ? (
-                <motion.p className="ttoast" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.12 }}>
+                <motion.p className="ttoast" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={fadeIn}>
                   Moved to Sat, Nov 14 <b>Undo</b>
                 </motion.p>
               ) : null}

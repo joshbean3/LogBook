@@ -13,6 +13,6 @@ const TODOS = <span className="start-nw">to-dos</span>;
 export const PAGES: readonly { key: string; Card: (p: { live: boolean }) => React.JSX.Element; title: string; sub: React.ReactNode }[] = [
   // page 1 says what Orby is, in one plain line (auth-13)
   { key: 'today', Card: TodaySample, title: 'Your day, lit.', sub: <>Orby is your day in one place: a goal, your {TODOS}, your training and a journal.</> },
-  { key: 'fitness', Card: FitnessSample, title: 'A plan that fits.', sub: 'Runs and workouts planned around your week, and a clear view of how it is going.' },
+  { key: 'fitness', Card: FitnessSample, title: 'A plan that fits.', sub: 'Runs and lifts planned around your week, and a clear view of how it is going.' },
   { key: 'journal', Card: JournalSample, title: 'One line a day.', sub: 'Keep what you learned in a line. Ask the assistant to change your plan any time.' },
 ];

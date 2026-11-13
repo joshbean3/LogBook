@@ -6,7 +6,7 @@ import { DockSample } from '@/features/onboarding/cards';
 import { haptics } from '@/lib/haptics';
 import { useSplashDoneOnPaint } from '@/lib/native';
 import { LEGAL, SUPPORT } from '@/lib/siteLinks';
-import { Lockup } from '@/ui/Brand';
+import { Wordmark } from '@/ui/Brand';
 import { Pressable } from '@/ui/Pressable';
 import { canGoBack, SiteLink, useAuthStatus } from './AuthScreens';
 import { type PendingChoice, writePendingChoice } from './consent';
@@ -131,7 +131,8 @@ const Pager = () => {
     <main className="start">
       <span className="auth-halo" aria-hidden="true" />
       <header className="start-brand start-in">
-        <Lockup />
+        {/* the ask bar under the posters carries the Orb: the wordmark stands alone, so the frame never shows two (guide 2.3) */}
+        <Wordmark width={75} />
         <SiteLink href={SUPPORT} className="start-help">
           Help
         </SiteLink>

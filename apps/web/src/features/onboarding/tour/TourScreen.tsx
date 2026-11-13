@@ -38,7 +38,7 @@ export const TourScreen = ({ onClose, fitness = true, doneLabel = 'Done' }: { on
       <header className="ob-bar ob-top">
         <span className="ob-slot">
           <button type="button" className="icon-btn ob-back" aria-label={turn ? 'Back' : 'Close'} onClick={turn ? () => setPage(page - 1) : onClose}>
-            <ChevronLeft size={26} aria-hidden="true" />
+            <ChevronLeft size={18} aria-hidden="true" />
           </button>
         </span>
         <span aria-hidden="true" />

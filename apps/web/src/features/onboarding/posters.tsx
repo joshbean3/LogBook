@@ -120,7 +120,7 @@ export const FitnessChoice = ({ value, onChange, label }: { value: boolean | und
                 ) : (
                   <PathLine lead={false} className="obp-choice-path">
                     <PathStop state={on ? 'next' : 'ahead'} tag={on ? 'Next' : undefined} title="Call the bank" highlight={false} />
-                    <PathStop state="ahead" title="Stretch 10 min" />
+                    <PathStop state="ahead" title="Stretch" />
                   </PathLine>
                 )}
               </div>
@@ -142,7 +142,7 @@ export const FitnessChoice = ({ value, onChange, label }: { value: boolean | und
                   <span className="obp-choice-line">{c.line}</span>
                 </span>
                 <span className="obp-choice-mark" aria-hidden="true">
-                  {on ? <Check size={16} strokeWidth={3} /> : null}
+                  {on ? <Check size={15} strokeWidth={1.75} /> : null}
                 </span>
               </Pressable>
             </div>

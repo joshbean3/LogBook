@@ -34,7 +34,7 @@ export const FrameBar = ({ steps, index, canBack, onBack }: FrameBarProps): Reac
         accessibility tree and hit-testing. The fade is the slot's, so the button keeps its own press */}
     <span className={`ob-slot ${canBack ? '' : 'is-gone'}`} inert={!canBack}>
       <button type="button" className="icon-btn ob-back" aria-label="Back" onClick={canBack ? onBack : undefined}>
-        <ChevronLeft size={26} aria-hidden="true" />
+        <ChevronLeft size={18} aria-hidden="true" />
       </button>
     </span>
     <SetupBar steps={steps} index={index} />
