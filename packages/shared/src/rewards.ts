@@ -221,9 +221,12 @@ export const zRewards = z.object({
   seen: capped(z.record(z.string().min(1).max(40), zDay), 4000),
 });
 
-/** A new, empty store for an account. It begins no earlier than the rules do. */
-export const emptyRewards = (userId: string, startedOn: ISODate, set: RewardSet = DEFAULT_SET): Rewards => {
-  const from = startedOn < RULES.startsOn ? RULES.startsOn : startedOn;
+/**
+ * A new, empty store for an account. It begins no earlier than the rules do (`floor` is `RULES.startsOn`; only a
+ * development build passes another, to try the feature before its start date).
+ */
+export const emptyRewards = (userId: string, startedOn: ISODate, set: RewardSet = DEFAULT_SET, floor: ISODate = RULES.startsOn): Rewards => {
+  const from = startedOn < floor ? floor : startedOn;
   return { v: 1, rules: RULES.version, userId, startedOn: from, clock: from, days: {}, once: {}, challenges: {}, keepsakes: {}, off: [], set: { ...set }, wt: {}, seen: {} };
 };
 
@@ -446,13 +449,24 @@ export const dayState = (s: Rewards, d: ISODate, today: ISODate): DayState => {
 };
 export type WeekState = 'counted' | 'neutral' | 'missed' | 'pending';
 const targetOf = (s: Rewards, monday: ISODate): 3 | 4 | 5 => s.wt[monday] ?? s.set.weekTarget;
+/** A week's seven dates and the Monday before it, remembered: the count walks a year of weeks on every change, and date arithmetic is most of that walk. */
+const weekDates = new Map<ISODate, { days: ISODate[]; prev: ISODate }>();
+const datesOf = (monday: ISODate) => {
+  let w = weekDates.get(monday);
+  if (!w) {
+    if (weekDates.size > 4000) weekDates.clear();
+    weekDates.set(monday, (w = { days: Array.from({ length: 7 }, (_, i) => shiftDays(monday, i)), prev: shiftDays(monday, -7) }));
+  }
+  return w;
+};
 const weekOf = (s: Rewards, monday: ISODate, today: ISODate) => {
   let counted = 0;
   let neutral = 0;
   let pending = 0;
   const marks: boolean[] = [];
+  const dates = datesOf(monday).days;
   for (let i = 0; i < 7; i++) {
-    const st = dayState(s, shiftDays(monday, i), today);
+    const st = dayState(s, dates[i]!, today);
     marks.push(st === 'counted');
     if (st === 'counted') counted++;
     else if (st === 'neutral') neutral++;
@@ -492,6 +506,17 @@ export interface Count {
   kept: boolean;
 }
 const counted = new WeakMap<Rewards, Map<ISODate, Count>>();
+/** Days in all, per `days` object. The reconciler keeps it in step as it changes a day, so a tap never walks every day. */
+const daysInAll = new WeakMap<Rewards['days'], number>();
+const daysIn = (days: Rewards['days']): number => {
+  let n = daysInAll.get(days);
+  if (n === undefined) {
+    n = 0;
+    for (const d in days) if (days[d]!.a >= 1) n++;
+    daysInAll.set(days, n);
+  }
+  return n;
+};
 /**
  * The count, always recomputed from the stored days (and remembered per store object). Weeks in a row: consecutive counted
  * weeks; one missed week is forgiven when the next one counts (and while the next one is still in progress); two missed
@@ -502,14 +527,13 @@ export const countOf = (s: Rewards, today: ISODate): Count => {
   counted.set(s, memo);
   const hit = memo.get(today);
   if (hit) return hit;
-  let days = 0;
-  for (const d in s.days) if (s.days[d]!.a >= 1) days++;
+  const days = daysIn(s.days);
   const monday = mondayOf(today);
   const w = weekOf(s, monday, today);
   const first = mondayOf(s.startedOn);
   let weeks = 0;
   let misses = 0;
-  for (let m = monday, i = 0; m >= first && i < 1040; m = shiftDays(m, -7), i++) {
+  for (let m = monday, i = 0; m >= first && i < 1040; m = datesOf(m).prev, i++) {
     const st = m === monday ? w.state : weekOf(s, m, today).state;
     if (st === 'neutral' || st === 'pending') continue;
     if (st === 'counted') {
@@ -636,6 +660,8 @@ export interface ReconcileOpts {
   serverDay?: ISODate;
   /** The goals as the app holds them: week, month and year goals that are due are paid into the once-ledger. */
   goals?: readonly Aim[];
+  /** Development builds only: a start date other than `RULES.startsOn`. Nothing else may pass it. */
+  startsOn?: ISODate;
 }
 
 /** Is `d` the first counted day after three or more missed, with no comeback in the 13 days before it and a counted day before the gap? */
@@ -677,15 +703,21 @@ export const reconcile = (store: Rewards, facts: readonly DayFacts[], now: Date,
   const yesterday = shiftDays(today, -1);
   let s = store;
   let days = store.days;
+  // the total and the days in all follow each change, so neither is recounted from every day after a tap
+  let orbs = 0;
+  let dayCount = 0;
   const setDay = (d: ISODate, rec: DayRec | null) => {
     if (days === store.days) days = { ...store.days };
+    const was = days[d];
+    orbs += (rec?.n ?? 0) - (was?.n ?? 0);
+    dayCount += ((rec?.a ?? 0) >= 1 ? 1 : 0) - ((was?.a ?? 0) >= 1 ? 1 : 0);
     if (rec) days[d] = rec;
     else delete days[d];
   };
   if (store.set.on) {
     for (const f of facts) {
       const d = f.date;
-      if (d > today || d < edge || d < store.startedOn || d < RULES.startsOn || inOff(store, d)) continue;
+      if (d > today || d < edge || d < store.startedOn || d < (opts.startsOn ?? RULES.startsOn) || inOff(store, d)) continue;
       const src = d === today ? 'tap' : d === yesterday ? (now.getHours() < RULES.close.tapHour ? 'tap' : 'evidence') : null;
       if (!src) continue;
       const prev = days[d];
@@ -699,11 +731,14 @@ export const reconcile = (store: Rewards, facts: readonly DayFacts[], now: Date,
       setDay(d, emptyRec(rec) ? null : rec);
     }
   }
-  // close what can no longer change
-  for (const d in days) {
-    const r = days[d]!;
-    if (!r.c && (d < yesterday || d < edge)) setDay(d, { ...r, c: 1 });
+  // close what can no longer change. Nothing new can close while the date stands where the last pass left it.
+  if (today !== store.clock) {
+    for (const d in days) {
+      const r = days[d]!;
+      if (!r.c && (d < yesterday || d < edge)) setDay(d, { ...r, c: 1 });
+    }
   }
+  if (days !== store.days) daysInAll.set(days, daysIn(store.days) + dayCount);
   if (days !== store.days || clock !== store.clock) s = { ...store, days, clock };
 
   // finished weeks: sealed with their target, and paid their bonus, once the Sunday can no longer take late evidence
@@ -724,6 +759,7 @@ export const reconcile = (store: Rewards, facts: readonly DayFacts[], now: Date,
     if (!n) continue;
     if (once === s.once) once = { ...s.once };
     once[key] = { on: today, n };
+    orbs += n;
     gained.push({ key, n, date: today });
   }
   if (opts.goals && s.set.on && !inOff(s, today)) {
@@ -733,10 +769,12 @@ export const reconcile = (store: Rewards, facts: readonly DayFacts[], now: Date,
       if (!e || once[e.key]) continue;
       if (once === s.once) once = { ...s.once };
       once[e.key] = { on: today, n: e.n };
+      orbs += e.n;
       gained.push({ key: e.key, n: e.n, date: today });
     }
   }
   if (wt !== s.wt || once !== s.once) s = { ...s, wt, once };
+  if (s !== store) totals.set(s, totalOf(store) + orbs);
   return { store: s, gained };
 };
 
@@ -838,8 +876,8 @@ export const forSync = (s: Rewards): Rewards => {
  * base Orbs only (no full day, no comeback, no weekly bonus), and is closed and marked rebuilt. Today is left to the
  * reconciler.
  */
-export const rebuild = (facts: readonly DayFacts[], from: ISODate, today: ISODate, userId: string, set: RewardSet = DEFAULT_SET): Rewards => {
-  const s = emptyRewards(userId, from, set);
+export const rebuild = (facts: readonly DayFacts[], from: ISODate, today: ISODate, userId: string, set: RewardSet = DEFAULT_SET, floor: ISODate = RULES.startsOn): Rewards => {
+  const s = emptyRewards(userId, from, set, floor);
   for (const f of facts) {
     if (f.date < s.startedOn || f.date >= today) continue;
     const full = earnDay(f, undefined, { src: 'tap' });
@@ -944,20 +982,24 @@ export const keepsakesDue = (s: Rewards, now: Date, extra: KeepsakeExtra = {}): 
   const due = (key: string, keepsake: Keepsake) => {
     if (!s.keepsakes[key]) out.push({ key, keepsake });
   };
-  const dates = Object.keys(s.days).sort();
+  // the days in order, only when something below needs them (after the first weeks nearly nothing does)
+  let sorted: ISODate[] | null = null;
+  const dates = () => (sorted ??= Object.keys(s.days).sort());
   if (!s.keepsakes.first && totalOf(s) > 0) {
-    let on: ISODate | null = dates.find((d) => s.days[d]!.n > 0) ?? null;
+    let on: ISODate | null = null;
+    for (const d in s.days) if (s.days[d]!.n > 0 && (!on || d < on)) on = d;
     for (const k in s.once) if (s.once[k]!.n > 0 && (!on || s.once[k]!.on < on)) on = s.once[k]!.on;
     if (on) due('first', { on });
   }
   const c = countOf(s, today);
   for (const n of RULES.keepsakes.weeks) if (c.weeks >= n) due(`weeks:${n}`, { on: today });
-  if (c.days >= RULES.keepsakes.days[0]!) {
-    const countedDays = dates.filter((d) => s.days[d]!.a >= 1);
+  if (RULES.keepsakes.days.some((n) => c.days >= n && !s.keepsakes[`days:${n}`])) {
+    const countedDays = dates().filter((d) => s.days[d]!.a >= 1);
     for (const n of RULES.keepsakes.days) if (c.days >= n) due(`days:${n}`, { on: countedDays[n - 1] ?? today });
   }
   if (!s.keepsakes.full) {
-    const on = dates.find((d) => s.days[d]!.k?.full);
+    let on: ISODate | null = null;
+    for (const d in s.days) if (s.days[d]!.k?.full && (!on || d < on)) on = d;
     if (on) due('full', { on });
   }
   let firstChallenge: ISODate | null = null;
@@ -972,13 +1014,17 @@ export const keepsakesDue = (s: Rewards, now: Date, extra: KeepsakeExtra = {}): 
     }
   }
   if (firstChallenge) due('challenge', { on: firstChallenge });
-  // chapters that have closed: the Monday after their last Sunday, once that Sunday has stopped taking taps
+  // Chapters that have closed (the Monday after their last Sunday, once that Sunday has stopped taking taps), newest
+  // first, back to the newest one already kept: they are added in order, so nothing older is waiting. A year at most.
   const zero = mondayOf(s.startedOn);
-  for (let start = zero, i = 0; i < 600; start = shiftDays(start, RULES.chapterDays), i++) {
-    const closes = shiftDays(start, RULES.chapterDays);
-    if (closes > today || (closes === today && now.getHours() < RULES.close.tapHour)) break;
+  let last = Math.floor(daysBetween(zero, today) / RULES.chapterDays) - 1;
+  if (last >= 0 && shiftDays(zero, (last + 1) * RULES.chapterDays) === today && now.getHours() < RULES.close.tapHour) last--;
+  const chapters: Array<{ key: string; keepsake: Keepsake }> = [];
+  for (let i = last; i >= 0 && i > last - 13; i--) {
+    const start = shiftDays(zero, i * RULES.chapterDays);
     const key = `chapter:${start}`;
-    if (s.keepsakes[key]) continue;
+    if (s.keepsakes[key]) break;
+    const closes = shiftDays(start, RULES.chapterDays);
     let d = 0;
     let sessions = 0;
     let goals = 0;
@@ -994,8 +1040,9 @@ export const keepsakesDue = (s: Rewards, now: Date, extra: KeepsakeExtra = {}): 
     for (const k in s.once) if (k.startsWith('goal:') && s.once[k]!.on >= start && s.once[k]!.on <= end) goals++;
     const written = (extra.lines ?? []).filter((l) => l.date >= start && l.date <= end && l.text.trim()).sort((x, y) => (x.date < y.date ? -1 : x.date > y.date ? 1 : x.text < y.text ? -1 : 1));
     const line = written.length ? written[fnv(`${s.userId}:${start}`) % written.length]!.text.trim() : null;
-    due(key, { on: closes, d, s: sessions, g: goals, ...(line ? { t: clip(line) } : null) });
+    chapters.push({ key, keepsake: { on: closes, d, s: sessions, g: goals, ...(line ? { t: clip(line) } : null) } });
   }
+  out.push(...chapters.reverse());
   return out;
 };
 /** Put keepsakes in the store. One already there is left as it is; the same store comes back when nothing is new. */
@@ -1061,10 +1108,14 @@ export interface World {
   /** Sessions, activities and logged sets, as the status rules read them. */
   snap: Snapshot;
   todos: readonly Todo[];
+  /** The to-dos checked off on a day, when the caller keeps them by day (the phone does: it asks after every tap). */
+  todosDoneOn?(date: ISODate): readonly Todo[];
   /** Every habit, archived ones included. */
   habits: readonly Habit[];
   checksOn(date: ISODate): readonly HabitCheck[];
   goals: readonly Aim[];
+  /** The day's goal, when the caller keeps the goals by period. */
+  dayGoal?(date: ISODate): Aim | undefined;
   /** How many journal lines a day holds. */
   linesOn(date: ISODate): number;
   /** How the person is training now (the status chip). */
@@ -1079,7 +1130,7 @@ export interface World {
 export const dayFactsOf = (w: World, date: ISODate, today: ISODate): DayFacts => {
   let todosDone = 0;
   let todosEarlier = 0;
-  for (const t of w.todos) {
+  for (const t of w.todosDoneOn ? w.todosDoneOn(date) : w.todos) {
     if (t.doneOn !== date || (t.deletedOn && t.deletedOn <= date)) continue;
     todosDone++;
     if (t.createdOn < date) todosEarlier++;
@@ -1128,7 +1179,7 @@ export const dayFactsOf = (w: World, date: ISODate, today: ISODate): DayFacts =>
     if (acts.some((a) => a.kind === 'lift')) auto.lift = 'done';
     if (acts.some((a) => a.kind === 'cross')) auto.cross = 'done';
   }
-  const g = w.goals.find((x) => x.level === 'day' && x.period === date);
+  const g = w.dayGoal ? w.dayGoal(date) : w.goals.find((x) => x.level === 'day' && x.period === date);
   return {
     date,
     todosDone,
