@@ -21,7 +21,7 @@ import { HABIT_STARTERS, HabitsMeta, OrbRow } from '../habits/OrbRow';
 import { useLog, type Log } from '../log/useLog';
 import { StravaPrimer, useStravaPrimer } from '../onboarding';
 import { PlanDay } from '../dayplan/PlanDay';
-import { nothingSetUp, looksNew } from './firstRun';
+import { isFirstDay, nothingSetUp, looksNew } from './firstRun';
 import { FirstRunHero, type FirstRunAction } from './FirstRunHero';
 import { preloadCloseDay } from './CloseDay';
 import { Hero } from './Hero';
@@ -322,6 +322,10 @@ const DayContent = memo(function DayContent({ date, onMorning }: { date: ISODate
   // what Today shows, and in what order (lib/prefs.ts): Fitness leads when it is on; with it off the day's own content does
   const parts = todayParts(usePrefs());
   const fitness = parts.includes('fitness');
+  // the day setup was finished, with nothing on it yet (firstRun.ts): the day's own poster leads, whole, and its lit stop
+  // is the first move; the training card's slot keeps only the evening's Close card, as with Fitness off
+  const firstDay = fitness && loaded && parts.includes('day') && isFirstDay(log, date);
+  const training = fitness && !firstDay;
   // the held day's clock (useDeferred): past midnight on a day still on screen it is that day's last minute, so "Close
   // yesterday" never offers the day before the one the person is still in
   const now = useFaceMinutes();
@@ -341,7 +345,7 @@ const DayContent = memo(function DayContent({ date, onMorning }: { date: ISODate
   const day =
     parts.includes('day') && loaded ? (
       <SectionBoundary key="day" name="today.plan" resetKey={date}>
-        <PlanDay date={date} today={today} log={log} slim={fitness} yesterday={isToday && closeYesterdayDue(log, now, yesterdayLine) ? <CloseYesterday log={log} /> : null} />
+        <PlanDay date={date} today={today} log={log} slim={training} yesterday={isToday && closeYesterdayDue(log, now, yesterdayLine) ? <CloseYesterday log={log} /> : null} />
       </SectionBoundary>
     ) : null;
   // nothing is switched on: one line and the way to the switches, and nothing else on the page
@@ -354,7 +358,7 @@ const DayContent = memo(function DayContent({ date, onMorning }: { date: ISODate
     );
 
   return (
-    <div className="day-page" data-day={date} data-fitness={fitness ? undefined : 'off'}>
+    <div className="day-page" data-day={date} data-fitness={fitness ? undefined : 'off'} data-first-day={firstDay || undefined}>
       {fitness && loaded ? (
         <SectionBoundary name="today.status" resetKey={date}>
           <StatusChip date={date} today={today} onPlan={openPlan} />
@@ -367,7 +371,7 @@ const DayContent = memo(function DayContent({ date, onMorning }: { date: ISODate
         <NotLoaded date={date} fitness={fitness} habits={parts.includes('habits')} />
       ) : (
         <SectionBoundary name="today.hero" resetKey={date}>
-          {fitness ? bare ? <FirstRunSlot date={date} log={log} /> : <Hero date={date} log={log} /> : <Hero date={date} log={log} closeOnly />}
+          {training ? bare ? <FirstRunSlot date={date} log={log} /> : <Hero date={date} log={log} /> : <Hero date={date} log={log} closeOnly />}
         </SectionBoundary>
       )}
       <LiveExtras date={date} loaded={loaded} />
