@@ -1,4 +1,3 @@
-import { STREAK_MILESTONES } from '@logbook/shared';
 import { motion } from 'motion/react';
 import { haptics } from '@/lib/haptics';
 import { useReduced } from '@/lib/motion';
@@ -33,5 +32,3 @@ export const celebrateOnce = (key: string, big: boolean) => {
   if (big) haptics.celebrate();
   else haptics.success();
 };
-
-export const isMilestone = (n: number) => (STREAK_MILESTONES as readonly number[]).includes(n);
