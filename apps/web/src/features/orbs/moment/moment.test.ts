@@ -26,7 +26,12 @@ vi.mock('./layer', () => ({
     return true;
   },
   liveOrbs: () => 0,
+  clearOrbs: () => {
+    cleared.n++;
+    for (const s of spawned.splice(0)) s.onEnd?.(false);
+  },
 }));
+const cleared = { n: 0 };
 
 const U = 'u_owner';
 /** A Wednesday after Orbs begin, at ten in the morning. */
@@ -242,6 +247,38 @@ describe('the counter while Orbs are in the air', () => {
     vi.advanceTimersByTime(60_000);
     expect(moment.counterOffset(TODAY)).toBe(0);
     expect(vi.getTimerCount()).toBe(0);
+  });
+});
+
+describe('a sheet that comes up under Orbs in the air', () => {
+  beforeEach(() => vi.useFakeTimers());
+  afterEach(() => {
+    vi.useRealTimers();
+    for (const k of ['window', 'document', 'Element', 'localStorage', 'sessionStorage']) delete g[k];
+  });
+  it('takes them with it, and the count has them at once; a sheet going away takes nothing', async () => {
+    const { moment, counter, landings, gain, shown } = await launch();
+    moment.setCounter(counter);
+    moment.popOrbs({ key: 'todo', date: TODAY, n: 1, from: rect(300, 500), id: 't' });
+    gain('todo', 1);
+    expect(shown()).toBe(0);
+    const before = cleared.n;
+    moment.setOverlays(1);
+    expect(cleared.n).toBe(before + 1);
+    expect(shown()).toBe(1);
+    // it never reached the sun
+    expect(landings).toHaveLength(0);
+    moment.setOverlays(0);
+    expect(cleared.n).toBe(before + 1);
+  });
+  it('so does another tab, or a page pushed over this one', async () => {
+    const { moment, counter, landings, gain, shown } = await launch();
+    moment.setCounter(counter);
+    moment.popOrbs({ key: 'todo', date: TODAY, n: 1, from: rect(300, 500), id: 't' });
+    gain('todo', 1);
+    moment.leftScreen();
+    expect(shown()).toBe(1);
+    expect(landings).toHaveLength(0);
   });
 });
 

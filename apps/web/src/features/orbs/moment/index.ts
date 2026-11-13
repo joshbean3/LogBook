@@ -2,7 +2,7 @@ import { countOf, today as clockToday, type ISODate } from '@logbook/shared';
 import { haptics } from '@/lib/haptics';
 import { showToast, toastStore, type ToastAction } from '@/ui/toastStore';
 import { getOrbs, getSwitches, onOrbsChange, orbRoom, ORBS_EVENT, type OrbsGained } from '../store';
-import { CHIP_MS, liveOrbs, showChip, spawn } from './layer';
+import { CHIP_MS, clearOrbs, liveOrbs, showChip, spawn } from './layer';
 import { CLAIM_MS, createClaims, dayTakes, FIRST_ORB, flightMs, gainToast, keepsakeToast, lightsOf, POP, popPlan, popsAtControl, SHEET_OPENING_MS, STATUS_AFTER_MS, statusLine, STILL, stillLights, SUBJECT_QUIET_MS, type Claim } from './rules';
 
 /**
@@ -177,10 +177,16 @@ let overlays = 0;
 let overlayAt = -Infinity;
 /** The shell says how many sheets and menus are open; one more than before is a sheet on its way up. */
 export const setOverlays = (n: number) => {
-  if (n > overlays) overlayAt = performance.now();
+  if (n > overlays) {
+    overlayAt = performance.now();
+    // and it takes the Orbs already in the air with it: they would cross it on their way to a counter it now covers
+    clearOrbs();
+  }
   overlays = n;
 };
 export const overlaysOpen = () => overlays;
+/** The screen under the Orbs changed (another tab, a page pushed or popped): the ones in the air go, and the count has them. */
+export const leftScreen = () => clearOrbs();
 
 // ---------- the pop ----------
 const reduced = () => typeof window !== 'undefined' && typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
