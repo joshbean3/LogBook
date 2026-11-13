@@ -522,7 +522,11 @@ describe('test 9: the clock', () => {
     const s = live(2, () => ({ habitsDone: 1 }));
     const ahead = reconcile(s, [facts(day(30), { habitsDone: 5 })], at(day(30)), { serverDay: day(1) });
     expect(ahead.store.days[day(30)]).toBeUndefined();
-    expect(ahead.store.clock).toBe(day(2));
+    // the store is left exactly as it was: were the clock moved on to the last day allowed, yesterday would be closed
+    // early once the date is right again, and lose the run that syncs for it
+    expect(ahead.store).toBe(s);
+    const again = reconcile(ahead.store, [facts(day(0), { habitsDone: 1, auto: { run: 'done' } }), facts(day(1), { habitsDone: 1 })], at(day(1), 15), { serverDay: day(1) });
+    expect(again.store.days[day(0)]).toEqual({ n: 4, a: 2, k: { habit: 1, 'train:run': 3 } });
     // the server's date plus one is allowed (a phone ahead of UTC)
     const edge = reconcile(s, [facts(day(2), { habitsDone: 5 })], at(day(2)), { serverDay: day(1) });
     expect(edge.store.days[day(2)]?.n).toBe(5);

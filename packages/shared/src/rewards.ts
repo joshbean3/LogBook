@@ -832,8 +832,9 @@ export const reconcile = (store: Rewards, facts: readonly DayFacts[], now: Date,
   // (a pass made under a wrong date always moves the clock, so the clock alone says whether to look)
   if (limit && store.clock > limit) store = within(store, limit);
   if (limit && today > limit) {
-    // the device is ahead of the server by more than a time zone: nothing counts until it is not
-    return { store: limit > store.clock ? { ...store, clock: limit } : store, gained };
+    // the device is ahead of the server by more than a time zone: nothing counts until it is not, and nothing moves
+    // (the clock least of all: moved on, it would close yesterday early once the date is right again)
+    return { store, gained };
   }
   const clock = today > store.clock ? today : store.clock;
   const edge = shiftDays(clock, -1);
