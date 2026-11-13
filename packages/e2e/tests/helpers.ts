@@ -8,10 +8,15 @@ export const PASSWORD = 'correct-horse-battery-9';
  * fade whenever the same session opens it again. Tests are about the app, so every test's session starts with the
  * opening already seen: the same mark the app itself leaves in sessionStorage. A test of the opening asks for it with
  * `test.use({ opening: 'sunrise' })`.
+ *
+ * The first time a tab is opened, a short tip rises over it (apps/web/src/features/tips). For the same reason every
+ * test's session starts with the four tips already seen: the mark the app leaves in localStorage when a tip is dismissed.
+ * A test of first run or of the tips asks for them with `test.use({ tips: 'first' })` and dismisses each with `gotIt`.
  */
-export const test = base.extend<{ opening: 'quiet' | 'sunrise' }>({
+export const test = base.extend<{ opening: 'quiet' | 'sunrise'; tips: 'seen' | 'first' }>({
   opening: ['quiet', { option: true }],
-  context: async ({ context, opening }, use) => {
+  tips: ['seen', { option: true }],
+  context: async ({ context, opening, tips }, use) => {
     if (opening === 'quiet') {
       await context.addInitScript(() => {
         try {
@@ -21,10 +26,34 @@ export const test = base.extend<{ opening: 'quiet' | 'sunrise' }>({
         }
       });
     }
+    if (tips === 'seen') {
+      await context.addInitScript(() => {
+        try {
+          // once per session, so signing out (which removes every `logbook.` key) leaves the key gone
+          if (sessionStorage.getItem('e2e-tips-seen') === '1') return;
+          sessionStorage.setItem('e2e-tips-seen', '1');
+          localStorage.setItem('logbook.tips', JSON.stringify({ seen: ['today', 'goals', 'plan', 'journal'] }));
+        } catch {
+          /* a page with no storage */
+        }
+      });
+    }
     await use(context);
   },
 });
 export { expect };
+
+/**
+ * A tab's first-visit tip (with `tips: 'first'`): waits for it to rise over the tab, checks it is that place's, and
+ * dismisses it with its one Sky button. Ends when the sheet has gone and the tab takes taps again.
+ */
+export const gotIt = async (page: Page, place: 'Today' | 'Goals' | 'Fitness' | 'Journal') => {
+  const tip = page.getByRole('dialog', { name: place, exact: true });
+  await expect(tip.getByRole('button', { name: 'Got it', exact: true })).toBeVisible();
+  await expect(tip.getByText('How it works', { exact: true })).toBeVisible();
+  await tip.getByRole('button', { name: 'Got it', exact: true }).click();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+};
 
 /** A fresh address for every account, so tests never share one (and can run side by side). */
 export const newEmail = (tag: string) => `e2e-${tag}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}@example.com`;
