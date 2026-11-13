@@ -65,6 +65,9 @@
   justify-items: center;
   gap: var(--sp-2);
 }
-.tip-tour {
+/* the quiet link is first run's own ("See how Orby works"): Inter 600 at the sub size, Deep Sky, a 44 pt target */
+.tip .tip-tour {
   min-height: var(--hit);
+  font-size: var(--fs-sub);
+  line-height: var(--lh-sub);
 }
