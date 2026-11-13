@@ -36,13 +36,13 @@
 .om-pop {
   opacity: 0;
 }
-/* the light is centered on the point */
-.om-pop > .orb-light {
+/* the Orb (its kind's own, features/orbs/gems) is centered on the point */
+.om-pop > .orb-gem {
   position: absolute;
-  left: calc(var(--ol) / -2);
-  top: calc(var(--ol) / -2);
-  width: var(--ol);
-  height: var(--ol);
+  left: calc(var(--og) / -2);
+  top: calc(var(--og) / -2);
+  width: var(--og);
+  height: var(--og);
 }
 
 /* ---------- the rise: 420 ms, from the control's center ---------- */

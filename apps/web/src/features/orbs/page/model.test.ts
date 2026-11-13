@@ -37,6 +37,8 @@ describe('the day’s lines', () => {
     expect(paidOn(paid, day(8)).map((l) => `${l.label} ${l.n}`)).toEqual(['Weeks in a row 5', 'Week goal 9', 'Today’s challenge 5']);
     expect(paidOn(paid, day(9)).map((l) => `${l.label} ${l.n}`)).toEqual(['Month goal 30']);
     expect(paidOn(paid, day(7))).toEqual([]);
+    // each line names its Orb by the key it was paid under
+    expect(paidOn(paid, day(8)).map((l) => l.gem)).toEqual(paidOn(paid, day(8)).map((l) => l.key));
   });
 });
 
