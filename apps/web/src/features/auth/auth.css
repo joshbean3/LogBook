@@ -1,6 +1,7 @@
-/* ---------- Sign in and sign up (shape system v2, reference 710-711; layout standard 2.11, 3.3.5): the round back
-   button, the Fraunces title (56 for a brand moment, 26 for a question), the fields on the ground, each with its edge, and
-   the one Sky primary pinned at the bottom with the other door 8 under it. The welcome ground's sunrise comes up once. ---------- */
+/* ---------- Sign in and sign up (shape system v2, reference 710-711; layout standard 2.11, 3.3.5): the look of a
+   question screen in setup. The same top bar (the round back button, or the lockup, on its center line), the Fraunces
+   title at the section size 24 under it, the fields on the ground, each with its edge, and the one Sky primary pinned at
+   the bottom with the other door 8 under it. The ground is the dawn wash the app's pages use. ---------- */
 .auth {
   position: relative;
   isolation: isolate;
@@ -11,39 +12,20 @@
   display: flex;
   flex-direction: column;
   /* the keyboard overlays the web view (it never resizes it): the pinned button rides above it on --kb */
-  padding: calc(var(--sp-2) + var(--safe-t)) var(--gutter) calc(var(--sp-3) + max(var(--safe-b), var(--kb, 0px)));
+  padding: calc(6px + var(--safe-t)) var(--gutter) calc(var(--sp-3) + max(var(--safe-b), var(--kb, 0px))); /* brand-ok: geometry, the 54 px top bar's inset (as .ob-top) */
   background: var(--bg);
   color: var(--ink);
   overflow-x: hidden;
   container: page / inline-size;
 }
-/* the welcome ground (plan 6.9, mockups/welcome.png): Haze at the top to Cloud, warming to --welcome-warm at the bottom,
-   with the Apricot sunrise glow under the pinned button. The screen's one warm light. It never moves; on arrival the glow
-   comes up as an opacity fade (guide 9.1: a gradient never transitions) */
+/* the ground (guide 5.3): the dawn wash, Haze at the top settling into Cloud 300 px down, as on every tab and on the
+   questions that follow. It never moves */
 .auth-halo {
   position: fixed;
   inset: 0;
   z-index: -1;
-  overflow: hidden;
-  background: linear-gradient(180deg, var(--haze) 0, var(--cloud) 340px, var(--cloud) 62%, var(--welcome-warm) 100%);
+  background: var(--dawn);
   pointer-events: none;
-}
-.auth-halo::after {
-  content: '';
-  position: absolute;
-  left: -12%;
-  right: -12%;
-  bottom: -26%;
-  height: 52%;
-  background: var(--glow-hero);
-}
-.auth-halo.rise::after {
-  animation: auth-dawn var(--dur-dawn) var(--ease-out) both;
-}
-@keyframes auth-dawn {
-  from {
-    opacity: 0;
-  }
 }
 .auth-body {
   position: relative;
@@ -55,11 +37,13 @@
   flex-direction: column;
   min-height: 0;
 }
+/* the top bar's row: 48 under the bar's 6, so its content is on the bar's center line and the title starts 24 under the
+   54 px bar, where every question's does */
 .auth-brand {
   display: flex;
   align-items: center;
   gap: var(--sp-3);
-  height: 44px;
+  height: 48px;
   margin-bottom: var(--sp-6);
   color: var(--ink);
 }
@@ -71,7 +55,7 @@
   align-self: flex-start;
   width: 40px;
   height: 40px;
-  margin: 2px 0 var(--sp-8); /* brand-ok: geometry, centers the 40 px button in its 44 px press */
+  margin: 4px 0 calc(4px + var(--sp-6)); /* brand-ok: geometry, centers the 40 px button in the bar's 48 px row; the title 24 under the bar */
   background: var(--surface);
   box-shadow: var(--shadow-float);
   color: var(--ink);
@@ -86,30 +70,25 @@
 .auth .auth-back.icon-btn:disabled {
   opacity: 0.5;
 }
+/* the title: Fraunces 600 at the section size, left aligned, the same level and place as every question in setup
+   (layout standard 2.11, 4.1; plan O7). A question step (the email, a password) and a statement (Sign in.) are one size */
 .auth-title {
   margin: 0;
   font-style: normal;
-  font-weight: 700;
-  font-size: clamp(30px, var(--fs-hero), 56px);
-  line-height: clamp(30px, var(--fs-hero), 56px);
-  letter-spacing: var(--tr-hero);
-  color: var(--ink);
-  overflow-wrap: break-word;
-}
-/* a question step (the email, a password): the question is the step's heading at the section size, left aligned, the
-   same level as every question in setup (layout standard 2.11, 4.1; plan O7) */
-.auth-title.is-question {
   font-weight: 600;
   font-size: var(--fs-section);
   line-height: var(--lh-section);
   letter-spacing: 0;
+  color: var(--ink);
+  text-wrap: balance;
+  overflow-wrap: break-word;
 }
 .auth-sub {
   margin: var(--sp-2) 0 var(--sp-6);
   font-size: var(--fs-sub);
   line-height: var(--lh-sub);
   color: var(--ink-2);
-  max-width: 34ch;
+  max-width: 36ch;
   /* a long email address wraps instead of running off the screen */
   overflow-wrap: anywhere;
 }
@@ -250,9 +229,11 @@
   height: 54px;
   font-size: var(--fs-row);
 }
-/* quiet until the answer will do, but still pressable: a press says what is missing, at the field (auth-07) */
-.auth-submit.btn:disabled,
-.auth-submit.btn[aria-disabled='true'] {
+/* quiet until the answer will do, but still pressable: a press says what is missing, at the field (auth-07). Named
+   from the screen, so it outranks the app's own primary (shape.css `:root .btn.primary`, which came later and kept
+   these Sky): Next reads here as it does on a question in setup */
+.auth .auth-submit.btn:disabled,
+.auth .auth-submit.btn[aria-disabled='true'] {
   background: var(--haze);
   border-color: var(--haze);
   box-shadow: none;
@@ -284,6 +265,10 @@
 /* the other door, 8 under the pinned button (layout standard 3.2) */
 .auth-foot {
   margin-top: var(--sp-2);
+}
+/* a screen with no other door: the button rests 16 above the safe area, where the questions' button does */
+.auth-body:not(:has(.auth-foot)) {
+  padding-bottom: var(--sp-1);
 }
 /* with the keyboard up the other door steps aside, so the field, its message and the button all fit above it */
 html.kb-open .auth-foot {
@@ -326,7 +311,7 @@ html.kb-open .auth-foot {
 }
 .auth-help.site-link {
   position: absolute;
-  top: 0;
+  top: 2px; /* brand-ok: geometry, the 44 px link on the top bar's center line */
   right: -8px;
 }
 .start-help.site-link,
@@ -344,28 +329,13 @@ html.kb-open .auth-foot {
   text-decoration: none;
 }
 @media (max-width: 359px) {
-  .auth-title {
-    font-size: var(--fs-title);
-    line-height: var(--lh-title);
-  }
-  .auth-brand,
-  .auth .auth-back.icon-btn {
+  .auth-brand {
     margin-bottom: var(--sp-4);
+  }
+  .auth .auth-back.icon-btn {
+    margin-bottom: calc(4px + var(--sp-4)); /* brand-ok: geometry, the button's 4 in the bar's row, then 16 */
   }
   .auth-sub {
     margin-bottom: var(--sp-4);
-  }
-}
-/* the same step-down at a larger text size: the screen is a size container in rem */
-@container page (max-width: 19rem) {
-  .auth-title {
-    font-size: var(--fs-title);
-    line-height: var(--lh-title);
-  }
-}
-@media (prefers-reduced-motion: reduce) {
-  .auth-halo.rise::after {
-    animation-duration: var(--dur-reduce);
-    animation-timing-function: linear;
   }
 }

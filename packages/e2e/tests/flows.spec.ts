@@ -20,6 +20,59 @@ test('sign up through setup to Today', async ({ page }) => {
   await expect(page).not.toHaveURL(/\/welcome/);
 });
 
+/**
+ * The welcome pager (apps/web/src/features/auth/Start.tsx): three pages, each a poster of a real tab, over the assistant's
+ * bar. Get started is on every page. The page dots are the swipe's equal for the keyboard and VoiceOver.
+ */
+test('the welcome pager: three posters, Get started from any page, and Back returns to the page left', async ({ page }) => {
+  await page.goto('/start');
+  const dots = page.getByRole('slider', { name: 'Page' });
+  await expect(dots).toHaveAttribute('aria-valuemax', '3');
+  await expect(dots).toHaveAttribute('aria-valuetext', 'Page 1 of 3: Your day, lit.');
+  await expect(page.getByRole('heading', { level: 1, name: 'Your day, lit.' })).toBeVisible();
+  // each page is one picture of a tab, and the assistant's bar sits under all of them
+  await expect(page.getByRole('img', { name: /^Today in Orby\./ })).toBeVisible();
+  await expect(page.getByRole('img', { name: /^The assistant’s bar/ })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Get started' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Next', exact: true })).toHaveCount(0);
+
+  // the dots page with the arrow keys, and hold at the ends
+  await dots.focus();
+  await page.keyboard.press('ArrowRight');
+  await expect(dots).toHaveAttribute('aria-valuetext', 'Page 2 of 3: A plan that fits.');
+  await expect(page.getByRole('heading', { level: 1, name: 'A plan that fits.' })).toBeVisible();
+  await expect(page.getByRole('img', { name: /^Fitness in Orby\./ })).toBeVisible();
+  await page.keyboard.press('End');
+  await expect(dots).toHaveAttribute('aria-valuetext', 'Page 3 of 3: One line a day.');
+  await expect(page.getByRole('img', { name: /^Journal in Orby\./ })).toBeVisible();
+  await page.keyboard.press('ArrowRight');
+  await expect(dots).toHaveAttribute('aria-valuenow', '3');
+  // a tap on the dots goes on a page, and from the last one back to the first
+  await dots.click();
+  await expect(dots).toHaveAttribute('aria-valuenow', '1');
+  await page.keyboard.press('ArrowRight');
+  await expect(dots).toHaveAttribute('aria-valuenow', '2');
+  // only the page on screen is read: one heading, one poster
+  await expect(page.getByRole('heading', { level: 1 })).toHaveCount(1);
+
+  // Get started from the second page opens the privacy page; Back returns to the page that was left
+  await page.waitForTimeout(500);
+  await page.getByRole('button', { name: 'Get started' }).click();
+  await expect(page.getByRole('heading', { name: 'Allow the assistant?' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Not now', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Allow', exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Back' }).click();
+  await expect(page.getByRole('heading', { level: 1, name: 'A plan that fits.' })).toBeVisible();
+  await expect(page.getByRole('slider', { name: 'Page' })).toHaveAttribute('aria-valuenow', '2');
+
+  // the quiet way in for someone with an account, and the way back from it
+  await page.getByRole('button', { name: 'I have an account' }).click();
+  await expect(page).toHaveURL(/\/login/);
+  await expect(page.getByRole('heading', { name: /^(Sign in\.|Welcome back\.)$/ })).toBeVisible();
+  await page.getByRole('button', { name: 'Back' }).click();
+  await expect(page).toHaveURL(/\/start/);
+});
+
 test('habit: check, then undo, and each survives a reload', async ({ page }) => {
   await signUpByApi(page);
   const tile = page.locator('button[data-habit][aria-label="Stretch"]');
@@ -211,7 +264,7 @@ test.describe('the opening', () => {
     // gone well inside its 2.8 seconds, and the tap went to the splash, not to the page under it
     await expect(splash).toHaveCount(0, { timeout: 1500 });
     await expect(page).toHaveURL(/\/start/);
-    await expect(page.getByRole('button', { name: 'Next', exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Get started' })).toBeVisible();
     await page.reload();
     await expect(page.locator('.brand-splash')).toHaveAttribute('data-moment', 'fade');
     await expect(page.locator('.brand-splash')).toHaveCount(0, { timeout: 3000 });
@@ -227,7 +280,7 @@ test.describe('the opening', () => {
     // never shorter than the sunrise less what it took to find it, and not held past its cap
     expect(took).toBeGreaterThan(1800);
     expect(took).toBeLessThan(5000);
-    await expect(page.getByRole('button', { name: 'Next', exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Get started' })).toBeVisible();
   });
 
   test('signing out reloads the page, and that reload is quiet: the sunrise is once per session', async ({ page }) => {
