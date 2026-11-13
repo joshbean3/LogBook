@@ -309,6 +309,7 @@
 .ob-q-value {
   font-size: var(--fs-sub);
   font-weight: 600;
+  font-variant-numeric: tabular-nums;
   color: var(--ink-2);
 }
 .ob-hint {

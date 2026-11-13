@@ -150,6 +150,10 @@ export const FitnessChoice = ({ value, onChange, label }: { value: boolean | und
         })}
       </div>
       <TabCapsule fitness={value !== false} />
+      {/* the answer changed the picture: said once, politely */}
+      <p className="sr-only" role="status" aria-live="polite">
+        {value === undefined ? '' : `Your tabs: ${shownTabs(value).map((t) => t.label).join(', ')}.`}
+      </p>
     </div>
   );
 };

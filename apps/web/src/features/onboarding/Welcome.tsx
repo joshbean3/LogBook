@@ -823,6 +823,14 @@ function Payoff({ draft, set, profile, start, today, seen, onOpen, onChange, onT
   useEffect(() => {
     if (phase === 'reveal') seen.current = true;
   }, [phase, seen]);
+  // the reveal is a new screen inside the same step: focus moves to its heading once it has come in
+  const headRef = useRef<HTMLHeadingElement>(null);
+  const built = useRef(phase === 'build');
+  useEffect(() => {
+    if (phase !== 'reveal' || !built.current) return;
+    const id = setTimeout(() => headRef.current?.focus({ preventScroll: true }), reduce ? 60 : 320);
+    return () => clearTimeout(id);
+  }, [phase, reduce]);
 
   if (phase === 'build')
     return (
@@ -866,7 +874,7 @@ function Payoff({ draft, set, profile, start, today, seen, onOpen, onChange, onT
   return (
     <div className="ob-step ob-payoff ob-reveal">
       <header className="ob-rv-head">
-        <motion.h1 className="ob-pay-title display" tabIndex={-1} {...rise(0)}>
+        <motion.h1 ref={headRef} className="ob-pay-title display" tabIndex={-1} {...rise(0)}>
           {profile ? 'Your first day.' : 'Today is ready.'}
         </motion.h1>
         <motion.p className="ob-lede" {...rise(0)}>

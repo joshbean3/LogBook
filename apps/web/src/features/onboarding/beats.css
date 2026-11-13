@@ -63,6 +63,7 @@
   align-items: center;
   gap: var(--sp-3);
   font: 500 var(--fs-row) / var(--lh-row) var(--sans);
+  font-variant-numeric: tabular-nums;
   color: var(--ink-2);
 }
 /* a step written: the done coin, Sky with a Night Ink check (no bevel, no shadow) */

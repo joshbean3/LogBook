@@ -139,6 +139,13 @@
   flex: none;
 }
 
+/* ---------- the goal: the far hills (ui/poster). Here the hills' words are numbers that change with the answer ---------- */
+.obp-goal .fh-goal,
+.obp-goal .fh-value,
+.obp-goal .fh-title {
+  font-variant-numeric: tabular-nums;
+}
+
 /* ---------- the training card: the card's own classes (features/day/day.css); only its place is set here ---------- */
 .hero.aura.obp-train {
   width: 100%;
