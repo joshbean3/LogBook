@@ -446,9 +446,7 @@ function Flow({ uid }: { uid: string }) {
             <AnimatePresence initial={false}>
               {picked && picked !== 'base' ? (
                 <motion.div key="race" className="card ob-card ob-race-block" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={crossfade}>
-                  <p className="ob-q-label">
-                    Race day <span className="ob-q-value">{profile.raceDate ? fmtDate('short', profile.raceDate) : 'Not set'}</span>
-                  </p>
+                  {/* the wheel's own name is "Race day"; the date picked is written on the poster's far hill */}
                   <RaceStrip start={start} value={profile.raceDate} onChange={(r) => set({ raceDate: r })} />
                   {tightNote}
                 </motion.div>

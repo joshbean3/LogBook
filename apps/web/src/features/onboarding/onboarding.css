@@ -8,7 +8,7 @@
      ob-bar     the top bar: 54 tall under the safe area, Back at the leading edge, the progress marks in the middle
      ob-title   the question: Fraunces 600 at the section size (the size the tabs use for a title inside a page)
      ob-lede    the one plain line under a title: Inter 15 Dusk, 8 under the title
-     ob-poster  the picture's place: 16 under the lede, edge to edge inside the 16 px gutter
+     ob-poster  the picture's place: 12 under the lede, edge to edge inside the 16 px gutter
      ob-controls  the controls' place: 12 under the poster, 12 between groups
      ob-foot    the pinned foot: 16 from the edges, above the safe area (and the keyboard)
      ob-cta     the one Sky button: full width, 54 tall, the row size
@@ -191,7 +191,7 @@
 
 /* ---------- ob-poster, ob-controls ---------- */
 .ob-poster {
-  margin-top: var(--sp-4);
+  margin-top: var(--sp-3);
   min-width: 0;
 }
 .ob-poster-in {
@@ -209,7 +209,7 @@
 }
 /* a step whose controls are its picture (the Fitness question): they stand where the poster does */
 .ob-lede + .ob-controls {
-  margin-top: var(--sp-4);
+  margin-top: var(--sp-3);
 }
 /* an answer's Paper card */
 .card.ob-card {
@@ -230,7 +230,8 @@
   /* edge to edge, so no card shadow shows beside it in the strip under the button */
   margin-inline: calc(-1 * var(--gutter));
   padding-inline: var(--gutter);
-  background: linear-gradient(to bottom, transparent, var(--bg) var(--sp-6));
+  /* solid 8 before the first thing in it, so words that scroll under never touch a quiet link's words */
+  background: linear-gradient(to bottom, transparent, var(--bg) var(--sp-4));
   pointer-events: none;
 }
 .ob-foot .btn,
@@ -903,7 +904,7 @@
 .ob-rv-head {
   flex: none;
   min-width: 0;
-  padding-top: var(--sp-4);
+  padding-top: var(--sp-2);
 }
 .ob-pay-title {
   margin: 0;
@@ -916,7 +917,7 @@
   overflow-wrap: break-word;
 }
 .ob-rv-stack {
-  margin-top: var(--sp-4);
+  margin-top: var(--sp-3);
   min-width: 0;
 }
 .ob-rv-in {
@@ -948,6 +949,7 @@
 /* the reveal's foot: the Sky button, then the quiet link close under it */
 .ob-reveal .ob-pay-foot {
   gap: 0;
+  padding-top: var(--sp-4);
 }
 .ob-pay-sum {
   display: flex;
@@ -1135,6 +1137,20 @@ html.kb-open .ob-later {
 .ob-goal-pills .ob-chip:nth-child(n + 4) {
   grid-column: span 3;
 }
+/* the race-day wheel in its card: the days' own 88 and 8 round them */
 .card.ob-card.ob-race-block {
-  padding-block: var(--sp-3);
+  padding-block: var(--sp-2);
+}
+.ob .ob-race,
+.ob .ob-race-strip {
+  height: 88px;
+}
+.ob .ob-race-strip {
+  padding-block: 0;
+}
+.ob .ob-race-ring {
+  top: 0;
+}
+.ob-race-block > .ob-warn {
+  margin-bottom: var(--sp-2);
 }

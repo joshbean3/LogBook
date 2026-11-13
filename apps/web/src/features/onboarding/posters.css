@@ -150,7 +150,14 @@
 /* the morning question: the name over the timeline row alone, so the sky is short and the row is the point */
 .obp-train.is-rowonly .hz-words {
   min-height: 0;
-  padding-bottom: var(--sp-3);
+  padding-bottom: var(--sp-2);
+}
+.obp-train.is-rowonly .hz-ctl {
+  padding-block: var(--sp-3);
+}
+.obp-train.is-rowonly .hero-deck {
+  /* the row's own 44, with no deck to hold room for */
+  min-height: var(--hit);
 }
 .obp-train.is-rowonly .hz-sky {
   background: linear-gradient(180deg, var(--haze) 0, var(--cloud) 60%, var(--paper) 100%);
