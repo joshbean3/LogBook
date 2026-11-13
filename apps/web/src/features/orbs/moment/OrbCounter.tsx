@@ -34,7 +34,8 @@ export const OrbCounter = (): React.JSX.Element | null => {
     const me = { el: el.current, sun: sun.current, land: () => setPulse((p) => p + 1) };
     setCounter(me);
     return () => setCounter(null, me);
-  }, [on]);
+    // the sun is a new element after each landing (its pulse starts again): it registers again
+  }, [on, pulse]);
   if (!on) return null;
   return (
     <button ref={el} type="button" className="nb-orbs" aria-label={counterLabel(shown.cur, level)} onClick={() => nav.go('/orbs')}>

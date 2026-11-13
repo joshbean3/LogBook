@@ -104,6 +104,32 @@ describe('hapticAtPeak', () => {
     expect(seen).toEqual([1.04, 1.12, 1.11, 1.05]);
   });
 
+  it('what is born with the completion (an earned Orb) runs once, on the haptic’s own frame, right after it', async () => {
+    const { events, motionValue, hapticAtPeak } = await setup();
+    const s = motionValue(1);
+    const order: string[] = [];
+    hapticAtPeak(s, 'orb', () => order.push(`then after ${events.length}`));
+    for (const v of [1.04, 1.12]) s.set(v);
+    expect(order).toEqual([]);
+    s.set(1.11);
+    expect(order).toEqual(['then after 1']);
+    for (const v of [1.05, 1.0]) s.set(v);
+    vi.advanceTimersByTime(1000);
+    expect(order).toHaveLength(1);
+  });
+
+  it('with haptics switched off it still runs: the Orb does not depend on the motor', async () => {
+    const { events, motionValue, hapticAtPeak } = await setup();
+    const { setHapticsEnabled } = await import('./haptics');
+    setHapticsEnabled(false);
+    let born = 0;
+    const p = motionValue(0);
+    hapticAtPeak(p, 'toggle', () => born++);
+    p.set(1);
+    expect(events).toEqual([]);
+    expect(born).toBe(1);
+  });
+
   it('falls back after FILL_MS when no frame comes', async () => {
     const { events, motionValue, hapticAtPeak } = await setup();
     hapticAtPeak(motionValue(1), 'orb');

@@ -25,7 +25,8 @@ let chipTimer: ReturnType<typeof setTimeout> | undefined;
 const nodes: Node[] = [];
 let pool = createPool(POOL_SIZE);
 const MODES = ['is-rise', 'is-fly', 'is-still'] as const;
-const CHIP_MS = 2400;
+/** How long the full-day chip is up. */
+export const CHIP_MS = 2400;
 
 const span = (cls: string, parent: HTMLElement) => {
   const el = document.createElement('span');
@@ -137,7 +138,7 @@ export const spawn = (s: Spawn): boolean => {
   return true;
 };
 
-/** Show the full-day chip with its top right corner (`anchor: 'end'`) or its center at the point. */
+/** Show the full-day chip with the middle of its trailing edge (`anchor: 'end'`) or its center at the point. */
 export const showChip = (x: number, y: number, anchor: 'end' | 'center'): boolean => {
   if (!ensure() || !chip) return false;
   clearTimeout(chipTimer);
@@ -147,7 +148,7 @@ export const showChip = (x: number, y: number, anchor: 'end' | 'center'): boolea
   const h = chip.offsetHeight;
   const vw = window.innerWidth;
   const left = Math.max(16, Math.min(vw - 16 - w, anchor === 'end' ? x - w : x - w / 2));
-  const top = Math.max(8, anchor === 'end' ? y : y - h / 2);
+  const top = Math.max(8, y - h / 2);
   chip.style.setProperty('--om-x', `${Math.round(left)}px`);
   chip.style.setProperty('--om-y', `${Math.round(top)}px`);
   chip.classList.add('is-on');

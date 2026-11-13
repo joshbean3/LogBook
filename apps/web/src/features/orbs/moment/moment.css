@@ -146,8 +146,11 @@
 .om-node.is-still .om-rise {
   transform: translate3d(var(--om-dx), var(--om-dy), 0);
 }
+/* (the app's blanket rule under Reduce Motion cuts every animation to nothing: these are opacity only, and are what
+   Reduce Motion is given here, so they keep their time) */
 .om-node.is-still .om-pop {
   animation: om-still var(--om-still-ms) linear both;
+  animation-duration: var(--om-still-ms) !important;
 }
 /* 150 ms in, 400 ms held, 150 ms out (as shares of 700) */
 @keyframes om-still {
@@ -179,7 +182,8 @@
   background: var(--paper);
   box-shadow: var(--shadow-pill);
   color: var(--ink);
-  font: 600 var(--fs-foot) / var(--lh-foot) var(--sans);
+  /* fixed chrome on the title line: it grows with the text size as far as the 44 pt row holds */
+  font: 600 clamp(13px, var(--fs-foot), 16px) / 1.4 var(--sans);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
   opacity: 0;
@@ -217,6 +221,9 @@
   }
 }
 @media (prefers-reduced-motion: reduce) {
+  .om-chip.is-on {
+    animation-duration: var(--om-chip-ms) !important;
+  }
   .om-chip.is-on > .om-chip-in {
     animation: none;
   }

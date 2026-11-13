@@ -2,7 +2,7 @@ import { countOf, today as clockToday, type ISODate } from '@logbook/shared';
 import { haptics } from '@/lib/haptics';
 import { showToast, toastStore, type ToastAction } from '@/ui/toastStore';
 import { getOrbs, getSwitches, onOrbsChange, orbRoom, ORBS_EVENT, type OrbsGained } from '../store';
-import { liveOrbs, showChip, spawn } from './layer';
+import { CHIP_MS, liveOrbs, showChip, spawn } from './layer';
 import { createClaims, FIRST_ORB, flightMs, gainToast, keepsakeToast, lightsOf, POP, popPlan, popsAtControl, SHEET_OPENING_MS, STATUS_AFTER_MS, statusLine, STILL, stillLights, type Claim } from './rules';
 
 /**
@@ -103,8 +103,8 @@ export const setCounter = (c: Counter | null, was?: Counter) => {
   if (c === null && was && counter !== was) return;
   counter = c;
 };
-/** The center of the counter's sun when it is on screen with nothing over it, else null. Reads layout once. */
-const counterPoint = (): { x: number; y: number; right: number; bottom: number } | null => {
+/** The center of the counter's sun (and its left edge, and the title line's middle) when it is on screen with nothing over it, else null. Reads layout once. */
+const counterPoint = (): { x: number; y: number; left: number; mid: number } | null => {
   const c = counter;
   if (!c?.sun.isConnected || typeof document.elementFromPoint !== 'function') return null;
   const r = c.sun.getBoundingClientRect();
@@ -114,8 +114,7 @@ const counterPoint = (): { x: number; y: number; right: number; bottom: number }
   // under the sticky bar once the title has scrolled away, under a sheet's scrim, on a tab that is not shown
   const top = document.elementFromPoint(x, y);
   if (!top || !c.el.contains(top)) return null;
-  const hit = c.el.getBoundingClientRect();
-  return { x, y, right: hit.right, bottom: hit.bottom };
+  return { x, y, left: r.left, mid: c.el.getBoundingClientRect().top + HIT / 2 };
 };
 
 const claims = createClaims();
@@ -266,31 +265,37 @@ interface Queued {
   action?: ToastAction;
   /** Still true? (An Undo may have taken the payment back while the toast waited.) */
   stands?: () => boolean;
+  at: number;
 }
+const TOAST_STALE_MS = 15_000;
 const queue: Queued[] = [];
 /** A toast follows the last Orb's landing by this long (the counter's pulse and its new numeral are seen first). */
 const TOAST_AFTER_MS = 500;
+/** The full-day chip is up (or due) until here: it sits by the counter, where a toast would cover it. */
+let chipUntil = 0;
 let queueOff: (() => void) | null = null;
 let drainTimer: ReturnType<typeof setTimeout> | undefined;
 const drain = () => {
   if (toastStore.get() || !queue.length) return;
   // the toast sits at the top of the screen, over the counter: it waits until the Orb in the air has landed
   const now = performance.now();
-  if (lastBirth && now < lastBirth.over + TOAST_AFTER_MS) {
+  const free = Math.max(lastBirth ? lastBirth.over + TOAST_AFTER_MS : 0, chipUntil);
+  if (now < free) {
     clearTimeout(drainTimer);
-    drainTimer = setTimeout(drain, lastBirth.over + TOAST_AFTER_MS - now);
+    drainTimer = setTimeout(drain, free - now);
     return;
   }
   let next = queue.shift();
-  while (next && next.stands && !next.stands()) next = queue.shift();
+  // skipped: what an Undo took back while it waited, and what waited so long (behind a 10 s Undo) that it is no longer news
+  while (next && ((next.stands && !next.stands()) || now - next.at > TOAST_STALE_MS)) next = queue.shift();
   if (next) showToast(next.text, next.action);
   if (!queue.length && queueOff) {
     queueOff();
     queueOff = null;
   }
 };
-const enqueue = (q: Queued) => {
-  queue.push(q);
+const enqueue = (q: Omit<Queued, 'at'>) => {
+  queue.push({ ...q, at: performance.now() });
   if (!queueOff) queueOff = toastStore.subscribe(drain);
   drain();
 };
@@ -318,10 +323,15 @@ const fullDay = (date: string) => {
   const birth = lastBirth && now - lastBirth.at < 6000 ? lastBirth : null;
   // after the completing Orb: never two warm things moving at once
   const wait = birth ? Math.max(0, birth.over - now) + 160 : 0;
+  chipUntil = now + wait + CHIP_MS;
   setTimeout(() => {
     const at = counterPoint();
-    const shown = at ? showChip(at.right, at.bottom - 4, 'end') : birth ? showChip(birth.x, birth.y - 56, 'center') : false;
-    if (!shown) return void enqueue({ text: 'Full day. 5 Orbs' });
+    // on the title line, just before the sun; with the counter off screen, above where the last Orb was born
+    const shown = at ? showChip(at.left - 8, at.mid, 'end') : birth ? showChip(birth.x, birth.y - 56, 'center') : false;
+    if (!shown) {
+      chipUntil = 0;
+      return void enqueue({ text: 'Full day. 5 Orbs' });
+    }
     // the one written exception to one haptic per action: only when the control's own was an impact
     if (birth?.haptic === 'impact') haptics.success();
   }, wait);
@@ -430,6 +440,7 @@ export const resetMomentForTest = () => {
   lastPop.clear();
   early = [];
   lastBirth = null;
+  chipUntil = 0;
   known = null;
   queue.length = 0;
   clearTimeout(drainTimer);

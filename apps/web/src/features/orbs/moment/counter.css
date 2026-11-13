@@ -87,8 +87,13 @@
     opacity: 1;
   }
 }
+/* Reduce Motion: the sun stays still and the numeral still cross-fades (opacity only; the app's blanket rule would cut it) */
 @media (prefers-reduced-motion: reduce) {
   .nb-orbs-sun.is-landing {
     animation: none;
+  }
+  .nb-orbs-n.is-changed > .nb-orbs-in,
+  .nb-orbs-n.is-changed > .nb-orbs-out {
+    animation-duration: var(--dur-reduce) !important;
   }
 }
