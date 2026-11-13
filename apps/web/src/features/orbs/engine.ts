@@ -9,7 +9,7 @@ import { subscribeToday } from '@/lib/useToday';
 import { orbsStart } from './devStart';
 import { challengeFacts, dayFacts, factsReady, habitDaysIn, linesOf, readCaches, type Caches } from './dayFacts';
 import { getIntake, onIntake, serverDayNow } from './intake';
-import { getOrbs, getSwitches, onOrbsChange, openOrbs, ORBS_EVENT, orbsOwner, setOrbs, type OrbsGained } from './store';
+import { getOrbs, getSwitches, hasOwnSwitches, onOrbsChange, openOrbs, ORBS_EVENT, orbsOwner, setOrbs, type OrbsGained } from './store';
 import { startOrbsSync } from './sync';
 
 /**
@@ -147,7 +147,8 @@ export const reconcileNow = (qc: QueryClient, now: Date = new Date()): Gained[] 
 const install = (s: Rewards) => {
   quiet = true;
   lastSig = null;
-  setOrbs(adoptSet(s, getSwitches(), new Date()));
+  // this device's own switches stand over the ones in a store that came from elsewhere, unless that store's are newer
+  setOrbs(hasOwnSwitches() && getSwitches().at >= s.set.at ? adoptSet(s, getSwitches(), new Date()) : s);
 };
 /**
  * This device has no store for the account. Wait for this session's first bootstrap from the network (it says whether the

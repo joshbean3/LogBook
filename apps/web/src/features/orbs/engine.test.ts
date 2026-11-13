@@ -480,6 +480,22 @@ describe('after a wipe', () => {
     k.qc.setQueryData<MonthBundle>(['month', MONTH], (m) => ({ ...m!, checks: [...m!.checks, check('h1', TODAY)] }));
     expect(k.run()).toEqual([{ key: 'habit', n: 1, date: TODAY }]);
   });
+  it('a reinstalled phone takes the switches the account holds; a phone with switches of its own keeps them', async () => {
+    const kept = existing({ set: { on: true, show: false, weekTarget: 3, cadence: 2, size: 'bold', at: '2026-12-01T09:00:00.000Z' } });
+    const fresh = await launch({ stored: null });
+    fresh.intake.takeBootstrap({ rewards: kept, serverTime: new Date().toISOString() });
+    fresh.run();
+    await vi.waitFor(() => expect(fresh.store.getOrbs()).not.toBeNull());
+    expect(fresh.store.getSwitches()).toMatchObject({ show: false, weekTarget: 3, cadence: 2, size: 'bold' });
+    expect(JSON.parse(local.getItem('logbook.orbs.set')!).weekTarget).toBe(3);
+    const own = await launch({ stored: null });
+    own.store.setSwitches({ weekTarget: 4 });
+    own.intake.takeBootstrap({ rewards: kept, serverTime: new Date().toISOString() });
+    own.run();
+    await vi.waitFor(() => expect(own.store.getOrbs()).not.toBeNull());
+    expect(own.store.getSwitches().weekTarget).toBe(4);
+    expect(own.store.getOrbs()?.set.weekTarget).toBe(4);
+  });
   it('takes the account’s copy when the server keeps one, and reads nothing else for it', async () => {
     const kept = existing({ days: { [Y]: { n: 7, a: 5, k: { habit: 4, 'goal:day': 3 }, c: 1 } }, once: { [`week:${RULES.startsOn}`]: { on: shiftDays(RULES.startsOn, 8), n: 5 } } });
     const k = await launch({ stored: null });
@@ -515,6 +531,74 @@ describe('after a wipe', () => {
     k.run();
     await vi.waitFor(() => expect(k.store.getOrbs()).not.toBeNull());
     expect(Object.keys(k.store.getOrbs()!.days)).toHaveLength(h.days);
+  });
+});
+
+describe('challenges, from the store', () => {
+  /** Five weeks of record ending yesterday, every day counted, and the caches that cover them. */
+  const veteran = async () => {
+    const shared = await import('@logbook/shared');
+    const monday = shared.mondayOf(TODAY);
+    // put the clock on this week's day slot, so today is the day a challenge is offered
+    const slot = shared.challengeSlots(U, monday).find((x) => x.kind === 'day')!;
+    vi.setSystemTime(noon(slot.date));
+    const from = shiftDays(monday, -35);
+    const days: Rewards['days'] = {};
+    const checks: HabitCheck[] = [];
+    for (let d = from; d < slot.date; d = shiftDays(d, 1)) {
+      days[d] = { n: 3, a: 3, k: { habit: 3 }, c: 1 };
+      checks.push(check('h1', d), check('h2', d), check('h3', d));
+    }
+    const k = await launch({ stored: { ...emptyRewards(U, from), clock: shiftDays(slot.date, -1), days } });
+    for (const m of [...new Set([...checks.map((c) => c.date.slice(0, 7)), slot.date.slice(0, 7)])]) k.qc.setQueryData(['month', m], month(m, { checks: checks.filter((c) => c.date.startsWith(m)) }));
+    return { k, slot, shared };
+  };
+  it('offers the week’s day challenge on its day, once, from the person’s own record', async () => {
+    const { k, slot } = await veteran();
+    k.run();
+    const offered = k.store.getOrbs()?.challenges[slot.key];
+    // three habits and nothing else on the menu: "Every habit today"
+    expect(offered).toMatchObject({ item: 'habits', target: 3, base: 0, state: 'offered' });
+    // frozen: more facts do not change the offer
+    k.qc.setQueryData(['goals'], [goalOf('day', slot.date, { createdAt: noon(slot.date, 7).toISOString() })]);
+    k.run();
+    expect(k.store.getOrbs()?.challenges[slot.key]).toBe(offered);
+  });
+  it('an added challenge is paid by the reconciler when the facts meet it, once, and the gain is published', async () => {
+    const { k, slot, shared } = await veteran();
+    k.run();
+    const df = await import('./dayFacts');
+    const caches = () => df.readCaches(k.qc, true, [slot.date.slice(0, 7)])!;
+    k.store.updateOrbs((s) => shared.addChallenge(s, slot, df.challengeFacts(caches(), s, slot, slot.date), new Date()));
+    expect(k.store.getOrbs()?.challenges[slot.key]?.state).toBe('added');
+    const m = slot.date.slice(0, 7);
+    k.qc.setQueryData<MonthBundle>(['month', m], (b) => ({ ...b!, checks: [...b!.checks, check('h1', slot.date), check('h2', slot.date), check('h3', slot.date)] }));
+    const gained = k.run();
+    expect(gained).toEqual([{ key: 'habit', n: 3, date: slot.date }, { key: slot.key, n: 5, date: slot.date }]);
+    expect(k.store.getOrbs()?.challenges[slot.key]?.state).toBe('done');
+    expect(k.store.getOrbs()?.once[slot.key]).toEqual({ on: slot.date, n: 5 });
+    expect(k.store.getOrbs()?.keepsakes.challenge).toEqual({ on: slot.date });
+    // unticking takes the habit's Orb and leaves the challenge's
+    k.qc.setQueryData<MonthBundle>(['month', m], (b) => ({ ...b!, checks: b!.checks.filter((c) => !(c.date === slot.date && c.habitId === 'h3')) }));
+    expect(k.run()).toEqual([]);
+    expect(k.store.getOrbs()?.once[slot.key]?.n).toBe(5);
+  });
+  it('offers nothing while the months behind the baseline have not loaded, with Challenges off, or on a paused day', async () => {
+    const a = await veteran();
+    a.k.qc.removeQueries({ queryKey: ['month', shiftDays(a.slot.date, -28).slice(0, 7)] });
+    if (shiftDays(a.slot.date, -28).slice(0, 7) !== a.slot.date.slice(0, 7)) {
+      a.k.run();
+      expect(a.k.store.getOrbs()?.challenges).toEqual({});
+    }
+    const b = await veteran();
+    b.k.store.openOrbs(U);
+    b.k.store.setSwitches({ cadence: 0 });
+    b.k.run();
+    expect(b.k.store.getOrbs()?.challenges).toEqual({});
+    const c = await veteran();
+    c.k.qc.setQueryData(['bootstrap'], boot({ status: { kind: 'travel', from: c.slot.date, until: null } }));
+    c.k.run();
+    expect(c.k.store.getOrbs()?.challenges).toEqual({});
   });
 });
 

@@ -127,6 +127,8 @@ if (typeof document !== 'undefined' && typeof document.addEventListener === 'fun
 // ---------- the store ----------
 export const getOrbs = (): Rewards | null => store;
 export const getSwitches = (): RewardSet => switches;
+/** Has this device switches of its own (its key holds some)? Until it has, the account's copy may set them. */
+export const hasOwnSwitches = (): boolean => storedSet !== null;
 /** The account the store in memory belongs to. */
 export const orbsOwner = (): string | null => owner;
 
@@ -146,8 +148,9 @@ export const openOrbs = (userId: string): Rewards | null => {
   store = parseRewards(raw, userId);
   unsaved = false;
   if (store) {
-    // the device's own switches stand; a device with none takes the store's
-    if (storedSet) store = adoptSet(store, switches, new Date());
+    // the newer of the two stands (they differ only when one was written and the other was not); a device with no
+    // switches of its own takes the store's
+    if (storedSet && storedSet.at >= store.set.at) store = adoptSet(store, switches, new Date());
     else switches = store.set;
   }
   emit();
