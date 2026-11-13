@@ -587,19 +587,20 @@ function Gallery({ onLab }: { onLab: () => void }) {
         <OrbDemo />
       </Section>
 
-      <Section title="The Orb family" meta="Earned Orbs at 22, 30 and 44, with their names">
+      <Section title="The Orb family" meta="Earned Orbs: each kind with its name at 30, then all at 22 on Cloud and dusk">
         <div className="gal-gems" data-testid="orb-gems">
-          {(['paper', 'cloud', 'dusk'] as const).map((g) => (
-            <div key={g} className={`gal-light gal-gem-ground is-${g}`}>
+          <div className="gal-light gal-gem-ground is-paper">
+            {GEM_KEYS.map((k) => (
+              <span key={k} className="gal-gem">
+                <OrbGem gem={gemFor(k)} size={30} />
+                <span className="gal-gem-name">{gemName(k)}</span>
+              </span>
+            ))}
+          </div>
+          {(['cloud', 'dusk'] as const).map((g) => (
+            <div key={g} className={`gal-light gal-gem-line is-${g}`}>
               {GEM_KEYS.map((k) => (
-                <span key={k} className="gal-gem">
-                  <span className="gal-gem-row">
-                    <OrbGem gem={gemFor(k)} size={22} />
-                    <OrbGem gem={gemFor(k)} size={30} />
-                    <OrbGem gem={gemFor(k)} size={44} />
-                  </span>
-                  <span className="gal-gem-name">{gemName(k)}</span>
-                </span>
+                <OrbGem key={k} gem={gemFor(k)} size={22} />
               ))}
             </div>
           ))}
