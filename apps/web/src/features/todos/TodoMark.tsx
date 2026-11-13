@@ -12,8 +12,9 @@ const POP_V = 5.5;
  * A to-do's mark (§3.1 row 5, M9, §11.4): 22 px, a 44 px hit. The tap fills it on its own frame (the colour and the check,
  * no fade in), the box pops 1 → 1.12 → 1 on `springs.complete`, and `toggle` fires on the pop's peak frame
  * (`hapticAtPeak`, never in the handler). Un-checking is silent. Reduced motion: no pop; the haptic lands when the fill does.
+ * `onPeak` runs on the haptic's frame with the mark's rectangle as it was at the press (a to-do's earned Orb is born there).
  */
-export const TodoMark = ({ on, label, onToggle, disabled, round }: { on: boolean; label: string; onToggle: (next: boolean) => void; disabled?: boolean; round?: boolean }) => {
+export const TodoMark = ({ on, label, onToggle, disabled, round, onPeak }: { on: boolean; label: string; onToggle: (next: boolean) => void; disabled?: boolean; round?: boolean; onPeak?: (mark: DOMRect) => void }) => {
   const reduce = useReduced();
   const pop = useMotionValue(1);
   const press = usePress({ disabled });
@@ -22,27 +23,29 @@ export const TodoMark = ({ on, label, onToggle, disabled, round }: { on: boolean
   // the tap is the release: the fill lands on its frame (the click may come a frame later on touch, and is then swallowed);
   // a click with no pointer before it (Enter, Space, VoiceOver) toggles from the click; a press that travelled was a scroll
   const travel = useRef<{ x: number; y: number; moved: boolean; done: boolean } | null>(null);
-  const tap = () => {
+  const tap = (hit: Element) => {
     const next = !on;
     if (next) {
       unpeak.current();
+      const rect = onPeak ? (hit.querySelector('.tmark') ?? hit).getBoundingClientRect() : null;
+      const then = onPeak && rect ? () => onPeak(rect) : undefined;
       if (reduce) {
         const fill = motionValue(0);
-        unpeak.current = hapticAtPeak(fill, 'toggle');
+        unpeak.current = hapticAtPeak(fill, 'toggle', then);
         animate(fill, 1, { duration: 0.16, ease: 'linear' });
       } else {
-        unpeak.current = hapticAtPeak(pop, 'toggle');
+        unpeak.current = hapticAtPeak(pop, 'toggle', then);
         animate(pop, 1, { ...springs.complete, velocity: POP_V });
       }
     }
     onToggle(next);
   };
   return (
-    <button type="button" className="tmark-hit" data-press="scale" role="checkbox" aria-checked={on} aria-label={label} disabled={disabled} onClick={() => {
+    <button type="button" className="tmark-hit" data-press="scale" role="checkbox" aria-checked={on} aria-label={label} disabled={disabled} onClick={(e) => {
         const p = travel.current;
         travel.current = null;
         if (p && (p.done || p.moved)) return;
-        tap();
+        tap(e.currentTarget);
       }}
       {...press.handlers}
       onPointerDown={(e) => {
@@ -58,7 +61,7 @@ export const TodoMark = ({ on, label, onToggle, disabled, round }: { on: boolean
         const p = travel.current;
         if (!p || p.moved || p.done || disabled) return;
         p.done = true;
-        tap();
+        tap(e.currentTarget);
       }}
       onPointerCancel={(e) => {
         press.handlers.onPointerCancel?.(e);

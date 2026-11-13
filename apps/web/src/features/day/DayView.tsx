@@ -24,6 +24,7 @@ import { useStravaPull } from './useStravaPull';
 import { STRAVA_BUILT } from '@/lib/features';
 import { useOpenStatusSheet } from './StatusChip';
 import { saveFocus, useFocus, useOpenWordSheet } from './WordSheet';
+import { OrbCounter } from '../orbs/moment/OrbCounter';
 import './day.css';
 
 /** Pull to refresh checks Strava only in a build that carries it (settings-18): chosen once, so the bundler drops the rest. */
@@ -196,6 +197,8 @@ function TodayRoot({ roll, setHeld }: { roll: React.RefObject<(to: ISODate) => v
         titleMenu={titleMenu}
         titleLabel={date === today ? 'Today' : `${dayTitle(date, today)}. Go to today`}
         titleRef={titleRef}
+        // today's own day: the Orbs counter beside the title-line sun
+        horizon={date === today ? <OrbCounter /> : undefined}
         gap={16}
         // the caps date opens the calendar on a tap (today-top-24)
         onDatePress={openCalendar}

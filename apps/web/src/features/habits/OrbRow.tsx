@@ -19,6 +19,7 @@ import { useSheet } from '@/ui/Sheet';
 import { useToast } from '@/ui/Toast';
 import type { DragPoint } from '@/ui/useHold';
 import { isPagerMoving } from '../day/live';
+import { popOrbs, unpopOrbs } from '../orbs/moment';
 import type { Log } from '../log/useLog';
 import { HabitNoteSheet, useArchiveHabit, useOpenHabit } from './HabitSheet';
 import { sameName } from './initial';
@@ -255,8 +256,13 @@ const Orb = memo(function Orb({ h, date, on: lit, note, index, onLight, menu, on
       send.current();
     };
   }, []);
-  const light = () => {
+  const light = (tile?: Element | null) => {
     const next = !on;
+    // an earned Orb is born at the ring, on the pop's peak frame: the ring's rectangle is read here, at the press
+    const ring = next ? (tile?.querySelector('.orb-ring') ?? tile)?.getBoundingClientRect() : undefined;
+    const orb = () => void popOrbs({ key: 'habit', date: date as ISODate, n: 1, from: ring, id: h.id });
+    // putting one out is silent: an Orb the day had not counted yet goes with it
+    if (!next) unpopOrbs({ key: 'habit', date: date as ISODate, id: h.id });
     setAhead(next);
     const pending = write.current;
     if (pending) {
@@ -275,10 +281,10 @@ const Orb = memo(function Orb({ h, date, on: lit, note, index, onLight, menu, on
       if (reduce) {
         // no pop: the haptic lands on the frame the fill completes (the ring's 160 ms colour change)
         const fill = motionValue(0);
-        unpeak.current = hapticAtPeak(fill, 'orb');
+        unpeak.current = hapticAtPeak(fill, 'orb', orb);
         animate(fill, 1, { duration: 0.16, ease: 'linear' });
       } else {
-        unpeak.current = hapticAtPeak(pop, 'orb');
+        unpeak.current = hapticAtPeak(pop, 'orb', orb);
         animate(pop, 1, { ...springs.complete, velocity: POP_V });
       }
     }
@@ -290,11 +296,11 @@ const Orb = memo(function Orb({ h, date, on: lit, note, index, onLight, menu, on
       aria-pressed={on}
       label={`${h.name}${note ? `. Note: ${note}` : ''}`}
       aria-keyshortcuts={index < 9 ? String(index + 1) : undefined}
-      onPress={() => {
+      onPress={(e) => {
         const p = travel.current;
         travel.current = null;
         if (p && (p.lit || p.moved || p.held)) return;
-        light();
+        light(e.currentTarget);
       }}
       onHold={() => {
         if (travel.current) travel.current.held = true;
@@ -312,11 +318,11 @@ const Orb = memo(function Orb({ h, date, on: lit, note, index, onLight, menu, on
         const p = travel.current;
         if (p && !p.moved && Math.hypot(e.clientX - p.x, e.clientY - p.y) > HOLD_SLOP_PX) p.moved = true;
       }}
-      onPointerUp={() => {
+      onPointerUp={(e: React.PointerEvent<HTMLElement>) => {
         const p = travel.current;
         if (!p || p.moved || p.held || p.lit) return;
         p.lit = true;
-        light();
+        light(e.currentTarget);
       }}
       onPointerCancel={() => {
         travel.current = null;

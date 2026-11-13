@@ -1,4 +1,5 @@
-import { counts, isAutoStatus, label, sessionStatus, type Session } from '@logbook/shared';
+import { counts, isAutoStatus, label, sessionStatus, type ISODate, type Session } from '@logbook/shared';
+import { popOrbs, pressRect, trainKey } from '@/features/orbs/moment';
 import { ArrowRightLeft, Check, HeartPulse, Pencil, Share2, SkipForward, Trash2, Undo2 } from 'lucide-react';
 import { useSessionMutations } from '@/api/queries';
 import { haptics } from '@/lib/haptics';
@@ -47,6 +48,9 @@ export const useSessionActions = (log: Log) => {
     mark.mutate({ session: s, mark: 'done' });
     markSeenToday(`success-${s.id}`);
     haptics.success();
+    // its Orbs, at the control that marked it, on the success
+    const key = trainKey(s.kind);
+    if (key) popOrbs({ key, date: s.date as ISODate, n: 3, from: pressRect(), id: s.id, haptic: 'success' });
   };
   /**
    * "Not feeling 100%" after a run that counted (§6.3): the run stays done; what it does is ease the next three days still

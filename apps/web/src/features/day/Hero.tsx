@@ -26,6 +26,7 @@ import { firstRingTap, RING_HINT } from './ringHint';
 import { sessionMiles, weekMiles } from './miles';
 import { MiniTimeline, OutLine } from './MiniTimeline';
 import { LandedDeck, LandingRoute, RingSlot, SharePill } from './RunLanding';
+import { popOrbs, pressRect, trainKey } from '../orbs/moment';
 import { markSuccess } from './success';
 import { StravaRetry, useStravaLanding, type Landing } from './useStravaLanding';
 import { useDeferredMinutes, useFaceMinutes } from './useDeferred';
@@ -572,6 +573,10 @@ export const DayHero = ({ date, log, ph, face: dayFace, minutes, markNow }: { da
   const complete = (s: Session) => {
     markSuccess(s.id);
     setBoost(true);
+    // three Orbs at the ring, on its `success` (the ring's fill was the wind-up), after the week's sun has landed on the
+    // card: never two warm things moving at once
+    const key = trainKey(s.kind);
+    if (key) popOrbs({ key, date, n: 3, from: hero.current?.querySelector('.hold-ring') ?? pressRect(), id: s.id, delay: 480, haptic: 'success' });
     return markNow(s, 'done', Math.max(MORPH_MS, CROSSFADE_MS));
   };
   // the face crossfades to Skipped. first (its own render), then the toast, then the write (markNow)
@@ -744,6 +749,11 @@ const SecondSession = memo(function SecondSession({ date, log: real, id }: { dat
   const size = s.kind === 'run' && s.miles ? `${num(s.miles)} mi` : s.minutes ? `${s.minutes} min` : null;
   const sub = [kindWord !== label(s) ? kindWord : null, size, p.key === 'today' || p.key === 'planned' ? null : p.word].filter(Boolean).join(' · ');
   const quiet = (w: Promise<void>) => void w.catch(() => undefined);
+  // the second session's Orbs, at its ring, on the ring's own haptic (a toggle)
+  const orbs = () => {
+    const key = trainKey(s.kind);
+    if (key) popOrbs({ key, date, n: 3, from: pressRect(), id: s.id, haptic: 'impact' });
+  };
   const items: ContextMenuItem[] = [];
   const byHand = s.mark === 'done' || s.mark === 'floor';
   // a mark by hand can be taken back from the card, as on the hero (feel review 2 #7)
@@ -778,7 +788,7 @@ const SecondSession = memo(function SecondSession({ date, log: real, id }: { dat
       <AnimatePresence initial={false}>
         {open || (isToday && byHand) ? (
           <motion.span key="ring" className="ss-ring" initial={{ opacity: FACE_FIRST_FRAME }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={crossfade}>
-            <HoldRing size={40} label={`Hold to mark ${label(s)} done`} done={byHand} haptic="toggle" onComplete={() => (markSuccess(s.id), markNow(s, 'done', Math.max(MORPH_MS, CROSSFADE_MS)))} onTap={() => (firstRingTap() ? toast(RING_HINT) : openSession(date, s))} />
+            <HoldRing size={40} label={`Hold to mark ${label(s)} done`} done={byHand} haptic="toggle" onComplete={() => (markSuccess(s.id), orbs(), markNow(s, 'done', Math.max(MORPH_MS, CROSSFADE_MS)))} onTap={() => (firstRingTap() ? toast(RING_HINT) : openSession(date, s))} />
           </motion.span>
         ) : null}
       </AnimatePresence>

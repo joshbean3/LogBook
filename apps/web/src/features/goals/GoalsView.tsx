@@ -1,4 +1,4 @@
-import { awaitingReview, currentGoals, shiftDays, type Aim, type GoalLevel } from '@logbook/shared';
+import { awaitingReview, currentGoals, shiftDays, type Aim, type GoalLevel, type ISODate } from '@logbook/shared';
 import { Bell } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { SectionBoundary } from '@/app/ErrorBoundary';
@@ -19,6 +19,7 @@ import { ReviewRow } from './ReviewRow';
 import { GoalsHero } from './GoalsHero';
 import { AheadRow, FurtherOut } from './FurtherOut';
 import { eveningNow } from './GoalsHero.logic';
+import { popOrbs, pressRect } from '../orbs/moment';
 import { useCelebrate } from './Celebrate';
 import { KSection } from './Kit';
 import './goals.css';
@@ -133,8 +134,12 @@ export default function GoalsView(): React.JSX.Element {
       was.current[g.id] = g.status;
       if (before === 'open' && g.status === 'done') {
         celebrateOnce(`${g.id}:${g.updatedAt}`, l !== 'day');
-        if (l === 'day') setHit(Date.now());
-        celebrate(g);
+        // today's goal: the burst and three Orbs at the control that did it, on its `success`. A week, month or year goal
+        // keeps a full-screen moment (the Orbs' own, at rest; Celebrate.tsx says when this page opens instead)
+        if (l === 'day') {
+          setHit(Date.now());
+          popOrbs({ key: 'goal:day', date: g.period as ISODate, n: 3, from: pressRect(1500), haptic: 'success' });
+        } else celebrate(g);
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps

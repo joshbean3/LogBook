@@ -1,0 +1,39 @@
+/*
+ * The earned Orb (ui/OrbLight.tsx): an orb of light. Apricot, glowing, never glossy, never blue, never Sunrise, no Paper
+ * keyline. Two layers, both painted once: the glow and the core. Nothing here animates; what moves an Orb moves the box.
+ */
+.orb-light {
+  --ol: 20px; /* brand-ok: geometry, the core's diameter, set by the component's `size` */
+  position: relative;
+  display: inline-block;
+  flex: none;
+  width: var(--ol);
+  height: var(--ol);
+  vertical-align: middle;
+  pointer-events: none;
+}
+.orb-light > i {
+  position: absolute;
+  display: block;
+  border-radius: 50%;
+}
+/* the glow: 1.8 times the core, so 0.4 of the core beyond it on every side. 26 percent where it meets the core's edge
+   (0.556 of the glow's radius), then out to nothing, falling fastest near the core as light does */
+.ol-glow {
+  inset: calc(var(--ol) * -0.4);
+  background: radial-gradient(
+    closest-side,
+    color-mix(in srgb, var(--apricot) 26%, transparent) 0,
+    color-mix(in srgb, var(--apricot) 26%, transparent) 52%,
+    color-mix(in srgb, var(--apricot) 13%, transparent) 70%,
+    color-mix(in srgb, var(--apricot) 4%, transparent) 86%,
+    color-mix(in srgb, var(--apricot) 0%, transparent) 100%
+  );
+}
+/* the core: light from its own center (never a highlight off to one side: that is gloss, the assistant's), Apricot from
+   two thirds out, and the Ember edge that keeps its shape on Paper */
+.ol-core {
+  inset: 0;
+  background: radial-gradient(circle at 50% 50%, color-mix(in srgb, var(--apricot) 38%, var(--paper)) 0, color-mix(in srgb, var(--apricot) 78%, var(--paper)) 34%, var(--apricot) 68%);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ember) 30%, transparent);
+}
