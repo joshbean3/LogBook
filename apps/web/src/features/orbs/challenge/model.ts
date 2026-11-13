@@ -167,7 +167,8 @@ export const rowView = (c: Challenge | undefined, slot: Slot, f: ChallengeFacts,
     view.caption = PICKED_CAPTION;
     view.reason = c.why;
   }
-  view.label = [`${eyebrowOf(slot.kind)}: ${title}`, picked ? PICKED_CAPTION : '', picked && shown === 'offered' ? `${c.why!.replace(/[.!?]+$/, '')}. ${worthWords(slot.kind, c)}` : shown === 'offered' ? worthWords(slot.kind, c) : sub, 'Open']
+  // VoiceOver hears the row in the order it reads on screen, then what it is where the line under the title does not say
+  view.label = [picked ? PICKED_CAPTION : '', title, sub, shown !== 'offered' ? eyebrowOf(slot.kind) : picked ? offer : '', 'Open']
     .filter(Boolean)
     .map((s) => s.replace(/[.]+$/, ''))
     .join('. ');

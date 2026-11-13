@@ -76,3 +76,7 @@ html[data-text-xl] .ch-row > .icon-tile {
   -webkit-line-clamp: 5;
   line-clamp: 5;
 }
+/* the line under the title holds numbers that change ("2 of 3 habits"): tabular, so it does not shift as it counts */
+.ch-row .k-row-sub {
+  font-variant-numeric: tabular-nums;
+}

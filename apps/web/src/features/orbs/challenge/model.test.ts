@@ -139,13 +139,14 @@ describe('which row shows, and as what', () => {
     const offered = rowView(ch({ item: 'habits', target: 3 }), slot, facts(MON), MON)!;
     expect(offered).toMatchObject({ title: 'Every habit today', sub: 'Today’s challenge · 5 Orbs', shown: 'offered', kind: 'day' });
     expect(offered.caption).toBeUndefined();
-    expect(offered.label).toBe('Today’s challenge: Every habit today. 5 Orbs. Open');
+    expect(offered.label).toBe('Every habit today. Today’s challenge · 5 Orbs. Open');
     const added = rowView(ch({ item: 'habits', target: 3, state: 'added' }), slot, facts(MON, { day: { habitsLiveDone: 2 } }), MON)!;
     expect(added.sub).toBe('2 of 3 habits');
     expect(added.sub).not.toContain('Orbs');
-    expect(added.label).toBe('Today’s challenge: Every habit today. 2 of 3 habits. Open');
+    expect(added.label).toBe('Every habit today. 2 of 3 habits. Today’s challenge. Open');
     const done = rowView(ch({ item: 'habits', target: 3, state: 'done' }), slot, facts(MON, { day: { habitsLiveDone: 3 } }), MON, 5)!;
     expect(done.sub).toBe('Done · 5 Orbs');
+    expect(done.label).toBe('Every habit today. Done · 5 Orbs. Today’s challenge. Open');
     const week = rowView(ch({ item: 'days', target: 5, floor: 4 }), weekSlot(), facts(MON), MON)!;
     expect(week).toMatchObject({ title: 'Every day this week, two days off', sub: 'This week’s challenge · 10 to 20 Orbs' });
     // a week challenge done at its floor says what it paid
@@ -158,7 +159,7 @@ describe('which row shows, and as what', () => {
     const c = ch({ item: 'goal', target: 1, by: 'assistant', why: 'Your report draft is the day’s one big thing.' });
     const v = rowView(c, daySlot(MON), facts(MON), MON)!;
     expect(v).toMatchObject({ caption: 'Picked by the assistant', title: 'Today’s goal, done', sub: 'Your report draft is the day’s one big thing.', reason: 'Your report draft is the day’s one big thing.' });
-    expect(v.label).toBe('Today’s challenge: Today’s goal, done. Picked by the assistant. Your report draft is the day’s one big thing. 5 Orbs. Open');
+    expect(v.label).toBe('Picked by the assistant. Today’s goal, done. Your report draft is the day’s one big thing. Today’s challenge · 5 Orbs. Open');
     // once added the line under the title is progress; the caption stays
     const added = rowView({ ...c, state: 'added' }, daySlot(MON), facts(MON), MON)!;
     expect(added).toMatchObject({ caption: 'Picked by the assistant', sub: 'Added to today' });
@@ -374,7 +375,7 @@ describe('the hard lines hold in every word the row and the sheet can say', () =
       });
       const weeks = [0, 1, 2, 3].map(() => ({ days: rnd(8), habitDays: rnd(8), fullDays: rnd(8) }));
       for (const slot of [daySlot(today), weekSlot()]) {
-        const menu = menuFor(slot, base(weeks), f, (['gentle', 'steady', 'bold'] as const)[rnd(3)]);
+        const menu = menuFor(slot, base(weeks), f, (['gentle', 'steady', 'bold'] as const)[rnd(3)]!);
         // nothing on a paused day
         if (f.day.held) expect(menu).toEqual([]);
         for (const o of menu) {
