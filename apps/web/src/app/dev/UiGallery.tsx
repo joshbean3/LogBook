@@ -8,6 +8,7 @@ import { COMPLETE_SCALE, forScale, reducedFade, springs, type SpringName } from 
 import type { DragPoint } from '@/ui/useHold';
 import { Avatar } from '@/ui/Avatar';
 import { ContextMenu, useContextMenu, type ContextMenuItem } from '@/ui/ContextMenu';
+import { GEM_KEYS, gemFor, gemName, OrbGem } from '@/features/orbs/gems';
 import { OrbLight } from '@/ui/OrbLight';
 import { DayPager, useDayPagerHandle } from '@/ui/DayPager';
 import { capsWord, DateStrip, dayCaption, dayTitle, NavBar, PushedBar, TodayPill, weekCaption, type StripStatus } from '@/ui/NavBar';
@@ -586,7 +587,26 @@ function Gallery({ onLab }: { onLab: () => void }) {
         <OrbDemo />
       </Section>
 
-      <Section title="Earned Orb" meta="OrbLight: Paper, Cloud, Deep Sky, dusk">
+      <Section title="The Orb family" meta="Earned Orbs at 22, 30 and 44, with their names">
+        <div className="gal-gems" data-testid="orb-gems">
+          {(['paper', 'cloud', 'dusk'] as const).map((g) => (
+            <div key={g} className={`gal-light gal-gem-ground is-${g}`}>
+              {GEM_KEYS.map((k) => (
+                <span key={k} className="gal-gem">
+                  <span className="gal-gem-row">
+                    <OrbGem gem={gemFor(k)} size={22} />
+                    <OrbGem gem={gemFor(k)} size={30} />
+                    <OrbGem gem={gemFor(k)} size={44} />
+                  </span>
+                  <span className="gal-gem-name">{gemName(k)}</span>
+                </span>
+              ))}
+            </div>
+          ))}
+        </div>
+      </Section>
+
+      <Section title="Keepsake light" meta="OrbLight: Paper, Cloud, Deep Sky, dusk">
         <div className="gal-lights" data-testid="orb-lights">
           {(['paper', 'cloud', 'deep', 'dusk'] as const).map((g) => (
             <div key={g} className={`gal-light is-${g}`}>

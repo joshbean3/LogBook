@@ -84,7 +84,7 @@ export const HowBody = ({ fitness, target }: { fitness: boolean; target: 3 | 4 |
   <div className="orh">
     <div className="orh-lead">
       <p className="orh-rule">{ruleLine(target)}</p>
-      <p className="orh-about">Orbs are small lights you earn for what you finish. They mark the day. They are never the point.</p>
+      <p className="orh-about">Orbs are small lights you earn for what you finish. What you finish decides which. They mark the day. They are never the point.</p>
     </div>
     {howSections({ fitness, target }).map((sec) => (
       <PageSection key={sec.key} size="sm" title={sec.title} className="orh-sec">

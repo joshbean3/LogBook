@@ -404,7 +404,31 @@
   overflow: hidden;
 }
 
-/* the earned Orb (ui/OrbLight) on the four grounds it meets, at 12, 20 and 48, with a numeral beside it as in use */
+/* the Orb family (features/orbs/gems): every kind at 22, 30 and 44 with its name, on Paper, Cloud and dusk */
+.gal-gems {
+  display: grid;
+  gap: var(--sp-2);
+}
+.gal-gem-ground {
+  flex-wrap: wrap;
+  gap: var(--sp-6) var(--sp-4);
+}
+.gal-gem {
+  display: grid;
+  justify-items: center;
+  gap: var(--sp-3);
+  min-width: 148px;
+}
+.gal-gem-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-4);
+}
+.gal-gem-name {
+  font: 500 var(--fs-foot) / var(--lh-foot) var(--sans);
+}
+
+/* the keepsake's light (ui/OrbLight) on the four grounds, at 12, 20 and 48, with a numeral beside it */
 .gal-lights {
   display: grid;
   gap: var(--sp-2);
