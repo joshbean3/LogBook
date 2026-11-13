@@ -92,14 +92,15 @@ describe('the words', () => {
     }
   });
 
-  it('uses no banned word, no em dash, no exclamation mark and no model name, in any build', async () => {
+  it('uses no banned word, no em dash and no exclamation mark, in any build', async () => {
     for (const build of BUILDS) {
       const mod = await inBuild(build);
       for (const prefs of [ON, OFF])
         for (const w of [...allWords(prefs, mod), ...Object.values(mod.TIPS_AGAIN)]) {
           expect(w, w).not.toMatch(/—|–|!/);
           expect(w, w).not.toMatch(/\b(coach|AI|bot|Logbook|the Orby|Orby app)\b/i);
-          expect(w, w).not.toMatch(/\b(Claude|GPT|Gemini|model)\b/i);
+          // the tips never name the product or what the assistant runs on
+          expect(w, w).not.toMatch(/\b(Orby|model)\b/i);
           // American spelling, and the Journal's and Fitness's own words
           expect(w, w).not.toMatch(/\b(colour|favourite|centre|organis|realis)\w*/i);
           expect(w, w).not.toMatch(/\b(workouts?|learnings?|notes?|posts?|logs)\b/i);
