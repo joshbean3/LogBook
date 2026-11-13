@@ -1,4 +1,4 @@
-import { addChallenge, challengeState, challengeTitle, easierChallenge, emptyRewards, menuFor, offerInto, payFor, reasonAllowed, shiftDays, skipChallenge, withPick, type Baseline, type Challenge, type ChallengeFacts, type DayFacts, type Offer, type Rewards, type Slot } from '@logbook/shared';
+import { addChallenge, CHALLENGE_BOUNDS, challengeState, challengeTitle, easierChallenge, emptyRewards, hasEasier, menuFor, offerInto, payFor, reasonAllowed, shiftDays, skipChallenge, withPick, type Baseline, type Challenge, type ChallengeFacts, type DayFacts, type Offer, type Rewards, type Slot } from '@logbook/shared';
 import { describe, expect, it } from 'vitest';
 import { acceptPick, actionsFor, addWords, ASK_FAILED, ASK_WORDS, ASKING, doneWords, eyebrowOf, isPickable, parsePick, payLine, PICKED_CAPTION, progressWords, rowsFor, rowView, sheetLine, shownAs, whatCounts, worthAsking, worthWords, type RowView } from './model';
 import { askPick, mayAskFor, pickCapable } from './pick';
@@ -562,6 +562,30 @@ describe('the hard lines hold in every word the row and the sheet can say', () =
           // never more sessions than the plan holds
           if (o.item === 'sessions') expect(o.target).toBeLessThan(f.week.sessions.planned);
           if (!fitness) expect(o.item).not.toMatch(/^session/);
+          // a numbered item stays inside its published bounds, and so does every step "Easier" can take from it
+          const bounds = (CHALLENGE_BOUNDS as Record<string, readonly [number, number]>)[o.item];
+          if (bounds) {
+            expect(o.target).toBeGreaterThanOrEqual(bounds[0]);
+            expect(o.target).toBeLessThanOrEqual(bounds[1]);
+            let store = offerInto(emptyRewards(U, shiftDays(MON, -60)), slot, o, at(MON, 7));
+            for (let step = 0; step < 6; step++) {
+              store = easierChallenge(store, slot.key);
+              const eased = store.challenges[slot.key]!;
+              expect(eased.target).toBeGreaterThanOrEqual(bounds[0]);
+              expect(eased.target).toBeLessThanOrEqual(o.target);
+              if (eased.floor !== undefined) expect(eased.floor).toBeLessThan(eased.target);
+              for (const words of everyWord(eased, slot, f, today)) {
+                expect(words, `${o.item} eased: ${words}`).not.toMatch(NEVER);
+                if (!fitness) expect(words, `${o.item} eased with Fitness off: ${words}`).not.toMatch(TRAINING);
+              }
+            }
+          } else {
+            // an item with no size asks for exactly what is there: the habits the person has, the list as it stands, one goal, one session
+            expect(o.target).toBe(o.item === 'habits' ? f.day.habitsLive : o.item === 'list' ? f.todosOpen : o.item === 'sessions' ? f.week.sessions.planned - 1 : 1);
+            expect(hasEasier({ ...o, state: 'offered' })).toBe(false);
+          }
+          // the only numbers any of its words carry are its own target and floor, the count of the day or week, and what it pays
+          for (const words of everyWord(c, slot, f, today)) for (const n of words.match(/\d+/g) ?? []) expect([5, 10, 20, o.target, o.floor, ...Array.from({ length: o.target + 1 }, (_, i) => i)], `${o.item}: ${words}`).toContain(Number(n));
         }
       }
     }

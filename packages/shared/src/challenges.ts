@@ -181,9 +181,12 @@ export const menuFor = (s: Slot, b: Baseline, f: ChallengeFacts, size: Challenge
   }
   return out;
 };
-/** The rule's pick for a slot, or null when there is nothing to offer. */
+/**
+ * The rule's pick for a slot, or null when there is nothing to offer. Only from what could be added there and then
+ * (`canAdd`): an offer that cannot be added is never shown, and kept in the store it would later count as one let go.
+ */
 export const offerChallenge = (s: Slot, b: Baseline, f: ChallengeFacts, size: ChallengeSize): Offer | null => {
-  const menu = menuFor(s, b, f, size);
+  const menu = menuFor(s, b, f, size).filter((o) => canAdd({ ...o, state: 'offered', at: '' }, s, f));
   return menu.length ? menu[s.seed % menu.length]! : null;
 };
 

@@ -215,6 +215,22 @@ describe('test 11: the menu', () => {
     const b = { ...fourWeeks([5, 3, 4, 5]), gentle: true };
     expect(menuFor(weekSlot(MON), b, facts(MON), 'bold').find((o) => o.item === 'days')?.target).toBe(3);
   });
+  it('the rule never picks what could not be added there and then (an offer nobody can see would count as one let go)', () => {
+    const b = fourWeeks([3, 3, 3, 3], [2, 2, 2, 2], [1, 1, 1, 1]);
+    // Wednesday, first opened this week on a second phone: two days already count, and a week of three would ask for one more (under 40 percent)
+    const wed = facts(day(2), { week: { counted: 2, habitDays: 0, fullDays: 0, goal: 'open' }, day: { habitsLive: 3 } });
+    expect(menuFor(weekSlot(MON), b, wed, 'steady').map((o) => o.item)).toContain('days');
+    for (let seed = 0; seed < 40; seed++) {
+      const slot = weekSlot(MON, seed);
+      const o = offerChallenge(slot, b, wed, 'steady');
+      expect(o).not.toBeNull();
+      expect(o!.item).not.toBe('days');
+      expect(canAdd({ ...o!, state: 'offered', at: '' }, slot, wed)).toBe(true);
+    }
+    // nothing on the menu can be added: nothing is offered (and the slot stays free for later in its window)
+    const late = facts(day(2), { week: { counted: 2 } });
+    for (let seed = 0; seed < 10; seed++) expect(offerChallenge(weekSlot(MON, seed), { ...b, weeks: b.weeks.map((w) => ({ ...w, habitDays: 0, fullDays: 0 })) }, { ...late, week: { ...late.week, fullDays: 1 } }, 'gentle')).toBeNull();
+  });
   it('the pick is the rule’s: by the slot’s seed, the same on every device', () => {
     const picks = new Set<string>();
     for (let seed = 0; seed < 50; seed++) {
