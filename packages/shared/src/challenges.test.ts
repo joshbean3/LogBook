@@ -462,6 +462,21 @@ describe('test 11: state and pay', () => {
     expect(payFor('week', { target: 5, floor: 4 }, 3)).toBe(0);
     expect(payFor('week', { target: 1 }, 1)).toBe(20);
   });
+  it('nothing is ever paid for nothing done: a stored floor of 0, or a target of 0, is not a floor or a target', () => {
+    for (let target = 0; target <= 6; target++)
+      for (const floor of [undefined, 0, 1, target - 1, target, target + 1, 99]) {
+        const c = { target, ...(floor === undefined ? null : { floor }) };
+        expect(payFor('week', c, 0), `${target}/${floor}`).toBe(0);
+        expect(payFor('day', c, 0), `${target}/${floor}`).toBe(0);
+        for (let p = 1; p <= 7; p++) expect([0, 10, 20]).toContain(payFor('week', c, p));
+      }
+    // read after the week with nothing counted: still added, nothing paid, whatever floor the store carried
+    const slot = weekSlot(MON);
+    const c: Challenge = { item: 'days', target: 4, floor: 0, base: 0, state: 'added', at: at(MON).toISOString() };
+    expect(challengeState(c, slot, facts(day(7)))).toMatchObject({ state: 'added', pay: 0 });
+    const s = { ...emptyRewards(U, MON), challenges: { [slot.key]: c } };
+    expect(settleChallenges(s, { [slot.key]: facts(day(7)) }, at(day(7))).store.once).toEqual({});
+  });
   it('one payment per slot', () => {
     const slot = daySlot(day(1));
     const s = added(slot, { item: 'habits', target: 3 });

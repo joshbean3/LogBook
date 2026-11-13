@@ -1,6 +1,7 @@
 import { countLine, daysBetween, fmt, isBigMoment, mondayLine, parseISO, RULES, ruleLine } from '@logbook/shared';
 import type * as React from 'react';
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
+import { SectionBoundary } from '@/app/ErrorBoundary';
 import { useNav } from '@/app/NavController';
 import { GoRow } from '@/features/settings/parts';
 import { useFitness } from '@/lib/prefs';
@@ -230,13 +231,18 @@ export default function OrbsPage(): React.JSX.Element {
               }}
             />
           ))}
-          <ChallengeRows scope="page" />
+          {/* the challenge rows read the app's caches: if they ever fail to draw, the page keeps everything else */}
+          <SectionBoundary name="orbs.challenge" resetKey={today}>
+            <ChallengeRows scope="page" />
+          </SectionBoundary>
         </div>
       )}
 
       {keeps.length ? (
         <PageSection title="Keepsakes" className="orp-keeps-sec">
-          <Keepsakes items={keeps} next={nextKeepsake(store, today)} fresh={fresh} />
+          <SectionBoundary name="orbs.keepsakes" resetKey={today}>
+            <Keepsakes items={keeps} next={nextKeepsake(store, today)} fresh={fresh} />
+          </SectionBoundary>
         </PageSection>
       ) : null}
 

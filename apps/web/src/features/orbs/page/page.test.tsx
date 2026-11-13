@@ -293,6 +293,15 @@ describe('before this phone has a store (a new sign-in, the error screen’s Res
   });
 });
 
+describe('one broken part never blanks the page', () => {
+  // what the boundary does when a section throws is covered where it lives (app/SectionBoundary.test.tsx)
+  it('the challenge rows and the keepsakes each sit in their own boundary', () => {
+    const src = readFileSync(join(__dirname, 'OrbsPage.tsx'), 'utf8');
+    expect(src).toMatch(/<SectionBoundary name="orbs\.challenge"[^>]*>\s*<ChallengeRows scope="page" \/>\s*<\/SectionBoundary>/);
+    expect(src).toMatch(/<SectionBoundary name="orbs\.keepsakes"[^>]*>\s*<Keepsakes [^>]*\/>\s*<\/SectionBoundary>/);
+  });
+});
+
 describe('the switches', () => {
   const rows = (m: Mods, place: 'page' | 'settings') => text(renderToStaticMarkup(<m.Switches.OrbsSwitchRows place={place} />));
   it('are Orbs, Show Orbs when you earn them, Your week, Challenges and How Orbs work', async () => {

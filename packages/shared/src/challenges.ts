@@ -256,10 +256,14 @@ export const progressOf = (c: Pick<Challenge, 'item' | 'base'>, f: ChallengeFact
  */
 export const listTarget = (c: Pick<Challenge, 'item' | 'target' | 'base'>, f: ChallengeFacts): number => (c.item === 'list' && f.list ? Math.min(c.target, progressOf(c, f) + f.list.open) : c.target);
 
-/** A day challenge pays 5. A week challenge pays 20 in full and 10 at its floor. Below that, nothing. */
+/**
+ * A day challenge pays 5. A week challenge pays 20 in full and 10 at its floor. Below that, nothing. A floor is one only
+ * from 1 up to under the target (as `offer` makes them): a stored 0 is no floor, so nothing is ever paid for nothing done.
+ */
 export const payFor = (kind: Slot['kind'], c: Pick<Challenge, 'target' | 'floor'>, progress: number): number => {
+  if (c.target < 1) return 0;
   if (progress >= c.target) return kind === 'day' ? RULES.challenge.day : RULES.challenge.weekFull;
-  return kind === 'week' && c.floor !== undefined && progress >= c.floor ? RULES.challenge.weekFloor : 0;
+  return kind === 'week' && c.floor !== undefined && c.floor >= 1 && c.floor < c.target && progress >= c.floor ? RULES.challenge.weekFloor : 0;
 };
 
 /**

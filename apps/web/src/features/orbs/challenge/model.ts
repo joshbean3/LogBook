@@ -114,6 +114,23 @@ export const progressWords = (kind: Slot['kind'], c: Pick<Challenge, 'item' | 't
 export const progressLine = (kind: Slot['kind'], c: Challenge, f: ChallengeFacts): string => progressWords(kind, { item: c.item, target: listTarget(c, f) }, progressOf(c, f));
 export const doneWords = (pay: number): string => `Done · ${orbs(pay)}`;
 
+const DAY_ITEM = /^(habits|goal|list|full|session:(run|lift|cross))$/;
+/**
+ * Can this build show it? The store is read from the phone and from the account's copy, and a challenge in it may come
+ * from another build or be damaged: an item this build has no words for, an item of the other kind of slot, or a number
+ * the rules cannot make (a week of days outside its published bounds, "every habit" of fewer than two) draws no row and
+ * offers nothing, so no title can read "-2 days off" and nothing can be added that the rules would not offer.
+ */
+export const readable = (c: Pick<Challenge, 'item' | 'target'>, kind: Slot['kind']): boolean => {
+  if (DAY_ITEM.test(c.item) !== (kind === 'day') || !challengeTitle(c)) return false;
+  if (c.item in CHALLENGE_BOUNDS) {
+    const [lo, hi] = CHALLENGE_BOUNDS[c.item as keyof typeof CHALLENGE_BOUNDS];
+    return c.target >= lo && c.target <= hi;
+  }
+  if (c.item === 'habits' || c.item === 'list') return c.target >= 2;
+  return c.item === 'sessions' ? c.target >= 1 : c.target === 1;
+};
+
 /** The local day an ISO time fell on. */
 const dayOfTime = (iso: string): ISODate | null => {
   const d = new Date(iso);
@@ -130,7 +147,7 @@ const dayOfTime = (iso: string): ISODate | null => {
  * challenge that is not already done shows nowhere then, so nothing can read "Done" that will not be paid.
  */
 export const shownAs = (c: Challenge | undefined, slot: Slot, f: ChallengeFacts, today: ISODate, tapsOpen = true): Shown | null => {
-  if (!c) return null;
+  if (!c || !readable(c, slot.kind)) return null;
   if (slot.kind === 'day' && !tapsOpen && c.state !== 'done') return null;
   if (c.state === 'offered') return canAdd(c, slot, f) ? 'offered' : null;
   if (c.state === 'added') {

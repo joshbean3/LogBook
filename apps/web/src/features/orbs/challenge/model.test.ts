@@ -1,4 +1,4 @@
-import { addChallenge, challengeTitle, easierChallenge, emptyRewards, menuFor, offerInto, reasonAllowed, shiftDays, skipChallenge, withPick, type Baseline, type Challenge, type ChallengeFacts, type DayFacts, type Offer, type Rewards, type Slot } from '@logbook/shared';
+import { addChallenge, challengeState, challengeTitle, easierChallenge, emptyRewards, menuFor, offerInto, payFor, reasonAllowed, shiftDays, skipChallenge, withPick, type Baseline, type Challenge, type ChallengeFacts, type DayFacts, type Offer, type Rewards, type Slot } from '@logbook/shared';
 import { describe, expect, it } from 'vitest';
 import { acceptPick, actionsFor, addWords, ASK_FAILED, ASK_WORDS, ASKING, doneWords, eyebrowOf, isPickable, parsePick, payLine, PICKED_CAPTION, progressWords, rowsFor, rowView, sheetLine, shownAs, whatCounts, worthAsking, worthWords, type RowView } from './model';
 import { askPick, mayAskFor, pickCapable } from './pick';
@@ -419,6 +419,102 @@ describe('guards: what the sheet and the row can never do', () => {
     expect(await first).toBe(false);
     expect(getOrbs()!.challenges[slot.key]).toMatchObject({ item: 'list', by: 'assistant', why: 'Two small errands are sitting on your list.' });
     resetOrbsForTest();
+  });
+});
+
+describe('what it says it pays is what is paid', () => {
+  const ITEMS = ['days', 'sessions', 'goal-week', 'habit-days', 'full-days'];
+  it('a week challenge: the sheet’s numbers ("10 Orbs at 4 days, 20 at 5") are the engine’s, at every target and floor', () => {
+    for (const item of ITEMS)
+      for (let target = 1; target <= 6; target++)
+        for (const floor of [undefined, 0, target - 2, target - 1, target, target + 1]) {
+          const c = ch({ item, target, ...(floor === undefined ? null : { floor }) });
+          const line = payLine('week', c);
+          const two = /^(\d+) Orbs at (\d+) (day|days|session|sessions), (\d+) at (\d+)\.$/.exec(line);
+          const one = /^(\d+) Orbs\.$/.exec(line);
+          expect(two || one, line).toBeTruthy();
+          const pays = (progress: number) => payFor('week', c, progress);
+          if (two) {
+            const [, low, at, , full, top] = two.map(Number) as [number, number, number, number, number, number];
+            expect(top).toBe(target);
+            expect(pays(top)).toBe(full);
+            expect(pays(at)).toBe(low);
+            // between the two it pays the lower one, under the lower one nothing: there is no third number
+            for (let p = 0; p <= target + 1; p++) expect(pays(p), `${line} at ${p}`).toBe(p >= top ? full : p >= at ? low : 0);
+            expect(worthWords('week', c)).toBe(`${low} to ${full} Orbs`);
+          } else {
+            const full = Number(one![1]);
+            for (let p = 0; p <= target + 1; p++) expect(pays(p), `${line} at ${p}`).toBe(p >= target ? full : 0);
+            expect(worthWords('week', c)).toBe(`${full} Orbs`);
+          }
+        }
+  });
+  it('through the engine’s own ops: offered, eased to its lower bound, added on a Wednesday, read after the week is over', () => {
+    const slot = weekSlot();
+    for (const [item, lo, hi] of [['days', 3, 5], ['habit-days', 2, 5], ['full-days', 1, 4]] as const) {
+      let s: Rewards = offerInto(emptyRewards(U, shiftDays(MON, -35)), slot, { item, target: hi, floor: hi - 1, base: 0 }, at(MON, 7));
+      for (let step = 0; step < 6; step++) {
+        const c = s.challenges[slot.key]!;
+        expect(c.target).toBeGreaterThanOrEqual(lo);
+        const line = payLine('week', c);
+        const said = /^(\d+) Orbs at (\d+) \w+, (\d+) at (\d+)\.$/.exec(line)?.map(Number);
+        // added on Wednesday with nothing counted yet, then read on the Monday after at each count
+        const key = item === 'days' ? 'counted' : item === 'habit-days' ? 'habitDays' : 'fullDays';
+        const added = addChallenge(s, slot, facts(day(2)), at(day(2), 9)).challenges[slot.key]!;
+        expect(added.state).toBe('added');
+        for (let n = 0; n <= 7; n++) {
+          const after = challengeState(added, slot, facts(day(7), { week: { [key]: n } }));
+          const want = n >= c.target ? 20 : said && n >= said[2]! ? 10 : 0;
+          expect(after.pay, `${item} ${line} with ${n}`).toBe(want);
+          expect(after.state).toBe(want ? 'done' : 'added');
+          // and a row that is done says what the ledger holds
+          if (want) expect(rowView({ ...added, state: 'done', at: at(day(7), 8).toISOString() }, slot, facts(day(7), { week: { [key]: n } }), day(7), want)?.sub).toBe(`Done · ${want} Orbs`);
+        }
+        s = easierChallenge(s, slot.key);
+      }
+      expect(s.challenges[slot.key]!.target).toBe(lo);
+    }
+  });
+  it('a day challenge says 5 and pays 5, once it is met and not before', () => {
+    for (const item of ['habits', 'goal', 'session:run', 'list', 'full']) {
+      const c = ch({ item, target: item === 'habits' || item === 'list' ? 3 : 1 });
+      expect(payLine('day', c)).toBe('5 Orbs.');
+      expect(worthWords('day', c)).toBe('5 Orbs');
+      for (let p = 0; p <= c.target; p++) expect(payFor('day', c, p)).toBe(p >= c.target ? 5 : 0);
+    }
+  });
+});
+
+describe('a challenge this build cannot read is not shown', () => {
+  it('an item it does not know, or a number outside what the rules can make (a store from elsewhere), draws no row and offers nothing', () => {
+    const slot = weekSlot();
+    const f = facts(MON, { week: { sessions: { planned: 4, done: 0 }, goal: 'open' } });
+    const odd: Challenge[] = [
+      ch({ item: 'run-a-marathon', target: 1 }),
+      ch({ item: 'days', target: 0 }),
+      ch({ item: 'days', target: 2, floor: 1 }),
+      ch({ item: 'days', target: 9, floor: 8 }),
+      ch({ item: 'habit-days', target: 7, floor: 6 }),
+      ch({ item: 'full-days', target: 5, floor: 4 }),
+      ch({ item: 'sessions', target: 0 }),
+      ch({ item: 'goal-week', target: 3 }),
+    ];
+    for (const c of odd)
+      for (const state of ['offered', 'added', 'done'] as const) {
+        expect(rowView({ ...c, state }, slot, f, MON, 20), `${c.item} ${c.target} ${state}`).toBeNull();
+        expect(actionsFor({ ...c, state }, slot, f, MON, { mayAsk: true, menu: [] })).toEqual({ add: null, skip: false, easier: false, ask: false, drop: false });
+      }
+    const d = daySlot(MON);
+    for (const c of [ch({ item: 'habits', target: 0 }), ch({ item: 'goal', target: 4 }), ch({ item: 'list', target: 0 }), ch({ item: 'session:swim', target: 1 }), ch({ item: 'days', target: 4 })]) expect(rowView(c, d, facts(MON, { todosOpen: 5 }), MON), `${c.item} ${c.target}`).toBeNull();
+    // every title a shown row can carry is a real one: no "-2 days off"
+    for (let target = -1; target <= 9; target++) {
+      const v = rowView(ch({ item: 'days', target, floor: target - 1 }), slot, f, MON);
+      if (v) expect(v.title).toMatch(/^Every day this week, (two|three|four) days off$/);
+    }
+    // and what the rules do make is shown, as before
+    expect(rowView(ch({ item: 'days', target: 5, floor: 4 }), slot, f, MON)).not.toBeNull();
+    expect(rowView(ch({ item: 'sessions', target: 3, floor: 2 }), slot, f, MON)).not.toBeNull();
+    expect(rowView(ch({ item: 'habits', target: 3 }), d, facts(MON), MON)).not.toBeNull();
   });
 });
 
