@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Log } from '../log/useLog';
-import { looksNew, nothingSetUp } from './firstRun';
+import { isFirstDay, looksNew, nothingSetUp, setupDay } from './firstRun';
 
 const T = '2026-11-10';
 const log = (o: { habits?: number; blocks?: number; sessions?: Record<string, number>; runs?: Record<string, number>; journal?: number } = {}) =>
@@ -35,5 +35,37 @@ describe('the first-run face', () => {
     expect(looksNew(log({ runs: { '2026-11-08': 1 } }), T)).toBe(false);
     expect(looksNew(log({ journal: 1 }), T)).toBe(false);
     expect(looksNew(log(), '2026-11-11')).toBe(false);
+  });
+});
+
+describe('the first day (the day setup was finished)', () => {
+  // noon local time on the day, so the local date is the same in any time zone the tests run in
+  const at = (day: string) => new Date(`${day}T12:00:00`).toISOString();
+  const first = (o: Parameters<typeof log>[0] & { onboardedAt?: string | null } = {}) => {
+    const l = log(o) as unknown as { boot: Record<string, unknown> };
+    l.boot.user = { onboardedAt: o.onboardedAt === undefined ? at(T) : o.onboardedAt };
+    return l as unknown as Log;
+  };
+  it('reads the local day out of the timestamp, and nothing out of none', () => {
+    expect(setupDay(at(T))).toBe(T);
+    expect(setupDay(null)).toBeNull();
+    expect(setupDay(undefined)).toBeNull();
+    expect(setupDay('not a date')).toBeNull();
+  });
+  it('is today when setup finished today and nothing is on the day: the day poster leads', () => {
+    expect(isFirstDay(first({ habits: 3, blocks: 1 }), T)).toBe(true);
+    // with no plan and no habits too
+    expect(isFirstDay(first(), T)).toBe(true);
+  });
+  it('is over once a session or a run is on the day: the training card leads', () => {
+    expect(isFirstDay(first({ sessions: { [T]: 1 } }), T)).toBe(false);
+    expect(isFirstDay(first({ runs: { [T]: 1 } }), T)).toBe(false);
+  });
+  it('is never another day, and never an account set up on another day', () => {
+    expect(isFirstDay(first(), '2026-11-11')).toBe(false);
+    expect(isFirstDay(first({ onboardedAt: at('2026-11-09') }), T)).toBe(false);
+    expect(isFirstDay(first({ onboardedAt: null }), T)).toBe(false);
+    // a bootstrap from before the account carried it
+    expect(isFirstDay(log(), T)).toBe(false);
   });
 });

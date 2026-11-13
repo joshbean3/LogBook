@@ -10,6 +10,7 @@ import {
   normalizeMorningSettings,
   pad,
   shiftDays,
+  TemplateError,
   tone,
   weekdayOf,
   WEEKDAYS,
@@ -180,6 +181,20 @@ export const safeTemplate = (p: TrainingProfile, startDate: ISODate): Template |
     } catch {
       return null;
     }
+  }
+};
+
+/**
+ * Why these answers build no plan, in the builder's own words ("22 miles a week needs at least 3 run days."), or null
+ * when they do. Only the builder's own refusals are words for a person; anything else is null.
+ */
+export const templateProblem = (p: TrainingProfile, startDate: ISODate): string | null => {
+  if (safeTemplate(p, startDate)) return null;
+  try {
+    buildTemplate({ goal: p.goal, startDate, runDays: p.runDays, longRunDay: fixLongRun(p.runDays, p.longRunDay), weeklyMiles: p.weeklyMiles, raceDate: null });
+    return null;
+  } catch (e) {
+    return e instanceof TemplateError ? e.message : null;
   }
 };
 

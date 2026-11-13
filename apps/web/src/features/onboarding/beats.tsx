@@ -1,21 +1,21 @@
-import { fmtDate } from '@logbook/shared';
 import { BellRing, BellOff, Check } from 'lucide-react';
-import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
+import { motion, useReducedMotion } from 'motion/react';
 import { useEffect, useRef, useState } from 'react';
 import { haptics } from '@/lib/haptics';
 import { springs } from '@/lib/motion';
 import { Pressable } from '@/ui';
-import { blockLine, hm, type BlockShape } from './model';
+import { hm } from './model';
 
 /**
  * The beats that make first run feel built for you (docs/onboarding-research.md):
  *
  *   SetupBar      a segmented bar with the account already filled in, so the first question opens on progress made
  *                 (endowed progress, Nunes & Drèze 2006) and the end is always in sight
- *   BlockPreview  the plan the answers so far would build, read off the real template, moving as they change (Noom's moving
- *                 goal date): every answer visibly does something
  *   BuildBeat     the plan being written, one real step at a time, a selection tick per step, and the reveal on success
- *   NudgeChoice   one nudge a morning, previewed as the notification itself, chosen before the system asks
+ *   NudgePreview  one nudge a morning, previewed as the notification itself (the nudge question's poster)
+ *   NudgeOptions  the two answers, chosen before the system asks
+ *
+ * The plan the answers build is drawn on each question's poster now (posters.tsx), read off the same template.
  */
 
 // ---------- the setup bar ----------
@@ -30,36 +30,6 @@ export const SetupBar = ({ steps, index }: { steps: number; index: number }) => 
           <i />
         </span>
       ))}
-    </div>
-  );
-};
-
-// ---------- the block's shape ----------
-const KIND_WORD: Record<BlockShape['bars'][number]['kind'], string> = { 'lead-in': 'Warm-up week', build: 'Build', down: 'Easier week', taper: 'Taper', race: 'Race' };
-
-/** `compact`: bars and the line only. `bare`: the same, without a card of its own (inside the race-day card). */
-export const BlockPreview = ({ shape, compact = false, bare = false }: { shape: BlockShape | null; compact?: boolean; bare?: boolean }) => {
-  const reduce = useReducedMotion();
-  if (!shape) return null;
-  const head = shape.raceDate ? fmtDate('short', shape.raceDate) : `${shape.weeks} weeks`;
-  return (
-    <div className={`${bare ? '' : 'card '}obx-block ${compact || bare ? 'is-compact' : ''} ${bare ? 'is-bare' : ''}`} aria-live="polite">
-      {compact || bare ? null : (
-        <div className="obx-block-head">
-          <span className="caps">{shape.raceDate ? 'Race day' : 'Your plan'}</span>
-          <AnimatePresence mode="popLayout" initial={false}>
-            <motion.b key={head} className="obx-block-big" initial={reduce ? { opacity: 0 } : { opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={reduce ? { opacity: 0 } : { opacity: 0, y: -10 }} transition={reduce ? { duration: 0.15 } : springs.settle}>
-              {head}
-            </motion.b>
-          </AnimatePresence>
-        </div>
-      )}
-      <div className="obx-bars" aria-hidden="true">
-        {shape.bars.map((b, i) => (
-          <span key={i} className={`obx-b k-${b.kind}`} style={{ transform: `scaleY(${b.h})`, transitionDelay: reduce ? '0ms' : `${Math.min(i, 24) * 12}ms` }} title={KIND_WORD[b.kind]} />
-        ))}
-      </div>
-      <p className="obx-block-line">{blockLine(shape)}</p>
     </div>
   );
 };
@@ -130,48 +100,52 @@ export const BuildBeat = ({ steps, ready, failed, onDone, title }: { steps: stri
  * alert, never on a screen that only leads into it). The preview is the notification as it will arrive, at the time it
  * will arrive: fifteen minutes after the alarm the person just set.
  */
-export const NudgeChoice = ({ on, at, onChange }: { on: boolean; at: number; onChange: (on: boolean) => void }) => {
+export const NudgePreview = ({ on, at }: { on: boolean; at: number }) => {
   const reduce = useReducedMotion();
+  return (
+    <div className="obx-lock" aria-hidden="true">
+      <span className="obx-lock-time">{hm(at)}</span>
+      <motion.div className="obx-note" animate={on ? { opacity: 1, y: 0, scale: 1 } : { opacity: 0.35, y: reduce ? 0 : 6, scale: reduce ? 1 : 0.97 }} transition={reduce ? { duration: 0.15 } : springs.settle}>
+        <span className="obx-note-app">
+          <img className="obx-note-icon" src={`${import.meta.env.BASE_URL}icons/apple-touch-icon.png`} alt="" width={16} height={16} draggable={false} />
+          Orby
+          <small>now</small>
+        </span>
+        <b>Set today’s goal</b>
+        <span>One thing that would make today a win.</span>
+      </motion.div>
+    </div>
+  );
+};
+
+/** The two answers, one card: nudge me at the time shown, or no nudges. */
+export const NudgeOptions = ({ on, at, onChange }: { on: boolean; at: number; onChange: (on: boolean) => void }) => {
   const pick = (v: boolean) => {
     if (v !== on) haptics.select();
     onChange(v);
   };
   return (
-    <>
-      <div className="obx-lock" aria-hidden="true">
-        <span className="obx-lock-time">{hm(at)}</span>
-        <motion.div className="obx-note" animate={on ? { opacity: 1, y: 0, scale: 1 } : { opacity: 0.35, y: reduce ? 0 : 6, scale: reduce ? 1 : 0.97 }} transition={reduce ? { duration: 0.15 } : springs.settle}>
-          <span className="obx-note-app">
-            <img className="obx-note-icon" src={`${import.meta.env.BASE_URL}icons/apple-touch-icon.png`} alt="" width={16} height={16} draggable={false} />
-            Orby
-            <small>now</small>
-          </span>
-          <b>Set today’s goal</b>
-          <span>One thing that would make today a win.</span>
-        </motion.div>
-      </div>
-      <div className="card obx-choice" role="radiogroup" aria-label="Morning nudge">
-        <Pressable className={`obx-opt ${on ? 'on' : ''}`} role="radio" aria-checked={on} onPress={() => pick(true)}>
-          <span className="obx-opt-ic">
-            <BellRing size={18} aria-hidden="true" />
-          </span>
-          <span className="obx-opt-text">
-            <b>Nudge me at {hm(at)}</b>
-            <span>Once a morning, only on days without a goal.</span>
-          </span>
-          <span className="obx-radio" aria-hidden="true" />
-        </Pressable>
-        <Pressable className={`obx-opt ${!on ? 'on' : ''}`} role="radio" aria-checked={!on} onPress={() => pick(false)}>
-          <span className="obx-opt-ic">
-            <BellOff size={18} aria-hidden="true" />
-          </span>
-          <span className="obx-opt-text">
-            <b>No nudges</b>
-            <span>The dot on Goals is enough.</span>
-          </span>
-          <span className="obx-radio" aria-hidden="true" />
-        </Pressable>
-      </div>
-    </>
+    <div className="card obx-choice" role="radiogroup" aria-label="Morning nudge">
+      <Pressable className={`obx-opt ${on ? 'on' : ''}`} role="radio" aria-checked={on} onPress={() => pick(true)}>
+        <span className="obx-opt-ic">
+          <BellRing size={18} aria-hidden="true" />
+        </span>
+        <span className="obx-opt-text">
+          <b>Nudge me at {hm(at)}</b>
+          <span>Once a morning, only on days without a goal.</span>
+        </span>
+        <span className="obx-radio" aria-hidden="true" />
+      </Pressable>
+      <Pressable className={`obx-opt ${!on ? 'on' : ''}`} role="radio" aria-checked={!on} onPress={() => pick(false)}>
+        <span className="obx-opt-ic">
+          <BellOff size={18} aria-hidden="true" />
+        </span>
+        <span className="obx-opt-text">
+          <b>No nudges</b>
+          <span>The dot on Goals is enough.</span>
+        </span>
+        <span className="obx-radio" aria-hidden="true" />
+      </Pressable>
+    </div>
   );
 };

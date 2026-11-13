@@ -47,6 +47,7 @@ import { plainOf } from './plain';
 import { AssistantPermission, useAssistantGate } from './Permission';
 import { ProposalCard } from './Proposal';
 import { ReportPanel } from './Report';
+import { helloLine } from './hello';
 import { Rich } from './Rich';
 import { assistantStore, useAssistantBusy, useAssistantBusyChat, useAssistantChatId, useAssistantChats, useAssistantLive, useAssistantOffline, useAssistantSaveFailed, useAssistantStopped, useAssistantTurns } from './store';
 import './assistant.css';
@@ -125,7 +126,6 @@ export const chipOf = (s: AssistantScreen | undefined, today: ISODate): string |
   return null;
 };
 
-const greeting = (h = new Date().getHours()) => (h < 5 ? 'Good evening' : h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening');
 
 /** Seconds since `since`, ticking once a second while shown. */
 const useSeconds = (since: number) => {
@@ -557,7 +557,7 @@ const Conversation = ({ date, initial, screen: openedFrom, chatId, own, placehol
   // the answer being written belongs to this chat (one can carry on in another while this one is open)
   const busy = busyAnywhere && busyChat === chatId;
   const boot = useBootstrap().data;
-  const name = boot?.user.name?.trim().split(/\s+/)[0];
+  const name = boot?.user.name;
   const sheet = useSheet();
   const speaker = useSpeaker();
   // turns added while the sheet is open come in with a rise; the ones already there just show
@@ -851,8 +851,7 @@ const Conversation = ({ date, initial, screen: openedFrom, chatId, own, placehol
           <div className="as-hello">
             <Orb size={56} className="as-hello-mark" />
             <p className="as-hello-title">
-              {greeting()}
-              {name ? `, ${name}` : ''}.
+              {helloLine(name)}
             </p>
             {training ? (
               <>

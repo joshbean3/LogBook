@@ -2455,6 +2455,13 @@ p.cd-kept-line {
 .day-page[data-fitness='off'] > .hero-close {
   margin-bottom: var(--section);
 }
+/* the first day (firstRun.ts): the day's poster leads under the plan's chip, a card's gap below it, not a section's */
+.day-page[data-first-day] > .pd {
+  margin-top: var(--sp-4);
+}
+.day-page[data-first-day] > .hero-close + .pd {
+  margin-top: var(--section);
+}
 .day-learned {
   margin-top: var(--section);
   min-width: 0;

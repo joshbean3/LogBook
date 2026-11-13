@@ -1,6 +1,6 @@
 import AxeBuilder from '@axe-core/playwright';
 import type { Page } from '@playwright/test';
-import { expect, go, signUpByApi, test } from './helpers';
+import { expect, go, signUpByApi, signUpForSetup, test } from './helpers';
 
 /**
  * The accessibility scan (requirement QUA-44): every route and the main sheets, at 390 and 320 wide, checked by axe-core
@@ -32,6 +32,46 @@ test.describe('signed out', () => {
       await scan(page, path);
     });
   }
+});
+
+test.describe('setup', () => {
+  // first launch is a common task: every question and the reveal, with an answer given so each picture is drawn
+  test('every question and the reveal', async ({ page }) => {
+    await signUpForSetup(page);
+    const problems: string[] = [];
+    const check = async (where: string) => {
+      try {
+        await scan(page, where);
+      } catch (e) {
+        problems.push(e instanceof Error ? e.message : String(e));
+      }
+    };
+    // the step being left is still on its way out for a moment: the button of the step that came in is the last one
+  const next = () => page.getByRole('button', { name: 'Next', exact: true }).last().click();
+    await check('/welcome/name, empty');
+    await page.getByRole('textbox', { name: 'First name' }).fill('Sam');
+    await check('/welcome/name');
+    await next();
+    await check('/welcome/fitness, not answered');
+    await page.getByRole('radio', { name: /Yes, track training/ }).click();
+    await check('/welcome/fitness');
+    await next();
+    await check('/welcome/goal, not answered');
+    await page.getByRole('radio', { name: 'Half marathon' }).click();
+    await check('/welcome/goal');
+    await next();
+    await check('/welcome/days');
+    await next();
+    await check('/welcome/morning');
+    await next();
+    await check('/welcome/habits, none');
+    await page.getByRole('button', { name: 'Stretch', exact: true }).click();
+    await check('/welcome/habits');
+    await next();
+    await expect(page.getByRole('heading', { name: 'Your first day.' })).toBeVisible({ timeout: 30_000 });
+    await check('/welcome/ready, the reveal');
+    expect(problems).toEqual([]);
+  });
 });
 
 test.describe('signed in', () => {

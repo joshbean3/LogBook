@@ -1,4 +1,4 @@
-/* ---------- onboarding v2 beats (beats.tsx): the setup bar, the block preview, the plan being written, the nudge ---------- */
+/* ---------- onboarding v2 beats (beats.tsx): the setup bar, the plan being written, the nudge ---------- */
 
 /* the setup bar: the account segment is already filled; the live one fills as you arrive */
 .obx-bar {
@@ -8,12 +8,13 @@
   max-width: 200px;
   margin-inline: auto;
 }
-/* a Haze track, filled in Night Ink where you are and Dusk where you have been */
+/* a Paper track (the bar stands on the Haze of the dawn wash), filled in Night Ink where you are and Dusk where you
+   have been */
 .obx-seg {
   flex: 1;
   height: 5px;
   border-radius: var(--r-pill);
-  background: var(--haze);
+  background: var(--paper);
   overflow: hidden;
 }
 .obx-seg i {
@@ -31,64 +32,6 @@
 }
 .obx-seg.on i {
   transform: scaleX(0.5);
-}
-
-/* the block preview: weeks as domed bars in the Sky family by what the week is for (build Deep Sky, the lighter weeks
-   Sky, the lead-in Haze); race week in its fast tone, Rose (plan 6.9), never orange */
-.card.obx-block {
-  display: grid;
-  gap: var(--sp-3);
-  padding: var(--sp-4);
-}
-.obx-block-head {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: var(--sp-3);
-  color: var(--ink-2);
-}
-.obx-block-big {
-  font: 600 var(--fs-section) / var(--lh-section) var(--serif);
-  color: var(--ink);
-}
-.obx-bars {
-  display: flex;
-  align-items: flex-end;
-  gap: 3px; /* brand-ok: geometry, twelve to twenty weeks across one card */
-  height: 72px;
-}
-.card.obx-block.is-compact .obx-bars {
-  height: 44px;
-}
-.obx-b {
-  flex: 1 1 0;
-  min-width: 2px;
-  height: 100%;
-  border-radius: var(--r-pill) var(--r-pill) 0 0;
-  background: var(--deep-sky);
-  transform-origin: bottom;
-  transition:
-    transform var(--dur-number) var(--ease-out),
-    background-color var(--dur-color) var(--ease-out);
-}
-.obx-b.k-lead-in {
-  background: var(--haze);
-}
-.obx-b.k-down,
-.obx-b.k-taper {
-  background: var(--accent);
-}
-.obx-b.k-race {
-  background: var(--t-fast);
-}
-.obx-block-line {
-  margin: 0;
-  font: 500 var(--fs-sub) / var(--lh-sub) var(--sans);
-  color: var(--ink-2);
-}
-.card.obx-block.is-compact .obx-block-line {
-  font-size: var(--fs-foot);
-  line-height: var(--lh-foot);
 }
 
 /* the plan being written: top-anchored (plan O1), so the headline holds still and the checklist grows down from it */
@@ -120,6 +63,7 @@
   align-items: center;
   gap: var(--sp-3);
   font: 500 var(--fs-row) / var(--lh-row) var(--sans);
+  font-variant-numeric: tabular-nums;
   color: var(--ink-2);
 }
 /* a step written: the done coin, Sky with a Night Ink check (no bevel, no shadow) */
@@ -283,22 +227,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .obx-seg i,
-  .obx-b {
+  .obx-seg i {
     transition-duration: var(--dur-reduce);
   }
-}
-.obx-block.is-bare {
-  display: grid;
-  gap: var(--sp-3);
-  margin-top: var(--sp-4);
-  padding-top: var(--sp-4);
-  border-top: 1px solid var(--line);
-}
-.obx-block.is-bare .obx-bars {
-  height: 48px;
-}
-.obx-block.is-bare .obx-block-line {
-  font-size: var(--fs-foot);
-  line-height: var(--lh-foot);
 }
