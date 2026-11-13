@@ -27,9 +27,14 @@ let inFlight: Promise<void> | null = null;
 let started = false;
 
 /** Is there something the server has not been told? The maps are compared by identity (they are replaced, never edited) and the closed days by their count. */
+const closedCounts = new WeakMap<Rewards['days'], number>();
 const closedCount = (s: Rewards) => {
-  let n = 0;
-  for (const d in s.days) if (s.days[d]!.c) n++;
+  let n = closedCounts.get(s.days);
+  if (n === undefined) {
+    n = 0;
+    for (const d in s.days) if (s.days[d]!.c) n++;
+    closedCounts.set(s.days, n);
+  }
   return n;
 };
 const differs = (a: Rewards, b: Rewards | null): boolean =>

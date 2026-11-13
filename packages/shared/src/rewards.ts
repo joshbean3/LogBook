@@ -646,6 +646,16 @@ export const goalEarns = (g: Pick<Aim, 'level' | 'period' | 'status' | 'createdA
 
 // ---------- the reconciler ----------
 
+/**
+ * A copy of a map of days. A plain loop: with a year of days in it, the engine copies this several times faster than a
+ * spread, and it is the one copy a tap pays for.
+ */
+const copyOf = <T>(map: Record<string, T>): Record<string, T> => {
+  const out: Record<string, T> = {};
+  for (const k in map) out[k] = map[k]!;
+  return out;
+};
+
 export interface Gained {
   /** A day's kind (`todo`, `habit`, `train:run`, `goal:day`, `full`, `back`) or a once-key (`goal:week:<monday>`, `week:<monday>`, `challenge:d:<date>`). */
   key: string;
@@ -707,7 +717,7 @@ export const reconcile = (store: Rewards, facts: readonly DayFacts[], now: Date,
   let orbs = 0;
   let dayCount = 0;
   const setDay = (d: ISODate, rec: DayRec | null) => {
-    if (days === store.days) days = { ...store.days };
+    if (days === store.days) days = copyOf(store.days);
     const was = days[d];
     orbs += (rec?.n ?? 0) - (was?.n ?? 0);
     dayCount += ((rec?.a ?? 0) >= 1 ? 1 : 0) - ((was?.a ?? 0) >= 1 ? 1 : 0);
