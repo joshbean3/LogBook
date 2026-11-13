@@ -181,52 +181,57 @@ export const popOrbs = (o: PopOrbs): number => {
   // the cheap answers first: the layout is read only for an Orb that will be drawn
   const room = orbRoom(o.key, o.date) + before;
   const ask = { n: o.n, on: sw.on, show: sw.show, room, claimed: claims.claimed(o.key, o.date), sinceSubject: seen === undefined ? null : now - seen, hidden: document.hidden, sheetOpening: now - overlayAt < SHEET_OPENING_MS, reduce };
-  if (!popPlan(ask).n) return 0;
-  const rect = rectOf(o.from) ?? pressRect();
-  if (!rect) return 0;
-  const target = reduce ? null : counterPoint();
-  const plan = popPlan({ ...ask, counter: !!target });
+  const first = popPlan(ask);
+  if (!first.n) return 0;
+  const delay = Math.max(0, o.delay ?? 0);
+  // the control's rectangle, read once: now, at the press. A delayed pop from an element (the training card, whose face
+  // changes height as it turns to done) reads it when it starts instead, so the Orbs are born where the control then is
+  const late = delay > 0 && o.from instanceof Element ? o.from : null;
+  const rect0 = late ? null : (rectOf(o.from) ?? pressRect());
+  if (!late && !rect0) return 0;
   lastPop.set(subject, now);
-  const x = rect.left + rect.width / 2;
-  const y = rect.top + rect.height / 2;
   const dir: 1 | -1 = document.documentElement.dir === 'rtl' ? -1 : 1;
-  const lights = plan.mode === 'still' ? stillLights(plan.n, rect.height / 2) : lightsOf(plan.n, dir);
-  // the count: held back until the first light lands (a flight), or counted at once
-  const claim: Claim = claims.add(o.key, o.date, subject, plan.n, now, plan.mode !== 'fly');
+  // the count: counted at once, or (a flight) held back until the first light lands
+  const claim: Claim = claims.add(o.key, o.date, subject, first.n, now, false);
   if (before > 0) {
     // the store counted it a frame ago: this claim is already confirmed
     early = early.filter((g) => !(g.key === o.key && g.date === o.date));
-    claims.confirm(o.key, o.date, plan.n);
+    claims.confirm(o.key, o.date, first.n);
   }
-  const delay = Math.max(0, o.delay ?? 0);
+  const haptic = o.haptic ?? (o.key === 'todo' || o.key === 'habit' ? 'impact' : 'success');
   let landed = false;
-  let longest = 0;
-  const fire = () => {
-    for (const light of lights) {
-      const fly = plan.mode === 'fly' && target ? { dx: target.x - (x + light.dx), dy: target.y - (y + light.dy), ms: 0 } : undefined;
-      if (fly) fly.ms = flightMs(Math.hypot(fly.dx, fly.dy));
-      spawn({
-        x,
-        y,
-        light,
-        mode: plan.mode,
-        fly,
-        onEnd: (reached) => {
-          if (landed) return;
-          landed = true;
-          claims.land(claim);
-          if (reached) counter?.land();
-          emitOffset();
-        },
-      });
-      longest = Math.max(longest, light.delay + (fly ? POP.flyAtMs + fly.ms : plan.mode === 'still' ? STILL.inMs + STILL.holdMs : POP.fadeEndMs));
-    }
+  const land = (reached: boolean) => {
+    if (landed) return;
+    landed = true;
+    claims.land(claim);
+    if (reached) counter?.land();
+    emitOffset();
   };
+  const fire = () => {
+    const rect = rect0 ?? rectOf(late);
+    if (!rect) return land(false);
+    const target = reduce ? null : counterPoint();
+    const mode = popPlan({ ...ask, sinceSubject: null, sheetOpening: false, counter: !!target }).mode;
+    const x = rect.left + rect.width / 2;
+    const y = rect.top + rect.height / 2;
+    const lights = mode === 'still' ? stillLights(first.n, rect.height / 2) : lightsOf(first.n, dir);
+    let longest = 0;
+    for (const light of lights) {
+      const fly = mode === 'fly' && target ? { dx: target.x - (x + light.dx), dy: target.y - (y + light.dy), ms: 0 } : undefined;
+      if (fly) fly.ms = flightMs(Math.hypot(fly.dx, fly.dy));
+      spawn({ x, y, light, mode, fly, onEnd: land });
+      longest = Math.max(longest, light.delay + (fly ? POP.flyAtMs + fly.ms : mode === 'still' ? STILL.inMs + STILL.holdMs : POP.fadeEndMs));
+    }
+    const t = performance.now();
+    lastBirth = { x, y, at: t, haptic, over: t + longest };
+    // with no flight there is nothing to wait for: the counter has it now
+    if (mode !== 'fly') land(false);
+  };
+  // until it starts, the full day's chip and a toast still wait for it
+  lastBirth = { x: rect0 ? rect0.left + rect0.width / 2 : 0, y: rect0 ? rect0.top + rect0.height / 2 : 0, at: now + delay, haptic, over: now + delay + POP.goneMs };
   if (delay) setTimeout(fire, delay);
   else fire();
-  lastBirth = { x, y, at: now + delay, haptic: o.haptic ?? (o.key === 'todo' || o.key === 'habit' ? 'impact' : 'success'), over: now + delay + (longest || POP.goneMs) };
-  if (plan.mode !== 'fly') emitOffset();
-  return plan.n;
+  return first.n;
 };
 
 /** A check was taken back (silently): if the store had not counted its Orb yet, the counter lets go of it. */

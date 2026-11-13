@@ -1,9 +1,9 @@
-import { goalEarns, today as clockToday, type Aim, type GoalLevel } from '@logbook/shared';
+import type { Aim, GoalLevel } from '@logbook/shared';
 import { Check } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
-import { getSwitches } from '@/features/orbs/store';
+import { getOrbs, getSwitches } from '@/features/orbs/store';
 import { useReduced } from '@/lib/motion';
 import { restoreFocus } from '@/ui/focus';
 import { holdInert } from '@/ui/inert';
@@ -15,22 +15,30 @@ const LINE: Record<Exclude<GoalLevel, 'day'>, string> = { week: 'A whole week, d
 // one moment per finish, however many places show the goal
 let shown = '';
 
+/** How long the Orbs' reconciler is given to count a goal before this page decides the goal earned nothing. */
+export const CELEBRATE_WAIT_MS = 700;
+
 /**
  * Ask for the full-screen moment: a week, month or year goal has just been finished here (open → done).
  *
- * Today's goal never opens it: it gets three Orbs at its control and the small burst (features/orbs/moment). And while
- * Orbs are on and the goal earns its Orbs, the moment is the Orbs' to show (a big moment, at rest: after the Close
- * card's save or on the next open, never from the tap), so nothing opens here either. What is left is a goal that earns
- * nothing (set too late, reviewed out of its period) or an account with Orbs switched off: its page opens as before.
+ * Today's goal never opens it: it gets three Orbs at its control and the small burst (features/orbs/moment). And when
+ * Orbs are shown and the goal earned its Orbs, the moment is the Orbs' to show (a big moment, at rest: after the Close
+ * card's save or on the next open, never from the tap), so nothing opens here either. What is left is a goal that earned
+ * nothing (set too late, reviewed out of its period, before Orbs began) or an account with Orbs switched off or not
+ * shown: its page opens as before.
  */
 export const useCelebrate = () => (goal: Aim) => {
   if (goal.level === 'day') return;
-  const sw = getSwitches();
-  if (sw.on && sw.show && goalEarns(goal, clockToday())) return;
   const key = `${goal.id}:${goal.updatedAt}`;
   if (shown === key) return;
   shown = key;
-  window.dispatchEvent(new CustomEvent<Aim>(EVENT, { detail: goal }));
+  const open = () => window.dispatchEvent(new CustomEvent<Aim>(EVENT, { detail: goal }));
+  const sw = getSwitches();
+  if (!sw.on || !sw.show) return open();
+  // the reconciler pays a goal on the frame after it turns done: paid, the moment is the Orbs'
+  setTimeout(() => {
+    if (!getOrbs()?.once[`goal:${goal.level}:${goal.period}`]) open();
+  }, CELEBRATE_WAIT_MS);
 };
 
 export interface MomentPageProps {
