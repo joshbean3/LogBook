@@ -1,6 +1,6 @@
 import type { DayTimeline as Timeline, ISODate, TimelineItem, TimelineKind } from '@logbook/shared';
 import { useQuery } from '@tanstack/react-query';
-import { Bike, BookOpen, Check, Dumbbell, Footprints, Lightbulb } from 'lucide-react';
+import { Bike, BookOpen, Check, Dumbbell, Footprints } from 'lucide-react';
 import type * as React from 'react';
 import { useEffect, useMemo, useRef } from 'react';
 import { api } from '@/api/client';
@@ -8,10 +8,10 @@ import { minutesText } from '@/ui/captions';
 import { SectionHeader } from '@/ui/layout';
 import type { Log } from '../log/useLog';
 
-const ICON: Record<TimelineKind, typeof Check> = { habit: Check, run: Footprints, lift: Dumbbell, activity: Bike, learned: Lightbulb, journal: BookOpen };
-
-/** The second line of a row. The day's line is part of the journal: a server from before that still says "Learned". */
-const subOf = (i: TimelineItem): string | null => (i.kind === 'learned' ? 'Journal line' : i.sub);
+// a line and an entry are both the Journal's: its book, and the kind in words (the server's own caption for a line still
+// names the old tab)
+const ICON: Record<TimelineKind, typeof Check> = { habit: Check, run: Footprints, lift: Dumbbell, activity: Bike, learned: BookOpen, journal: BookOpen };
+const KIND_WORD: Partial<Record<TimelineKind, string>> = { learned: 'Line', journal: 'Entry' };
 
 /** Minutes after local midnight: from a recorded moment, or a local `HH:MM` start. */
 const minutesOf = (i: TimelineItem): number | null => {
@@ -37,7 +37,7 @@ const SETTLE_MS = 1000;
 
 /**
  * What was done, in the order it happened (docs/inspiration.md §6, Today 6): habit taps, sessions marked, synced
- * activities, the day's journal line and entries, at the foot of the day. Hidden until something has happened;
+ * activities, the day's line and journal entries, at the foot of the day. Hidden until something has happened;
  * never on a day still to come. Today's refreshes whenever the day's data changes.
  */
 export const DayTimeline = ({ date, log }: { date: ISODate; log: Log }): React.JSX.Element | null => {
@@ -66,6 +66,7 @@ export const DayTimeline = ({ date, log }: { date: ISODate; log: Log }): React.J
       <ol className="tl-list">
         {rows.map((r) => {
           const Icon = ICON[r.kind];
+          const sub = KIND_WORD[r.kind] ?? r.sub;
           return (
             <li key={r.id} className={`tl-row tl-${r.kind}`}>
               <span className="tl-tile" aria-hidden="true">
@@ -73,7 +74,7 @@ export const DayTimeline = ({ date, log }: { date: ISODate; log: Log }): React.J
               </span>
               <span className="tl-main">
                 <span className="tl-title">{r.title}</span>
-                {subOf(r) ? <span className="tl-sub">{subOf(r)}</span> : null}
+                {sub ? <span className="tl-sub">{sub}</span> : null}
               </span>
               <span className="tl-time tnum">{r.mins === null ? '' : minutesText(r.mins)}</span>
             </li>

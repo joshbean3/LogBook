@@ -1192,6 +1192,37 @@
   font: 400 var(--fs-sub) / var(--lh-sub) var(--sans);
   text-align: left;
 }
+/* the line first (the Journal's own field, features/learned/LineField.tsx): on the card's Paper its field is Cloud with
+   the field edge, as on the Journal's poster */
+.cd-line-field {
+  display: grid;
+  min-width: 0;
+}
+/* the kept line, the day's headline in the read layer: the sentence voice, at the card's text edge */
+.cd-kept-line.ln-line.is-quote {
+  margin: 0;
+}
+p.cd-kept-line {
+  padding: var(--sp-1) 0;
+  font: italic 420 var(--fs-sentence) / var(--lh-sentence) var(--serif);
+  color: var(--ink);
+  overflow-wrap: break-word;
+}
+/* the read layer's foot: "Write more", and "Add the line" while the day has entries and no line */
+.cd-read-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0 var(--sp-5);
+  margin-top: auto;
+}
+.cd-read-foot > .cd-addto.pressable {
+  margin-top: 0;
+}
+.cd-addline.pressable {
+  color: var(--accent-text);
+  font-weight: 600;
+}
 /* after the card: Tomorrow (its own section: the word and the alarm in one group), the read, Share the day as a pill */
 .cd-after {
   display: grid;

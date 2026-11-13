@@ -78,9 +78,9 @@ export const timelineRoutes = (db: DB) => {
       items.push({ id: `a:${a.id}`, kind: 'activity', title: a.name, sub: [a.distanceM ? `${(a.distanceM / METERS_PER_MILE).toFixed(1)} mi` : null, a.movingSec ? clock(a.movingSec) : null, effortWord(effort)].filter(Boolean).join(' · ') || null, at: a.time ? null : when(a.updatedAt), time: a.time });
     }
     for (const l of db.select().from(learnings).where(and(eq(learnings.userId, userId), eq(learnings.date, date), isNull(learnings.deletedAt))).all())
-      items.push({ id: `l:${l.id}`, kind: 'learned', title: clip(l.text), sub: 'Journal line', at: when(l.createdAt), time: null });
+      items.push({ id: `l:${l.id}`, kind: 'learned', title: clip(l.text), sub: 'Line', at: when(l.createdAt), time: null });
     for (const j of db.select().from(journalEntries).where(and(eq(journalEntries.userId, userId), eq(journalEntries.date, date), isNull(journalEntries.deletedAt))).all())
-      items.push({ id: `j:${j.id}`, kind: 'journal', title: clip(j.text), sub: 'Journal', at: when(j.createdAt), time: null });
+      items.push({ id: `j:${j.id}`, kind: 'journal', title: clip(j.text), sub: 'Entry', at: when(j.createdAt), time: null });
     const out: DayTimeline = { date, items };
     return c.json(out);
   });

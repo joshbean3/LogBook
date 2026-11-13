@@ -36,3 +36,35 @@ describe('GET /journal', () => {
     expect((await me.call('GET', '/api/journal')).body).toEqual({ entries: [], more: false, total: 0 });
   });
 });
+
+describe('GET /journal/months', () => {
+  it('counts a day once whether it holds a line, an entry or both, and keeps each kind’s count', async () => {
+    const month = T.slice(0, 7);
+    const first = `${month}-01`;
+    const days = [first, shiftDays(first, 1), shiftDays(first, 2)].filter((d) => d <= T);
+    // day one: a line and two entries; day two (when it has come): a line only; day three: an entry only
+    await me.call('POST', '/api/learnings', { date: days[0], text: 'A line.' });
+    await me.call('POST', '/api/journal', { date: days[0], text: 'An entry.' });
+    await me.call('POST', '/api/journal', { date: days[0], text: 'Another entry.' });
+    if (days[1]) await me.call('POST', '/api/learnings', { date: days[1], text: 'A second line.' });
+    if (days[2]) await me.call('POST', '/api/journal', { date: days[2], text: 'A third day.' });
+    // an earlier month with one entry, and things deleted or someone else’s that must not count
+    const before = shiftDays(first, -3);
+    await me.call('POST', '/api/journal', { date: before, text: 'Last month.' });
+    const gone = (await me.call('POST', '/api/journal', { date: shiftDays(first, -40), text: 'Deleted.' })).body.id;
+    await me.call('DELETE', `/api/journal/${gone}`);
+    const other = await signUp(app, 'months2@example.com');
+    await other.call('POST', '/api/learnings', { date: days[0], text: 'Not mine.' });
+
+    const { months } = (await me.call('GET', '/api/journal/months')).body;
+    expect(months).toEqual([
+      { month, days: days.length, lines: Math.min(2, days.length), entries: days[2] ? 3 : 2 },
+      { month: before.slice(0, 7), days: 1, lines: 0, entries: 1 },
+    ]);
+    expect((await other.call('GET', '/api/journal/months')).body.months).toEqual([{ month, days: 1, lines: 1, entries: 0 }]);
+  });
+
+  it('is empty for an account with nothing written', async () => {
+    expect((await me.call('GET', '/api/journal/months')).body).toEqual({ months: [] });
+  });
+});

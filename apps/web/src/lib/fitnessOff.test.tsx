@@ -91,7 +91,12 @@ const client = async () => {
   qc.setQueryData(['learnings', 'stats'], { days: 0, streak: 0, total: 0, recent: [] });
   qc.setQueryData(['learnings', 'list', { month: null, q: null }], { pages: [{ learnings: [], next: null }], pageParams: [null] });
   qc.setQueryData(['learnings', 'months'], []);
+  // the month lists the last seven days touch (the Journal's lights read them)
+  for (const m of new Set([monthOf(T), monthOf(shiftDays(T, -6))])) qc.setQueryData(['learnings', 'list', { month: m, q: null }], { pages: [{ learnings: [], next: null }], pageParams: [null] });
   qc.setQueryData(['learnings', 'echoes'], { yearAgo: null, monthAgo: null, random: null });
+  // the Journal reads its entries beside its lines
+  qc.setQueryData(['journal', '', false], { entries: [], more: false, total: 0 });
+  qc.setQueryData(['written', 'months'], []);
   qc.setQueryData(['progress', 'history-start'], { first: shiftDays(T, -30) });
   qc.setQueryData(['daily'], { date: T, memory: null, quote: null, pastCount: 0 });
   return qc;
@@ -100,12 +105,10 @@ const client = async () => {
 /** A screen: where it lives, what it must say with Fitness on (the account trains), and what it must still show with it off. */
 type Screen = [name: string, load: () => Promise<{ default: React.ComponentType }>, path: string, on: RegExp, keeps: RegExp];
 const SCREENS: Screen[] = [
-  ['Today', () => import('@/features/day/DayView'), '/today', /run|miles|mi\b/i, /What would make today count\?[\s\S]*An idea · from your habits[\s\S]*Set this goal[\s\S]*Habits[\s\S]*What did you learn today\?/],
+  ['Today', () => import('@/features/day/DayView'), '/today', /run|miles|mi\b/i, /What would make today count\?[\s\S]*An idea · from your habits[\s\S]*Set this goal[\s\S]*Habits[\s\S]*Journal[\s\S]*Tonight’s line/],
   ['Progress', () => import('@/features/progress/ProgressView'), '/progress', /running/i, /Habits[\s\S]*Health/],
   ['Goals', () => import('@/features/goals/GoalsView'), '/goals', /Goals/, /Goals/],
-  // the page of lines, as it stood before Journal took it in: rendered where it lives now
-  ['Learned', () => import('@/features/learned/LearnedView'), '/journal', /What I learned/, /What I learned/],
-  ['Journal', () => import('@/features/journal/JournalView'), '/journal', /Journal/, /Journal/],
+  ['Journal', () => import('@/features/journal/JournalView'), '/journal', /Journal/, /Journal[\s\S]*What did you learn today\?/],
   ['Settings', () => import('@/features/settings/SettingsView'), '/settings', /Run days[\s\S]*Plans/, /Today shows[\s\S]*Fitness[\s\S]*Habits/],
 ];
 
@@ -190,8 +193,8 @@ describe('Fitness off: no screen speaks of training', () => {
     expect(startersFor('today', '2026-11-12', '2026-11-12', true).map((c) => c.title).join(' ')).toMatch(/run/);
   });
 
-  it('What I learned starts its field from the day, and never from training with Fitness off', async () => {
-    const learned = SCREENS.find((x) => x[0] === 'Learned')!;
+  it('the Journal starts its line from the day, and never from training with Fitness off', async () => {
+    const learned = SCREENS.find((x) => x[0] === 'Journal')!;
     // today's run is done, and the week's lines are loaded (the months the last seven days touch)
     const day = (extra: (qc: QueryClient) => void = () => undefined) => (qc: QueryClient) => {
       for (const m of new Set([monthOf(T), monthOf(shiftDays(T, -6))])) qc.setQueryData(['learnings', 'list', { month: m, q: null }], { pages: [{ learnings: [], next: null }], pageParams: [null] });
@@ -210,7 +213,7 @@ describe('Fitness off: no screen speaks of training', () => {
     const habit = await render(learned, false, day((qc) => qc.setQueryData(['month', monthOf(T)], { ...month(monthOf(T)), checks: [{ habitId: 'h1', date: T, done: true, note: null }] })));
     expect(said(habit)).toMatch(/Keeping my habits today I learned[\s\S]*From today’s habits/);
     expect(hits(habit)).toEqual([]);
-    // the count is lines kept: no run of days, in print or in a label
+    // the counts are days written and lines kept: no run of days, in print or in a label
     for (const html of [on, off, habit]) expect(said(html)).not.toMatch(/in a row|streak/i);
   }, 60_000);
 

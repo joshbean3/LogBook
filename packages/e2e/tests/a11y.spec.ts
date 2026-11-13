@@ -57,7 +57,7 @@ test.describe('signed in', () => {
     { name: 'the assistant', route: '/today', open: (p) => p.getByRole('button', { name: /Ask or change anything/ }).first().click() },
     { name: 'add a habit', route: '/today', open: (p) => p.getByRole('button', { name: 'Add a habit' }).first().click() },
     { name: 'set the goal', route: '/today', open: (p) => p.getByRole('button', { name: /Set (today|this day)’s goal/ }).first().click() },
-    { name: 'write in the journal', route: '/journal', open: (p) => p.getByRole('button', { name: /^Write today/ }).first().click() },
+    { name: 'write in the journal', route: '/journal', open: (p) => p.getByRole('button', { name: 'Write a longer entry' }).first().click() },
   ];
   for (const s of SHEETS) {
     test(`sheet: ${s.name}`, async ({ page }) => {

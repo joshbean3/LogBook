@@ -84,8 +84,11 @@ export const echoesOf = (v: unknown): LearningEchoes => {
   const o = objectOf(v, 'the archive');
   return { yearAgo: lineOf(o.yearAgo), monthAgo: lineOf(o.monthAgo), random: lineOf(o.random) };
 };
-/** Every line a list holds, from the cache as it is (a copy kept on the device by another build may be in any shape). */
-export const rowsOf = (d: InfiniteData<LearningPage, unknown> | undefined): Learning[] => (Array.isArray(d?.pages) ? d.pages.flatMap((p) => (Array.isArray(p?.learnings) ? p.learnings : [])) : []);
+/**
+ * Every line a list holds, from the cache as it is (a copy kept on the device by another build may be in any shape):
+ * whatever is not an object is left out, so a caller can read a row's fields without asking.
+ */
+export const rowsOf = (d: InfiniteData<LearningPage, unknown> | undefined): Learning[] => (Array.isArray(d?.pages) ? d.pages.flatMap((p) => (Array.isArray(p?.learnings) ? p.learnings.filter((l) => !!l && typeof l === 'object') : [])) : []);
 
 /**
  * Is there a line on `day`? By the stats' days of the week when the server sends them, and by the lines on the device

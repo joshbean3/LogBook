@@ -1,4 +1,4 @@
-import { clock, floorFor, label, mi, num, shiftDays, type DayPhase, type ISODate, type PhaseSession } from '@logbook/shared';
+import { clock, floorFor, label, mi, num, shiftDays, type DayPhase, type ISODate, type Learning, type PhaseSession } from '@logbook/shared';
 import { ChevronRight, PenLine, Sunrise, Type } from 'lucide-react';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import type * as React from 'react';
@@ -12,11 +12,18 @@ import { revealField } from '@/lib/keyboard';
 import { crossfade } from '@/lib/motion';
 import { SectionHeader } from '@/ui/layout';
 import { Pressable } from '@/ui/Pressable';
+import { Button } from '@/ui/primitives';
 import { useSheet } from '@/ui/Sheet';
 import { useToast } from '@/ui/Toast';
 import { Ticker } from '@/ui/Ticker';
 import { useFirstToday } from '@/ui/useFirstToday';
+import { ENTRY_MAX } from '../journal/days';
+import { getDraft, setDraft } from '../journal/drafts';
 import { addToDraft, Composer } from '../journal/JournalDaySection';
+import { todayDraft } from '../learned/draft';
+import { byTime, Line, useOpenLearning } from '../learned/LearnedParts';
+import { LineField, useStarter, type LineFieldHandle } from '../learned/LineField';
+import { rowsOf, useKeepQueued, useLearnings } from '../learned/queries';
 import type { Log } from '../log/useLog';
 import { morningOf } from '../morning/model';
 import { shareDataFor } from '../sessions/SessionCard';
@@ -59,10 +66,10 @@ export const preloadCloseDay = () => {
   else setTimeout(go, 1500);
 };
 
-/** The card's title before and after the day's first entry (§5 step 0). */
-export const EVENING_TITLE = 'Two sentences, then sleep.';
+/** The card's title before and after the day is written: its line, or its first entry (§5 step 0). One line is enough. */
+export const EVENING_TITLE = 'One line, then sleep.';
 export const CLOSED_TITLE = 'Day, closed.';
-/** The composer's question (§5 step 3): the title already says "two sentences". */
+/** The entry composer's question (§5 step 3), behind "Write more" and "Write a longer entry". */
 export const CLOSE_ASK = 'How did today go?';
 /** The stamps' count-up runs 60 ms apart (§5 step 1). */
 const STAGGER_MS = 60;
@@ -248,13 +255,16 @@ const flipCard = (card: HTMLElement, box: HTMLElement, from: number): (() => voi
 const FIRST_FRAME = 16.7 / CROSSFADE_MS;
 
 /**
- * The composer's box (§5 steps 3–4): the quote line as the prompt, the Journal's composer, Save. After Save the entry takes
- * the field's place in the same box (a 150 ms crossfade, the box holding the composer's height) and the Save slot becomes
- * `Add to it`; then the box takes the entry's height and what follows moves up by FLIP (`flipCard`). `Add to it` brings the
- * composer back the same way. A Save the server refuses brings the field back with the words and the title as it was, however
- * late the refusal comes (`watchJournalAdd`: the Composer that sent it has usually left by then; code review 2 #1).
+ * The composer's box (§5 steps 3–4): the evening's one way to write, the same as the Journal's. The line first: the
+ * line field, started from the day, and "Finish the line". Once the line is kept it takes the field's place in the same
+ * box (a 150 ms crossfade, the box holding the field's height) with "Write more" at its foot; then the box takes its
+ * height and what follows moves up by FLIP (`flipCard`). "Write more" (and, before any line, "Write a longer entry")
+ * brings the journal's Composer the same way, with the quote line as its prompt; its Save puts the entry under the line.
+ * The line and the Journal tab share one draft and one list, so a line kept there shows here at once. A Save the server
+ * refuses brings the field back with the words and the title as it was, however late the refusal comes
+ * (`watchJournalAdd` for an entry: the Composer that sent it has usually left by then; code review 2 #1).
  */
-const ComposeBox = ({ date, log, onSaved, onRefused }: { date: ISODate; log: Log; onSaved: () => void; onRefused: () => void }) => {
+const ComposeBox = ({ date, log, lines, onSaved, onRefused }: { date: ISODate; log: Log; /** The day's lines, in the order they were written. */ lines: Learning[]; onSaved: () => void; onRefused: () => void }) => {
   const reduce = useReducedMotion() ?? false;
   const qc = useQueryClient();
   const toast = useToast();
@@ -262,7 +272,20 @@ const ComposeBox = ({ date, log, onSaved, onRefused }: { date: ISODate; log: Log
   // layout plan 2.1 T13)
   const titleQuote = !!useFocus().quote.trim();
   const logged = log.snap.journalOn(date);
-  const [writing, setWriting] = useState(logged.length === 0);
+  useKeepQueued();
+  const starter = useStarter(date);
+  const openLine = useOpenLearning(log.today);
+  const lineField = useRef<LineFieldHandle>(null);
+  // the line as it was sent, shown at once in the field's place until the list carries it
+  const [justLine, setJustLine] = useState<string | null>(null);
+  const sending = useRef('');
+  const hasLine = lines.length > 0 || justLine !== null;
+  /** Writing an entry, not the line: after "Write more", or "Write a longer entry" before any line. */
+  const [longer, setLonger] = useState(false);
+  const mode: 'line' | 'entry' = hasLine || longer ? 'entry' : 'line';
+  const [writing, setWriting] = useState(logged.length === 0 && lines.length === 0);
+  /** The next change of `writing` is not a save or a tap here (the list answered): it is drawn at once, with no crossfade. */
+  const cut = useRef(false);
   // the words as they were saved, shown at once in the entry's place until the month carries the entry (the journal's write
   // re-renders every page; the swap renders first, on its own)
   const [justSaved, setJustSaved] = useState<{ text: string; at: string } | null>(null);
@@ -312,15 +335,71 @@ const ComposeBox = ({ date, log, onSaved, onRefused }: { date: ISODate; log: Log
     if (readEl.current?.contains(document.activeElement)) focusTo.current = 'field';
     setFocusOnOpen(false);
     setJustSaved(null);
+    setJustLine(null);
     onRefused();
     if (!writing) swap(true);
   };
+  /** What leaves on Save is a still copy of the write layer as it was pressed (see `stillEl`). */
+  const takeStill = () => {
+    const w = writeEl.current;
+    if (!w) return;
+    const copy = document.createElement('div');
+    copy.className = 'cd-write-still';
+    for (const n of w.childNodes) copy.appendChild(n.cloneNode(true));
+    const src = w.querySelectorAll('textarea');
+    copy.querySelectorAll('textarea').forEach((ta, i) => {
+      // a controlled textarea's value is not cloned: it is set on the copy
+      ta.value = src[i]?.value ?? '';
+      ta.readOnly = true;
+      ta.tabIndex = -1;
+      ta.removeAttribute('id');
+    });
+    copy.querySelectorAll('[id]').forEach((n) => n.removeAttribute('id'));
+    copy.querySelectorAll('button, a, [tabindex]').forEach((b) => b.setAttribute('tabindex', '-1'));
+    still.current = copy;
+  };
+  /** After a Save was sent (the line, or an entry): the keyboard goes down, the read layer comes in, the card says closed. */
+  const afterSave = (show: () => void) => {
+    // nothing in the leaving layer keeps the focus (the midnight rule sees no field in use, and the layer's removal
+    // later is no "activity")
+    const a = document.activeElement;
+    if (a instanceof HTMLElement && box.current?.contains(a)) a.blur();
+    if (via.current !== 'pointer') focusTo.current = 'addto';
+    via.current = 'other';
+    flushSync(() => {
+      keep();
+      setFocusOnOpen(false);
+      show();
+      swap(false);
+      onSaved();
+    });
+  };
+  // the list answered with a line already kept (on the Journal tab, or earlier tonight), or the day's last words were
+  // deleted there: the box follows at once
+  useLayoutEffect(() => {
+    if (writing && mode === 'entry' && lines.length > 0 && !longer) {
+      cut.current = true;
+      setWriting(false);
+    } else if (!writing && !leaving && lines.length === 0 && justLine === null && logged.length === 0 && !justSaved) {
+      cut.current = true;
+      setLonger(false);
+      setWriting(true);
+    }
+  }, [lines.length, logged.length]); // eslint-disable-line react-hooks/exhaustive-deps
+  // the list has the line now: the copy shown in its place is let go
+  useEffect(() => {
+    if (justLine !== null && lines.length > 0) setJustLine(null);
+  }, [justLine, lines.length]);
   const first = useRef(true);
   const flip = useRef<(() => void) | null>(null);
   useEffect(() => () => flip.current?.(), []);
   useLayoutEffect(() => {
     if (first.current) {
       first.current = false;
+      return;
+    }
+    if (cut.current) {
+      cut.current = false;
       return;
     }
     // the field's still copy goes in the leaving layer's place before its first frame
@@ -336,7 +415,10 @@ const ComposeBox = ({ date, log, onSaved, onRefused }: { date: ISODate; log: Log
     const to = focusTo.current;
     focusTo.current = null;
     if (to === 'addto') readEl.current?.querySelector<HTMLElement>('.cd-addto')?.focus({ preventScroll: true });
-    else if (to === 'field') field.current?.focus({ preventScroll: true });
+    else if (to === 'field') {
+      if (field.current) field.current.focus({ preventScroll: true });
+      else lineField.current?.focus();
+    }
     inEl?.animate([{ opacity: Math.min(1, FIRST_FRAME) }, { opacity: 1 }], { duration: ms, easing: 'linear', fill: 'backwards' });
     const out = outEl?.animate([{ opacity: 1 }, { opacity: 0 }], { duration: ms, easing: 'linear', fill: 'forwards' });
     // the composer back (taller): the box grows now and what follows rides down with the card's edge
@@ -394,69 +476,95 @@ const ComposeBox = ({ date, log, onSaved, onRefused }: { date: ISODate; log: Log
       {!writing && leaving === 'write' ? <div ref={stillEl} key="write-still" className="cd-write" data-leaving aria-hidden="true" inert /> : null}
       {writing ? (
         <div ref={writeEl} key="write" className="cd-write">
-            {titleQuote ? null : (
-              <Suspense fallback={<div className="cd-quote-slot" aria-hidden="true" />}>
-                <QuoteLine
-                  date={date}
-                  onInsert={(t) => {
-                    addToDraft(date, t);
-                    requestAnimationFrame(() => field.current?.focus());
-                  }}
-                />
-              </Suspense>
-            )}
-            <div className="cd-composer">
-              <Composer
-                date={date}
-                today={log.today}
-                rows={2}
-                placeholder={CLOSE_ASK}
-                haptic={false}
-                inputRef={field}
-                autoFocus={focusOnOpen}
-                onSaved={({ first }) => {
-                  // the field as pressed, before the Composer's own update reaches the DOM (a controlled textarea's value is
-                  // not cloned: it is set on the copy)
-                  const w = writeEl.current;
-                  if (w) {
-                    const copy = document.createElement('div');
-                    copy.className = 'cd-write-still';
-                    for (const n of w.childNodes) copy.appendChild(n.cloneNode(true));
-                    const src = w.querySelectorAll('textarea');
-                    copy.querySelectorAll('textarea').forEach((ta, i) => {
-                      ta.value = src[i]?.value ?? '';
-                      ta.readOnly = true;
-                      ta.tabIndex = -1;
-                      ta.removeAttribute('id');
-                    });
-                    copy.querySelectorAll('button, a, [tabindex]').forEach((b) => b.setAttribute('tabindex', '-1'));
-                    still.current = copy;
-                  }
-                  // the keyboard goes down with the words, and nothing in the leaving layer keeps the focus (the midnight rule
-                  // sees no field in use, and the layer's removal later is no "activity")
-                  const a = document.activeElement;
-                  if (a instanceof HTMLElement && box.current?.contains(a)) a.blur();
-                  if (via.current !== 'pointer') focusTo.current = 'addto';
-                  via.current = 'other';
-                  // the words as sent (the add is in the cache now), followed until the server answers
-                  const { text } = watchJournalAdd(qc, date, { toast, onRefused: () => refused.current() });
-                  flushSync(() => {
-                    keep();
-                    setFocusOnOpen(false);
-                    if (text) setJustSaved({ text, at: new Date().toISOString() });
-                    swap(false);
-                    onSaved();
-                  });
-                  // the day's close: its one success on the frame the entry shows (the swap above is committed)
-                  if (first) requestAnimationFrame(() => haptics.success());
+          {mode === 'line' ? (
+            <div className="cd-line-field">
+              <LineField
+                ref={lineField}
+                today={date}
+                starter={starter}
+                onLong={(words) => {
+                  // too long for a line: it goes into the day's entry, whole (what an entry holds), with Save a tap away
+                  const cur = getDraft(date).trim();
+                  setDraft(date, (cur ? `${cur}\n\n${words}` : words).slice(0, ENTRY_MAX));
+                  setFocusOnOpen(true);
+                  setLonger(true);
                 }}
+                onSaving={() => {
+                  sending.current = todayDraft.get().trim();
+                  takeStill();
+                }}
+                onSaved={() => afterSave(() => setJustLine(sending.current))}
+                onRefused={() => refused.current()}
+                more={
+                  <Button
+                    variant="quiet"
+                    size="sm"
+                    className="jn-longer"
+                    onClick={() => {
+                      setFocusOnOpen(true);
+                      setLonger(true);
+                    }}
+                  >
+                    Write a longer entry
+                  </Button>
+                }
               />
             </div>
+          ) : (
+            <>
+              {titleQuote ? null : (
+                <Suspense fallback={<div className="cd-quote-slot" aria-hidden="true" />}>
+                  <QuoteLine
+                    date={date}
+                    onInsert={(t) => {
+                      addToDraft(date, t);
+                      requestAnimationFrame(() => field.current?.focus());
+                    }}
+                  />
+                </Suspense>
+              )}
+              <div className="cd-composer">
+                <Composer
+                  date={date}
+                  today={log.today}
+                  rows={2}
+                  placeholder={CLOSE_ASK}
+                  haptic={false}
+                  inputRef={field}
+                  autoFocus={focusOnOpen}
+                  // back to the line (or to what is written): the words stay in the day's draft
+                  onCancel={() => {
+                    setFocusOnOpen(false);
+                    if (hasLine || logged.length) swap(false);
+                    else setLonger(false);
+                  }}
+                  onSaved={({ first }) => {
+                    // the field as pressed, before the Composer's own update reaches the DOM
+                    takeStill();
+                    // the words as sent (the add is in the cache now), followed until the server answers
+                    const { text } = watchJournalAdd(qc, date, { toast, onRefused: () => refused.current() });
+                    afterSave(() => {
+                      if (text) setJustSaved({ text, at: new Date().toISOString() });
+                    });
+                    // the day's close: its one success on the frame the entry shows (the swap above is committed). A
+                    // day that already has its line was closed by it
+                    if (first && !hasLine) requestAnimationFrame(() => haptics.success());
+                  }}
+                />
+              </div>
+            </>
+          )}
         </div>
       ) : null}
       {!writing || leaving === 'read' ? (
         <div ref={readEl} key="read" className="cd-read" data-leaving={leaving === 'read' || undefined}>
             <div className="cd-entries">
+              {/* the day's line, its headline: a tap opens its sheet (edit, delete, another line) */}
+              {lines.length ? (
+                lines.map((l) => <Line key={l.id} item={l} onOpen={openLine} className="is-quote cd-kept-line" clamp />)
+              ) : justLine !== null ? (
+                <p className="ln-line is-quote cd-kept-line">{justLine}</p>
+              ) : null}
               {entries.map((e) => (
                 <div key={e.id} className="cd-entry">
                   <span className="cd-entry-time tnum">{timeOf(e.createdAt)}</span>
@@ -464,17 +572,35 @@ const ComposeBox = ({ date, log, onSaved, onRefused }: { date: ISODate; log: Log
                 </div>
               ))}
             </div>
-            <Pressable
-              className="cd-addto"
-              press="surface"
-              onPress={() => {
-                setFocusOnOpen(true);
-                swap(true);
-              }}
-              label="Add to it"
-            >
-              <PenLine size={16} aria-hidden="true" /> Add to it
-            </Pressable>
+            <div className="cd-read-foot">
+              <Pressable
+                className="cd-addto"
+                press="surface"
+                onPress={() => {
+                  setFocusOnOpen(true);
+                  setLonger(true);
+                  swap(true);
+                }}
+                label="Write more"
+              >
+                <PenLine size={16} aria-hidden="true" /> Write more
+              </Pressable>
+              {/* entries and no line yet: the line is still one tap away */}
+              {hasLine ? null : (
+                <Pressable
+                  className="cd-addto cd-addline"
+                  press="surface"
+                  onPress={() => {
+                    setLonger(false);
+                    swap(true);
+                    requestAnimationFrame(() => lineField.current?.focus());
+                  }}
+                  label="Add the line"
+                >
+                  Add the line
+                </Pressable>
+              )}
+            </div>
         </div>
       ) : null}
     </div>
@@ -638,6 +764,9 @@ export const CloseDay = ({ date, log, ph, onOpenSession, still, markNow }: { dat
   const doneTodos = groups[3]?.items.length ?? 0;
   const openTodos = groups[0]?.items.length ?? 0;
   const entries = log.snap.journalOn(date);
+  // the day's lines (the Journal's own list, with what is waiting to sync laid over it): a line closes the day too
+  const monthLines = useLearnings({ month: date.slice(0, 7) }, !still);
+  const lines = useMemo(() => rowsOf(monthLines.data).filter((l) => l.date === date).sort(byTime), [monthLines.data, date]);
   const lead = ph?.training[0] ?? (ph?.primary && ph.primary.session.kind !== 'rest' ? ph.primary : null);
   // every training session of the day has its row, the lead first (today-top-05, today-top-29): the compact cards under the
   // hero go in the evening, so nothing is left unlisted
@@ -646,7 +775,7 @@ export const CloseDay = ({ date, log, ph, onOpenSession, still, markNow }: { dat
   // a day outside every plan is not a rest day: it says nothing about rest (today-top-12)
   const { stamps, line } = dayStamps({ miles, planned, lit, habits: habits.length, doneTodos, openTodos, restDay: !ph?.training.length && inPlan(log, date), runShown: !!lead });
   const [closedNow, setClosedNow] = useState(false);
-  const title = entries.length || closedNow ? CLOSED_TITLE : EVENING_TITLE;
+  const title = entries.length || lines.length || closedNow ? CLOSED_TITLE : EVENING_TITLE;
   const share = () => {
     const base = shareDataFor(date, lead?.session ?? null, runs, log);
     const days = weekMiles(log.snap, date);
@@ -692,6 +821,7 @@ export const CloseDay = ({ date, log, ph, onOpenSession, still, markNow }: { dat
           <ComposeBox
             date={date}
             log={log}
+            lines={lines}
             onSaved={() => {
               setBoost(true);
               setClosedNow(true);
