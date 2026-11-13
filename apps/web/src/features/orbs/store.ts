@@ -192,11 +192,12 @@ export const setSwitches = (patch: Partial<Omit<RewardSet, 'at'>>) => {
 
 /**
  * How many more Orbs a kind can pay on a day, by what the store holds now (`roomFor`): asked by a control at the moment of
- * a tap, to know whether an Orb should be born there. 0 while Orbs are off or not ready. The store follows the caches, and
+ * a tap, to know whether an Orb should be born there. 0 while Orbs are off or not ready, and for a day that takes nothing
+ * now (closed, not yet come, yesterday after 03:00, not a day). The store follows the caches, and
  * some controls write a beat after the tap (a habit's check goes out once the row has been still, about 0.7 s): several
  * quick taps on one kind all see the same answer, so a control that can be tapped in a burst counts its own.
  */
-export const orbRoom = (key: Parameters<typeof roomFor>[2], date: ISODate): number => (store && switches.on ? roomFor(store, date, key) : 0);
+export const orbRoom = (key: Parameters<typeof roomFor>[2], date: ISODate): number => (store && switches.on ? roomFor(store, date, key, new Date()) : 0);
 
 /** Mark a keepsake or a goal's moment seen: it stops being a "New" row and leaves the queue of big moments. */
 export const markSeen = (key: string) => updateOrbs((s) => markSeenIn(s, key, clockToday()));

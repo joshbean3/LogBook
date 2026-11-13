@@ -1,4 +1,5 @@
 import { buildTemplate, mergeRewards, mondayOf, parseRewards, passwordProblem, RULES, tidy, zRewards, type Rewards, NEW_ACCOUNT_MORNING, normalizeMorningSettings, zMePatch, zPrefs, shiftDays, TemplateError, today as serverToday, weekdayOf, zChangePassword, zDeleteAccount, zOnboarding, zTemplateInput, zTrainingPatch, zTrainingProfile, zTrainingStatusInput, zConsentInput, zIntroSeen, type TrainWhenSetting, type TrainingStatus, type ISODate, type TemplateInput } from '@logbook/shared';
+import { admitRewards, REWARDS_KEY, REWARDS_MAX_BYTES } from '../services/rewardsAdmit.js';
 import { and, asc, eq, isNull, sql } from 'drizzle-orm';
 import { Hono } from 'hono';
 import { deleteCookie } from 'hono/cookie';
@@ -25,35 +26,8 @@ export const TRAIN_WHEN_KEY = 'trainWhen';
 /** User setting: what the person has switched on (`zPrefs`; the bootstrap carries it, null before one is saved). */
 export const PREFS_KEY = 'prefs';
 
-/** User setting: the Orbs store (`zRewards`; the bootstrap carries it, null before one is saved). */
-export const REWARDS_KEY = 'rewards';
-/** The most the stored Orbs object may weigh as JSON. Eleven years of days fit well inside it. */
-export const REWARDS_MAX_BYTES = 240 * 1024;
-
-/**
- * What a phone sent, made safe to merge: only closed days (an open day is recomputed by each phone from the synced facts),
- * nothing dated after the server's own date plus one (a phone ahead of every time zone has its clock wrong), nothing
- * before the rules began.
- */
-export const admitRewards = (sent: Rewards, serverDay: ISODate): Rewards => {
-  const limit = shiftDays(serverDay, 1);
-  const ok = (d: string) => d <= limit;
-  const days: Rewards['days'] = {};
-  for (const [d, rec] of Object.entries(sent.days)) if (rec.c && ok(d) && d >= RULES.startsOn) days[d] = rec;
-  const pick = <T>(map: Record<string, T>, on: (v: T, k: string) => string): Record<string, T> => Object.fromEntries(Object.entries(map).filter(([k, v]) => ok(on(v, k))));
-  return {
-    ...sent,
-    startedOn: sent.startedOn < RULES.startsOn ? RULES.startsOn : ok(sent.startedOn) ? sent.startedOn : limit,
-    clock: ok(sent.clock) ? sent.clock : limit,
-    days,
-    once: pick(sent.once, (v) => v.on),
-    challenges: pick(sent.challenges, (_v, k) => k.slice(-10)),
-    keepsakes: pick(sent.keepsakes, (v) => v.on),
-    off: sent.off.filter((r) => ok(r.from)).map((r) => (r.to !== null && !ok(r.to) ? { from: r.from, to: limit } : r)),
-    wt: pick(sent.wt, (_v, k) => k),
-    seen: pick(sent.seen, (v) => v),
-  };
-};
+// the Orbs store's key, its size cap and what is admitted from a phone live with the services (the import uses them too)
+export { admitRewards, REWARDS_KEY, REWARDS_MAX_BYTES } from '../services/rewardsAdmit.js';
 
 /** The Monday after `d` (a week later when `d` is itself a Monday). */
 export const nextMonday = (d: ISODate): ISODate => (weekdayOf(d) === 'mon' ? shiftDays(d, 7) : shiftDays(mondayOf(d), 7));
@@ -102,7 +76,7 @@ export const meRoutes = (db: DB) => {
    * The Orbs store: the phone sends its whole copy, the server merges it into the account's with the same shared
    * `mergeRewards` the phones use (commutative, associative, idempotent, so any order and any number of sends agree) and
    * answers `{ rewards }`, the merged store. Checked against `zRewards` (which caps every map), only for the signed-in
-   * account, never over `REWARDS_MAX_BYTES`. Days later than the server's date plus one are not taken.
+   * account, never over `REWARDS_MAX_BYTES`. What is admitted from the body is `admitRewards`' to say.
    */
   r.put('/me/rewards', async (c) => {
     const userId = c.get('user').id;
@@ -110,7 +84,10 @@ export const meRoutes = (db: DB) => {
     if (body.userId !== userId) throw new ApiError(403, 'That is another account’s record.', 'wrong_account');
     const sent = admitRewards(body, serverToday());
     const rewards = db.transaction(() => {
-      const kept = parseRewards(readSetting<unknown>(db, userId, REWARDS_KEY), userId);
+      const had = parseRewards(readSetting<unknown>(db, userId, REWARDS_KEY), userId);
+      // a copy saved with a start before the rules (an earlier build cut it to the server's date) is mended here: the
+      // merge takes the earlier start of the two, so it would otherwise stand for good
+      const kept = had && had.startedOn < RULES.startsOn ? { ...had, startedOn: RULES.startsOn } : had;
       const next = tidy(kept ? mergeRewards(kept, sent) : sent);
       if (JSON.stringify(next).length > REWARDS_MAX_BYTES) throw new ApiError(413, 'That is too big to save.', 'too_big');
       writeSetting(db, userId, REWARDS_KEY, next);

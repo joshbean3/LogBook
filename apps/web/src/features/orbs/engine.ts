@@ -1,4 +1,4 @@
-import { addKeepsakes, adoptSet, baselineOf, challengeSlots, daysBetween, eachDay, emptyRewards, keepsakesDue, mayOffer, mondayOf, monthOf, monthsBetween, offerChallenge, offerInto, orbsOn, parseRewards, rebuild, reconcile, RULES, settleChallenges, shiftDays, slotOf, toISO, totalOf, type ChallengeFacts, type Gained, type ISODate, type Rewards } from '@logbook/shared';
+import { addKeepsakes, adoptSet, baselineOf, chapterLines, challengeSlots, daysBetween, eachDay, emptyRewards, fillFrom, keepsakesDue, mayOffer, mondayOf, monthOf, monthsBetween, offerChallenge, offerInto, orbsOn, parseRewards, rebuild, reconcile, RULES, settleChallenges, shiftDays, slotOf, toISO, totalOf, within, type ChallengeFacts, type Gained, type ISODate, type Rewards } from '@logbook/shared';
 import type { QueryClient } from '@tanstack/react-query';
 import { fetchGoals, fetchMonth, fetchTodos, keys } from '@/api/queries';
 import type { Bootstrap } from '@/api/types';
@@ -23,8 +23,9 @@ import { startOrbsSync } from './sync';
  * What was gained is published on `window` as `logbook:orbs-gained` (`OrbsGained`). Nothing is drawn here.
  *
  * A device with no store for the account (first run, after Sign out, after the error screen's Reset, a reinstall) takes
- * the account's copy when the server keeps one, and otherwise rebuilds from the account's own facts from
- * `max(RULES.startsOn, onboardedAt)` (`rebuild`: base Orbs only, every day closed).
+ * the account's copy when the server keeps one, with the days that copy cannot hold read from the account's own facts
+ * (`fillFrom`), and otherwise rebuilds from those facts from `max(RULES.startsOn, onboardedAt)` (`rebuild`: base Orbs
+ * only, every day closed).
  */
 
 /**
@@ -40,12 +41,31 @@ let lastDay: ISODate | '' = '';
 let lastEarly: boolean | null = null;
 let beginning = false;
 let lastBegin = -Infinity;
+/** The account whose stored store has been checked against the server's date this session. */
+let checked: string | null = null;
 
 const sameSig = (a: readonly unknown[], b: readonly unknown[] | null) => !!b && a.length === b.length && a.every((x, i) => x === b[i]);
 const localDay = (iso: string | null | undefined): ISODate | null => {
   if (!iso) return null;
   const d = new Date(iso);
   return Number.isNaN(d.getTime()) ? null : toISO(d);
+};
+/**
+ * The first day a store may count from, given the one it holds. Never before the start date (`RULES.startsOn`): a store
+ * that says earlier (an earlier server cut it to its own date plus one, and a merge keeps the earlier of two) is brought
+ * up to it. A development build with an earlier start under `logbook.dev.orbsStart` (devStart.ts; the key is read only
+ * behind `import.meta.env.DEV`, so `orbsStart()` is the constant in a release build) starts from that day instead, or
+ * from the day the account began when that is later, even when the account's copy on the server says otherwise: that is
+ * how the feature is tried on a seeded account. The server itself never takes a day before the constant.
+ */
+const startFor = (held: ISODate, boot: Bootstrap): ISODate => {
+  const floor = orbsStart();
+  if (floor < RULES.startsOn) {
+    const born = localDay(boot.user.onboardedAt);
+    const want = born && born > floor ? born : floor;
+    return held > want ? want : held < floor ? floor : held;
+  }
+  return held < RULES.startsOn ? RULES.startsOn : held;
 };
 /** Every month the open days, this week and the last four (the challenges' baseline) touch. */
 const monthsFor = (today: ISODate): string[] => monthsBetween(shiftDays(mondayOf(today), -28), shiftDays(mondayOf(today), 6));
@@ -109,11 +129,29 @@ export const reconcileNow = (qc: QueryClient, now: Date = new Date()): Gained[] 
     openOrbs(uid);
     quiet = true;
     lastSig = null;
+    checked = null;
   }
-  const s = getOrbs();
+  let s = getOrbs();
   if (!s) {
     void begin(qc, uid, boot);
     return [];
+  }
+  // The first day the store counts from: never before the start date, whatever storage or the account's copy says
+  const startedOn = startFor(s.startedOn, boot);
+  if (startedOn !== s.startedOn) {
+    setOrbs({ ...s, startedOn });
+    s = getOrbs() ?? s;
+  }
+  // Once per store read from this device, as soon as the server's date is known: nothing in it may be dated after
+  // tomorrow (storage that was damaged or edited, or written while the device's date was wrong)
+  const serverDay = serverDayNow();
+  if (serverDay && checked !== uid) {
+    checked = uid;
+    const sane = within(s, shiftDays(serverDay, 1));
+    if (sane !== s) {
+      setOrbs(sane);
+      s = sane;
+    }
   }
   const today = toISO(now);
   const early = now.getHours() < RULES.close.tapHour;
@@ -123,7 +161,7 @@ export const reconcileNow = (qc: QueryClient, now: Date = new Date()): Gained[] 
   if (s === lastStore && today === lastDay && early === lastEarly && sameSig(c.sig, lastSig)) return [];
   const yesterday = shiftDays(today, -1);
   const facts = [yesterday, today].filter((d) => factsReady(c, d)).map((d) => dayFacts(c, d, today));
-  const r = reconcile(s, facts, now, { fitness, serverDay: serverDayNow(), goals: c.goals ?? undefined, startsOn: orbsStart() });
+  const r = reconcile(s, facts, now, { fitness, serverDay, goals: c.goals ?? undefined, startsOn: orbsStart(), status: c.boot.user.status });
   let next = r.store;
   const gained = r.gained;
   if (next.set.on) {
@@ -132,6 +170,8 @@ export const reconcileNow = (qc: QueryClient, now: Date = new Date()): Gained[] 
     gained.push(...ch.gained);
   }
   if (next !== s || today !== lastDay) next = addKeepsakes(next, keepsakesDue(next, now, { goals: c.goals ?? [], lines: linesOf(c) }));
+  // a chapter that closed before the journal's list had answered takes its line now
+  next = chapterLines(next, linesOf(c));
   lastSig = c.sig;
   lastDay = today;
   lastEarly = early;
@@ -152,7 +192,15 @@ const install = (s: Rewards) => {
 };
 /**
  * This device has no store for the account. Wait for this session's first bootstrap from the network (it says whether the
- * server keeps a copy); take that copy when there is one; otherwise rebuild from the account's own facts.
+ * server keeps a copy), then read the days this device must read for itself from the account's own facts:
+ *
+ * - the server keeps no copy (the older server, or an account that never sent one): every day since the account began
+ *   (`rebuild`);
+ * - the server keeps one: the days that copy cannot hold, because they were still open when it was last sent (`fillFrom`:
+ *   the day before its clock and every day since). Without them a phone that signed out in the evening and in again the
+ *   next morning had lost yesterday.
+ *
+ * Yesterday is left to the reconciler while it still takes taps (before 03:00), which reads it in full.
  */
 const begin = async (qc: QueryClient, uid: string, boot: Bootstrap) => {
   const intake = getIntake();
@@ -160,12 +208,15 @@ const begin = async (qc: QueryClient, uid: string, boot: Bootstrap) => {
   beginning = true;
   try {
     const kept = intake.has ? parseRewards(intake.rewards, uid) : null;
-    if (kept) return install(kept);
-    const today = toISO(new Date());
+    const now = new Date();
+    const today = toISO(now);
     const born = localDay(boot.user.onboardedAt) ?? today;
     const floor = orbsStart();
-    const from = born > floor ? born : floor;
-    if (from >= today) return install(emptyRewards(uid, from, getSwitches(), floor));
+    const start = born > floor ? born : floor;
+    const open = kept ? shiftDays(kept.clock, -1) : start;
+    const from = kept && kept.startedOn > open ? kept.startedOn : open;
+    const until = shiftDays(today, now.getHours() < RULES.close.tapHour ? -2 : -1);
+    if (from > until || (kept && !kept.set.on)) return install(kept ?? emptyRewards(uid, start, getSwitches(), floor));
     // at most one try in 30 s: offline, the months cannot be read and the next change to a cache asks again
     const t = typeof performance !== 'undefined' ? performance.now() : Date.now();
     if (t - lastBegin < 30_000) return;
@@ -176,13 +227,14 @@ const begin = async (qc: QueryClient, uid: string, boot: Bootstrap) => {
       ...months.map((m) => qc.fetchQuery({ queryKey: keys.month(m), queryFn: () => fetchMonth(m), staleTime: fresh })),
       qc.fetchQuery({ queryKey: keys.todos, queryFn: fetchTodos, staleTime: fresh }),
       qc.fetchQuery({ queryKey: ['goals'], queryFn: fetchGoals, staleTime: fresh }),
-      ...months.map((m) => qc.fetchInfiniteQuery({ queryKey: learnedKeys.list({ month: m }), queryFn: ({ pageParam }) => fetchLearnings({ month: m }, pageParam), initialPageParam: null as string | null, staleTime: fresh })),
+      // the journal's lines are read when they can be: a day's to-dos, habits, training and goal do not wait on them
+      ...months.map((m) => qc.fetchInfiniteQuery({ queryKey: learnedKeys.list({ month: m }), queryFn: ({ pageParam }) => fetchLearnings({ month: m }, pageParam), initialPageParam: null as string | null, staleTime: fresh }).catch(() => undefined)),
     ]);
     if (orbsOwner() !== uid || getOrbs() || isLeaving()) return;
     const c = readCaches(qc, fitnessOn(), months);
     if (!c) return;
-    const facts = eachDay(from, shiftDays(today, -1)).filter((d) => factsReady(c, d)).map((d) => dayFacts(c, d, d));
-    install(rebuild(facts, from, today, uid, getSwitches(), floor));
+    const facts = eachDay(from, until).filter((d) => factsReady(c, d) && !kept?.days[d]).map((d) => dayFacts(c, d, d));
+    install(kept ? fillFrom(kept, facts, today) : rebuild(facts, start, today, uid, getSwitches(), floor));
   } catch {
     /* offline, or a read was refused: no store yet, and nothing is said. Tried again later. */
   } finally {
@@ -245,4 +297,5 @@ export const resetOrbsEngineForTest = () => {
   beginning = false;
   lastBegin = -Infinity;
   pastMemo = null;
+  checked = null;
 };
