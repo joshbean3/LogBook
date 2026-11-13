@@ -44,6 +44,6 @@ describe('the habits chart at the top of History', () => {
   it('is plain copy for VoiceOver, with no dash', () => {
     const w = habitsHeadWords(habitsHead({ hasData: true, value: 62, line: [62], dates: ['2026-11-12'], avg: 53 }, '1M')!);
     expect(w).toBe('62% of habits done, last 7 days. 53% on average over 30 days.');
-    expect(w).not.toMatch(/[—–]/);
+    expect(w).not.toMatch(/[\u2014\u2013]/);
   });
 });
