@@ -35,7 +35,7 @@ export const TOUR_ALL: readonly Page[] = [
     icon: FitnessIcon,
     where: 'Fitness',
     title: 'What’s next, and how it’s going.',
-    lede: HEALTH_BUILT ? 'Your sessions, day by day, then your miles, week by week. Connect Apple Health to add sleep, HRV and resting heart rate.' : 'Your sessions, day by day, then your miles, week by week. Life happens: hold a run and drag it to another day.',
+    lede: HEALTH_BUILT ? 'Your sessions, day by day, then your miles, week by week. Connect Apple Health to add sleep, HRV and resting heart rate.' : 'Your sessions, day by day, then your miles, week by week. Life happens: tap a run to move it to another day.',
     Demo: FitnessDemo,
   },
   { key: 'ask', icon: MessageCircle, where: 'Every tab', title: 'Ask, or change anything.', lede: 'The assistant answers questions and makes changes for you, and shows them to you first. It can be wrong, so check anything important.', Demo: AskDemo },

@@ -16,6 +16,7 @@ import { useOpenHabitsHistory } from '../habits/HabitsHistory';
 import { TonightRow } from '../journal/TonightRow';
 import { useOpenTodayShows } from '../settings/TodayShows';
 import { Composer } from '../journal/JournalDaySection';
+import { rowsOf, useLearnings } from '../learned/queries';
 import { HABIT_STARTERS, HabitsMeta, OrbRow } from '../habits/OrbRow';
 import { useLog, type Log } from '../log/useLog';
 import { StravaPrimer, useStravaPrimer } from '../onboarding';
@@ -163,8 +164,11 @@ const NudgeSlot = ({ date, onMorning }: { date: ISODate; onMorning: (date: ISODa
  * day's poster, never above the hero. The date logic is untouched: Today is still the new day.
  */
 const LATE_UNTIL = 3 * 60;
-/** Is "Close yesterday" owed: before 3 AM, with no entry for yesterday? The poster draws its row only while it is. */
-const closeYesterdayDue = (log: Log, now: number) => now < LATE_UNTIL && !log.snap.journalOn(shiftDays(log.today, -1)).length;
+/**
+ * Is "Close yesterday" owed: before 3 AM, with nothing written for yesterday? A line closes a night as an entry does
+ * (the Close card says "Day, closed." for either), so either one settles it. The poster draws its row only while it is.
+ */
+const closeYesterdayDue = (log: Log, now: number, lineKept: boolean) => now < LATE_UNTIL && !lineKept && !log.snap.journalOn(shiftDays(log.today, -1)).length;
 const CloseYesterday = ({ log }: { log: Log }) => {
   const sheet = useSheet();
   const live = useIsLive(log.today);
@@ -321,6 +325,11 @@ const DayContent = memo(function DayContent({ date, onMorning }: { date: ISODate
   // the held day's clock (useDeferred): past midnight on a day still on screen it is that day's last minute, so "Close
   // yesterday" never offers the day before the one the person is still in
   const now = useFaceMinutes();
+  // yesterday's line, asked for only in the small hours when "Close yesterday" could show (the list the Journal reads)
+  const yDay = shiftDays(today, -1);
+  const late = isToday && now < LATE_UNTIL;
+  const yLines = useLearnings({ month: yDay.slice(0, 7) }, late);
+  const yesterdayLine = late && rowsOf(yLines.data).some((l) => l.date === yDay);
   // every section has its own boundary (SectionBoundary): one that throws becomes one row, and the rest of Today stays
   const habits =
     parts.includes('habits') && loaded ? (
@@ -332,7 +341,7 @@ const DayContent = memo(function DayContent({ date, onMorning }: { date: ISODate
   const day =
     parts.includes('day') && loaded ? (
       <SectionBoundary key="day" name="today.plan" resetKey={date}>
-        <PlanDay date={date} today={today} log={log} slim={fitness} yesterday={isToday && closeYesterdayDue(log, now) ? <CloseYesterday log={log} /> : null} />
+        <PlanDay date={date} today={today} log={log} slim={fitness} yesterday={isToday && closeYesterdayDue(log, now, yesterdayLine) ? <CloseYesterday log={log} /> : null} />
       </SectionBoundary>
     ) : null;
   // nothing is switched on: one line and the way to the switches, and nothing else on the page

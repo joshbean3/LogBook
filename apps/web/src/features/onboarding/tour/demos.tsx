@@ -256,8 +256,8 @@ const WEEK_OF = MILES.map((_, k) => new Date(2026, 7, 17 + 7 * k).toLocaleDateSt
 const MILES_MAX = 26;
 const FIT_BEATS = [900, 650, 700, 900, 300, 1300, 700, 380, 380, 380, 380, 380, 1200, 900] as const;
 /**
- * The Fitness tab in two moves, top to bottom as the page reads. What is next: this week's sessions, and a run held and
- * dragged to another day. How it is going: the Progress chart under them, the weeks as bars, read by sliding along it
+ * The Fitness tab in two moves, top to bottom as the page reads. What is next: this week's sessions, and a run moved to
+ * another day the way the page moves one (a tap on the run, then the day: there is no drag on the page). How it is going: the Progress chart under them, the weeks as bars, read by sliding along it
  * (the bar under the finger turns Deep Sky and the headline says its week, as on the page).
  */
 export const FitnessDemo = ({ running, still }: DemoProps) => {
@@ -282,17 +282,16 @@ export const FitnessDemo = ({ running, still }: DemoProps) => {
           <div className="tour-week">
             {DAYS.map((d, k) => {
               const r = runs[k];
-              const ghost = lifted && k === 3;
               return (
                 <span key={k} className={`tour-day ${lifted && k === 4 ? 'tis-target' : ''}`} data-spot={`day${k}`}>
                   <small>{d}</small>
                   <span className="tour-date">{9 + k}</span>
-                  {r && !ghost ? (
+                  {r ? (
                     <motion.span layout={!still} className={`tour-pill c-${r.c}`} transition={springs.settle}>
                       {r.t}
                     </motion.span>
                   ) : (
-                    <span className="tour-rest">{ghost ? '' : 'Rest'}</span>
+                    <span className="tour-rest">Rest</span>
                   )}
                 </span>
               );
@@ -317,9 +316,9 @@ export const FitnessDemo = ({ running, still }: DemoProps) => {
             ))}
           </div>
         </div>
-        <Finger spot={at(b, 1, 3) ? 'day3' : b === 3 ? 'day4' : i != null ? `w${i}` : b === 6 ? 'w4' : null} hold={at(b, 2, 4) || i != null} carry={lifted ? <span className="tour-pill c-hard tis-lifted">Tempo 5</span> : undefined} />
+        <Finger spot={at(b, 1, 3) ? 'day3' : b === 3 ? 'day4' : i != null ? `w${i}` : b === 6 ? 'w4' : null} down={b === 2 || b === 3} hold={i != null} />
       </Stage>
-      <Steps items={['This week: what is next', 'Hold a run and drag it to another day', 'Slide along Progress to read a week']} on={still ? -1 : b < 1 ? 0 : b < 6 ? 1 : 2} />
+      <Steps items={['This week: what is next', 'Tap a run to move it to another day', 'Slide along Progress to read a week']} on={still ? -1 : b < 1 ? 0 : b < 6 ? 1 : 2} />
     </>
   );
 };
