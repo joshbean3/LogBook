@@ -276,7 +276,8 @@ export const challengeFacts = (c: Caches, store: Rewards, slot: Slot, today: ISO
   const listed = { open: open.filter(wasThere).length, done: doneThen.filter(wasThere).length };
   const list = Number.isNaN(addedAt) || (!listed.open && !listed.done && open.length + doneThen.length > 0) ? null : listed;
   let newest = '';
-  for (const t of open) if (!Number.isNaN(Date.parse(t.createdAt)) && (!newest || Date.parse(t.createdAt) > Date.parse(newest))) newest = t.createdAt;
+  // the newest of everything the list holds now, open or checked off today (what was done before it is added is its base)
+  for (const t of [...open, ...doneThen]) if (!Number.isNaN(Date.parse(t.createdAt)) && (!newest || Date.parse(t.createdAt) > Date.parse(newest))) newest = t.createdAt;
   return {
     today,
     fitness: c.fitness,

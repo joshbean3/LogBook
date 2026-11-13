@@ -109,6 +109,18 @@ describe('“Clear this morning’s list”, from the to-dos themselves', () => 
     // one written a quarter of an hour later is still not one of the list's
     expect(view([{ ...todos[0]!, doneOn: T }, todos[1]!, todos[2]!, todo('x', { createdAt: clock(T, 9, 25).toISOString(), doneOn: T })])).toMatchObject({ sub: '1 of 3 done' });
   });
+  it('a to-do checked off just before it was added is its base, whatever the two clocks say', () => {
+    // done at 09:12 by the server's clock (made at 09:11), with two older ones open; this phone thinks it is 09:00
+    const todos = [todo('a'), todo('b'), todo('z', { createdAt: clock(T, 9, 11).toISOString(), doneOn: T })];
+    const slot = { key: KEY, kind: 'day' as const, date: T, seed: 0 };
+    const s0 = store({ ...list, target: 2, state: 'offered' });
+    const s1 = addChallenge(s0, slot, challengeFacts(readCaches(world(todos), true, ['2026-10', '2026-11'])!, s0, slot, T), ADDED);
+    expect(s1.challenges[KEY]).toMatchObject({ state: 'added', target: 2, base: 1, at: clock(T, 9, 11).toISOString() });
+    const view = (rows: Todo[]) => boardOf(world(rows), s1, T, true, clock(T, 12))?.views[KEY] ?? null;
+    expect(view(todos)).toMatchObject({ sub: 'Added to today' });
+    expect(view([{ ...todos[0]!, doneOn: T }, todos[1]!, todos[2]!])).toMatchObject({ sub: '1 of 2 done' });
+    expect(view([{ ...todos[0]!, doneOn: T }, { ...todos[1]!, doneOn: T }, todos[2]!])).toMatchObject({ shown: 'done' });
+  });
   it('when the times tell nothing (every to-do was given its time after the challenge was added), the counts stand', () => {
     // written offline before it was added, saved by the server an hour later with the server's time
     const todos = [later('a', { doneOn: T }), later('b'), later('c')];
