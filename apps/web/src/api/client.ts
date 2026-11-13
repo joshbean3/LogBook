@@ -25,6 +25,22 @@ export const onUnauthorized = new Set<() => void>();
  */
 export const onSignedOut = new Set<() => void>();
 const leavesAccount = (method: string, path: string) => (method === 'POST' && path === '/auth/logout') || (method === 'DELETE' && path === '/me');
+/**
+ * Run just before Sign out is sent, while the session can still carry a request: a store that keeps a copy on the account
+ * sends its last change here (Orbs, features/orbs/sync.ts). Each gets `SIGN_OUT_WAIT_MS` at most and a failure is
+ * swallowed, so nothing here can hold Sign out up or stop it.
+ */
+export const beforeSignOut = new Set<() => Promise<unknown> | unknown>();
+export const SIGN_OUT_WAIT_MS = 2500;
+const lastWords = async () => {
+  if (!beforeSignOut.size) return;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  await Promise.race([
+    Promise.allSettled([...beforeSignOut].map((f) => Promise.resolve().then(f))),
+    new Promise((r) => (timer = setTimeout(r, SIGN_OUT_WAIT_MS))),
+  ]);
+  clearTimeout(timer);
+};
 
 import { CapacitorHttp } from '@capacitor/core';
 import { today } from '@logbook/shared';
@@ -76,6 +92,7 @@ export async function api<T>(path: string, init: RequestInit & { json?: unknown;
   if (json !== undefined) headers.set('content-type', 'application/json');
   if (!headers.has(LOCAL_DATE_HEADER)) headers.set(LOCAL_DATE_HEADER, today());
   if (idempotencyKey) headers.set(IDEMPOTENCY_HEADER, idempotencyKey);
+  if ((rest.method ?? 'GET').toUpperCase() === 'POST' && path.split('?')[0] === '/auth/logout') await lastWords();
   let res: Response;
   const limit = timeoutMs ?? DEFAULT_TIMEOUT_MS;
   // in the browser the call is aborted when its time runs out, or when the caller's own signal fires (the native path
