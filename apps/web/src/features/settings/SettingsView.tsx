@@ -1,9 +1,10 @@
 import { buildMorning, fmtDate, morningDayFor } from '@logbook/shared';
 import type * as React from 'react';
-import { BookOpenText, CalendarDays, ClipboardList, Database, FileText, Gauge, Heart, House, Link2, LifeBuoy, Mail, RotateCcw, Route, ScrollText, Send, ShieldCheck, Sunrise, Timer, User, Vibrate } from 'lucide-react';
+import { BookOpenText, CalendarDays, ClipboardList, Compass, Database, FileText, Gauge, Heart, House, Link2, LifeBuoy, Mail, RotateCcw, Route, ScrollText, Send, ShieldCheck, Sunrise, Timer, User, Vibrate } from 'lucide-react';
 import { FavoriteIcon, FitnessIcon, HabitIcon } from '@/ui/icons';
 import { useNavigate } from 'react-router';
 import { startReplay } from '@/features/onboarding/replay';
+import { TOUR_PATH, tourFrom } from '@/features/onboarding/tour/route';
 import { useRef } from 'react';
 import { useNav } from '@/app/NavController';
 import { useBootstrap, useReads } from '@/api/queries';
@@ -150,6 +151,8 @@ export default function SettingsView(): React.JSX.Element {
         {/* only once the App Store id exists; in the iPhone app the link goes to the App Store, never the review prompt */}
         {rate ? <GoRow icon={FavoriteIcon} title="Rate Orby" sub="Write a review on the App Store" href={isNative ? rate : undefined} onPress={() => void openExternal(rate)} /> : null}
         {isNative ? null : <GoRow icon={House} title="Home screen" sub="Full screen, and it opens offline" onPress={go('app')} />}
+        {/* the tour by itself (features/onboarding/tour): it comes back here when it ends */}
+        <GoRow icon={Compass} title="How Orby works" sub="A short tour" onPress={() => void routerNav(TOUR_PATH, { state: tourFrom() })} />
         <GoRow
           icon={RotateCcw}
           title="Replay setup"
