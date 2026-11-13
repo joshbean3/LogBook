@@ -1020,6 +1020,9 @@ textarea.in {
   margin: -12px -8px;
   min-height: 44px;
   min-width: 44px;
+  /* the action keeps its whole word when the line beside it wraps (a min-width alone let it shrink to 44 and spill) */
+  flex: none;
+  white-space: nowrap;
 }
 
 /* ---------- error boundary fallback (app/ErrorBoundary.tsx) ----------
