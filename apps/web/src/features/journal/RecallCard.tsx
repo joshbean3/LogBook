@@ -101,7 +101,7 @@ const EchoCard = ({ today, onOpenLine }: { today: string; onOpenLine: (l: Learni
   ].filter((x): x is { when: string | null; item: Learning } => !!x.item);
   const cur = slots[at % Math.max(1, slots.length)];
   if (!cur) return null;
-  const { item, when } = cur;
+  const { item } = cur;
   const line = plainLine({ kind: 'learning', date: item.date, excerpt: item.text }, today);
   return (
     <div className="recall-wrap">
@@ -110,12 +110,6 @@ const EchoCard = ({ today, onOpenLine }: { today: string; onOpenLine: (l: Learni
           <div className="recall-top">
             <p className="caps recall-eyebrow">
               Remember when
-              {when ? (
-                <>
-                  {' '}
-                  <span aria-hidden="true">·</span> {when}
-                </>
-              ) : null}
             </p>
             <PressButton press="dim" className="recall-share-btn" aria-label="Share" onClick={() => (haptics.select(), sheet.open({ eyebrow: 'Remember when', title: 'Share', body: <ShareRecall summary={line} when={recallDay(item.date, today)} /> }))}>
               <Share size={18} aria-hidden="true" />

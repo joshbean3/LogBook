@@ -5,6 +5,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useEffect, useImperativeHandle, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { haptics } from '@/lib/haptics';
 import { useReduced } from '@/lib/motion';
+import { useMedia } from '@/lib/useToday';
 import { Poster, WeekLights } from '@/ui/poster';
 import { Pressable } from '@/ui/Pressable';
 import { Button } from '@/ui/primitives';
@@ -204,6 +205,9 @@ export const JournalPoster = ({ today, lines, lineCounts, entryDays, ever, onOpe
     setRose(!had && kept);
   }
   const band = weekBand(week, ever);
+  // a light is a button only where seven of them are 44 pt wide each (375 pt and up): narrower, they are the picture alone,
+  // and the day is still one tap away in the month's calendar
+  const roomy = !useMedia('(max-width: 374.98px)');
   const days = useMemo(() => week.days.map((d) => ({ letter: d.letter, lit: d.lit, name: `${fmtDate('dowLong', d.date)}, ${fmtDate('md', d.date)}${d.lit ? ', written' : ''}. Open the day` })), [week.days]);
   return (
     <Poster
@@ -221,7 +225,7 @@ export const JournalPoster = ({ today, lines, lineCounts, entryDays, ever, onOpe
         )
       }
       meta={kept ? 'Tonight’s line is kept.' : 'One line is enough.'}
-      scene={<WeekLights days={days} tonight={week.tonight ? 'lit' : 'waiting'} label={weekLabel(week)} onPick={(i) => onOpenDay(week.days[i]!.date)} />}
+      scene={<WeekLights days={days} tonight={week.tonight ? 'lit' : 'waiting'} label={weekLabel(week)} onPick={roomy ? (i) => onOpenDay(week.days[i]!.date) : undefined} />}
       band={{
         label: band.label,
         words: week.tonight ? (

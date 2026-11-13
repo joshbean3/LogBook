@@ -284,3 +284,16 @@
 .jn-month-count {
   margin: var(--sp-2) var(--pad-card) 0;
 }
+
+/* a match inside an entry's own words (Fraunces italic): the mark keeps the italic's weight and reads in Night Ink on its
+   Haze, with an underline as the cue that is not color */
+.jn-erow-text .jn-mark {
+  font-weight: inherit;
+  color: var(--ink);
+  text-decoration: underline;
+}
+/* counts line up as numbers do everywhere */
+.jn-month-count,
+.ln-mrow-meta {
+  font-variant-numeric: tabular-nums;
+}

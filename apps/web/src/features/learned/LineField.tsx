@@ -48,6 +48,12 @@ export interface LineFieldProps {
    * and hands the whole words over on a tap. Without it the paste is cut to fit and the field says so.
    */
   onLong?: (words: string) => void;
+  /**
+   * The Close card on Today: the button is the secondary until the person has written words of their own, so the evening
+   * has one Sky button at rest ("Set this goal" in Plan your day keeps it: buttons 6.2, layout 2.3). The Journal's own
+   * field leaves this off: there the line is the page's one next move.
+   */
+  calm?: boolean;
   /** In the Save task, before the field empties: the caller may copy what is on screen (the Close card's still). */
   onSaving?: () => void;
   /** After a save was sent (the line is already on the page). */
@@ -65,7 +71,7 @@ export interface LineFieldProps {
  * above the keyboard. ⌘/Ctrl+Enter saves. The Journal's poster and the evening's Close card both write the line here, on
  * one draft (draft.ts), so words begun in one are in the other.
  */
-export const LineField = ({ today, starter, more, onLong, onSaving, onSaved, onRefused, ref: handle }: LineFieldProps): React.JSX.Element => {
+export const LineField = ({ today, starter, more, onLong, onSaving, onSaved, onRefused, ref: handle, calm = false }: LineFieldProps): React.JSX.Element => {
   const { add } = useLearnedMutations(today);
   const toast = useToast();
   const ref = useRef<HTMLTextAreaElement>(null);
@@ -206,7 +212,7 @@ export const LineField = ({ today, starter, more, onLong, onSaving, onSaved, onR
       <div className="ln-entry-foot">
         {more ? <span className="ln-entry-more">{more}</span> : null}
         {/* the press does not take the focus from the field, so the keyboard stays and nothing moves under the thumb */}
-        <Button variant="primary" className="ln-finish" onMouseDown={(e) => e.preventDefault()} onClick={save}>
+        <Button variant={calm && !ready ? 'default' : 'primary'} className="ln-finish" onMouseDown={(e) => e.preventDefault()} onClick={save}>
           Finish the line
         </Button>
       </div>

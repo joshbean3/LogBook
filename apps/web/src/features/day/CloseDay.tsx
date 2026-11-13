@@ -480,6 +480,7 @@ const ComposeBox = ({ date, log, lines, onSaved, onRefused }: { date: ISODate; l
             <div className="cd-line-field">
               <LineField
                 ref={lineField}
+                calm
                 today={date}
                 starter={starter}
                 onLong={(words) => {

@@ -1,6 +1,7 @@
 import type * as React from 'react';
 import { fmtDate, type JournalEntry } from '@logbook/shared';
-import { BookOpen, ChevronRight, Plus } from 'lucide-react';
+import { ChevronRight, Plus } from 'lucide-react';
+import { JournalIcon } from '@/ui/icons';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { SectionBoundary } from '@/app/ErrorBoundary';
 import { useRouteParams } from '@/app/NavController';
@@ -233,7 +234,7 @@ export default function JournalMonth(): React.JSX.Element {
                             {year ? (
                               <Pressable as="button" className="jn-ago" press="dim" onPress={() => goDay(year.d)} label={`This day in ${year.d.slice(0, 4)}: ${year.e.text}. Open that day`}>
                                 <span className="jn-ago-k" aria-hidden="true">
-                                  This day in {year.d.slice(0, 4)} <ChevronRight size={14} />
+                                  This day in {year.d.slice(0, 4)} <ChevronRight size={15} />
                                 </span>
                                 <span className="jn-ago-t" aria-hidden="true">
                                   {year.e.text}
@@ -254,7 +255,7 @@ export default function JournalMonth(): React.JSX.Element {
                 ) : null}
               </ol>
             ) : (
-              <SectionEmpty icon={<BookOpen size={18} />} title={`Nothing written in ${name}`} line="Tap a day above to write it." />
+              <SectionEmpty icon={<JournalIcon size={18} />} title={`Nothing written in ${name}`} line="Tap a day above to write it." />
             )}
           </PageSection>
           {!pending && written ? <p className="k-foot jn-month-count">{writtenWords(lineCount, entryCount)}</p> : null}
