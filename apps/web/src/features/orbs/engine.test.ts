@@ -238,6 +238,38 @@ describe('the reconciler reads the caches and the store follows', () => {
     k.run();
     expect(k.store.getOrbs()?.days[TODAY]).toEqual({ n: 0, a: 0, h: 1 });
   });
+  it('days under a status that the phone never saw (the app stayed closed) are paused, not missed', async () => {
+    // last opened four days ago; sick from three days ago until yesterday
+    const D4 = shiftDays(TODAY, -4);
+    const k = await launch({ stored: existing({ clock: D4, days: { [D4]: { n: 1, a: 1, k: { habit: 1 } } } }), boot: boot({ status: { kind: 'sick', from: shiftDays(TODAY, -3), until: Y } }) });
+    k.run();
+    const days = k.store.getOrbs()!.days;
+    expect(days[shiftDays(TODAY, -3)]).toEqual({ n: 0, a: 0, c: 1, h: 1 });
+    expect(days[shiftDays(TODAY, -2)]).toEqual({ n: 0, a: 0, c: 1, h: 1 });
+    expect(days[Y]).toEqual({ n: 0, a: 0, h: 1 });
+    expect(days[TODAY]).toBeUndefined();
+    expect(days[D4]).toEqual({ n: 1, a: 1, k: { habit: 1 }, c: 1 });
+  });
+  it('a stored store with days that have not happened is cut once the server’s date is known', async () => {
+    const future = shiftDays(TODAY, 200);
+    const k = await launch({ stored: existing({ days: { [Y]: { n: 2, a: 2, k: { habit: 2 } }, [future]: { n: 27, a: 9, c: 1 } }, keepsakes: { 'days:100': { on: future } } }) });
+    k.run();
+    // nothing is known yet: the store stands as it was read
+    expect(k.store.getOrbs()!.days[future]).toBeDefined();
+    k.intake.takeBootstrap({ rewards: null, serverTime: new Date().toISOString() });
+    k.run();
+    const s = k.store.getOrbs()!;
+    expect(s.days[future]).toBeUndefined();
+    expect(s.keepsakes['days:100']).toBeUndefined();
+    expect(s.days[Y]?.n).toBe(2);
+    // and a clock in the future, which shuts every day out, comes back to the last day that can be
+    const stuck = await launch({ stored: existing({ clock: future, days: { [Y]: { n: 2, a: 2, k: { habit: 2 }, c: 1 } } }) });
+    stuck.intake.takeBootstrap({ rewards: null, serverTime: new Date().toISOString() });
+    stuck.patchMonth(() => ({ checks: [check('h1', TODAY)] }));
+    stuck.run();
+    expect(stuck.store.getOrbs()!.clock <= shiftDays(TODAY, 1)).toBe(true);
+    expect(stuck.store.getOrbs()!.days[TODAY]).toEqual({ n: 1, a: 1, k: { habit: 1 } });
+  });
   it('a month that has not loaded is not an empty day: the stored day stands until its facts are there', async () => {
     const stored = existing({ clock: TODAY, days: { [TODAY]: { n: 4, a: 4, k: { habit: 4 } } } });
     const k = await launch({ stored, bare: true });
@@ -496,14 +528,70 @@ describe('after a wipe', () => {
     expect(own.store.getSwitches().weekTarget).toBe(4);
     expect(own.store.getOrbs()?.set.weekTarget).toBe(4);
   });
-  it('takes the account’s copy when the server keeps one, and reads nothing else for it', async () => {
-    const kept = existing({ days: { [Y]: { n: 7, a: 5, k: { habit: 4, 'goal:day': 3 }, c: 1 } }, once: { [`week:${RULES.startsOn}`]: { on: shiftDays(RULES.startsOn, 8), n: 5 } } });
+  it('takes the account’s copy when the server keeps one, and never asks for a rewards route to do it', async () => {
+    const kept = existing({ clock: TODAY, days: { [Y]: { n: 7, a: 5, k: { habit: 4, 'goal:day': 3 }, c: 1 } }, once: { [`week:${RULES.startsOn}`]: { on: shiftDays(RULES.startsOn, 8), n: 5 } } });
+    serve({ '/learnings': { learnings: [], next: null } });
     const k = await launch({ stored: null });
     k.intake.takeBootstrap({ rewards: kept, serverTime: new Date().toISOString() });
     k.run();
     await vi.waitFor(() => expect(k.store.getOrbs()).not.toBeNull());
     expect(totalOf(k.store.getOrbs()!)).toBe(12);
-    expect(api.mock.calls.filter(([, init]) => (init?.method ?? 'GET') === 'GET')).toEqual([]);
+    expect(k.store.getOrbs()!.days[Y]).toEqual(kept.days[Y]);
+    expect(api.mock.calls.map(([p]) => p).filter((p) => p.includes('rewards'))).toEqual([]);
+  });
+  it('the copy never holds an open day: the days that were open when it was sent are read from the account’s facts', async () => {
+    // the phone that signed out last night had counted yesterday (still open then, so never sent) and the day before
+    const D2 = shiftDays(TODAY, -2);
+    const D3 = shiftDays(TODAY, -3);
+    const kept = existing({ clock: Y, days: { [D3]: { n: 1, a: 1, k: { habit: 1 }, c: 1 } } });
+    serve({ '/learnings': { learnings: [], next: null } });
+    const k = await launch({ stored: null });
+    k.patchMonth(() => ({ checks: [check('h1', D3), check('h2', D3), check('h1', D2), check('h1', Y), check('h2', Y), check('h3', Y)] }));
+    k.qc.setQueryData(['goals'], [goalOf('day', Y, { status: 'done', createdAt: noon(Y, 8).toISOString(), closedAt: noon(Y, 18).toISOString() })]);
+    k.intake.takeBootstrap({ rewards: kept, serverTime: new Date().toISOString() });
+    k.run();
+    await vi.waitFor(() => expect(k.store.getOrbs()).not.toBeNull());
+    const s = k.store.getOrbs()!;
+    // yesterday and the day before: base Orbs, closed, marked rebuilt (the full day's +5 is not paid by a rebuild)
+    expect(s.days[Y]).toEqual({ n: 6, a: 4, k: { habit: 3, 'goal:day': 3 }, c: 1, r: 1 });
+    expect(s.days[D2]).toEqual({ n: 1, a: 1, k: { habit: 1 }, c: 1, r: 1 });
+    // a day the copy holds stands as the copy has it, whatever the facts say now
+    expect(s.days[D3]).toEqual({ n: 1, a: 1, k: { habit: 1 }, c: 1 });
+    k.run();
+    expect(k.store.getOrbs()!.days[Y]).toEqual({ n: 6, a: 4, k: { habit: 3, 'goal:day': 3 }, c: 1, r: 1 });
+    expect(events).toEqual([]);
+    expect(toasts).toEqual([]);
+  });
+  it('before 03:00 yesterday is left to the reconciler, which reads it in full', async () => {
+    vi.setSystemTime(noon(TODAY, 1));
+    const kept = existing({ clock: Y, days: {} });
+    serve({ '/learnings': { learnings: [], next: null } });
+    const k = await launch({ stored: null });
+    k.patchMonth(() => ({ checks: [check('h1', Y), check('h2', Y), check('h3', Y)] }));
+    k.qc.setQueryData(['goals'], [goalOf('day', Y, { status: 'done', createdAt: noon(Y, 8).toISOString(), closedAt: noon(Y, 18).toISOString() })]);
+    k.intake.takeBootstrap({ rewards: kept, serverTime: new Date().toISOString() });
+    k.run();
+    await vi.waitFor(() => expect(k.store.getOrbs()).not.toBeNull());
+    k.run();
+    expect(k.store.getOrbs()!.days[Y]).toEqual({ n: 11, a: 4, k: { habit: 3, 'goal:day': 3, full: 5 } });
+  });
+  it('offline, a phone with the copy in hand but not the facts waits, and fills when they come', async () => {
+    api.mockRejectedValue(new Error('offline'));
+    const kept = existing({ clock: Y, days: {} });
+    const k = await launch({ stored: null, bare: true });
+    k.intake.takeBootstrap({ rewards: kept, serverTime: new Date().toISOString() });
+    k.run();
+    await settle(20);
+    expect(k.store.getOrbs()).toBeNull();
+    serve({ [`/months/${MONTH}`]: month(MONTH, { checks: [check('h1', Y)] }), '/todos': [], '/goals': [], '/learnings': { learnings: [], next: null } });
+    vi.useRealTimers();
+    await new Promise((r) => setTimeout(r, 5));
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(noon(TODAY));
+    k.engine.resetOrbsEngineForTest();
+    k.run();
+    await vi.waitFor(() => expect(k.store.getOrbs()).not.toBeNull());
+    expect(k.store.getOrbs()!.days[Y]).toEqual({ n: 1, a: 1, k: { habit: 1 }, c: 1, r: 1 });
   });
   it('a first run on the day the account began starts empty, with nothing to read', async () => {
     const k = await launch({ stored: null, boot: boot({ onboardedAt: noon(TODAY, 9).toISOString() }) });
