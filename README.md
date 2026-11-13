@@ -1,50 +1,37 @@
-# Logbook
+# Orby
 
-A personal training log, habit tracker and journal, built as an installable web app with its own server and database.
+A personal iPhone app for one person's day: a training plan, habits, goals, a journal and an assistant. It ships as a web
+app with its own server and database, and inside a Capacitor shell for iOS. The product was renamed from Logbook; the
+repo, the packages (`@logbook/*`), the bundle id and the storage keys keep the old name.
 
-Six tabs, one data model:
+Four tabs, one data model:
 
-- **Today**: one page per day. Swipe anywhere on the page to the next or the previous day; the date strip under the bar shows
-  the week and travels with you, and the caps line carries your word until you change it (`STEADY · FRI, OCT 23`). The hero
-  changes with the time of day: out the door in 22 minutes, back by 8:13, then the run landing from Strava (or hold the ring
-  to mark it done by hand). The week's ring, and in the evening the day's close: two sentences,
-  tomorrow's word and alarm.
-  **Plan your day** sits under the hero: the day's goal as the headline (a sun in its corner grows as its steps are checked
-  and fills the card in gold when it is done, with a full-screen moment), then the day in four sections, Anytime, Morning,
-  Afternoon and Evening, each a pill in its colour that fills like a gauge and folds away on a tap. Every to-do and every
-  step of the goal is a card with an icon read from its words and a round check: hold one,
-  drag it into a band or reorder it, drop a to-do on the goal to make it a step, or on Tomorrow or Delete at the top of the
-  screen. Let go of a hold without moving for its menu. Checked cards stay where they are, struck, and each band's rail
-  fills as its cards are done. Each to-do carries a priority (P1 red, P2 orange, P3 blue), can be filed
-  in a list (Work, Home) and highlighted in a colour; the To-dos sheet shows them by day or by list. Quick add reads marks
-  at the end of a line: `Send the model fri !!! #work` is a P1 for Friday in Work.
-- **Ask** (the bar at the top of each day): the assistant. Ask about your plan ("what's left this week?")
-  or ask for a change ("push the runs I missed this week to next week", "add a P1 to-do to call the bank Friday", "set this
-  week's goal from my plan"). It reads your plan, to-dos and goals, and proposes the change as a list in words; nothing
-  changes until you tap Apply, and Undo puts it all back. Every proposal and what came of it is kept.
-- **Goals**: a goal for the year, the month, the week and the day, drawn as an orbit of four rings (the year outermost,
-  the day inside). Each ring fills in its level's colour as its goal comes along, and a hand on it shows how much of the
-  period is gone. Under it, a card per level to swipe through, with the goal, its steps and its time left. Write it as you'd say it; a review (Claude, on Locke and
-  Latham's goal-setting research) rewrites it to be specific, measurable, hard but attainable and due at the period's end,
-  and you keep its words or yours. When a period ends it asks "Did you hit it?" (Done, Partly, Missed, and a line on how it
-  went). History lists every day, week, month and year with its goal and outcome, including the ones with none set, and
-  the Log keeps every step: set, sharpened, edited, done, missed, cleared. A dot on the tab (and, on the phone, a morning
-  reminder) says when today's or this week's goal is unset.
-- **Habits**: today's habits as a row of orbs (tap one to light it, hold for a note, its details or to archive it, drag to
-  reorder, `+` to add), the `This morning · Wake 7:30 · Leave 8:40 ›` row, and Streaks: every habit with its streak, its
-  count over the last 30 days and those days as a small grid; tap one for its sheet. Manage habits (rename, reorder,
-  archive) sits under the list.
-- **This morning** (pushed from Today's hero or the Habits tab's `This morning` row): the schedule from the alarm to the door, built from
-  the day's run and your routine. Drag the alarm and every time below moves with it; hold a step to reorder it; it says when
-  you have to leave.
-- **Plan**: the week and the month, paged by swiping. Hold a session to move it to another day. A plan builder writes the
-  next block from your goal and run days (Claude can also turn a PDF, a photo or a description into sessions).
-- **Progress**: weekly mileage against plan, long-run and easy-pace trends, lifts with estimated one-rep max, consistency.
-- **Journal**, after One Year: the year as a garden. Every day is a dot; a day with a memory has grown a little hand-drawn
-  plant, and today is a house. Touch a day for its name, tap it to open it. A day's page carries the days around it as a
-  row of plants, its memory in typewriter ink (or a hand-drawn plus to plant one; planting draws the plant in), and what
-  you wrote on that day a year ago. Plus a quote a day from a 3,458-quote library, and Reads (links saved for later).
-- **Settings** (pushed from Today's avatar): you, training, habits, the morning routine, Strava, the app, your data, account.
+- **Today**: one page per day. Swipe to the next or the previous day; the week strip under the bar travels with you. The
+  hero changes with the time of day and shows the day's training. **Plan your day** sits under it: the day's goal, then
+  the to-dos in Anytime, Morning, Afternoon and Evening. Hold a to-do to drag it, or let go for its menu. Habits are a
+  grid of tiles: tap one to light it, hold for its sheet. In the evening the day closes with one line on what you learned.
+- **Goals**: a goal for the year, the month, the week and the day, drawn as four rings. Each has its steps and its time
+  left. When a period ends it asks how it went, and History keeps every one.
+- **Fitness** (the route is still `/plan`): the week and the month of the plan, paged by swiping. Hold a session to move
+  it. The plan builder writes the next block from your goal and run days. Under the plan, progress: weekly mileage
+  against plan, long-run and pace trends, lifts, habits. A person who does not train can switch the tab off in Settings,
+  and the app becomes three tabs.
+- **Journal**: one line a day (what you learned) and longer entries when you want them, on one page, with the month
+  behind it.
+
+And three things that are not tabs:
+
+- **The assistant** (the pill at the top of Today): ask about your plan, or ask for a change. It proposes the change as
+  a list in words; nothing changes until you tap Apply, and Undo puts it back.
+- **Orbs** (the numeral beside Today's sun, and the page behind it): a small light earned at the control you just
+  completed. One thing done makes a day count, five days make a week count, and nothing is ever taken away. Orby offers
+  a challenge for a day or a week, sized from your last four weeks; you can ask the assistant to pick one. Both switches
+  are in Settings. The rules live in `packages/shared/src/rewards.ts` and the research behind them in
+  `reports/Streaks rewards and challenges.md`.
+- **Settings** (pushed from Today's avatar): you, training, habits, the morning routine, Apple Health, Orbs, the app, your
+  data, your account.
+
+The brand, the layout rules and the copy rules are in `docs/brand/`. `CLAUDE.md` says how to work in the repo.
 
 Install it on a phone from the browser. It opens full screen, caches everything it has seen, and queues writes made offline.
 
