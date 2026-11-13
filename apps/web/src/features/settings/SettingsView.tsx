@@ -1,10 +1,11 @@
 import { buildMorning, fmtDate, morningDayFor } from '@logbook/shared';
 import type * as React from 'react';
 import { BookOpenText, CalendarDays, ClipboardList, Compass, Database, FileText, Gauge, Heart, House, Link2, LifeBuoy, Mail, RotateCcw, Route, ScrollText, Send, ShieldCheck, Sunrise, Timer, User, Vibrate } from 'lucide-react';
-import { FavoriteIcon, FitnessIcon, HabitIcon } from '@/ui/icons';
+import { FavoriteIcon, FitnessIcon, HabitIcon, LearnedIcon } from '@/ui/icons';
 import { useNavigate } from 'react-router';
 import { startReplay } from '@/features/onboarding/replay';
 import { TOUR_PATH, tourFrom } from '@/features/onboarding/tour/route';
+import { TIPS_AGAIN, tipsStore } from '@/features/tips/tips';
 import { useRef } from 'react';
 import { useNav } from '@/app/NavController';
 import { useBootstrap, useReads } from '@/api/queries';
@@ -16,7 +17,7 @@ import { setFitness, usePrefs } from '@/lib/prefs';
 import { HEALTH_BUILT, STRAVA_BUILT } from '@/lib/features';
 import { isNative } from '@/lib/native';
 import { LEGAL, openExternal, SUPPORT, SUPPORT_EMAIL } from '@/lib/siteLinks';
-import { PushedBar, Row } from '@/ui';
+import { PushedBar, Row, useToast } from '@/ui';
 import { Wordmark } from '@/ui/Brand';
 import { GoRow, SGroup, Switch, Tile } from './parts';
 import { TodayShowsRows, todayShowsFoot } from './TodayShows';
@@ -44,6 +45,7 @@ export default function SettingsView(): React.JSX.Element {
   const { profile, block, loaded, stored: hasStored, noPlan } = useTrainingProfile();
   const go = (section: string) => () => nav.push(`/settings/${section}`);
   const routerNav = useNavigate();
+  const toast = useToast();
   // the push's commit draws the whole page, bar and every group, so it is whole on the slide's first frame (review feel
   // F4, review 2 feel N1) and nothing arrives once it has landed (review 3 code N2 / feel R3-2: a group held for "below
   // the fold" was on screen at 390 × 844 and popped in on the landing frame). The groups past Morning routine are four
@@ -153,6 +155,17 @@ export default function SettingsView(): React.JSX.Element {
         {isNative ? null : <GoRow icon={House} title="Home screen" sub="Full screen, and it opens offline" onPress={go('app')} />}
         {/* the tour by itself (features/onboarding/tour): it comes back here when it ends */}
         <GoRow icon={Compass} title="How Orby works" sub="A short tour" onPress={() => void routerNav(TOUR_PATH, { state: tourFrom() })} />
+        {/* the first-visit tips (features/tips), once more: an action, not a page, so the row has no chevron */}
+        <Row
+          className="s-go has-tile"
+          left={<Tile icon={LearnedIcon} />}
+          title={TIPS_AGAIN.title}
+          sub={TIPS_AGAIN.sub}
+          onClick={() => {
+            tipsStore.reset();
+            toast(TIPS_AGAIN.done);
+          }}
+        />
         <GoRow
           icon={RotateCcw}
           title="Replay setup"

@@ -1,96 +1,109 @@
-import { PASSWORD, createAccount, expect, finishSetup, go, newEmail, resetLinkFromLog, savedBy, signOut, signUpByApi, signUpForSetup, startSignUp, test } from './helpers';
+import { PASSWORD, createAccount, expect, finishSetup, go, gotIt, newEmail, resetLinkFromLog, savedBy, signOut, signUpByApi, signUpForSetup, startSignUp, test } from './helpers';
 
 /**
  * The smoke flows every push must pass, at 390 and 320 wide (the two projects in playwright.config.ts). Each test makes
  * its own account, so they never see each other's data.
  */
 
-test('sign up through setup to Today', async ({ page }) => {
-  const email = newEmail('signup');
-  await startSignUp(page);
-  await expect(page).toHaveURL(/\/signup/);
-  await createAccount(page, email);
-  await finishSetup(page);
-  await expect(page.getByRole('heading', { name: 'Habits' }).first()).toBeVisible();
-  await expect(page.locator('button[data-habit][aria-label="Stretch"]')).toBeVisible();
-  // an account that finished setup never sees it again
-  await page.reload();
-  await expect(page).toHaveURL(/\/today/);
-  await page.goto('/welcome');
-  await expect(page).not.toHaveURL(/\/welcome/);
-});
+/** First run ends on Today, where the first tip is waiting: these two meet it as a new person does. */
+test.describe('first run', () => {
+  test.use({ tips: 'first' });
 
-test('setup: each answer changes its picture, the tour is off the path, and Today asks for one thing first', async ({ page }) => {
-  await signUpForSetup(page);
-  // the step being left is still on its way out for a moment: the button of the step that came in is the last one
-  const next = () => page.getByRole('button', { name: 'Next', exact: true }).last().click();
-  const picture = (name: RegExp | string) => page.getByRole('img', { name });
+  test('sign up through setup to Today', async ({ page }) => {
+    const email = newEmail('signup');
+    await startSignUp(page);
+    await expect(page).toHaveURL(/\/signup/);
+    await createAccount(page, email);
+    await finishSetup(page);
+    // Today's first-visit tip rises once the page is up, says how Today works and how it is tracked, and goes with Got it
+    await gotIt(page, 'Today');
+    await expect(page.getByRole('heading', { name: 'Habits' }).first()).toBeVisible();
+    await expect(page.locator('button[data-habit][aria-label="Stretch"]')).toBeVisible();
+    // an account that finished setup never sees it again, and the tip is seen for good
+    await page.reload();
+    await expect(page).toHaveURL(/\/today/);
+    await page.waitForLoadState('networkidle');
+    await page.waitForTimeout(1500);
+    await expect(page.getByRole('dialog')).toHaveCount(0);
+    await page.goto('/welcome');
+    await expect(page).not.toHaveURL(/\/welcome/);
+  });
 
-  // the name: the assistant's greeting writes it as it is typed; skipping is a quiet link, and Next waits for a name
-  await expect(page.getByRole('heading', { name: 'What should Orby call you?' })).toBeVisible();
-  await expect(picture(/^The assistant will say: Good (morning|afternoon|evening)\.$/)).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Next', exact: true })).toBeDisabled();
-  await expect(page.getByRole('button', { name: 'Skip for now' })).toBeVisible();
-  await page.getByRole('textbox', { name: 'First name' }).fill('Sam');
-  await expect(picture(/^The assistant will say: Good (morning|afternoon|evening), Sam\.$/)).toBeVisible();
-  await next();
+  test('setup: each answer changes its picture, the tour is off the path, and Today asks for one thing first', async ({ page }) => {
+    await signUpForSetup(page);
+    // the step being left is still on its way out for a moment: the button of the step that came in is the last one
+    const next = () => page.getByRole('button', { name: 'Next', exact: true }).last().click();
+    const picture = (name: RegExp | string) => page.getByRole('img', { name });
 
-  // Fitness: the two pictures are the two answers, and the capsule shows the tabs the answer leaves
-  await expect(page).toHaveURL(/\/welcome\/fitness/);
-  await page.getByRole('radio', { name: /No, just my day/ }).click();
-  await expect(picture('Your tabs: Today, Goals, Journal')).toBeVisible();
-  await page.getByRole('radio', { name: /Yes, track training/ }).click();
-  await expect(picture('Your tabs: Today, Goals, Fitness, Journal')).toBeVisible();
-  await next();
+    // the name: the assistant's greeting writes it as it is typed; skipping is a quiet link, and Next waits for a name
+    await expect(page.getByRole('heading', { name: 'What should Orby call you?' })).toBeVisible();
+    await expect(picture(/^The assistant will say: Good (morning|afternoon|evening)\.$/)).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Next', exact: true })).toBeDisabled();
+    await expect(page.getByRole('button', { name: 'Skip for now' })).toBeVisible();
+    await page.getByRole('textbox', { name: 'First name' }).fill('Sam');
+    await expect(picture(/^The assistant will say: Good (morning|afternoon|evening), Sam\.$/)).toBeVisible();
+    await next();
 
-  // the goal: picking a race draws its build on the hills
-  await expect(page).toHaveURL(/\/welcome\/goal/);
-  await page.getByRole('radio', { name: 'Half marathon' }).click();
-  await expect(picture(/^Half marathon: \d+ weeks\. Week one, .* Peak week, .* Race day /)).toBeVisible();
-  await next();
+    // Fitness: the two pictures are the two answers, and the capsule shows the tabs the answer leaves
+    await expect(page).toHaveURL(/\/welcome\/fitness/);
+    await page.getByRole('radio', { name: /No, just my day/ }).click();
+    await expect(picture('Your tabs: Today, Goals, Journal')).toBeVisible();
+    await page.getByRole('radio', { name: /Yes, track training/ }).click();
+    await expect(picture('Your tabs: Today, Goals, Fitness, Journal')).toBeVisible();
+    await next();
 
-  // the days: a day tapped on adds a mark to the training card's week
-  await expect(page).toHaveURL(/\/welcome\/days/);
-  await expect(picture(/Week one: 4 runs/)).toBeVisible();
-  await page.getByRole('button', { name: 'Monday, rest day' }).click();
-  await expect(picture(/Week one: 5 runs/)).toBeVisible();
-  await next();
+    // the goal: picking a race draws its build on the hills
+    await expect(page).toHaveURL(/\/welcome\/goal/);
+    await page.getByRole('radio', { name: 'Half marathon' }).click();
+    await expect(picture(/^Half marathon: \d+ weeks\. Week one, .* Peak week, .* Race day /)).toBeVisible();
+    await next();
 
-  // the morning: the markers move the card's four times; the arrow keys are the way without a drag
-  await expect(page).toHaveURL(/\/welcome\/morning/);
-  await expect(picture(/Wake 6:30, Door \d+:\d\d, Back \d+:\d\d, Leave 8:30/)).toBeVisible();
-  await page.getByRole('slider', { name: 'Wake up' }).press('ArrowLeft');
-  await expect(picture(/Wake 6:25, /)).toBeVisible();
-  await next();
+    // the days: a day tapped on adds a mark to the training card's week
+    await expect(page).toHaveURL(/\/welcome\/days/);
+    await expect(picture(/Week one: 4 runs/)).toBeVisible();
+    await page.getByRole('button', { name: 'Monday, rest day' }).click();
+    await expect(picture(/Week one: 5 runs/)).toBeVisible();
+    await next();
 
-  // the habits: a chip picked is a tile
-  await expect(page).toHaveURL(/\/welcome\/habits/);
-  await expect(picture('No habits picked yet.')).toBeVisible();
-  await page.getByRole('button', { name: 'Stretch', exact: true }).click();
-  await expect(picture('One tile on Today: Stretch.')).toBeVisible();
-  const saved = savedBy(page, 'POST', /\/api\/me\/onboarding$/);
-  await next();
+    // the morning: the markers move the card's four times; the arrow keys are the way without a drag
+    await expect(page).toHaveURL(/\/welcome\/morning/);
+    await expect(picture(/Wake 6:30, Door \d+:\d\d, Back \d+:\d\d, Leave 8:30/)).toBeVisible();
+    await page.getByRole('slider', { name: 'Wake up' }).press('ArrowLeft');
+    await expect(picture(/Wake 6:25, /)).toBeVisible();
+    await next();
 
-  // the last question leads to the plan being written and the reveal, never to the tour
-  await expect(page).toHaveURL(/\/welcome\/ready/);
-  await saved;
-  await expect(page.getByRole('heading', { name: 'Your first day.' })).toBeVisible({ timeout: 30_000 });
-  // the tour opens from the reveal's quiet link and ends on the reveal, which is not written out again
-  await page.getByRole('button', { name: 'See how Orby works' }).click();
-  await expect(page).toHaveURL(/\/welcome\/tour/);
-  await page.getByRole('button', { name: 'Skip tour' }).click();
-  await expect(page).toHaveURL(/\/welcome\/ready/);
-  await expect(page.getByRole('heading', { name: 'Your first day.' })).toBeVisible();
-  await page.getByRole('button', { name: 'Open Today' }).click();
-  await expect(page).toHaveURL(/\/today/, { timeout: 30_000 });
+    // the habits: a chip picked is a tile
+    await expect(page).toHaveURL(/\/welcome\/habits/);
+    await expect(picture('No habits picked yet.')).toBeVisible();
+    await page.getByRole('button', { name: 'Stretch', exact: true }).click();
+    await expect(picture('One tile on Today: Stretch.')).toBeVisible();
+    const saved = savedBy(page, 'POST', /\/api\/me\/onboarding$/);
+    await next();
 
-  // Today's first move, in place: the day poster leads with the idea from the habit just picked
-  const set = page.getByRole('button', { name: /^Set this goal: Your one habit/ });
-  await expect(set).toBeInViewport();
-  const goal = savedBy(page, 'PUT', /\/api\/goals/);
-  await set.click();
-  await goal;
-  await expect(page.getByRole('button', { name: /^Today’s goal: Your one habit/ })).toBeVisible();
+    // the last question leads to the plan being written and the reveal, never to the tour
+    await expect(page).toHaveURL(/\/welcome\/ready/);
+    await saved;
+    await expect(page.getByRole('heading', { name: 'Your first day.' })).toBeVisible({ timeout: 30_000 });
+    // the tour opens from the reveal's quiet link and ends on the reveal, which is not written out again
+    await page.getByRole('button', { name: 'See how Orby works' }).click();
+    await expect(page).toHaveURL(/\/welcome\/tour/);
+    await page.getByRole('button', { name: 'Skip tour' }).click();
+    await expect(page).toHaveURL(/\/welcome\/ready/);
+    await expect(page.getByRole('heading', { name: 'Your first day.' })).toBeVisible();
+    await page.getByRole('button', { name: 'Open Today' }).click();
+    await expect(page).toHaveURL(/\/today/, { timeout: 30_000 });
+
+    // Today's tip rises over the first day and names the move under it ("One goal for the day")
+    await expect(page.getByRole('dialog', { name: 'Today', exact: true }).getByText('One goal for the day')).toBeVisible();
+    await gotIt(page, 'Today');
+    // Today's first move, in place and on screen: the day poster leads with the idea from the habit just picked
+    const set = page.getByRole('button', { name: /^Set this goal: Your one habit/ });
+    await expect(set).toBeInViewport();
+    const goal = savedBy(page, 'PUT', /\/api\/goals/);
+    await set.click();
+    await goal;
+    await expect(page.getByRole('button', { name: /^Today’s goal: Your one habit/ })).toBeVisible();
+  });
 });
 
 /**

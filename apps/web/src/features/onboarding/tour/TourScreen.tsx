@@ -4,8 +4,8 @@ import { useLocation, useNavigate } from 'react-router';
 import { useSplashDoneOnPaint } from '@/lib/native';
 import { useFitness } from '@/lib/prefs';
 import { Pressable } from '@/ui';
-import { backAction, TOUR_HOME, tourExit } from './route';
-import { Tour } from './Tour';
+import { backAction, TOUR_HOME, tourExit, tourStart } from './route';
+import { Tour, tourPages } from './Tour';
 import '../onboarding.css';
 
 /**
@@ -14,9 +14,9 @@ import '../onboarding.css';
  * tour and the last page's button leave too. Leaving is the caller's (`onClose`): the tour ends where it was opened from.
  * Nothing is saved and nothing is changed by it.
  */
-export const TourScreen = ({ onClose, fitness = true, doneLabel = 'Done' }: { onClose: () => void; /** false: Fitness is off, so the tour has no Fitness page */ fitness?: boolean; /** the last page's button */ doneLabel?: string }): React.JSX.Element => {
+export const TourScreen = ({ onClose, fitness = true, doneLabel = 'Done', start = 0 }: { onClose: () => void; /** false: Fitness is off, so the tour has no Fitness page */ fitness?: boolean; /** the last page's button */ doneLabel?: string; /** the page it opens on (a tab's first-visit tip opens that tab's page) */ start?: number }): React.JSX.Element => {
   useSplashDoneOnPaint();
-  const [page, setPage] = useState(0);
+  const [page, setPage] = useState(start);
   const main = useRef<HTMLElement>(null);
   // the arrival: VoiceOver's focus goes to the first page's heading (a page turn moves it itself)
   useEffect(() => {
@@ -74,5 +74,7 @@ export default function TourRoute(): React.JSX.Element {
     if (exit === 'back') void nav(-1);
     else void nav(TOUR_HOME, { replace: true });
   };
-  return <TourScreen onClose={close} fitness={fitness} />;
+  // a tip's link to the tour names the page to open on; fixed for this visit
+  const [start] = useState(() => tourStart(loc.state, tourPages(fitness).map((p) => p.key)));
+  return <TourScreen onClose={close} fitness={fitness} start={start} />;
 }

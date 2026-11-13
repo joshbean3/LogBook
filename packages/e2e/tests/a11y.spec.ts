@@ -1,6 +1,6 @@
 import AxeBuilder from '@axe-core/playwright';
 import type { Page } from '@playwright/test';
-import { expect, go, signUpByApi, signUpForSetup, test } from './helpers';
+import { expect, go, gotIt, signUpByApi, signUpForSetup, test } from './helpers';
 
 /**
  * The accessibility scan (requirement QUA-44): every route and the main sheets, at 390 and 320 wide, checked by axe-core
@@ -107,4 +107,24 @@ test.describe('signed in', () => {
       await scan(page, `${s.route} + ${s.name}`);
     });
   }
+
+  // the first-visit tips: each one over its own tab, as a new person meets them
+  test.describe('first visit', () => {
+    test.use({ tips: 'first' });
+    test('sheet: each tab’s tip', async ({ page }) => {
+      await signUpByApi(page);
+      const problems: string[] = [];
+      for (const place of ['Today', 'Goals', 'Fitness', 'Journal'] as const) {
+        if (place !== 'Today') await page.getByRole('navigation', { name: 'Views' }).getByRole('button', { name: new RegExp(`^${place}`) }).click();
+        await expect(page.getByRole('dialog', { name: place, exact: true }).getByRole('button', { name: 'Got it', exact: true })).toBeVisible();
+        try {
+          await scan(page, `the ${place} tip`);
+        } catch (e) {
+          problems.push(e instanceof Error ? e.message : String(e));
+        }
+        await gotIt(page, place);
+      }
+      expect(problems).toEqual([]);
+    });
+  });
 });
