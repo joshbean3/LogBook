@@ -110,6 +110,9 @@ describe('the morning: the card\'s timeline row', () => {
   it('says so when the run does not fit before work', () => {
     const m = morningStops({ week: weekOf(half, 450, 510), wake: 450, leave: 510, afternoon: null });
     expect(m.tight).toBe(true);
+    // the two times stay the person's own, so the row and the markers never disagree
+    expect(m.stops[0]!.at).toBe(450);
+    expect(m.stops[3]!.at).toBe(510);
   });
   it('after work: the afternoon\'s own row, from when work ends', () => {
     const m = morningStops({ week: weekOf(half), wake: 390, leave: 510, afternoon: 17 * 60 + 30 });

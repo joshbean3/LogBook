@@ -1121,21 +1121,27 @@ html.kb-open .ob-later {
 .ob-days-card .ob-miles {
   margin-top: var(--sp-1);
 }
-/* the goals as pills: a row of three, then a row of two, each as wide as its share */
+/* the goals as pills: a row of three (the longest name takes the widest share), then a row of two */
 .ob-goal-pills {
   display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
+  grid-template-columns: repeat(12, minmax(0, 1fr));
   gap: var(--sp-2);
 }
 .ob-goal-pills .ob-chip {
-  grid-column: span 2;
+  grid-column: span 6;
   justify-content: center;
   padding-inline: var(--sp-2);
   white-space: normal;
   text-align: center;
 }
-.ob-goal-pills .ob-chip:nth-child(n + 4) {
+.ob-goal-pills .ob-chip:nth-child(1) {
+  grid-column: span 5;
+}
+.ob-goal-pills .ob-chip:nth-child(2) {
   grid-column: span 3;
+}
+.ob-goal-pills .ob-chip:nth-child(3) {
+  grid-column: span 4;
 }
 /* the race-day wheel in its card: the days' own 88 and 8 round them */
 .card.ob-card.ob-race-block {

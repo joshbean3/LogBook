@@ -94,7 +94,8 @@ export const morningStops = ({ week, wake, leave, afternoon }: { week: FirstWeek
     { key: 'wake', label: 'Wake', at: wake },
     { key: 'door', label: 'Door', at: door },
     { key: 'back', label: 'Back', at: back },
-    { key: 'leave', label: 'Leave', at: m?.leave ?? leave },
+    // the person's own two times, as set: a run that does not fit shows as Back after Leave, and `tight` says so
+    { key: 'leave', label: 'Leave', at: leave },
   ];
   return { stops, line: `Out the door ${shortClock(door)}`, said: said(stops), tight: (m?.late ?? 0) > 0 };
 };
