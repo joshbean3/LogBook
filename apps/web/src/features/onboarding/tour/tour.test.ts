@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { scrollFor } from './engine';
 import { dotsLabel, TOUR_ALL, tourPage, tourPages } from './Tour';
-import { backAction, TOUR_HOME, TOUR_PATH, tourExit, tourFrom } from './route';
+import { backAction, TOUR_HOME, TOUR_PATH, tourExit, tourFrom, tourStart } from './route';
 
 describe('the tour’s pages', () => {
   it('is one page per place, in the order of the tabs, then the assistant', () => {
@@ -91,6 +91,22 @@ describe('the tour by itself', () => {
     expect(tourExit({})).toBe('home');
     expect(tourExit({ from: '/settings' })).toBe('home');
     expect(tourExit('back')).toBe('home');
+  });
+
+  it('opens on the page its opener names (a tab’s first-visit tip), and still ends one step back', () => {
+    const on = tourPages(true).map((p) => p.key);
+    const off = tourPages(false).map((p) => p.key);
+    expect(tourStart(tourFrom('today'), on)).toBe(0);
+    expect(tourStart(tourFrom('goals'), on)).toBe(1);
+    expect(tourStart(tourFrom('plan'), on)).toBe(2);
+    expect(tourStart(tourFrom('journal'), on)).toBe(3);
+    // with Fitness off the Journal is the third page, and a Fitness page that is not there is the first
+    expect(tourStart(tourFrom('journal'), off)).toBe(2);
+    expect(tourStart(tourFrom('plan'), off)).toBe(0);
+    expect(tourExit(tourFrom('goals'))).toBe('back');
+    // no page named, or a state that is not the tour's: the first page
+    expect(tourFrom()).toEqual({ tourBack: true });
+    for (const state of [tourFrom(), null, undefined, {}, 'goals', { start: 7 }, { start: 'nowhere' }, { tourBack: true, start: null }]) expect(tourStart(state, on)).toBe(0);
   });
 
   it('turns back a page with the chevron, and leaves from the first page', () => {
