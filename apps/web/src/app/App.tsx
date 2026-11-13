@@ -44,6 +44,8 @@ const views = {
   welcome: () => import('@/features/onboarding/Welcome'),
   tour: () => import('@/features/onboarding/tour/TourScreen'),
   metric: () => import('@/features/progress/MetricPage'),
+  orbs: () => import('@/features/orbs/page/OrbsPage'),
+  orbsHow: () => import('@/features/orbs/page/OrbsHow'),
 };
 
 /**
@@ -87,15 +89,17 @@ const TourRoute = view(views.tour);
 // the component gallery and the test stubs exist only where DEV_TOOLS is true: a release build has no chunk for them
 const UiGallery = DEV_TOOLS ? view(() => import('./dev/UiGallery')) : null;
 const MetricPage = view(views.metric);
+const OrbsPage = view(views.orbs);
+const OrbsHow = view(views.orbsHow);
 
 /** Once the first screen is up: the pushed pages first (a first push never waits), then every other view in idle. */
 const prefetchViews = () => {
   const pushed = () => {
-    for (const v of [MorningView, SettingsView, SettingsSection, ReadsView, JournalMonth, MetricPage]) void v.preload().catch(() => undefined);
+    for (const v of [MorningView, SettingsView, SettingsSection, ReadsView, JournalMonth, MetricPage, OrbsPage]) void v.preload().catch(() => undefined);
   };
   requestAnimationFrame(() => setTimeout(pushed, 0));
   const run = () => {
-    for (const v of [GoalsView, PlanView, JournalView, Welcome, PlansPage, GoalHistory]) void v.preload().catch(() => undefined);
+    for (const v of [GoalsView, PlanView, JournalView, Welcome, PlansPage, GoalHistory, OrbsHow]) void v.preload().catch(() => undefined);
   };
   if ('requestIdleCallback' in window) (window as Window & { requestIdleCallback: (cb: () => void, o?: { timeout: number }) => void }).requestIdleCallback(run, { timeout: 2000 });
   else setTimeout(run, 400);
@@ -129,6 +133,10 @@ const pages =
       };
 /** The pushed page for an entry: a switch on its route (contracts §A.3). */
 const pushedFor = (e: PushedEntry) => {
+  // Orbs' two pages, by their own addresses: with Orbs switched off the table no longer knows them (ui/nav.ts), and a
+  // page still on the stack at that moment takes itself off (it draws nothing meanwhile)
+  if (e.path === '/orbs') return <OrbsPage />;
+  if (e.path === '/orbs/how') return <OrbsHow />;
   const pattern = matchRoute(e.path).route?.pattern;
   // This morning: the day's from Today, today's from Habits (MorningView falls back to today without a `date` param)
   if (pattern === '/today/:date/morning' || pattern === '/plan/morning/:date?') return <MorningView />;

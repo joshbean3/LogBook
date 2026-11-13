@@ -1,6 +1,7 @@
 import { GoalsIcon, JournalIcon, FitnessIcon, TodayIcon, type BrandIconComponent } from './icons';
 import { DEV_TOOLS } from '@/lib/features';
 import { fitnessOn, isFitnessPath } from '@/lib/prefs';
+import { getSwitches } from '@/features/orbs/store';
 
 /**
  * The navigation model (docs/feel.md §1, contracts §A.1): four tabs, the route table, and `matchRoute`, which turns a URL into
@@ -84,6 +85,10 @@ export const ROUTES: readonly RouteDef[] = [
   { pattern: '/settings/:section', owner: 'today', kind: 'pushed', depth: 2, title: (p) => SECTION_TITLE[p.section as SettingsSection] ?? 'Settings' },
   // the component gallery: the dev server and test builds only, so a release build has no such route (it falls to '*')
   ...(DEV_TOOLS ? [{ pattern: '/dev/ui', owner: 'today', kind: 'pushed', depth: 1, title: 'UI' } as const] : []),
+  // Orbs: what has been earned, pushed over Today from the numeral by its sun; how they work is pushed over that. With
+  // Orbs switched off neither is a place (`matchRoute`): both lead to Today
+  { pattern: '/orbs', owner: 'today', kind: 'pushed', depth: 1, title: 'Orbs' },
+  { pattern: '/orbs/how', owner: 'today', kind: 'pushed', depth: 2, title: 'How Orbs work' },
   { pattern: '/goals', owner: 'goals', kind: 'root' },
   { pattern: '/goals/history', owner: 'goals', kind: 'pushed', depth: 1, title: 'History' },
   { pattern: '/plan', owner: 'plan', kind: 'root' },
@@ -179,6 +184,9 @@ const VALID: Record<string, (v: string) => boolean> = {
 };
 const INVALID_TO: Record<string, string> = { '/learned': '/journal', '/today': '/today', '/settings': '/settings', '/plan': '/plan', '/morning': '/today', '/progress': '/plan', '/journal': '/journal', '/reads': '/settings' };
 
+/** The Orbs pages: `/orbs` and everything under it. */
+export const isOrbsPath = (path: string): boolean => /^\/orbs(\/|$)/.test(path);
+
 // ---------- the matcher ----------
 /**
  * A URL's path as the table reads it: no query, one leading slash, no trailing one, and no doubled slash anywhere. A path
@@ -251,6 +259,8 @@ export const matchRoute = (pathname: string): RouteMatch => {
   // Fitness is switched off: its tab, its settings pages, its charts and every address of the tab that was Progress
   // lead to Today (lib/prefs.ts)
   if (!fitnessOn() && isFitnessPath(path)) return { kind: 'redirect', tab: null, root: '/today', stack: [], params: {}, redirect: '/today' };
+  // Orbs are switched off: nothing of them shows anywhere but the switch in Settings, so their pages lead to Today
+  if (isOrbsPath(path) && !getSwitches().on) return { kind: 'redirect', tab: null, root: '/today', stack: [], params: {}, redirect: '/today' };
   for (const route of ROUTES) {
     const params = matchPattern(route.pattern, path);
     if (!params) continue;
@@ -278,6 +288,10 @@ export const matchRoute = (pathname: string): RouteMatch => {
     if (route.pattern === '/settings/:section' || route.pattern === '/settings/reads/:tab?') {
       const settings = ROUTES.find((r) => r.pattern === '/settings')!;
       return { kind: 'pushed', tab, root: '/today', stack: [entryFor(settings, '/settings', {}), entryFor(route, path, params)], params, route };
+    }
+    if (route.pattern === '/orbs/how') {
+      const orbs = ROUTES.find((r) => r.pattern === '/orbs')!;
+      return { kind: 'pushed', tab, root: '/today', stack: [entryFor(orbs, '/orbs', {}), entryFor(route, path, params)], params, route };
     }
     return { kind: 'pushed', tab, root: tabDef(tab).root, stack: [entryFor(route, path, params)], params, route };
   }

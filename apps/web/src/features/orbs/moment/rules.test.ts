@@ -218,7 +218,7 @@ describe('words', () => {
   });
   it('the chip and the first Orb', () => {
     expect(FULL_DAY_CHIP).toBe('Full day +5');
-    expect(FIRST_ORB).toEqual({ text: 'Your first Orb. You earn one for each thing you finish.', action: 'Not for me' });
+    expect(FIRST_ORB).toEqual({ text: 'Your first Orb. You earn one for each thing you finish.', action: 'Turn off' });
   });
   it('what pops at its control never makes a toast, and neither does the full day (its chip)', () => {
     for (const key of ['todo', 'habit', 'goal:day', 'train:run', 'train:lift', 'train:cross']) {

@@ -30,6 +30,7 @@ import { RATE_URL } from './reminderModel';
 import { habitLine } from './habitModel';
 import { useAppVersion } from './version';
 import { useTrainingProfile } from './useProfile';
+import { OrbsSwitchRows } from '@/features/orbs/page/Switches';
 import './settings.css';
 
 /**
@@ -144,6 +145,11 @@ export default function SettingsView(): React.JSX.Element {
 
       <SGroup title="Privacy">
         <GoRow icon={ShieldCheck} title="Assistant access" sub="What the assistant may read" value={consentShort(consent.data)} onPress={go('privacy')} />
+      </SGroup>
+
+      {/* Orbs: the reward for what is finished. Off, this group is the one place its name is said (features/orbs/page) */}
+      <SGroup title="Orbs" className="s-orbs">
+        <OrbsSwitchRows place="settings" />
       </SGroup>
 
       <SGroup title="App">
