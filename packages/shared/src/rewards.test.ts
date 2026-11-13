@@ -14,6 +14,8 @@ import {
   earnDay,
   earnOnce,
   emptyRewards,
+  fillFrom,
+  forSync,
   goalEarns,
   isFullDay,
   isOpen,
@@ -33,12 +35,14 @@ import {
   tidy,
   totalOf,
   weekBonus,
+  within,
   zRewards,
   type DayFacts,
   type DayRec,
   type Rewards,
   type World,
 } from './rewards.js';
+import type { TrainingStatus } from './trainingStatus.js';
 import type { Habit, HabitCheck, Session, Todo } from './types.js';
 
 const U = 'u_owner';
@@ -966,5 +970,238 @@ describe('the switches travel in the store', () => {
   it('a change that changes nothing is no change', () => {
     const s = fresh();
     expect(applySet(s, { weekTarget: 5 }, at(D0))).toBe(s);
+  });
+});
+
+/*
+ * Found by using the real app in a real browser against a real server (the edge-case pass). Each of these was a number that
+ * came out wrong on a screen; each test failed before its fix.
+ */
+describe('edge cases: a phone that takes the account’s copy', () => {
+  /** A phone that lived `n` days, a habit a day, and what it would have sent (closed days only). */
+  const lived = (n: number) => live(n, () => ({ habitsDone: 2, habitsLive: 2 }));
+  it('the copy never holds an open day, so the days that were open when it was sent are read from the account’s facts', () => {
+    const phone = lived(10); // clock day(9); day(8) and day(9) are still open on it
+    const copy = forSync(phone);
+    expect(Object.keys(copy.days)).toHaveLength(8);
+    // signed out that evening; a new phone opens two days later
+    const today = day(11);
+    const world = [7, 8, 9, 10].map((i) => facts(day(i), { habitsDone: i === 10 ? 1 : 2, habitsLive: 2, habitsLiveDone: i === 10 ? 1 : 2, goalDay: 'done' }));
+    const filled = fillFrom(copy, world, today);
+    // the two days that were open, and the day nobody opened the app: base Orbs, closed, marked rebuilt (no full day)
+    expect(filled.days[day(8)]).toEqual({ n: 5, a: 3, k: { habit: 2, 'goal:day': 3 }, c: 1, r: 1 });
+    expect(filled.days[day(9)]).toEqual({ n: 5, a: 3, k: { habit: 2, 'goal:day': 3 }, c: 1, r: 1 });
+    expect(filled.days[day(10)]).toEqual({ n: 4, a: 2, k: { habit: 1, 'goal:day': 3 }, c: 1, r: 1 });
+    // a day the copy holds is left exactly as it is, whatever the facts say now
+    expect(filled.days[day(7)]).toBe(copy.days[day(7)]);
+    expect(countOf(filled, today).days).toBe(11);
+    // twice is once
+    expect(fillFrom(filled, world, today)).toEqual(filled);
+  });
+  it('a day that had closed before the copy was sent is never filled: back-filling it then wiping earns nothing', () => {
+    const phone = live(10, (i) => (i === 4 ? null : { habitsDone: 1 }));
+    const copy = forSync(phone);
+    const filled = fillFrom(copy, [facts(day(4), { habitsDone: 8, todosDone: 5 })], day(10));
+    expect(filled.days[day(4)]).toBeUndefined();
+    expect(filled).toBe(copy);
+  });
+  it('fills nothing for today, for a day while Orbs were off, or with Orbs off', () => {
+    const copy = forSync(lived(10));
+    expect(fillFrom(copy, [facts(day(10), { habitsDone: 2 })], day(10))).toBe(copy);
+    const off = { ...copy, off: [{ from: day(9), to: day(9) }] };
+    expect(fillFrom(off, [facts(day(9), { habitsDone: 2 })], day(11))).toBe(off);
+    const switched = applySet(copy, { on: false }, at(day(9), 20));
+    expect(fillFrom(switched, [facts(day(9), { habitsDone: 2 })], day(11)).days[day(9)]).toBeUndefined();
+  });
+  it('a paused day in the gap is paused, not missed', () => {
+    const copy = forSync(lived(10));
+    expect(fillFrom(copy, [facts(day(9), { held: true })], day(11)).days[day(9)]).toEqual({ n: 0, a: 0, c: 1, h: 1, r: 1 });
+  });
+});
+
+describe('edge cases: a pause on days the app was not opened', () => {
+  const sick = (from: number, until: number | null): TrainingStatus => ({ kind: 'sick', from: day(from), until: until === null ? null : day(until) });
+  it('days under a status that the phone never saw are paused, not missed', () => {
+    // Monday and Tuesday counted; Tuesday evening: sick until Friday; the app is next opened on Saturday
+    let s = live(2, () => ({ habitsDone: 1 }));
+    s = reconcile(s, [facts(day(1), { habitsDone: 1, held: true })], at(day(1), 20), { status: sick(1, 4) }).store;
+    const sat = reconcile(s, [facts(day(4), { held: true }), facts(day(5), { habitsDone: 1 })], at(day(5)), { status: sick(1, 4) }).store;
+    expect(sat.days[day(2)]).toEqual({ n: 0, a: 0, c: 1, h: 1 });
+    expect(sat.days[day(3)]).toEqual({ n: 0, a: 0, c: 1, h: 1 });
+    // yesterday, read in its evidence window with no record of its own, is paused by the same status
+    expect(sat.days[day(4)]).toMatchObject({ n: 0, a: 0, h: 1 });
+    // three paused days: the week is neutral, not missed
+    const mon = reconcile(sat, [], at(day(7)), { status: sick(1, 4) }).store;
+    expect(countOf(mon, day(7))).toMatchObject({ days: 3, weeks: 0 });
+    expect(weekBonus(mon, D0)).toBe(0);
+  });
+  it('a status with no end pauses every unseen day since it began; days before it, and days after it ended, are missed', () => {
+    let s = live(3, () => ({ habitsDone: 1 }));
+    // not opened day 3 (before the status); status from day 4 to day 5; opened on day 9
+    s = reconcile(s, [], at(day(9)), { status: sick(4, 5) }).store;
+    expect(s.days[day(3)]).toBeUndefined();
+    expect(s.days[day(4)]?.h).toBe(1);
+    expect(s.days[day(5)]?.h).toBe(1);
+    expect(s.days[day(6)]).toBeUndefined();
+    let t = live(3, () => ({ habitsDone: 1 }));
+    t = reconcile(t, [], at(day(9)), { status: sick(3, null) }).store;
+    expect([3, 4, 5, 6, 7].map((i) => t.days[day(i)]?.h)).toEqual([1, 1, 1, 1, 1]);
+  });
+  it('a day the phone did see is left as it was, and a status that is not a pause changes nothing', () => {
+    const s = live(4, (i) => (i === 2 ? null : { habitsDone: 1 }));
+    const r = reconcile(s, [], at(day(6)), { status: sick(0, null) }).store;
+    expect(r.days[day(1)]).toEqual({ ...s.days[day(1)], c: 1 });
+    // day 2 was seen (the clock passed it) and nothing was done on it: it stays missed
+    expect(r.days[day(2)]).toBeUndefined();
+    const plain = reconcile(s, [], at(day(8)), { status: { kind: 'training', from: day(0), until: null } }).store;
+    expect(plain.days[day(5)]).toBeUndefined();
+  });
+});
+
+describe('edge cases: the person’s week', () => {
+  const week = (s: Rewards, w: number, days: number) => {
+    let t = s;
+    for (let i = 0; i < 7; i++) t = reconcile(t, i < days ? [facts(day(w * 7 + i), { habitsDone: 1 })] : [], at(day(w * 7 + i))).store;
+    return t;
+  };
+  it('a change made on Monday starts with this week: last week is not rewritten, and is not paid', () => {
+    // four counted days under a week of five
+    let s = week(fresh(), 0, 4);
+    s = reconcile(s, [], at(day(7), 9)).store; // Monday morning
+    expect(countOf(s, day(7)).weeks).toBe(0);
+    const eased = applySet(s, { weekTarget: 4 }, at(day(7), 10));
+    expect(countOf(eased, day(7))).toMatchObject({ weeks: 0, target: 4 });
+    const tue = reconcile(eased, [], at(day(8)));
+    expect(tue.gained).toEqual([]);
+    expect(tue.store.once[`week:${D0}`]).toBeUndefined();
+    expect(tue.store.wt[D0]).toBe(5);
+  });
+  it('even when the switch is changed before the day’s first reconcile', () => {
+    const s = week(fresh(), 0, 4); // the store as Sunday left it
+    const eased = applySet(s, { weekTarget: 4 }, at(day(7), 0, 1));
+    expect(eased.wt[D0]).toBe(5);
+    expect(countOf(eased, day(7)).weeks).toBe(0);
+    // and a week that is not over is never sealed by a change
+    const mid = applySet(week(fresh(), 0, 4), { weekTarget: 3 }, at(day(6), 12));
+    expect(mid.wt[D0]).toBeUndefined();
+  });
+  it('a counted week is still paid on its Tuesday, once, with the week sealed on Monday', () => {
+    let s = week(fresh(), 0, 5);
+    const mon = reconcile(s, [], at(day(7), 9));
+    expect(mon.store.wt[D0]).toBe(5);
+    expect(mon.gained).toEqual([]);
+    const harder = applySet(mon.store, { weekTarget: 5 }, at(day(7), 10));
+    const tue = reconcile(harder, [], at(day(8), 9));
+    expect(tue.gained).toEqual([{ key: `week:${D0}`, n: 5, date: day(8) }]);
+    expect(reconcile(tue.store, [], at(day(8), 10)).gained).toEqual([]);
+    expect(reconcile(tue.store, [], at(day(9), 10)).gained).toEqual([]);
+    s = tue.store;
+    // a missed week looked at again on later passes pays nothing and changes nothing
+    let m = week(fresh(), 0, 2);
+    m = reconcile(m, [], at(day(8))).store;
+    const again = reconcile(m, [], at(day(8), 13));
+    expect(again.store).toBe(m);
+    expect(again.gained).toEqual([]);
+  });
+});
+
+describe('edge cases: today’s goal past midnight', () => {
+  it('a goal set after midnight for the day the screen still holds earns until 03:00', () => {
+    const late = goal('day', '2026-11-20', { createdAt: at('2026-11-21', 0, 30).toISOString(), closedAt: at('2026-11-21', 0, 40).toISOString() });
+    expect(goalEarns(late, '2026-11-21')).toEqual({ key: 'goal:day:2026-11-20', n: 3 });
+    const edge = goal('day', '2026-11-20', { createdAt: at('2026-11-21', 2, 59).toISOString() });
+    expect(goalEarns(edge, '2026-11-21')).not.toBeNull();
+  });
+  it('a goal set later the next morning for yesterday is back-fill, and earns nothing', () => {
+    expect(goalEarns(goal('day', '2026-11-20', { createdAt: at('2026-11-21', 3, 0).toISOString() }), '2026-11-21')).toBeNull();
+    expect(goalEarns(goal('day', '2026-11-20', { createdAt: at('2026-11-21', 10).toISOString() }), '2026-11-21')).toBeNull();
+    // the other reaches are untouched: a week goal made after its week is still nothing
+    expect(goalEarns(goal('week', '2026-11-09', { createdAt: at('2026-11-16', 1).toISOString() }), '2026-11-16')).toBeNull();
+  });
+});
+
+describe('edge cases: a store with impossible things in it', () => {
+  const good = () => live(5, () => ({ habitsDone: 1 }));
+  it('numbers no day can hold are cut to what the rules can pay, on the way in', () => {
+    const s = { ...good(), days: { ...good().days, [day(1)]: { n: 999, a: 999, k: { todo: 99, habit: 99, 'train:run': 50, 'goal:day': 9, full: 40, back: 12 }, c: 1 }, [day(2)]: { n: 999, a: 4, c: 1 } }, once: { [`week:${D0}`]: { on: day(8), n: 999 }, 'goal:year:2026': { on: day(3), n: 500 }, [`challenge:d:${day(2)}`]: { on: day(2), n: 77 }, [`challenge:w:${D0}`]: { on: day(6), n: 600 }, [`goal:week:${D0}`]: { on: day(4), n: 100 }, 'goal:month:2026-11': { on: day(4), n: 100 } } };
+    const p = parseRewards(s, U)!;
+    expect(p.days[day(1)]).toEqual({ n: 33, a: 999, k: { todo: 5, habit: 8, 'train:run': 3, 'goal:day': 3, full: 5, back: 3 }, c: 1 });
+    expect(p.days[day(2)]!.n).toBe(33);
+    expect(p.once).toEqual({ [`week:${D0}`]: { on: day(8), n: 20 }, 'goal:year:2026': { on: day(3), n: 90 }, [`challenge:d:${day(2)}`]: { on: day(2), n: 5 }, [`challenge:w:${D0}`]: { on: day(6), n: 20 }, [`goal:week:${D0}`]: { on: day(4), n: 9 }, 'goal:month:2026-11': { on: day(4), n: 30 } });
+    // an honest store is the same object before and after
+    const honest = good();
+    expect(tidy(honest)).toBe(honest);
+    expect(parseRewards(honest, U)).toEqual(honest);
+    // and a merge cannot be poisoned by it: the maximum of an honest day and an impossible one is still a possible day
+    const merged = tidy(mergeRewards(forSync(reconcile(good(), [], at(day(7))).store), p));
+    expect(merged.days[day(1)]!.n).toBe(33);
+    expect(totalOf(merged)).toBeLessThan(5 * 33 + 20 + 90 + 5 + 20 + 9 + 30 + 1);
+    expect(tidy(merged)).toBe(merged);
+  });
+  it('a store written under newer rules is not cut by older ones', () => {
+    const newer = { ...good(), rules: RULES.version + 1, days: { [day(1)]: { n: 60, a: 9, k: { habit: 20 }, c: 1 as const } } };
+    expect(parseRewards(newer, U)?.days[day(1)]).toEqual({ n: 60, a: 9, k: { habit: 20 }, c: 1 });
+  });
+  it('once the server’s date is known, days after tomorrow are dropped and a clock set ahead comes back', () => {
+    // the device's date was a year ahead while it was offline: everything closed, and the clock stuck in the future
+    const s = good();
+    const wrong = reconcile(s, [facts(day(400), { habitsDone: 3 })], at(day(400))).store;
+    expect(wrong.clock).toBe(day(400));
+    expect(wrong.days[day(400)]).toBeDefined();
+    // without the server's date nothing can be known
+    expect(reconcile(wrong, [facts(day(6), { habitsDone: 2 })], at(day(6))).store.days[day(6)]).toBeUndefined();
+    // with it: the day that has not happened is gone and the clock is the last day that can be
+    const healed = reconcile(wrong, [facts(day(6), { habitsDone: 2 })], at(day(6)), { serverDay: day(6) });
+    expect(healed.store.days[day(400)]).toBeUndefined();
+    expect(healed.store.clock).toBe(day(7));
+    // and today, which the clock in the future had shut out, earns again
+    expect(healed.store.days[day(6)]).toEqual({ n: 2, a: 2, k: { habit: 2 } });
+    expect(countOf(healed.store, day(6)).days).toBe(6);
+    expect(totalOf(healed.store)).toBe(7);
+    expect(reconcile(healed.store, [facts(day(7), { habitsDone: 2 })], at(day(7)), { serverDay: day(7) }).store.days[day(7)]?.n).toBe(2);
+    // what the wrong date paid and sealed ahead of time is gone too, to be earned on its real day
+    expect(wrong.once[`week:${D0}`]?.on).toBe(day(400));
+    expect(healed.store.once).toEqual({});
+    expect(Object.keys(healed.store.wt)).toEqual([D0]);
+    expect(reconcile(healed.store, [], at(day(8)), { serverDay: day(8) }).store.once[`week:${D0}`]).toEqual({ on: day(8), n: 5 });
+    // a store that was edited by hand (days ahead, a sane clock) is cut by the same function when it is read
+    const edited: Rewards = { ...s, days: { ...s.days, [day(300)]: { n: 27, a: 9, c: 1 } }, keepsakes: { 'days:100': { on: day(300) } }, seen: { 'days:100': day(300) }, off: [{ from: day(2), to: day(300) }, { from: day(301), to: null }] };
+    const cut = within(edited, day(7));
+    expect(cut.days).toEqual(s.days);
+    expect(cut.keepsakes).toEqual({});
+    expect(cut.seen).toEqual({});
+    expect(cut.off).toEqual([{ from: day(2), to: day(7) }]);
+    expect(within(s, day(7))).toBe(s);
+    // before the rules begin the first day that can earn is ahead of every date, and stays the day they begin
+    expect(within(fresh(), shiftDays(D0, -3))).toMatchObject({ startedOn: D0 });
+    expect(within({ ...fresh(), startedOn: day(900) }, day(7)).startedOn).toBe(day(7));
+    // a phone a time zone ahead of the server is left alone
+    const ahead = reconcile(s, [facts(day(5), { habitsDone: 1 })], at(day(5)), { serverDay: day(4) });
+    expect(ahead.store.days[day(5)]?.n).toBe(1);
+    expect(ahead.store.clock).toBe(day(5));
+  });
+});
+
+describe('edge cases: keepsakes after a rebuild', () => {
+  it('the first full day and the weeks in a row are read back from the account’s facts', () => {
+    const full: Partial<DayFacts> = { habitsLive: 3, habitsDone: 3, habitsLiveDone: 3, goalDay: 'done' };
+    const lived: DayFacts[] = Array.from({ length: 28 }, (_, i) => facts(day(i), i % 7 < 5 ? (i === 9 ? full : { habitsDone: 1 }) : {}));
+    let s = fresh();
+    for (const f of lived) s = reconcile(s, [f], at(f.date)).store;
+    s = addKeepsakes(s, keepsakesDue(s, at(day(28))));
+    expect(Object.keys(s.keepsakes).sort()).toEqual(expect.arrayContaining(['first', 'full', 'days:10', 'weeks:2', 'weeks:4']));
+    const re = rebuild(lived, D0, day(28), U);
+    const back = addKeepsakes(re, keepsakesDue(re, at(day(28))));
+    expect(back.keepsakes.full).toEqual({ on: day(9) });
+    expect(back.keepsakes['weeks:2']).toBeDefined();
+    expect(back.keepsakes['weeks:4']).toBeDefined();
+    expect(back.keepsakes.first).toEqual({ on: D0 });
+    expect(back.keepsakes['days:10']).toEqual(s.keepsakes['days:10']);
+    // base only, still: the full day's +5 is not paid again
+    expect(re.days[day(9)]).toEqual({ n: 6, a: 4, k: { habit: 3, 'goal:day': 3 }, c: 1, r: 1 });
+    // two missed weeks later the weeks keepsakes are still held (they are stored, not recounted)
+    const later = rebuild([...lived, ...Array.from({ length: 21 }, (_, i) => facts(day(28 + i)))], D0, day(49), U);
+    expect(later.keepsakes['weeks:4']).toBeDefined();
+    expect(countOf(later, day(49)).weeks).toBe(0);
   });
 });

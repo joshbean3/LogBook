@@ -259,22 +259,72 @@ export const compact = (s: Rewards, today: ISODate): Rewards => {
   return days || challenges ? { ...s, days: days ?? s.days, challenges: challenges ?? s.challenges } : s;
 };
 
+/** The most each kind can pay in a day, and the most a day can hold when its kinds are no longer kept (every cap at once, as a merge of two phones can leave it). */
+const KIND_MAX: Record<DayKey, number> = {
+  todo: RULES.todo.cap * RULES.todo.each,
+  habit: RULES.habit.cap * RULES.habit.each,
+  'train:run': RULES.train.done,
+  'train:lift': RULES.train.done,
+  'train:cross': RULES.train.done,
+  'goal:day': RULES.goalDay,
+  full: RULES.full.bonus,
+  back: RULES.comeback.bonus,
+};
+const DAY_MAX = DAY_KEYS.reduce((t, k) => t + KIND_MAX[k], 0);
+/** The most a key of the once-ledger can have paid, by what it is. A key this build does not know is left as it is. */
+const onceMax = (key: string): number | null => {
+  if (key.startsWith('week:')) return RULES.week.bonus * RULES.week.top;
+  if (key.startsWith('goal:week:')) return RULES.goal.base * RULES.goal.reach.week;
+  if (key.startsWith('goal:month:')) return RULES.goal.base * RULES.goal.reach.month;
+  if (key.startsWith('goal:year:')) return RULES.goal.base * RULES.goal.reach.year;
+  if (key.startsWith('challenge:d:')) return RULES.challenge.day;
+  if (key.startsWith('challenge:w:')) return RULES.challenge.weekFull;
+  return null;
+};
 /**
- * A merged or stored object made regular: compacted to its own clock, and each closed day's number made at least the sum
- * of its kinds (which is how "a maximum per kind" becomes the day's number after a merge). Idempotent. The phone and the
- * server both run it on what `mergeRewards` gives them; `parseRewards` runs it on everything it reads.
+ * One day's record with nothing in it the rules cannot pay: each kind cut to its cap, and the day's number to every cap at
+ * once (and never under the sum of its kinds). The same object comes back when it was already so.
+ */
+const fitRec = (r: DayRec): DayRec => {
+  let k = r.k;
+  if (k) for (const key of DAY_KEYS) if ((k[key] ?? 0) > KIND_MAX[key]) k = { ...k, [key]: KIND_MAX[key] };
+  // at least the sum of its kinds (a merge takes a maximum per kind), at most every cap at once
+  const n = Math.max(Math.min(r.n, DAY_MAX), sumK(k));
+  return k === r.k && n === r.n ? r : { ...r, n, ...(k ? { k } : null) };
+};
+
+/**
+ * A merged or stored object made regular: compacted to its own clock, each day's number made the sum of its kinds (which
+ * is how "a maximum per kind" becomes the day's number after a merge), and nothing left in it that the rules cannot pay
+ * (a day of 999 Orbs, a weekly bonus of 500: storage that was edited or damaged, which a merge by maximum would otherwise
+ * keep for good). A store written under newer rules than this build knows is not cut. Idempotent. The phone and the server
+ * both run it on what `mergeRewards` gives them; `parseRewards` runs it on everything it reads.
  */
 export const tidy = (s: Rewards): Rewards => {
   const c = compact(s, s.clock);
+  const known = c.rules <= RULES.version;
   let days: Rewards['days'] | null = null;
   for (const d in c.days) {
     const r = c.days[d]!;
-    const sum = sumK(r.k);
-    if (sum <= r.n) continue;
+    let next = r;
+    if (known) next = fitRec(r);
+    else {
+      const sum = sumK(r.k);
+      if (sum > r.n) next = { ...r, n: sum };
+    }
+    if (next === r) continue;
     days ??= { ...c.days };
-    days[d] = { ...r, n: sum };
+    days[d] = next;
   }
-  return days ? { ...c, days } : c;
+  let once: Rewards['once'] | null = null;
+  if (known)
+    for (const key in c.once) {
+      const max = onceMax(key);
+      if (max === null || c.once[key]!.n <= max) continue;
+      once ??= { ...c.once };
+      once[key] = { ...c.once[key]!, n: max };
+    }
+  return days || once ? { ...c, days: days ?? c.days, once: once ?? c.once } : c;
 };
 
 /**
@@ -400,7 +450,8 @@ export const earnDay = (f: DayFacts, prev: DayRec | undefined, ctx: EarnCtx): Da
     }
     // a late review: the goal's Orbs, once, and the day is not made to count by it
     if (f.goalDay === 'done' && !k['goal:day']) k['goal:day'] = RULES.goalDay;
-    return recOf(k, a, { h: !!prev?.h });
+    // a day this phone has no record of takes its pause from the status as it stands (a status cannot be back-dated)
+    return recOf(k, a, { h: prev ? !!prev.h : f.held });
   }
   k.todo = Math.min(f.todosDone, RULES.todo.cap) * RULES.todo.each;
   k.habit = Math.min(f.habitsDone, RULES.habit.cap) * RULES.habit.each;
@@ -643,17 +694,26 @@ const localDay = (iso: string | null | undefined): ISODate | null => {
   const d = new Date(iso);
   return Number.isNaN(d.getTime()) ? null : toISO(d);
 };
+/** The day a moment belongs to when a day runs until 03:00 the next morning. */
+const heldDay = (iso: string | null | undefined): ISODate | null => {
+  if (!iso) return null;
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return null;
+  d.setHours(d.getHours() - RULES.close.tapHour);
+  return toISO(d);
+};
 /**
  * What a goal earns today, or null. Only a goal that is done; only inside its period or its review grace (day 1 day, week
- * 2, month 3, year 7); only when it was set before its period ended and early enough before it was marked (week 2 days,
- * month 7, year 30). The key is the period, never the id, so a goal cleared and set again, or renamed by the server, is
+ * 2, month 3, year 7); only when it was set before its period ended (a day's goal: before 03:00 the next morning, while the
+ * day still takes taps) and early enough before it was marked (week 2 days, month 7, year 30). The key is the period, never the id, so a goal cleared and set again, or renamed by the server, is
  * the same goal. 3 Orbs times its reach: 3, 9, 30, 90.
  */
 export const goalEarns = (g: Pick<Aim, 'level' | 'period' | 'status' | 'createdAt' | 'closedAt'>, today: ISODate): { key: string; n: number } | null => {
   if (g.status !== 'done') return null;
   const end = periodEnd(g.level, g.period);
   if (today < periodStart(g.level, g.period) || today > shiftDays(end, RULES.goal.grace[g.level])) return null;
-  const made = localDay(g.createdAt);
+  // a day runs until 03:00 the next morning (Today holds on it past midnight), so a goal set for it at 00:30 was set in it
+  const made = g.level === 'day' ? heldDay(g.createdAt) : localDay(g.createdAt);
   if (!made || made > end) return null;
   const marked = localDay(g.closedAt) ?? today;
   if (daysBetween(made, marked) < RULES.goal.age[g.level]) return null;
@@ -688,7 +748,46 @@ export interface ReconcileOpts {
   goals?: readonly Aim[];
   /** Development builds only: a start date other than `RULES.startsOn`. Nothing else may pass it. */
   startsOn?: ISODate;
+  /**
+   * How the person is training now (the status chip). A day under a pausing status that this phone never saw (the app
+   * was not opened: in bed, away) is recorded as paused when the phone next looks, not left to read as missed. A status
+   * cannot be set for days already past, so this is never a way to repair a week after the fact.
+   */
+  status?: TrainingStatus | null;
 }
+
+/**
+ * A store with nothing in it dated later than `limit` (the server's date plus one: the last day any phone's date can
+ * be). A device whose date was set ahead while it could not ask the server leaves days that have not happened, payments
+ * and keepsakes dated in the future, weeks sealed before they were lived, and a clock in the future, and a clock in the
+ * future closes every day before it: nothing would earn again until the calendar caught up. What is taken out here is
+ * earned again, on its real day, if it is due. The same object comes back when there is nothing to take out. The server
+ * runs the same cut on what a phone sends (`PUT /me/rewards`).
+ */
+export const within = (s: Rewards, limit: ISODate): Rewards => {
+  const cut = <T>(map: Record<string, T>, late: (v: T, k: string) => boolean): Record<string, T> => {
+    let out: Record<string, T> | null = null;
+    for (const k in map) {
+      if (!late(map[k]!, k)) continue;
+      out ??= { ...map };
+      delete out[k];
+    }
+    return out ?? map;
+  };
+  const days = cut(s.days, (_r, d) => d > limit);
+  const once = cut(s.once, (o) => o.on > limit);
+  const keepsakes = cut(s.keepsakes, (k) => k.on > limit);
+  const seen = cut(s.seen, (d) => d > limit);
+  const challenges = cut(s.challenges, (_c, k) => k.slice(-10) > limit);
+  // a week is sealed once it is over
+  const wt = cut(s.wt, (_t, m) => shiftDays(m, 7) > limit);
+  const off = s.off.some((r) => r.from > limit || (r.to !== null && r.to > limit)) ? s.off.filter((r) => r.from <= limit).map((r) => (r.to !== null && r.to > limit ? { from: r.from, to: limit } : r)) : s.off;
+  // the first day that can earn is in the future only before the rules begin, and then it is the day they begin
+  const last = limit > RULES.startsOn ? limit : RULES.startsOn;
+  const startedOn = s.startedOn > last ? last : s.startedOn;
+  if (days === s.days && once === s.once && keepsakes === s.keepsakes && seen === s.seen && challenges === s.challenges && wt === s.wt && off === s.off && s.clock <= limit && startedOn === s.startedOn) return s;
+  return { ...s, days, once, keepsakes, seen, challenges, wt, off, clock: s.clock > limit ? limit : s.clock, startedOn };
+};
 
 /** Is `d` the first counted day after three or more missed, with no comeback in the 13 days before it and a counted day before the gap? */
 const comebackDue = (s: Rewards, d: ISODate): boolean => {
@@ -720,6 +819,9 @@ export const reconcile = (store: Rewards, facts: readonly DayFacts[], now: Date,
   const gained: Gained[] = [];
   const today = toISO(now);
   const limit = opts.serverDay ? shiftDays(opts.serverDay, 1) : null;
+  // what cannot be: once the server's date is known, the clock was never past tomorrow, and nothing dated there happened
+  // (a pass made under a wrong date always moves the clock, so the clock alone says whether to look)
+  if (limit && store.clock > limit) store = within(store, limit);
   if (limit && today > limit) {
     // the device is ahead of the server by more than a time zone: nothing counts until it is not
     return { store: limit > store.clock ? { ...store, clock: limit } : store, gained };
@@ -757,6 +859,13 @@ export const reconcile = (store: Rewards, facts: readonly DayFacts[], now: Date,
       setDay(d, emptyRec(rec) ? null : rec);
     }
   }
+  // days under a pause that this phone never saw (the app stayed closed): paused, not missed
+  if (opts.status && store.set.on && today > store.clock) {
+    for (let d = shiftDays(store.clock, 1), i = 0; d < yesterday && i < 400; d = shiftDays(d, 1), i++) {
+      if (days[d] || d < store.startedOn || inOff(store, d) || !pausedOn(opts.status, d)) continue;
+      setDay(d, { n: 0, a: 0, c: 1, h: 1 });
+    }
+  }
   // close what can no longer change. Nothing new can close while the date stands where the last pass left it.
   if (today !== store.clock) {
     for (const d in days) {
@@ -767,21 +876,28 @@ export const reconcile = (store: Rewards, facts: readonly DayFacts[], now: Date,
   if (days !== store.days) daysInAll.set(days, daysIn(store.days) + dayCount);
   if (days !== store.days || clock !== store.clock) s = { ...store, days, clock };
 
-  // finished weeks: sealed with their target, and paid their bonus, once the Sunday can no longer take late evidence
+  // Finished weeks. A week is sealed with the target it was lived under as soon as it is over (from its next Monday), so
+  // a change to "Your week" made that Monday starts with the new week. It is paid its bonus once its Sunday can no longer
+  // take late evidence (from the Tuesday). The newest sealed week is looked at again on every pass until a newer one is
+  // sealed: that is how Monday's seal is paid on Tuesday, and a missed week costs seven lookups to pass over.
   const first = mondayOf(s.startedOn);
   let sealed: ISODate | null = null;
   for (const m in s.wt) if (!sealed || m > sealed) sealed = m;
   let wt = s.wt;
   let once = s.once;
-  for (let m = sealed ? shiftDays(sealed, 7) : first, i = 0; shiftDays(m, 7) < today && i < 1040; m = shiftDays(m, 7), i++) {
+  for (let m = sealed ? shiftDays(sealed, 7) : first, i = 0; shiftDays(m, 7) <= today && i < 1040; m = shiftDays(m, 7), i++) {
     if (wt === s.wt) wt = { ...s.wt };
     wt[m] = s.set.weekTarget;
+  }
+  for (let m = sealed ?? first, i = 0; shiftDays(m, 7) < today && i < 1040; m = shiftDays(m, 7), i++) {
     const key = `week:${m}`;
     if (once[key]) continue;
-    const view = { ...s, wt, once };
     let rebuilt = false;
-    for (let j = 0; j < 7; j++) if (s.days[shiftDays(m, j)]?.r) rebuilt = true;
-    const n = rebuilt ? 0 : weekBonus(view, m);
+    for (const d of datesOf(m).days) if (s.days[d]?.r) rebuilt = true;
+    if (rebuilt) continue;
+    const view = wt === s.wt && once === s.once ? s : { ...s, wt, once };
+    if (weekOf(view, m, shiftDays(m, 7)).state !== 'counted') continue;
+    const n = weekBonus(view, m);
     if (!n) continue;
     if (once === s.once) once = { ...s.once };
     once[key] = { on: today, n };
@@ -906,15 +1022,59 @@ export const forSync = (s: Rewards): Rewards => {
  */
 export const rebuild = (facts: readonly DayFacts[], from: ISODate, today: ISODate, userId: string, set: RewardSet = DEFAULT_SET, floor: ISODate = RULES.startsOn): Rewards => {
   const s = emptyRewards(userId, from, set, floor);
+  let fullOn: ISODate | null = null;
   for (const f of facts) {
     if (f.date < s.startedOn || f.date >= today) continue;
-    const full = earnDay(f, undefined, { src: 'tap' });
-    const { full: _f, back: _b, ...base } = full.k ?? {};
-    const rec = recOf(base, full.a, { h: !!full.h, c: 1, r: 1 });
-    if (rec.n || rec.a || rec.h) s.days[f.date] = rec;
+    const rec = rebuiltRec(f);
+    if (rec) s.days[f.date] = rec;
+    if (isFullDay(f) && (!fullOn || f.date < fullOn)) fullOn = f.date;
   }
   s.clock = today > s.startedOn ? today : s.startedOn;
+  // Keepsakes are earned at fixed moments, and the ones the facts can still show are put back: the first full day (its
+  // +5 is not paid again), and the weeks in a row as they stood on each Monday since (a later gap does not take them).
+  // The first Orb, the days in all and the chapters come back by `keepsakesDue`, which reads them from the days.
+  if (fullOn) s.keepsakes.full = { on: fullOn };
+  for (let m = shiftDays(mondayOf(s.startedOn), 7), i = 0; i < 1040; m = shiftDays(m, 7), i++) {
+    const on = m > today ? today : m;
+    const weeks = countOf(s, on).weeks;
+    for (const n of RULES.keepsakes.weeks) if (weeks >= n && !s.keepsakes[`weeks:${n}`]) s.keepsakes[`weeks:${n}`] = { on };
+    if (m >= today) break;
+  }
   return s;
+};
+/** A day read back from the account's facts as they stand: base Orbs only, closed, marked rebuilt. Null when the day holds nothing. */
+const rebuiltRec = (f: DayFacts): DayRec | null => {
+  const full = earnDay(f, undefined, { src: 'tap' });
+  const { full: _f, back: _b, ...base } = full.k ?? {};
+  const rec = recOf(base, full.a, { h: !!full.h, c: 1, r: 1 });
+  return rec.n || rec.a || rec.h ? rec : null;
+};
+
+/**
+ * The account's copy, as a device with no store of its own takes it (a new phone, after Sign out, after the error
+ * screen's Reset), made whole. The copy never holds an open day (`forSync`), so the days that were still open when it was
+ * last sent (the day before its clock, and every day since) are not in it, and this device never saw them. Without this
+ * yesterday's Orbs, and yesterday itself in the count, were lost every time a phone signed out and in.
+ *
+ * Those days, and only those, are read from the account's own facts as `rebuild` reads them after a wipe: base Orbs only,
+ * closed, marked rebuilt. A day the copy holds is left exactly as it is, and a day that had already closed when the copy
+ * was sent is never filled (it was seen, and held nothing: filling it would pay for back-fill). `facts` are for days
+ * that no longer take taps; today is left to the reconciler. The same object comes back when there is nothing to fill.
+ */
+export const fillFrom = (kept: Rewards, facts: readonly DayFacts[], today: ISODate): Rewards => {
+  if (!kept.set.on) return kept;
+  const open = shiftDays(kept.clock, -1);
+  const from = open > kept.startedOn ? open : kept.startedOn;
+  let days: Rewards['days'] | null = null;
+  for (const f of facts) {
+    const d = f.date;
+    if (d < from || d >= today || kept.days[d] || days?.[d] || inOff(kept, d)) continue;
+    const rec = rebuiltRec(f);
+    if (!rec) continue;
+    days ??= { ...kept.days };
+    days[d] = rec;
+  }
+  return days ? { ...kept, days } : kept;
 };
 
 // ---------- the switches ----------
@@ -930,11 +1090,21 @@ export const applySet = (s: Rewards, patch: Partial<Omit<RewardSet, 'at'>>, now:
   next.at = now.toISOString();
   let off = s.off;
   const today = toISO(now);
+  // "A change starts with this week": every week that is already over keeps the target it was lived under
+  let wt = s.wt;
+  if (next.weekTarget !== s.set.weekTarget) {
+    let sealed: ISODate | null = null;
+    for (const m in s.wt) if (!sealed || m > sealed) sealed = m;
+    for (let m = sealed ? shiftDays(sealed, 7) : mondayOf(s.startedOn), i = 0; shiftDays(m, 7) <= today && i < 1040; m = shiftDays(m, 7), i++) {
+      if (wt === s.wt) wt = { ...s.wt };
+      wt[m] = s.set.weekTarget;
+    }
+  }
   if (next.on !== s.set.on) {
     if (!next.on) off = off.some((r) => r.to === null) ? off : [...off, { from: today, to: null }];
     else off = off.flatMap((r) => (r.to !== null ? [r] : r.from >= today ? [] : [{ from: r.from, to: shiftDays(today, -1) }]));
   }
-  return { ...s, set: next, off };
+  return { ...s, set: next, off, wt };
 };
 /** Take a whole set of switches (this device's own key, or the newest from a merge) into the store, ranges and all. */
 export const adoptSet = (s: Rewards, set: RewardSet, now: Date): Rewards => {
