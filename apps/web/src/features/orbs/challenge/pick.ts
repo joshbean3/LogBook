@@ -10,6 +10,9 @@ import { acceptPick, parsePick } from './model';
  * The answer is applied with the engine's `withPick`, against this phone's own menu (`acceptPick`): an item that is not
  * on it, a reason the shared check refuses, or the rule's own pick from the server all leave the challenge as it was.
  * Never throws and never toasts: the sheet shows one quiet line when nothing came of it.
+ *
+ * An answer is applied only to the sheet that asked for it: one that arrives after that sheet has closed (`live`), or
+ * after a newer ask for the same slot went out, changes nothing.
  */
 
 /** Does the server have the route and an assistant to ask? Only a bootstrap that carries the key says so. */
@@ -21,18 +24,24 @@ export const mayAskFor = (features: unknown, access: 'on' | 'off' | 'none' | 'un
 type Send = (slot: string) => Promise<unknown>;
 const post: Send = (slot) => api<unknown>('/challenges/pick', { method: 'POST', json: { slot } });
 
+/** The newest ask per slot: an older answer still on its way is not applied over it. */
+const asks = new Map<string, number>();
+
 /**
  * Ask, check, apply. True when the challenge is now the assistant's pick. `menu` is read after the answer comes, so it is
  * this phone's menu as it stands then.
  */
-export const askPick = async (key: string, menu: () => readonly Offer[], opts: { send?: Send; offline?: () => boolean } = {}): Promise<boolean> => {
+export const askPick = async (key: string, menu: () => readonly Offer[], opts: { send?: Send; offline?: () => boolean; live?: () => boolean } = {}): Promise<boolean> => {
   if ((opts.offline ?? isOffline)()) return false;
+  const ticket = (asks.get(key) ?? 0) + 1;
+  asks.set(key, ticket);
   let raw: unknown;
   try {
     raw = await (opts.send ?? post)(key);
   } catch {
     return false;
   }
+  if (asks.get(key) !== ticket || (opts.live && !opts.live())) return false;
   const answer = parsePick(raw);
   const offer = acceptPick(answer, menu());
   const why = answer?.why?.trim();

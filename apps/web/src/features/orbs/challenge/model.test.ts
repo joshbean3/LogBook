@@ -345,6 +345,83 @@ describe('the assistant’s answer', () => {
   });
 });
 
+describe('guards: what the sheet and the row can never do', () => {
+  it('Easier is not offered when one step easier would leave nothing to add (the challenge would vanish under the finger)', () => {
+    const slot = weekSlot();
+    const c = ch({ item: 'days', target: 4, floor: 3 });
+    const wed = day(2);
+    // two days counted by Wednesday: four still asks for two more, three would ask for one (under 40 percent)
+    const f = facts(wed, { week: { counted: 2 } });
+    expect(actionsFor(c, slot, f, wed, { mayAsk: false, menu: [] })).toMatchObject({ add: 'Add to this week', easier: false });
+    // with one day counted the easier one can still be added
+    expect(actionsFor(c, slot, facts(wed, { week: { counted: 1 } }), wed, { mayAsk: false, menu: [] }).easier).toBe(true);
+    // whatever the facts: after any Easier the sheet offers, the challenge can still be added
+    for (let target = 3; target <= 5; target++)
+      for (let counted = 0; counted <= 5; counted++)
+        for (let d = 0; d < 7; d++) {
+          const w = ch({ item: 'days', target, floor: target - 1 });
+          const wf = facts(day(d), { week: { counted } });
+          if (!actionsFor(w, slot, wf, day(d), { mayAsk: false, menu: [] }).easier) continue;
+          const eased = easierChallenge(offerInto(emptyRewards(U, shiftDays(MON, -35)), slot, w, at(MON, 7)), slot.key).challenges[slot.key];
+          expect(shownAs(eased, slot, wf, day(d)), `${target} with ${counted} on day ${d}`).toBe('offered');
+        }
+  });
+
+  it('a day challenge whose day has closed for taps shows nowhere: nothing says Done that will not be paid', () => {
+    const slot = daySlot(MON);
+    const all = facts(MON, { day: { habitsLiveDone: 3, habitsDone: 3 } });
+    const added = ch({ item: 'habits', target: 3, state: 'added' });
+    // Today still holds the day past 03:00 (a draft in the Close card): the engine no longer settles it
+    expect(shownAs(added, slot, all, MON)).toBe('done');
+    expect(shownAs(added, slot, all, MON, false)).toBeNull();
+    expect(rowView(added, slot, all, MON, 0, false)).toBeNull();
+    expect(shownAs(added, slot, facts(MON), MON, false)).toBeNull();
+    expect(shownAs(ch({ item: 'habits', target: 3 }), slot, facts(MON), MON, false)).toBeNull();
+    expect(actionsFor(ch({ item: 'habits', target: 3 }), slot, facts(MON), MON, { mayAsk: true, menu: [], tapsOpen: false })).toEqual({ add: null, skip: false, easier: false, ask: false, drop: false });
+    // one the engine did settle keeps its row for the rest of its day
+    expect(rowView(ch({ item: 'habits', target: 3, state: 'done' }), slot, all, MON, 5, false)?.sub).toBe('Done · 5 Orbs');
+    // a week challenge is not a day's
+    expect(shownAs(ch({ item: 'days', target: 5, floor: 4, state: 'added' }), weekSlot(), facts(day(1)), day(1), false)).toBe('added');
+  });
+
+  it('the list’s progress follows the list as it stands: a to-do moved away is no longer counted in "of"', () => {
+    const slot = daySlot(MON);
+    const c = ch({ item: 'list', target: 3, state: 'added' });
+    const f = (list: { open: number; done: number }) => ({ ...facts(MON, { todosOpen: list.open, day: { todosDone: list.done } }), list });
+    expect(rowView(c, slot, f({ open: 2, done: 1 }), MON)?.sub).toBe('1 of 3 done');
+    expect(rowView(c, slot, f({ open: 1, done: 1 }), MON)?.sub).toBe('1 of 2 done');
+    expect(rowView(c, slot, f({ open: 0, done: 2 }), MON)).toMatchObject({ shown: 'done', sub: 'Done · 5 Orbs' });
+    // every one of them moved away with none done: it ends, and nothing is said
+    expect(rowView(c, slot, f({ open: 0, done: 0 }), MON)).toBeNull();
+  });
+
+  it('a slow answer applies nothing once the sheet that asked has closed, and only the newest ask may apply', async () => {
+    const slot = daySlot(MON);
+    const own: Offer[] = [
+      { item: 'goal', target: 1, base: 0 },
+      { item: 'list', target: 2, base: 0 },
+    ];
+    resetOrbsForTest();
+    openOrbs(U);
+    setOrbs(offerInto(emptyRewards(U, shiftDays(MON, -35)), slot, { item: 'goal', target: 1, base: 0 }, at(MON, 7)));
+    const before = getOrbs()!.challenges[slot.key];
+    const answer = { item: 'list', target: 2, why: 'Two small errands are sitting on your list.', by: 'assistant' };
+    // the sheet closed while the request was out
+    let open = true;
+    const slow = askPick(slot.key, () => own, { offline: () => false, live: () => open, send: () => new Promise((r) => setTimeout(() => r(answer), 20)) });
+    open = false;
+    expect(await slow).toBe(false);
+    expect(getOrbs()!.challenges[slot.key]).toEqual(before);
+    // two asks out at once (the sheet was closed and opened again): the first, older answer changes nothing
+    const first = askPick(slot.key, () => own, { offline: () => false, live: () => true, send: () => new Promise((r) => setTimeout(() => r({ ...answer, why: 'The older answer.' }), 40)) });
+    const second = askPick(slot.key, () => own, { offline: () => false, live: () => true, send: () => new Promise((r) => setTimeout(() => r(answer), 5)) });
+    expect(await second).toBe(true);
+    expect(await first).toBe(false);
+    expect(getOrbs()!.challenges[slot.key]).toMatchObject({ item: 'list', by: 'assistant', why: 'Two small errands are sitting on your list.' });
+    resetOrbsForTest();
+  });
+});
+
 describe('the hard lines hold in every word the row and the sheet can say', () => {
   // distance, pace, weight, food, sleep, pain, a clock deadline, a count of to-dos or of journal lines
   const NEVER = /\b(miles?|km|kilometers?|distance|pace|faster|speed|weigh\w*|heavier|pounds?|lbs?|kg|calories?|food|eat\w*|ate|diet\w*|meals?|sleep\w*|slept|pain\w*|sore|hurts?|aches?|injur\w*|noon|midnight|deadline|o[’']clock|a\.m|p\.m|by \d|before \d|journal|lines?)\b|\d{1,2}:\d{2}|\d+ to-dos?/i;

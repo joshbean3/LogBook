@@ -232,6 +232,8 @@ export const habitDaysIn = (c: Caches, monday: ISODate, until: ISODate): number 
   return n;
 };
 
+/** A to-do made within this long after a list challenge was added still counts as on its list: two clocks made the two times. */
+const LIST_CLOCK_SLACK_MS = 60_000;
 /** What a challenge is read against, for a slot: the slot's day (a week slot: today), and the slot's week so far. */
 export const challengeFacts = (c: Caches, store: Rewards, slot: Slot, today: ISODate): ChallengeFacts => {
   const monday = slot.kind === 'week' ? slot.date : mondayOf(slot.date);
@@ -259,11 +261,29 @@ export const challengeFacts = (c: Caches, store: Rewards, slot: Slot, today: ISO
   }
   const weekGoal = (c.goals ?? []).find((g) => g.level === 'week' && g.period === periodOf('week', monday));
   const within = today > end ? end : today;
+  const open = liveOn(c.todos ?? [], dayOf, today).filter((t) => (!t.doneOn || t.doneOn > dayOf) && inToday(t, dayOf));
+  const doneThen = (doneByDay(c.todos ?? []).get(dayOf) ?? NONE).filter((t) => !(t.deletedOn && t.deletedOn <= dayOf));
+  // "Clear this morning's list", once added: the to-dos that were there at that moment (made no later than it was added,
+  // give or take a minute between two clocks; no row id is kept), still open on the list or checked off that day. One
+  // written afterwards is in neither number. When no to-do of the day passes at all (every one was written offline and
+  // given its time later), the times tell nothing and the day's counts stand, as they did before.
+  const ch = slot.kind === 'day' ? store.challenges[slot.key] : undefined;
+  const addedAt = ch && ch.item === 'list' && ch.state === 'added' ? Date.parse(ch.at) + LIST_CLOCK_SLACK_MS : NaN;
+  const wasThere = (t: Todo) => {
+    const made = Date.parse(t.createdAt);
+    return Number.isNaN(made) || made <= addedAt;
+  };
+  const listed = { open: open.filter(wasThere).length, done: doneThen.filter(wasThere).length };
+  const list = Number.isNaN(addedAt) || (!listed.open && !listed.done && open.length + doneThen.length > 0) ? null : listed;
+  let newest = '';
+  for (const t of open) if (!Number.isNaN(Date.parse(t.createdAt)) && (!newest || Date.parse(t.createdAt) > Date.parse(newest))) newest = t.createdAt;
   return {
     today,
     fitness: c.fitness,
     day,
-    todosOpen: liveOn(c.todos ?? [], dayOf, today).filter((t) => (!t.doneOn || t.doneOn > dayOf) && inToday(t, dayOf)).length,
+    todosOpen: open.length,
+    ...(list ? { list } : null),
+    ...(newest ? { todosNewest: newest } : null),
     planned,
     week: {
       monday,

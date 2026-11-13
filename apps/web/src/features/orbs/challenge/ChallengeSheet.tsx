@@ -8,7 +8,7 @@ import { Orb } from '@/ui/Orb';
 import { Button } from '@/ui/primitives';
 import { useSheet, type SheetApi } from '@/ui/Sheet';
 import { updateOrbs, useChallenge } from '../store';
-import { actionsFor, ASK_FAILED, ASK_WORDS, ASKING, doneWords, eyebrowOf, PICKED_CAPTION, progressWords, sheetLine, whatCounts } from './model';
+import { actionsFor, ASK_FAILED, ASK_WORDS, ASKING, doneWords, eyebrowOf, PICKED_CAPTION, progressLine, sheetLine, whatCounts } from './model';
 import { askPick, mayAskFor } from './pick';
 import { useBoard } from './useBoard';
 import './challenge.css';
@@ -57,8 +57,7 @@ const ChallengeSheet = ({ slotKey }: { slotKey: string }) => {
   if (!board || !live || !live.view) return <div className="k-sheet ch-sheet" aria-busy={!board} />;
 
   const { slot, challenge: c, facts, view } = live;
-  const actions = actionsFor(c, slot, facts, board.today, { mayAsk: mayAskFor(boot.data?.features, access), menu: view.shown === 'offered' ? board.menuOf(slotKey) : [] });
-  const progress = challengeState(c, slot, facts).progress;
+  const actions = actionsFor(c, slot, facts, board.today, { mayAsk: mayAskFor(boot.data?.features, access), menu: view.shown === 'offered' ? board.menuOf(slotKey) : [], tapsOpen: live.tapsOpen });
 
   const add = () => {
     haptics.toggle();
@@ -71,7 +70,8 @@ const ChallengeSheet = ({ slotKey }: { slotKey: string }) => {
   };
   const ask = async () => {
     setAsking('asking');
-    const [ok] = await Promise.all([askPick(slotKey, () => latest.current?.menuOf(slotKey) ?? []), new Promise((r) => setTimeout(r, ASK_MIN_MS))]);
+    // an answer that comes after this sheet has closed applies nothing: the person is no longer looking at what they asked
+    const [ok] = await Promise.all([askPick(slotKey, () => latest.current?.menuOf(slotKey) ?? [], { live: () => alive.current }), new Promise((r) => setTimeout(r, ASK_MIN_MS))]);
     if (alive.current) setAsking(ok ? 'idle' : 'failed');
   };
 
@@ -84,7 +84,7 @@ const ChallengeSheet = ({ slotKey }: { slotKey: string }) => {
           <p className={view.reason ? 'ch-note' : 'ch-line'}>{sheetLine(slot.kind, c, facts)}</p>
         ) : (
           <>
-            <p className="ch-line is-strong">{view.shown === 'done' ? doneWords(live.paid || challengeState(c, slot, facts).pay) : progressWords(slot.kind, c, progress)}</p>
+            <p className="ch-line is-strong">{view.shown === 'done' ? doneWords(live.paid || challengeState(c, slot, facts).pay) : progressLine(slot.kind, c, facts)}</p>
             <p className="ch-note">{whatCounts(c, facts)}</p>
           </>
         )}

@@ -1,4 +1,4 @@
-import { canAdd, CHALLENGE_BOUNDS, challengeState, challengeTitle, hasEasier, mondayOf, payFor, RULES, shiftDays, toISO, type Challenge, type ChallengeFacts, type ISODate, type Offer, type Slot } from '@logbook/shared';
+import { canAdd, CHALLENGE_BOUNDS, challengeState, challengeTitle, hasEasier, listTarget, mondayOf, payFor, progressOf, RULES, shiftDays, toISO, type Challenge, type ChallengeFacts, type ISODate, type Offer, type Slot } from '@logbook/shared';
 
 /**
  * The challenge row and sheet, as rules: which row shows when, the words for each state, and when each action is offered.
@@ -107,6 +107,11 @@ export const progressWords = (kind: Slot['kind'], c: Pick<Challenge, 'item' | 't
       return kind === 'day' ? 'Added to today' : 'Added to this week';
   }
 };
+/**
+ * An added challenge's progress by the facts. "Clear this morning's list" is read against the list as it stands
+ * (`listTarget`): a to-do that was deleted or moved to another day is no longer in its "of".
+ */
+export const progressLine = (kind: Slot['kind'], c: Challenge, f: ChallengeFacts): string => progressWords(kind, { item: c.item, target: listTarget(c, f) }, progressOf(c, f));
 export const doneWords = (pay: number): string => `Done · ${orbs(pay)}`;
 
 /** The local day an ISO time fell on. */
@@ -119,9 +124,14 @@ const dayOfTime = (iso: string): ISODate | null => {
  * Is this challenge shown now, and as what? An offer only while it can still be added (`canAdd`: one with nothing left to
  * do is not offered, a week one only Monday to Wednesday, nothing on a paused day). An added one while its day or week
  * runs. A done one for the rest of the day it was finished. Anything else (skipped, dropped, lapsed, void): null.
+ *
+ * `tapsOpen` is whether the slot's day still takes taps by the real clock (`isOpen(day, now, 'tap')`). Today can hold
+ * yesterday on screen past 03:00 (a draft in the Close card), and the engine settles nothing for that day any more: a day
+ * challenge that is not already done shows nowhere then, so nothing can read "Done" that will not be paid.
  */
-export const shownAs = (c: Challenge | undefined, slot: Slot, f: ChallengeFacts, today: ISODate): Shown | null => {
+export const shownAs = (c: Challenge | undefined, slot: Slot, f: ChallengeFacts, today: ISODate, tapsOpen = true): Shown | null => {
   if (!c) return null;
+  if (slot.kind === 'day' && !tapsOpen && c.state !== 'done') return null;
   if (c.state === 'offered') return canAdd(c, slot, f) ? 'offered' : null;
   if (c.state === 'added') {
     const live = slot.kind === 'day' ? slot.date === today : slot.date === mondayOf(today);
@@ -153,15 +163,15 @@ export interface RowView {
  * One row's words, or null when the challenge is not shown. `paid` is what the once-ledger holds for the slot (a done
  * challenge says what it paid, not what it could have).
  */
-export const rowView = (c: Challenge | undefined, slot: Slot, f: ChallengeFacts, today: ISODate, paid = 0): RowView | null => {
-  const shown = shownAs(c, slot, f, today);
+export const rowView = (c: Challenge | undefined, slot: Slot, f: ChallengeFacts, today: ISODate, paid = 0, tapsOpen = true): RowView | null => {
+  const shown = shownAs(c, slot, f, today, tapsOpen);
   if (!c || !shown) return null;
   const title = challengeTitle(c);
   if (!title) return null;
   const st = challengeState(c, slot, f);
   const picked = c.by === 'assistant' && !!c.why;
   const offer = `${eyebrowOf(slot.kind)} · ${worthWords(slot.kind, c)}`;
-  const sub = shown === 'done' ? doneWords(paid || st.pay || payFor(slot.kind, c, st.progress) || (slot.kind === 'day' ? RULES.challenge.day : RULES.challenge.weekFloor)) : shown === 'added' ? progressWords(slot.kind, c, st.progress) : picked ? c.why! : offer;
+  const sub = shown === 'done' ? doneWords(paid || st.pay || payFor(slot.kind, c, st.progress) || (slot.kind === 'day' ? RULES.challenge.day : RULES.challenge.weekFloor)) : shown === 'added' ? progressLine(slot.kind, c, f) : picked ? c.why! : offer;
   const view: RowView = { key: slot.key, kind: slot.kind, shown, title, sub, label: '' };
   if (picked) {
     view.caption = PICKED_CAPTION;
@@ -239,6 +249,9 @@ export const acceptPick = (a: PickAnswer | null, own: readonly Offer[]): Offer |
 
 // ---------- the sheet's actions ----------
 
+/** Can "Easier" be offered? The engine says the challenge has a size, and one step off it still leaves something to add. */
+export const canEase = (c: Challenge, slot: Slot, f: ChallengeFacts): boolean => hasEasier(c) && canAdd({ ...c, target: c.target - 1 }, slot, f);
+
 export interface SheetActions {
   /** The one Sky button's words ("Add to today"), or null when adding is not offered. */
   add: string | null;
@@ -250,16 +263,18 @@ export interface SheetActions {
   drop: boolean;
 }
 /**
- * What the sheet offers. An offer: "Add" while `canAdd`, "Skip", "Easier" where the engine's `hasEasier` says so, and
+ * What the sheet offers. An offer: "Add" while `canAdd`, "Skip", "Easier" where the engine's `hasEasier` says so and one
+ * step easier could still be added (a week of days that would be left with under 40 percent to do cannot: tapping it
+ * would take the challenge away), and
  * "Ask the assistant to pick" when this account may ask (`mayAsk`: the server has the route, the assistant is allowed and
  * its training switch is on), the assistant has not already picked this one, and there is a choice to make. An added
  * one: "Drop it". A done one: nothing.
  */
-export const actionsFor = (c: Challenge | undefined, slot: Slot, f: ChallengeFacts, today: ISODate, opts: { mayAsk: boolean; menu: readonly Offer[] }): SheetActions => {
-  const shown = shownAs(c, slot, f, today);
+export const actionsFor = (c: Challenge | undefined, slot: Slot, f: ChallengeFacts, today: ISODate, opts: { mayAsk: boolean; menu: readonly Offer[]; tapsOpen?: boolean }): SheetActions => {
+  const shown = shownAs(c, slot, f, today, opts.tapsOpen ?? true);
   const none: SheetActions = { add: null, skip: false, easier: false, ask: false, drop: false };
   if (!c || !shown) return none;
-  if (shown === 'offered') return { add: addWords(slot.kind), skip: true, easier: hasEasier(c), ask: opts.mayAsk && c.by !== 'assistant' && worthAsking(opts.menu), drop: false };
+  if (shown === 'offered') return { add: addWords(slot.kind), skip: true, easier: canEase(c, slot, f), ask: opts.mayAsk && c.by !== 'assistant' && worthAsking(opts.menu), drop: false };
   if (shown === 'added') return { ...none, drop: true };
   return none;
 };
