@@ -73,4 +73,18 @@ describe('the counts', () => {
     expect(none.map((r) => r.value)).toEqual(['None yet', 'None yet', 'None yet', 'Orbs on. Shown off. A 3 day week. Challenges off.', 'Never']);
     expect(none.map((r) => r.value).join(' ')).not.toMatch(/\b0\b/);
   });
+  it('never a zero, whatever the store holds: a count with nothing in it is left out', () => {
+    const base = emptyRewards(U, MON);
+    const ch = (state: 'offered' | 'added' | 'done' | 'skipped' | 'void') => ({ item: 'goal', target: 1, base: 0, state, at: '' });
+    const rowsOf = (s: typeof base, today = day(20)) => diagnosticRows(diagnostics(s, today));
+    // one challenge offered and skipped: it was offered, and nothing more is said
+    expect(rowsOf({ ...base, challenges: { [`challenge:d:${day(1)}`]: ch('skipped') } })[2]!.value).toBe('1 offered');
+    expect(rowsOf({ ...base, challenges: { [`challenge:d:${day(1)}`]: ch('added'), [`challenge:d:${day(8)}`]: ch('skipped') } })[2]!.value).toBe('2 offered, 1 added');
+    expect(rowsOf({ ...base, challenges: { [`challenge:d:${day(1)}`]: ch('done') } })[2]!.value).toBe('1 offered, 1 added, 1 done');
+    // two finished weeks with no day counted, and days that all held more than one thing
+    const quiet = rowsOf({ ...base, days: { [day(15)]: { n: 4, a: 4 }, [day(16)]: { n: 2, a: 2 } } });
+    for (const s of [quiet, rowsOf(base), rowsOf({ ...base, days: { [day(1)]: { n: 0, a: 0, h: 1 } } })]) expect(s.map((r) => r.value).join(' | ')).not.toMatch(/(^|[^\d.,])0([^\d.,]|$)/);
+    expect(quiet[0]!.value).toBe('None yet');
+    expect(quiet[1]!.value).toBe('None yet');
+  });
 });

@@ -1,6 +1,6 @@
-import { addChallenge, challengeTitle, easierChallenge, emptyRewards, menuFor, offerInto, reasonAllowed, shiftDays, skipChallenge, withPick, type Baseline, type Challenge, type ChallengeFacts, type DayFacts, type Offer, type Rewards, type Slot } from '@logbook/shared';
+import { addChallenge, CHALLENGE_BOUNDS, challengeState, challengeTitle, easierChallenge, emptyRewards, hasEasier, menuFor, offerInto, payFor, reasonAllowed, shiftDays, skipChallenge, withPick, type Baseline, type Challenge, type ChallengeFacts, type DayFacts, type Offer, type Rewards, type Slot } from '@logbook/shared';
 import { describe, expect, it } from 'vitest';
-import { acceptPick, actionsFor, addWords, ASK_FAILED, ASK_WORDS, ASKING, doneWords, eyebrowOf, isPickable, parsePick, payLine, PICKED_CAPTION, progressWords, rowsFor, rowView, sheetLine, shownAs, whatCounts, worthAsking, worthWords, type RowView } from './model';
+import { acceptPick, actionsFor, addWords, weekOfferDay, ASK_FAILED, ASK_WORDS, ASKING, doneWords, eyebrowOf, isPickable, parsePick, payLine, PICKED_CAPTION, progressWords, rowsFor, rowView, sheetLine, shownAs, whatCounts, worthAsking, worthWords, type RowView } from './model';
 import { askPick, mayAskFor, pickCapable } from './pick';
 import { getOrbs, openOrbs, resetOrbsForTest, setOrbs } from '../store';
 
@@ -182,6 +182,15 @@ describe('which row shows, and as what', () => {
     expect(rowsFor('today', [dTue, w, last], { [w.key]: v(w.key, 'week', 'added') }, tue).map((r) => r.key)).toEqual([w.key]);
     expect(rowsFor('today', [dTue, w, last], { [dTue.key]: v(dTue.key, 'day'), [w.key]: v(w.key, 'week', 'added') }, tue).map((r) => r.key)).toEqual([dTue.key]);
     expect(rowsFor('today', slots, {}, MON)).toEqual([]);
+    // a Monday that held a day challenge had no room for the week's offer: Today shows it on Tuesday instead (that week
+    // it was on the Orbs page only, and nobody who stays on Today ever saw it)
+    expect(rowsFor('today', [dTue, w, last], { [w.key]: v(w.key, 'week', 'offered') }, tue, tue).map((r) => r.key)).toEqual([w.key]);
+    expect(rowsFor('today', slots, both, MON, tue).map((r) => r.key)).toEqual([d.key]);
+    expect(rowsFor('today', slots, { [w.key]: both[w.key]! }, MON, tue)).toEqual([]);
+    expect(rowsFor('today', [daySlot(day(2)), w, last], { [w.key]: v(w.key, 'week', 'offered') }, day(2), tue)).toEqual([]);
+    expect(weekOfferDay({}, MON)).toBe(MON);
+    expect(weekOfferDay({ [daySlot(MON).key]: ch({ item: 'goal', target: 1, state: 'skipped' }) }, day(3))).toBe(tue);
+    expect(weekOfferDay({ [daySlot(tue).key]: ch({ item: 'goal', target: 1 }) }, tue)).toBe(MON);
     // the Orbs page: both, the week's first, and last week's when it was finished today
     expect(rowsFor('page', slots, both, MON).map((r) => r.key)).toEqual([w.key, d.key]);
     expect(rowsFor('page', slots, { ...both, [last.key]: v(last.key, 'week', 'done') }, MON).map((r) => r.key)).toEqual([w.key, d.key, last.key]);
@@ -345,6 +354,179 @@ describe('the assistant’s answer', () => {
   });
 });
 
+describe('guards: what the sheet and the row can never do', () => {
+  it('Easier is not offered when one step easier would leave nothing to add (the challenge would vanish under the finger)', () => {
+    const slot = weekSlot();
+    const c = ch({ item: 'days', target: 4, floor: 3 });
+    const wed = day(2);
+    // two days counted by Wednesday: four still asks for two more, three would ask for one (under 40 percent)
+    const f = facts(wed, { week: { counted: 2 } });
+    expect(actionsFor(c, slot, f, wed, { mayAsk: false, menu: [] })).toMatchObject({ add: 'Add to this week', easier: false });
+    // with one day counted the easier one can still be added
+    expect(actionsFor(c, slot, facts(wed, { week: { counted: 1 } }), wed, { mayAsk: false, menu: [] }).easier).toBe(true);
+    // whatever the facts: after any Easier the sheet offers, the challenge can still be added
+    for (let target = 3; target <= 5; target++)
+      for (let counted = 0; counted <= 5; counted++)
+        for (let d = 0; d < 7; d++) {
+          const w = ch({ item: 'days', target, floor: target - 1 });
+          const wf = facts(day(d), { week: { counted } });
+          if (!actionsFor(w, slot, wf, day(d), { mayAsk: false, menu: [] }).easier) continue;
+          const eased = easierChallenge(offerInto(emptyRewards(U, shiftDays(MON, -35)), slot, w, at(MON, 7)), slot.key).challenges[slot.key];
+          expect(shownAs(eased, slot, wf, day(d)), `${target} with ${counted} on day ${d}`).toBe('offered');
+        }
+  });
+
+  it('a day challenge whose day has closed for taps shows nowhere: nothing says Done that will not be paid', () => {
+    const slot = daySlot(MON);
+    const all = facts(MON, { day: { habitsLiveDone: 3, habitsDone: 3 } });
+    const added = ch({ item: 'habits', target: 3, state: 'added' });
+    // Today still holds the day past 03:00 (a draft in the Close card): the engine no longer settles it
+    expect(shownAs(added, slot, all, MON)).toBe('done');
+    expect(shownAs(added, slot, all, MON, false)).toBeNull();
+    expect(rowView(added, slot, all, MON, 0, false)).toBeNull();
+    expect(shownAs(added, slot, facts(MON), MON, false)).toBeNull();
+    expect(shownAs(ch({ item: 'habits', target: 3 }), slot, facts(MON), MON, false)).toBeNull();
+    expect(actionsFor(ch({ item: 'habits', target: 3 }), slot, facts(MON), MON, { mayAsk: true, menu: [], tapsOpen: false })).toEqual({ add: null, skip: false, easier: false, ask: false, drop: false });
+    // one the engine did settle keeps its row for the rest of its day
+    expect(rowView(ch({ item: 'habits', target: 3, state: 'done' }), slot, all, MON, 5, false)?.sub).toBe('Done · 5 Orbs');
+    // a week challenge is not a day's
+    expect(shownAs(ch({ item: 'days', target: 5, floor: 4, state: 'added' }), weekSlot(), facts(day(1)), day(1), false)).toBe('added');
+  });
+
+  it('the list’s progress follows the list as it stands: a to-do moved away is no longer counted in "of"', () => {
+    const slot = daySlot(MON);
+    const c = ch({ item: 'list', target: 3, state: 'added' });
+    const f = (list: { open: number; done: number }) => ({ ...facts(MON, { todosOpen: list.open, day: { todosDone: list.done } }), list });
+    expect(rowView(c, slot, f({ open: 2, done: 1 }), MON)?.sub).toBe('1 of 3 done');
+    expect(rowView(c, slot, f({ open: 1, done: 1 }), MON)?.sub).toBe('1 of 2 done');
+    expect(rowView(c, slot, f({ open: 0, done: 2 }), MON)).toMatchObject({ shown: 'done', sub: 'Done · 5 Orbs' });
+    // every one of them moved away with none done: it ends, and nothing is said
+    expect(rowView(c, slot, f({ open: 0, done: 0 }), MON)).toBeNull();
+  });
+
+  it('a slow answer applies nothing once the sheet that asked has closed, and only the newest ask may apply', async () => {
+    const slot = daySlot(MON);
+    const own: Offer[] = [
+      { item: 'goal', target: 1, base: 0 },
+      { item: 'list', target: 2, base: 0 },
+    ];
+    resetOrbsForTest();
+    openOrbs(U);
+    setOrbs(offerInto(emptyRewards(U, shiftDays(MON, -35)), slot, { item: 'goal', target: 1, base: 0 }, at(MON, 7)));
+    const before = getOrbs()!.challenges[slot.key];
+    const answer = { item: 'list', target: 2, why: 'Two small errands are sitting on your list.', by: 'assistant' };
+    // the sheet closed while the request was out
+    let open = true;
+    const slow = askPick(slot.key, () => own, { offline: () => false, live: () => open, send: () => new Promise((r) => setTimeout(() => r(answer), 20)) });
+    open = false;
+    expect(await slow).toBe(false);
+    expect(getOrbs()!.challenges[slot.key]).toEqual(before);
+    // two asks out at once (the sheet was closed and opened again): the first, older answer changes nothing
+    const first = askPick(slot.key, () => own, { offline: () => false, live: () => true, send: () => new Promise((r) => setTimeout(() => r({ ...answer, why: 'The older answer.' }), 40)) });
+    const second = askPick(slot.key, () => own, { offline: () => false, live: () => true, send: () => new Promise((r) => setTimeout(() => r(answer), 5)) });
+    expect(await second).toBe(true);
+    expect(await first).toBe(false);
+    expect(getOrbs()!.challenges[slot.key]).toMatchObject({ item: 'list', by: 'assistant', why: 'Two small errands are sitting on your list.' });
+    resetOrbsForTest();
+  });
+});
+
+describe('what it says it pays is what is paid', () => {
+  const ITEMS = ['days', 'sessions', 'goal-week', 'habit-days', 'full-days'];
+  it('a week challenge: the sheet’s numbers ("10 Orbs at 4 days, 20 at 5") are the engine’s, at every target and floor', () => {
+    for (const item of ITEMS)
+      for (let target = 1; target <= 6; target++)
+        for (const floor of [undefined, 0, target - 2, target - 1, target, target + 1]) {
+          const c = ch({ item, target, ...(floor === undefined ? null : { floor }) });
+          const line = payLine('week', c);
+          const two = /^(\d+) Orbs at (\d+) (day|days|session|sessions), (\d+) at (\d+)\.$/.exec(line);
+          const one = /^(\d+) Orbs\.$/.exec(line);
+          expect(two || one, line).toBeTruthy();
+          const pays = (progress: number) => payFor('week', c, progress);
+          if (two) {
+            const [, low, at, , full, top] = two.map(Number) as [number, number, number, number, number, number];
+            expect(top).toBe(target);
+            expect(pays(top)).toBe(full);
+            expect(pays(at)).toBe(low);
+            // between the two it pays the lower one, under the lower one nothing: there is no third number
+            for (let p = 0; p <= target + 1; p++) expect(pays(p), `${line} at ${p}`).toBe(p >= top ? full : p >= at ? low : 0);
+            expect(worthWords('week', c)).toBe(`${low} to ${full} Orbs`);
+          } else {
+            const full = Number(one![1]);
+            for (let p = 0; p <= target + 1; p++) expect(pays(p), `${line} at ${p}`).toBe(p >= target ? full : 0);
+            expect(worthWords('week', c)).toBe(`${full} Orbs`);
+          }
+        }
+  });
+  it('through the engine’s own ops: offered, eased to its lower bound, added on a Wednesday, read after the week is over', () => {
+    const slot = weekSlot();
+    for (const [item, lo, hi] of [['days', 3, 5], ['habit-days', 2, 5], ['full-days', 1, 4]] as const) {
+      let s: Rewards = offerInto(emptyRewards(U, shiftDays(MON, -35)), slot, { item, target: hi, floor: hi - 1, base: 0 }, at(MON, 7));
+      for (let step = 0; step < 6; step++) {
+        const c = s.challenges[slot.key]!;
+        expect(c.target).toBeGreaterThanOrEqual(lo);
+        const line = payLine('week', c);
+        const said = /^(\d+) Orbs at (\d+) \w+, (\d+) at (\d+)\.$/.exec(line)?.map(Number);
+        // added on Wednesday with nothing counted yet, then read on the Monday after at each count
+        const key = item === 'days' ? 'counted' : item === 'habit-days' ? 'habitDays' : 'fullDays';
+        const added = addChallenge(s, slot, facts(day(2)), at(day(2), 9)).challenges[slot.key]!;
+        expect(added.state).toBe('added');
+        for (let n = 0; n <= 7; n++) {
+          const after = challengeState(added, slot, facts(day(7), { week: { [key]: n } }));
+          const want = n >= c.target ? 20 : said && n >= said[2]! ? 10 : 0;
+          expect(after.pay, `${item} ${line} with ${n}`).toBe(want);
+          expect(after.state).toBe(want ? 'done' : 'added');
+          // and a row that is done says what the ledger holds
+          if (want) expect(rowView({ ...added, state: 'done', at: at(day(7), 8).toISOString() }, slot, facts(day(7), { week: { [key]: n } }), day(7), want)?.sub).toBe(`Done · ${want} Orbs`);
+        }
+        s = easierChallenge(s, slot.key);
+      }
+      expect(s.challenges[slot.key]!.target).toBe(lo);
+    }
+  });
+  it('a day challenge says 5 and pays 5, once it is met and not before', () => {
+    for (const item of ['habits', 'goal', 'session:run', 'list', 'full']) {
+      const c = ch({ item, target: item === 'habits' || item === 'list' ? 3 : 1 });
+      expect(payLine('day', c)).toBe('5 Orbs.');
+      expect(worthWords('day', c)).toBe('5 Orbs');
+      for (let p = 0; p <= c.target; p++) expect(payFor('day', c, p)).toBe(p >= c.target ? 5 : 0);
+    }
+  });
+});
+
+describe('a challenge this build cannot read is not shown', () => {
+  it('an item it does not know, or a number outside what the rules can make (a store from elsewhere), draws no row and offers nothing', () => {
+    const slot = weekSlot();
+    const f = facts(MON, { week: { sessions: { planned: 4, done: 0 }, goal: 'open' } });
+    const odd: Challenge[] = [
+      ch({ item: 'run-a-marathon', target: 1 }),
+      ch({ item: 'days', target: 0 }),
+      ch({ item: 'days', target: 2, floor: 1 }),
+      ch({ item: 'days', target: 9, floor: 8 }),
+      ch({ item: 'habit-days', target: 7, floor: 6 }),
+      ch({ item: 'full-days', target: 5, floor: 4 }),
+      ch({ item: 'sessions', target: 0 }),
+      ch({ item: 'goal-week', target: 3 }),
+    ];
+    for (const c of odd)
+      for (const state of ['offered', 'added', 'done'] as const) {
+        expect(rowView({ ...c, state }, slot, f, MON, 20), `${c.item} ${c.target} ${state}`).toBeNull();
+        expect(actionsFor({ ...c, state }, slot, f, MON, { mayAsk: true, menu: [] })).toEqual({ add: null, skip: false, easier: false, ask: false, drop: false });
+      }
+    const d = daySlot(MON);
+    for (const c of [ch({ item: 'habits', target: 0 }), ch({ item: 'goal', target: 4 }), ch({ item: 'list', target: 0 }), ch({ item: 'session:swim', target: 1 }), ch({ item: 'days', target: 4 })]) expect(rowView(c, d, facts(MON, { todosOpen: 5 }), MON), `${c.item} ${c.target}`).toBeNull();
+    // every title a shown row can carry is a real one: no "-2 days off"
+    for (let target = -1; target <= 9; target++) {
+      const v = rowView(ch({ item: 'days', target, floor: target - 1 }), slot, f, MON);
+      if (v) expect(v.title).toMatch(/^Every day this week, (two|three|four) days off$/);
+    }
+    // and what the rules do make is shown, as before
+    expect(rowView(ch({ item: 'days', target: 5, floor: 4 }), slot, f, MON)).not.toBeNull();
+    expect(rowView(ch({ item: 'sessions', target: 3, floor: 2 }), slot, f, MON)).not.toBeNull();
+    expect(rowView(ch({ item: 'habits', target: 3 }), d, facts(MON), MON)).not.toBeNull();
+  });
+});
+
 describe('the hard lines hold in every word the row and the sheet can say', () => {
   // distance, pace, weight, food, sleep, pain, a clock deadline, a count of to-dos or of journal lines
   const NEVER = /\b(miles?|km|kilometers?|distance|pace|faster|speed|weigh\w*|heavier|pounds?|lbs?|kg|calories?|food|eat\w*|ate|diet\w*|meals?|sleep\w*|slept|pain\w*|sore|hurts?|aches?|injur\w*|noon|midnight|deadline|o[’']clock|a\.m|p\.m|by \d|before \d|journal|lines?)\b|\d{1,2}:\d{2}|\d+ to-dos?/i;
@@ -389,6 +571,30 @@ describe('the hard lines hold in every word the row and the sheet can say', () =
           // never more sessions than the plan holds
           if (o.item === 'sessions') expect(o.target).toBeLessThan(f.week.sessions.planned);
           if (!fitness) expect(o.item).not.toMatch(/^session/);
+          // a numbered item stays inside its published bounds, and so does every step "Easier" can take from it
+          const bounds = (CHALLENGE_BOUNDS as Record<string, readonly [number, number]>)[o.item];
+          if (bounds) {
+            expect(o.target).toBeGreaterThanOrEqual(bounds[0]);
+            expect(o.target).toBeLessThanOrEqual(bounds[1]);
+            let store = offerInto(emptyRewards(U, shiftDays(MON, -60)), slot, o, at(MON, 7));
+            for (let step = 0; step < 6; step++) {
+              store = easierChallenge(store, slot.key);
+              const eased = store.challenges[slot.key]!;
+              expect(eased.target).toBeGreaterThanOrEqual(bounds[0]);
+              expect(eased.target).toBeLessThanOrEqual(o.target);
+              if (eased.floor !== undefined) expect(eased.floor).toBeLessThan(eased.target);
+              for (const words of everyWord(eased, slot, f, today)) {
+                expect(words, `${o.item} eased: ${words}`).not.toMatch(NEVER);
+                if (!fitness) expect(words, `${o.item} eased with Fitness off: ${words}`).not.toMatch(TRAINING);
+              }
+            }
+          } else {
+            // an item with no size asks for exactly what is there: the habits the person has, the list as it stands, one goal, one session
+            expect(o.target).toBe(o.item === 'habits' ? f.day.habitsLive : o.item === 'list' ? f.todosOpen : o.item === 'sessions' ? f.week.sessions.planned - 1 : 1);
+            expect(hasEasier({ ...o, state: 'offered' })).toBe(false);
+          }
+          // the only numbers any of its words carry are its own target and floor, the count of the day or week, and what it pays
+          for (const words of everyWord(c, slot, f, today)) for (const n of words.match(/\d+/g) ?? []) expect([5, 10, 20, o.target, o.floor, ...Array.from({ length: o.target + 1 }, (_, i) => i)], `${o.item}: ${words}`).toContain(Number(n));
         }
       }
     }

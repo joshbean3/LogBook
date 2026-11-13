@@ -26,10 +26,29 @@ const slot = (userId: string, kind: 'day' | 'week', date: ISODate): Slot => {
   return { key, kind, date, seed: seedOf(`${userId}:${key}`) };
 };
 
+/*
+ * Which days of a week hold a day challenge (Monday 0 to Sunday 6). Never two days running:
+ * - "One a week" is the seed's day; a Monday gives way to Tuesday when the week before chose its Sunday;
+ * - the second of "Two a week" is Tuesday to Sunday, never beside the first, and not a Sunday when next week's first is
+ *   its Monday.
+ * Each looks one week away at most, and only at the seeds, so every device agrees.
+ */
+const seedDay = (userId: string, monday: ISODate): number => seedOf(`${userId}:d:${monday}`) % 7;
+const firstDay = (userId: string, monday: ISODate): number => {
+  const d = seedDay(userId, monday);
+  return d === 0 && seedDay(userId, shiftDays(monday, -7)) === 6 ? 1 : d;
+};
+const secondDay = (userId: string, monday: ISODate, first: number): number => {
+  const mondayNext = firstDay(userId, shiftDays(monday, 7)) === 0;
+  const free = [1, 2, 3, 4, 5, 6].filter((d) => Math.abs(d - first) > 1 && !(d === 6 && mondayNext));
+  return free[seedOf(`${userId}:d2:${monday}`) % free.length]!;
+};
+
 /**
  * The week's slots for an account: the same on every device, since they are a function of the account's id and the week
- * alone. One day challenge on a day chosen by seed (two on different days with "Two a week", none with Off), and a week
- * challenge on three Mondays in four. Any day of the week may be passed.
+ * (and the week before) alone. One day challenge on a day chosen by seed (two with "Two a week", none with Off), and a
+ * week challenge on three Mondays in four. Day challenges never fall on two days running (`firstDay`, `secondDay`). Any
+ * day of the week may be passed.
  */
 export const challengeSlots = (userId: string, week: ISODate, cadence: 0 | 1 | 2 = 1): Slot[] => {
   if (cadence === 0) return [];
@@ -37,9 +56,8 @@ export const challengeSlots = (userId: string, week: ISODate, cadence: 0 | 1 | 2
   const out: Slot[] = [];
   const index = Math.round(daysBetween(WEEK_ZERO, monday) / 7);
   if ((((index + seedOf(userId)) % 4) + 4) % 4 !== 3) out.push(slot(userId, 'week', monday));
-  const first = seedOf(`${userId}:d:${monday}`) % 7;
-  const days = [first];
-  if (cadence === 2) days.push((first + 1 + (seedOf(`${userId}:d2:${monday}`) % 6)) % 7);
+  const first = firstDay(userId, monday);
+  const days = cadence === 2 ? [first, secondDay(userId, monday, first)] : [first];
   for (const d of days.sort((a, b) => a - b)) out.push(slot(userId, 'day', shiftDays(monday, d)));
   return out;
 };
@@ -73,6 +91,18 @@ export interface ChallengeFacts {
   day: DayFacts;
   /** To-dos open on today's list now. */
   todosOpen: number;
+  /**
+   * For "Clear this morning's list" once it was added: of the to-dos that were on the day's list at that moment, how many
+   * are still open on it and how many are checked off. A to-do written afterwards is in neither number, and one that was
+   * deleted or moved to another day has left both. Absent (an older caller): only the day's counts are known.
+   */
+  list?: { open: number; done: number };
+  /**
+   * When the newest to-do on the day's list was made (its `createdAt`, the server's clock), when known. A list challenge
+   * added now is stamped no earlier than this, so "the list when it was added" is told by the to-dos' own times and a
+   * phone whose clock runs behind the server's still has its whole list.
+   */
+  todosNewest?: string;
   /** The kinds of training planned for the day and not skipped, in the plan's order. */
   planned: TrainKind[];
   week: {
@@ -99,6 +129,8 @@ export interface Offer {
 }
 const offer = (item: string, target: number, floor?: number): Offer => (floor !== undefined && floor >= 1 && floor < target ? { item, target, floor, base: 0 } : { item, target, base: 0 });
 
+const habitsDone = (f: ChallengeFacts): number => f.day.habitsLiveDone ?? Math.min(f.day.habitsDone, f.day.habitsLive);
+
 const sized = (b: Baseline, item: Numbered, pick: (w: Baseline['weeks'][number]) => number, size: ChallengeSize): number => {
   const [lo, hi] = CHALLENGE_BOUNDS[item];
   const v = b.weeks.slice(-4).map(pick).sort((x, y) => x - y);
@@ -120,7 +152,8 @@ export const menuFor = (s: Slot, b: Baseline, f: ChallengeFacts, size: Challenge
   const out: Offer[] = [];
   if (s.kind === 'day') {
     if (f.today !== s.date || f.day.date !== s.date) return [];
-    if (f.day.habitsLive >= 2) out.push(offer('habits', f.day.habitsLive));
+    // an offer always asks for something: not once every habit is already done
+    if (f.day.habitsLive >= 2 && habitsDone(f) < f.day.habitsLive) out.push(offer('habits', f.day.habitsLive));
     if (f.day.goalDay === 'open') out.push(offer('goal', 1));
     if (f.fitness && f.day.trainRequired) {
       const kind = f.planned.find((k) => !f.day.train[k]);
@@ -148,9 +181,12 @@ export const menuFor = (s: Slot, b: Baseline, f: ChallengeFacts, size: Challenge
   }
   return out;
 };
-/** The rule's pick for a slot, or null when there is nothing to offer. */
+/**
+ * The rule's pick for a slot, or null when there is nothing to offer. Only from what could be added there and then
+ * (`canAdd`): an offer that cannot be added is never shown, and kept in the store it would later count as one let go.
+ */
 export const offerChallenge = (s: Slot, b: Baseline, f: ChallengeFacts, size: ChallengeSize): Offer | null => {
-  const menu = menuFor(s, b, f, size);
+  const menu = menuFor(s, b, f, size).filter((o) => canAdd({ ...o, state: 'offered', at: '' }, s, f));
   return menu.length ? menu[s.seed % menu.length]! : null;
 };
 
@@ -193,11 +229,12 @@ export const progressOf = (c: Pick<Challenge, 'item' | 'base'>, f: ChallengeFact
   if (c.item.startsWith('session:')) return f.day.train[c.item.slice(8) as TrainKind] ? 1 : 0;
   switch (c.item) {
     case 'habits':
-      return f.day.habitsLiveDone ?? Math.min(f.day.habitsDone, f.day.habitsLive);
+      return habitsDone(f);
     case 'goal':
       return f.day.goalDay === 'done' ? 1 : 0;
     case 'list':
-      return Math.max(0, f.day.todosDone - c.base);
+      // only the to-dos that were on the list when it was added, when the facts can tell them apart
+      return Math.max(0, (f.list ? f.list.done : f.day.todosDone) - c.base);
     case 'full':
       return isFullDay(f.day) ? 1 : 0;
     case 'days':
@@ -215,10 +252,21 @@ export const progressOf = (c: Pick<Challenge, 'item' | 'base'>, f: ChallengeFact
   }
 };
 
-/** A day challenge pays 5. A week challenge pays 20 in full and 10 at its floor. Below that, nothing. */
+/**
+ * What "Clear this morning's list" asks for now: the list as it stood when it was added, less what has since been deleted
+ * or moved to another day (nobody is asked to finish a to-do that is no longer there). It never grows. Any other
+ * challenge: its own target.
+ */
+export const listTarget = (c: Pick<Challenge, 'item' | 'target' | 'base'>, f: ChallengeFacts): number => (c.item === 'list' && f.list ? Math.min(c.target, progressOf(c, f) + f.list.open) : c.target);
+
+/**
+ * A day challenge pays 5. A week challenge pays 20 in full and 10 at its floor. Below that, nothing. A floor is one only
+ * from 1 up to under the target (as `offer` makes them): a stored 0 is no floor, so nothing is ever paid for nothing done.
+ */
 export const payFor = (kind: Slot['kind'], c: Pick<Challenge, 'target' | 'floor'>, progress: number): number => {
+  if (c.target < 1) return 0;
   if (progress >= c.target) return kind === 'day' ? RULES.challenge.day : RULES.challenge.weekFull;
-  return kind === 'week' && c.floor !== undefined && progress >= c.floor ? RULES.challenge.weekFloor : 0;
+  return kind === 'week' && c.floor !== undefined && c.floor >= 1 && c.floor < c.target && progress >= c.floor ? RULES.challenge.weekFloor : 0;
 };
 
 /**
@@ -238,7 +286,8 @@ export const canAdd = (c: Challenge, s: Slot, f: ChallengeFacts): boolean => {
 
 /**
  * Where an added challenge stands by the facts: still `added`, `done` (with what it pays), or `void` (its session was
- * moved or deleted, its day or week was paused, or Fitness went off: it ends silently, with no record). A day challenge
+ * moved or deleted, every to-do of its list was deleted or moved away, its day or week was paused, or Fitness went off:
+ * it ends silently, with no record). A day challenge
  * is read only on its own day. A week challenge is done the moment its target is met, or at its floor once the week is
  * over. Any other state is returned as it is.
  */
@@ -249,6 +298,12 @@ export const challengeState = (c: Challenge, s: Slot, f: ChallengeFacts): { stat
     if (f.day.date !== s.date) return { state: 'added', progress, pay: 0 };
     if (f.day.held) return { state: 'void', progress, pay: 0 };
     if (c.item.startsWith('session:') && (!f.fitness || !f.planned.includes(c.item.slice(8) as TrainKind))) return { state: 'void', progress, pay: 0 };
+    if (c.item === 'list' && f.list) {
+      // the list as it stands: every to-do of it deleted or moved with none done is nothing left to ask (it ends silently)
+      const target = listTarget(c, f);
+      if (target < 1) return { state: 'void', progress, pay: 0 };
+      return progress >= target ? { state: 'done', progress, pay: payFor('day', { target }, progress) } : { state: 'added', progress, pay: 0 };
+    }
   } else {
     if (f.week.monday !== s.date) return { state: 'added', progress, pay: 0 };
     if (f.week.paused > 0) return { state: 'void', progress, pay: 0 };
@@ -273,6 +328,7 @@ export const offerInto = (s: Rewards, sl: Slot, o: Offer, at: Date): Rewards => 
   if (o.floor !== undefined) c.floor = o.floor;
   return put(s, sl.key, c);
 };
+const LIST_STAMP_MAX_MS = 36 * 3_600_000;
 /** "Add to today" / "Add to this week". Refused (the same store comes back) unless `canAdd`. Progress so far is kept as its base. */
 export const addChallenge = (s: Rewards, sl: Slot, f: ChallengeFacts, at: Date): Rewards => {
   const c = s.challenges[sl.key];
@@ -282,6 +338,9 @@ export const addChallenge = (s: Rewards, sl: Slot, f: ChallengeFacts, at: Date):
     // the list as it stands now: every to-do open on it, counted from what is already done today
     next.target = f.todosOpen;
     next.base = f.day.todosDone;
+    // stamped no earlier than its newest to-do (within reason: a time more than a day and a half ahead is not a clock)
+    const newest = f.todosNewest ? Date.parse(f.todosNewest) : NaN;
+    if (newest > at.getTime() && newest - at.getTime() <= LIST_STAMP_MAX_MS) next.at = new Date(newest).toISOString();
   } else next.base = progressOf(c, f);
   return put(s, sl.key, next);
 };
@@ -304,14 +363,19 @@ export const easierChallenge = (s: Rewards, key: string): Rewards => {
   return put(s, key, { ...rest, target: o.target, ...(o.floor !== undefined ? { floor: o.floor } : null) });
 };
 
+/** Not plain words: a link, markup or code, a line break, a hidden or direction-turning character. */
+const NOT_PLAIN = /https?:|www\.|\b[a-z0-9-]+\.(com|net|org|io|app|co|ly|me|dev|ai)\b|[<>{}[\]`\\|^~_=*#@]|[\u0000-\u001f\u007f\u200b-\u200f\u202a-\u202e\u2066-\u2069]/i;
+/** Words aimed at the app instead of the person, and the words this app never says (the words table; the assistant is "the assistant"). */
+const NOT_SAID = /\b(ignore|instructions?|prompt|settings|passwords?|passcode|log ?in|sign (in|out|up)|delete|install|download|click|tap|streaks?|sprints?|quests?|points|coins?|xp|coach\w*|chatbot|bot|orby|ai)\b/i;
 const NEVER = /\b(miles?|km|kilometers?|distance|pace|faster|speed|weigh\w*|heavier|pounds?|lbs?|kg|calories?|food|eat\w*|ate|diet\w*|meals?|sleep\w*|slept|pain\w*|sore|hurts?|aches?|injur\w*|noon|midnight|deadline|o[’']clock|a\.m|p\.m)\b/i;
 /**
  * May the assistant's one-line reason be shown? At most 90 characters, no number that is not in the title, no clock time,
- * and nothing about distance, pace, weight, food, sleep or pain.
+ * and nothing about distance, pace, weight, food, sleep or pain. It is plain words to the person: no link, no markup, no
+ * line break, nothing told to the app ("ignore", "open Settings", "delete"), and none of the words the app never says.
  */
 export const reasonAllowed = (reason: string, title: string): boolean => {
   const r = reason.trim();
-  if (!r || r.length > 90 || NEVER.test(r)) return false;
+  if (!r || r.length > 90 || NEVER.test(r) || NOT_PLAIN.test(r) || NOT_SAID.test(r)) return false;
   const allowed = new Set(title.match(/\d+/g) ?? []);
   return (r.match(/\d+/g) ?? []).every((n) => allowed.has(n));
 };

@@ -267,6 +267,41 @@ describe('Orbs off', () => {
   });
 });
 
+describe('before this phone has a store (a new sign-in, the error screen’s Reset, a reinstall; offline it can stay so)', () => {
+  it('the page is not blank: its bar, How Orbs work and the switches, and nothing it cannot know', async () => {
+    const m = await launch(START, null);
+    expect(m.store.getOrbs()).toBeNull();
+    const html = draw(m.OrbsPage);
+    const said = text(html);
+    expect(said.split('\n')[0]).toBe('Orbs');
+    for (const row of ['How Orbs work', 'Show Orbs when you earn them', 'Your week', 'Challenges']) expect(said).toContain(row);
+    // no total, no level, no week, no keepsakes, and no promise about a first Orb it cannot know of
+    for (const part of ['orp-poster', 'orp-total', 'orp-week', 'orp-now', 'orp-keeps']) expect(html).not.toContain(part);
+    expect(said).not.toMatch(/Level|one thing away|Orbs start|Keepsakes/);
+    expect(said).not.toMatch(/(^|\D)0(\D|$)/);
+  });
+  it('and it is the whole page as soon as the store is there', async () => {
+    const m = await launch(WEEK_TODAY, null);
+    expect(text(draw(m.OrbsPage))).not.toContain('Level');
+    m.store.setOrbs(firstWeek());
+    expect(text(draw(m.OrbsPage))).toContain('Level 1');
+  });
+  it('with Orbs off it is still only the bar', async () => {
+    const m = await launch(START, null);
+    m.store.setSwitches({ on: false });
+    expect(text(draw(m.OrbsPage))).toBe('Orbs');
+  });
+});
+
+describe('one broken part never blanks the page', () => {
+  // what the boundary does when a section throws is covered where it lives (app/SectionBoundary.test.tsx)
+  it('the challenge rows and the keepsakes each sit in their own boundary', () => {
+    const src = readFileSync(join(__dirname, 'OrbsPage.tsx'), 'utf8');
+    expect(src).toMatch(/<SectionBoundary name="orbs\.challenge"[^>]*>\s*<ChallengeRows scope="page" \/>\s*<\/SectionBoundary>/);
+    expect(src).toMatch(/<SectionBoundary name="orbs\.keepsakes"[^>]*>\s*<Keepsakes [^>]*\/>\s*<\/SectionBoundary>/);
+  });
+});
+
 describe('the switches', () => {
   const rows = (m: Mods, place: 'page' | 'settings') => text(renderToStaticMarkup(<m.Switches.OrbsSwitchRows place={place} />));
   it('are Orbs, Show Orbs when you earn them, Your week, Challenges and How Orbs work', async () => {

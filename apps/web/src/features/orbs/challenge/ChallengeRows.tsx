@@ -4,7 +4,7 @@ import { useSheet } from '@/ui/Sheet';
 import { useChallengeCadence, useOrbsOn } from '../store';
 import { openChallenge } from './ChallengeSheet';
 import type { RowView, Scope } from './model';
-import { useChallengeRowViews } from './useBoard';
+import { useChallengeRows, useChallengeRowViews } from './useBoard';
 import './challenge.css';
 
 /**
@@ -25,13 +25,13 @@ export const ChallengeRows = ({ scope }: { scope: Scope }) => {
 };
 
 const Rows = ({ scope }: { scope: Scope }) => {
-  const rows = useChallengeRowViews(scope);
+  const { rows, today } = useChallengeRows(scope);
   const sheet = useSheet();
   if (!rows.length) return null;
   return (
     <>
       {rows.map((v) => (
-        <ChallengeRow key={v.key} view={v} onOpen={() => openChallenge(sheet, v.key, v.kind)} />
+        <ChallengeRow key={v.key} view={v} onOpen={() => openChallenge(sheet, v.key, v.kind, today ?? undefined)} />
       ))}
     </>
   );
