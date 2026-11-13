@@ -420,6 +420,26 @@ describe('test 11: state and pay', () => {
     expect(mergeRewards(added, other).challenges[slot.key]).toMatchObject({ item: 'goal', state: 'added' });
     expect(mergeRewards(other, added).challenges[slot.key]).toMatchObject({ item: 'goal', state: 'added' });
   });
+  it('"Drop it": an added challenge is let go like a skip, pays nothing, and a merge with a copy that still holds it does not bring it back', () => {
+    const slot = daySlot(day(1));
+    const offered = offerInto(emptyRewards(U, MON), slot, { item: 'goal', target: 1, base: 0 }, at(day(1), 7));
+    const added = addChallenge(offered, slot, facts(day(1), { day: { goalDay: 'open' } }), at(day(1), 9));
+    const dropped = skipChallenge(added, slot.key, at(day(1), 10));
+    expect(dropped.challenges[slot.key]).toMatchObject({ item: 'goal', state: 'skipped' });
+    expect(totalOf(dropped)).toBe(0);
+    // the goal is done afterwards: nothing is paid, and it cannot be added again
+    const f = { [slot.key]: facts(day(1), { day: { goalDay: 'done' } }) };
+    expect(settleChallenges(dropped, f, at(day(1), 11)).store).toBe(dropped);
+    expect(addChallenge(dropped, slot, facts(day(1), { day: { goalDay: 'open' } }), at(day(1), 11))).toBe(dropped);
+    // the server's copy (or another phone's) still says added
+    expect(mergeRewards(dropped, added).challenges[slot.key]?.state).toBe('skipped');
+    expect(mergeRewards(added, dropped).challenges[slot.key]?.state).toBe('skipped');
+    // a finished one is left alone, and a payment already made stands over a drop
+    const done = settleChallenges(added, f, at(day(1), 10)).store;
+    expect(skipChallenge(done, slot.key, at(day(1), 11))).toBe(done);
+    expect(mergeRewards(dropped, done).challenges[slot.key]?.state).toBe('done');
+    expect(totalOf(mergeRewards(dropped, done))).toBe(5);
+  });
 });
 
 describe('cadence: two skips or lapses in a row stop a kind for 14 days', () => {

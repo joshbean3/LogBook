@@ -828,7 +828,9 @@ const joinDay = (x: DayRec, y: DayRec): DayRec => {
 const stable = (v: unknown): string => JSON.stringify(v, (_k, o: unknown) => (o && typeof o === 'object' && !Array.isArray(o) ? Object.fromEntries(Object.entries(o as Record<string, unknown>).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))) : o));
 /** The one of two that sorts first by its JSON: an arbitrary but fixed choice, so a tie is settled the same way everywhere. */
 const firstOf = <T>(x: T, y: T): T => (stable(x) <= stable(y) ? x : y);
-const STATE_RANK: Record<ChallengeStateName, number> = { offered: 1, skipped: 2, void: 2, added: 3, done: 4 };
+// letting go is further than holding on: a challenge dropped on one phone ("Drop it") is not brought back as `added` by
+// the copy another phone, or the server, still holds. A payment is never lost to it: that is the once-ledger's.
+const STATE_RANK: Record<ChallengeStateName, number> = { offered: 1, added: 2, skipped: 3, void: 3, done: 4 };
 const joinChallenge = (x: Challenge, y: Challenge): Challenge => {
   const d = STATE_RANK[x.state] - STATE_RANK[y.state];
   if (d) return d > 0 ? x : y;
@@ -859,7 +861,7 @@ const joinOff = (a: Rewards['off'], b: Rewards['off']): Rewards['off'] => {
  *   standing take the maximum of the number, of the actions and of each kind. (Open days are never sent: each phone
  *   recomputes them from the synced facts. `tidy` then makes a closed day's number the sum of its kinds.)
  * - The once-ledger: the larger payment and the earlier day. Keepsakes and "seen": the earlier day.
- * - A challenge: the further state, then the earlier time. The switches: the newest change.
+ * - A challenge: the further state (offered, added, let go, done), then the earlier time. The switches: the newest change.
  * - Another account's store is never merged: `a` comes back.
  */
 export const mergeRewards = (a: Rewards, b: Rewards): Rewards => {
