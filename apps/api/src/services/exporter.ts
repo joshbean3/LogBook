@@ -1,6 +1,8 @@
 import { createHash } from 'node:crypto';
 import { cleanBands, DAY_TAG_LABEL_MAX, DAY_TAG_MAX, emptyBands, isISODate, zDayPlanPut, type DayBands, normalizeMorningSettings, type ConsentEvent, type ExportActivity, type ExportV2, type LegacyMorningDay } from '@logbook/shared';
 import { LEARNING_MAX, type Learning } from '@logbook/shared';
+import { tidy, today as serverToday, zRewards, type Rewards } from '@logbook/shared';
+import { admitRewards, REWARDS_MAX_BYTES } from './rewardsAdmit.js';
 import { and, asc, eq, isNull, type SQL } from 'drizzle-orm';
 import type { SQLiteColumn, SQLiteTable } from 'drizzle-orm/sqlite-core';
 import { z } from 'zod';
@@ -469,15 +471,25 @@ export type ImportV2 = z.infer<typeof zExportV2>;
 const zImportTags = z.array(z.object({ id: z.string().min(1).max(32).regex(/^[a-z0-9-]+$/), label: z.string().trim().min(1).max(DAY_TAG_LABEL_MAX) })).max(DAY_TAG_MAX);
 /**
  * The `user_settings` documents an import may write, each with the check that makes it safe (undefined: leave it out).
- * Everything else in a file's `settings` is ignored: `consent`, `consentLog`, `intros`, `status`, counters.
+ * Everything else in a file's `settings` is ignored: `consent`, `consentLog`, `intros`, `status`, counters. A check is
+ * handed the account the file is being imported into.
  */
-export const IMPORTABLE_SETTINGS: Record<string, (v: unknown) => unknown> = {
+export const IMPORTABLE_SETTINGS: Record<string, (v: unknown, userId: string) => unknown> = {
   morning: (v) => (v && typeof v === 'object' && !Array.isArray(v) ? normalizeMorningSettings(v as Record<string, unknown>) : undefined),
   journalTags: (v) => {
     const r = zImportTags.safeParse(v);
     return r.success ? r.data : undefined;
   },
   sleepGoalMin: (v) => (typeof v === 'number' && Number.isInteger(v) && v >= 240 && v <= 720 ? v : undefined),
+  // The Orbs store (the export carries it as `settings.rewards`): checked like anything a phone sends, cut the same way
+  // (`admitRewards`: closed days only, nothing dated ahead, no number the rules cannot pay), and put under the account it
+  // is imported into. Like every setting here it only fills an account that has none.
+  rewards: (v, userId) => {
+    const r = zRewards.safeParse(v);
+    if (!r.success) return undefined;
+    const store = tidy(admitRewards({ ...(r.data as Rewards), userId }, serverToday()));
+    return JSON.stringify(store).length > REWARDS_MAX_BYTES ? undefined : store;
+  },
 };
 
 /**
@@ -546,7 +558,7 @@ const importSteps = (db: DB, userId: string, b: ImportV2): { steps: Generator<vo
     // feature intros or a training status into an account (a yes to an AI switch is given in the app, never imported)
     for (const [key, check] of Object.entries(IMPORTABLE_SETTINGS)) {
       yield;
-      const value = check(b.settings[key]);
+      const value = check(b.settings[key], userId);
       if (value === undefined) continue;
       const res = t.insert(userSettings).values({ userId, key, json: JSON.stringify(value), updatedAt: now }).onConflictDoNothing().run();
       if (res.changes) bump('settings');

@@ -75,16 +75,60 @@ describe('PUT /me/rewards', () => {
     const r = await put(me, store(me.id, { [day(27)]: { n: 4, a: 4, k: { habit: 4 } }, [day(20)]: closed(1) }));
     expect(Object.keys(r.body.rewards.days)).toEqual([day(20)]);
   });
-  it('refuses days later than its own date plus one, and a clock beyond it', async () => {
-    const ahead = store(me.id, { [day(29)]: closed(1), [day(30)]: closed(9), [day(60)]: closed(9) }, { clock: day(60), once: { [`week:${day(49)}`]: { on: day(57), n: 20 } }, keepsakes: { 'days:10': { on: day(55) }, first: { on: day(1) } }, seen: { first: day(58) }, wt: { [day(49)]: 5, [D0]: 5 } });
+  it('refuses days later than its own date, and a clock beyond its date plus one', async () => {
+    const ahead = store(me.id, { [day(27)]: closed(1), [day(29)]: closed(1), [day(30)]: closed(9), [day(60)]: closed(9) }, { clock: day(60), once: { [`week:${day(49)}`]: { on: day(57), n: 20 } }, keepsakes: { 'days:10': { on: day(55) }, first: { on: day(1) } }, seen: { first: day(58) }, wt: { [day(49)]: 5, [D0]: 5 } });
     const r = await put(me, ahead);
     expect(r.status).toBe(200);
-    expect(Object.keys(r.body.rewards.days)).toEqual([day(29)]);
+    expect(Object.keys(r.body.rewards.days)).toEqual([day(27)]);
     expect(r.body.rewards.clock).toBe(day(29));
     expect(r.body.rewards.once).toEqual({});
     expect(r.body.rewards.keepsakes).toEqual({ first: { on: day(1) } });
     expect(r.body.rewards.seen).toEqual({});
     expect(r.body.rewards.wt).toEqual({ [D0]: 5 });
+  });
+  it('a day closed before it could have closed is not taken: one phone with a wrong date cannot shut today for the others', async () => {
+    // A phone whose date was set ahead closed today and yesterday early. No phone closes a day before its own date is two
+    // past it, and no phone's date is more than one past the server's: a day closed this early was not closed honestly.
+    const early = store(me.id, { [day(26)]: closed(2), [day(27)]: closed(3), [TODAY]: closed(1), [day(29)]: closed(1) });
+    const r = await put(me, early);
+    expect(Object.keys(r.body.rewards.days)).toEqual([day(26), day(27)]);
+    // a day rebuilt from the account's facts after a wipe is closed as far as the phone's yesterday, which is the
+    // server's today for a phone east of it
+    const rebuilt = store(me.id, { [TODAY]: { n: 2, a: 2, k: { habit: 2 }, c: 1, r: 1 }, [day(29)]: { n: 2, a: 2, c: 1, r: 1 } });
+    expect(Object.keys((await put(me, rebuilt)).body.rewards.days)).toEqual([day(26), day(27), TODAY]);
+  });
+  it('numbers no day can hold are cut to what the rules can pay, and are not kept by the merge', async () => {
+    await put(me, store(me.id, { [day(1)]: closed(3), [day(2)]: closed(2) }));
+    const wild = store(me.id, { [day(1)]: { n: 999, a: 999, k: { todo: 99, habit: 99 }, c: 1 }, [day(2)]: { n: 999, a: 3, c: 1 } }, { once: { [`week:${D0}`]: { on: day(8), n: 999 }, 'goal:year:2026': { on: day(3), n: 999 } } });
+    const r = await put(me, wild);
+    expect(r.status).toBe(200);
+    expect(r.body.rewards.days[day(1)]).toMatchObject({ n: 33, k: { todo: 5, habit: 8 } });
+    expect(r.body.rewards.days[day(2)].n).toBe(33);
+    expect(r.body.rewards.once).toEqual({ [`week:${D0}`]: { on: day(8), n: 20 }, 'goal:year:2026': { on: day(3), n: 90 } });
+    expect((await boot(me)).rewards).toEqual(r.body.rewards);
+  });
+  it('forty writes at once all land, and the account’s copy is the merge of them all', async () => {
+    const sends = Array.from({ length: 40 }, (_, i) => store(me.id, { [day(i % 20)]: closed(1 + (i % 5)), [day(20)]: closed(1, { todo: 1 }) }, { once: { [`challenge:d:${day(i % 20)}`]: { on: day(i % 20), n: 5 } }, keepsakes: i % 2 ? { first: { on: day(i % 7) } } : {} }));
+    const answers = await Promise.all(sends.map((b) => put(me, b)));
+    expect(answers.map((a) => a.status)).toEqual(Array(40).fill(200));
+    const want = tidy(sends.reduce((m, b) => mergeRewards(m, b)));
+    const kept = (await boot(me)).rewards as Rewards;
+    expect(kept).toEqual(want);
+    expect(kept.days[day(4)]!.n).toBe(5);
+    expect(kept.keepsakes.first).toEqual({ on: day(0) });
+    // and in the other order
+    const other = await signUp(app, 'reverse@example.com');
+    for (const b of [...sends].reverse()) await put(other, { ...b, userId: other.id });
+    expect({ ...((await boot(other)).rewards as Rewards), userId: me.id }).toEqual(want);
+  });
+  it('before the rules begin, the first day that can earn stays the day they begin', async () => {
+    const before = parseISO(shiftDays(D0, -3));
+    before.setHours(12, 0, 0, 0);
+    vi.setSystemTime(before);
+    const r = await put(me, emptyRewards(me.id, shiftDays(D0, -3)));
+    expect(r.status).toBe(200);
+    expect(r.body.rewards.startedOn).toBe(D0);
+    expect(r.body.rewards.clock <= shiftDays(D0, -2)).toBe(true);
   });
   it('takes nothing from before the rules began', async () => {
     const early = { ...store(me.id, { [shiftDays(D0, -3)]: closed(5), [D0]: closed(1) }), startedOn: shiftDays(D0, -30) };
@@ -149,5 +193,47 @@ describe('admitRewards', () => {
   it('ends an off range at the limit when it runs past it', () => {
     const s = store('u', {}, { off: [{ from: day(3), to: day(90) }, { from: day(80), to: null }] });
     expect(admitRewards(s, TODAY).off).toEqual([{ from: day(3), to: day(29) }]);
+  });
+});
+
+describe('the account’s copy travels with the account', () => {
+  const kept = () => store(me.id, { [day(1)]: closed(3), [day(2)]: closed(5, { todo: 2, 'goal:day': 3 }) }, { once: { 'goal:month:2026-11': { on: day(14), n: 30 } }, keepsakes: { first: { on: day(1) }, 'goal:month:2026-11': { on: day(14), t: 'Run 60 miles' } }, set: { on: true, show: false, weekTarget: 4, cadence: 2, size: 'bold', at: '2026-12-01T09:00:00.000Z' } });
+  it('the export carries it, and an import into a new account restores it under that account’s id', async () => {
+    await put(me, kept());
+    const file = (await me.call('GET', '/api/export')).body;
+    expect(file.settings.rewards).toEqual(kept());
+    const fresh = await signUp(app, 'moved@example.com');
+    expect((await fresh.call('POST', '/api/import', file)).status).toBe(200);
+    const back = (await boot(fresh)).rewards as Rewards;
+    expect(back).toEqual({ ...kept(), userId: fresh.id });
+    // the phone reads it as its own
+    expect(totalOf(back)).toBe(38);
+  });
+  it('an import never replaces a copy the account already has, and takes in nothing that is not a store', async () => {
+    await put(me, kept());
+    const file = (await me.call('GET', '/api/export')).body;
+    const busy = await signUp(app, 'busy@example.com');
+    const own = store(busy.id, { [day(5)]: closed(1) });
+    await put(busy, own);
+    await busy.call('POST', '/api/import', file);
+    expect((await boot(busy)).rewards).toEqual(own);
+    const empty = await signUp(app, 'empty@example.com');
+    for (const bad of [{ ...kept(), v: 2 }, 'x', [], { ...kept(), days: { [day(1)]: { n: -5, a: 1, c: 1 } } }]) {
+      await empty.call('POST', '/api/import', { ...file, settings: { ...file.settings, rewards: bad } });
+      expect((await boot(empty)).rewards, JSON.stringify(bad).slice(0, 40)).toBeNull();
+    }
+    // what a file claims is cut like anything a phone sends: no day in the future, no impossible number
+    await empty.call('POST', '/api/import', { ...file, settings: { ...file.settings, rewards: { ...kept(), days: { [day(1)]: { n: 999, a: 1, c: 1 }, [day(90)]: closed(9) } } } });
+    const cut = (await boot(empty)).rewards as Rewards;
+    expect(cut.userId).toBe(empty.id);
+    expect(cut.days).toEqual({ [day(1)]: { n: 33, a: 1, c: 1 } });
+  });
+  it('deleting the account removes it', async () => {
+    await put(me, kept());
+    expect((await me.call('DELETE', '/api/me', { password: 'correct horse 42' })).status).toBeLessThan(300);
+    expect((await me.call('GET', '/api/bootstrap')).status).toBe(401);
+    // the same address signs up again and starts with nothing
+    const again = await signUp(app, 'orbs@example.com');
+    expect((await boot(again)).rewards).toBeNull();
   });
 });
