@@ -1,4 +1,4 @@
-import type { Moment } from '@logbook/shared';
+import { isOpen, type ISODate, type Moment } from '@logbook/shared';
 
 /**
  * The moment's rules, with no DOM in them: when an Orb may pop and how many, the shape of the rise and of the fan, how
@@ -59,6 +59,16 @@ export const STATUS_AFTER_MS = 1200;
 
 /** How long a flight to the counter takes, from how far it is (px): clamp(280, 220 + 0.5 x distance, 460). */
 export const flightMs = (distance: number): number => Math.round(Math.min(460, Math.max(280, 220 + 0.5 * Math.max(0, distance))));
+
+const ISO_DAY = /^\d{4}-\d{2}-\d{2}$/;
+/**
+ * Can `date` still take an Orb of this kind at `now`, by the clock alone? A tap (a to-do, a habit, a session) counts on
+ * its day until 03:00 the next morning; a day's goal reviewed late counts until the end of the next day; nothing counts
+ * on a day that has not come, an older day, or a date that is not one. The store's own answer (`orbRoom`) follows the
+ * last time the day was worked out, which can be before the day closed: a Today still held on yesterday at 03:05 must
+ * not pop an Orb the day will never be paid.
+ */
+export const dayTakes = (key: string, date: string, now: Date): boolean => ISO_DAY.test(date) && isOpen(date as ISODate, now, key === 'goal:day' ? 'evidence' : 'tap');
 
 export type PopMode = 'rise' | 'fly' | 'still';
 export interface PopAsk {
@@ -190,11 +200,12 @@ export const createClaims = () => {
       list.push(c);
       return c;
     },
-    /** Its Orbs reached the counter. */
-    land(c: Claim) {
-      if (!list.includes(c)) return;
+    /** Its Orbs reached the counter. False when the claim was let go on the way (its check taken back, the store's number fell). */
+    land(c: Claim): boolean {
+      if (!list.includes(c)) return false;
       c.landed = true;
       settle(c);
+      return true;
     },
     /** The store counted `n` Orbs of this kind and day: the oldest claims for it are confirmed. */
     confirm(key: string, date: string, n: number) {
@@ -214,6 +225,24 @@ export const createClaims = () => {
         if (c.subject === subject && !c.confirmed) return drop(c);
       }
     },
+    /**
+     * The store's number for this kind and day fell by `by` (a check taken back, here or on another row) while Orbs it
+     * had already counted were still in the air: the newest of them let go, so the counter never shows less than it did
+     * before they were born. Their landing then changes nothing.
+     */
+    fell(key: string, date: string, by: number) {
+      let left = by;
+      for (let i = list.length - 1; i >= 0 && left > 0; i--) {
+        const c = list[i]!;
+        if (!c.confirmed || c.landed || c.key !== key || c.date !== date) continue;
+        left -= c.n;
+        drop(c);
+      }
+    },
+    /** Is any claim held for this kind and day? */
+    has: (key: string, date: string) => list.some((c) => c.key === key && c.date === date),
+    /** Claims the store has not counted yet. */
+    waiting: () => list.filter((c) => !c.confirmed).length,
     /** Forget claims the store never confirmed. */
     expire(now: number) {
       list = list.filter((c) => c.confirmed || now - c.at < CLAIM_MS);

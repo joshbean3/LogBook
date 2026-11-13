@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { CLAIM_MS, counterLabel, createClaims, createPool, FAN, FIRST_ORB, flightMs, FULL_DAY_CHIP, gainToast, keepsakeToast, lightsOf, mayShowBig, momentWords, POOL_SIZE, POP, popPlan, popsAtControl, REST_QUIET_MS, statusLine, STILL, stillLights, SUBJECT_QUIET_MS, type PopAsk, type RestAsk } from './rules';
+import { CLAIM_MS, counterLabel, createClaims, createPool, dayTakes, FAN, FIRST_ORB, flightMs, FULL_DAY_CHIP, gainToast, keepsakeToast, lightsOf, mayShowBig, momentWords, POOL_SIZE, POP, popPlan, popsAtControl, REST_QUIET_MS, statusLine, STILL, stillLights, SUBJECT_QUIET_MS, type PopAsk, type RestAsk } from './rules';
 
 /**
  * The moment's rules (rules.ts): when an Orb may pop, the rise and the fan, the flight's time, the pool, what the counter
@@ -48,6 +48,33 @@ describe('when an Orb may pop', () => {
   it('Reduce Motion still pops, standing still, and never flies', () => {
     expect(popPlan(ask({ reduce: true }))).toEqual({ n: 1, mode: 'still' });
     expect(popPlan(ask({ reduce: true, counter: true, n: 3, room: 3 }))).toEqual({ n: 3, mode: 'still' });
+  });
+});
+
+describe('which day can still take an Orb, by the clock', () => {
+  const at = (iso: string) => new Date(iso);
+  it('today, always', () => {
+    for (const key of ['todo', 'habit', 'train:run', 'goal:day']) expect(dayTakes(key, '2026-11-18', at('2026-11-18T00:00:01'))).toBe(true);
+  });
+  it('yesterday by a tap until 03:00 (Today holds on it past midnight), not after', () => {
+    for (const key of ['todo', 'habit', 'train:lift']) {
+      expect(dayTakes(key, '2026-11-17', at('2026-11-18T02:59:59'))).toBe(true);
+      expect(dayTakes(key, '2026-11-17', at('2026-11-18T03:00:00'))).toBe(false);
+    }
+  });
+  it('yesterday’s goal, reviewed late, until today ends', () => {
+    expect(dayTakes('goal:day', '2026-11-17', at('2026-11-18T23:59:00'))).toBe(true);
+    expect(dayTakes('goal:day', '2026-11-16', at('2026-11-18T09:00:00'))).toBe(false);
+  });
+  it('never a day that has not come, or a date that is not one', () => {
+    expect(dayTakes('goal:day', '2026-11-19', at('2026-11-18T09:00:00'))).toBe(false);
+    expect(dayTakes('habit', '2026-11-19', at('2026-11-18T23:59:59'))).toBe(false);
+    for (const bad of ['', 'not-a-date', '2026-11', 'undefined']) expect(dayTakes('todo', bad, at('2026-11-18T09:00:00'))).toBe(false);
+  });
+  it('the last day of a month and of a year', () => {
+    expect(dayTakes('habit', '2026-11-30', at('2026-12-01T01:00:00'))).toBe(true);
+    expect(dayTakes('habit', '2026-12-31', at('2027-01-01T02:30:00'))).toBe(true);
+    expect(dayTakes('habit', '2026-12-31', at('2027-01-01T03:30:00'))).toBe(false);
   });
 });
 
@@ -204,6 +231,55 @@ describe('what the counter shows while Orbs are in the air', () => {
     expect(c.offset(D)).toBe(0);
     expect(c.claimed('todo', '2026-11-16')).toBe(0);
     expect(c.claimed('habit', '2026-11-16')).toBe(1);
+  });
+});
+
+describe('the store’s number falls while Orbs are in the air', () => {
+  const D = '2026-11-17';
+  it('a counted Orb still flying is let go, so the counter never shows less than before it was born', () => {
+    const c = createClaims();
+    const claim = c.add('todo', D, 'todo:2', 1, 0);
+    c.confirm('todo', D, 1);
+    // store 2, shown 2 - 1 = 1. Another to-do is marked not done: store 1
+    c.fell('todo', D, 1);
+    expect(c.offset(D)).toBe(0);
+    // it lands and changes nothing; the caller hears that it no longer counted
+    expect(c.land(claim)).toBe(false);
+    expect(c.offset(D)).toBe(0);
+    expect(c.size()).toBe(0);
+  });
+  it('lets go only what fell, newest first, and only of that kind and day', () => {
+    const c = createClaims();
+    const a = c.add('todo', D, 'todo:a', 1, 0);
+    const b = c.add('todo', D, 'todo:b', 1, 100);
+    const h = c.add('habit', D, 'habit:x', 1, 100);
+    const other = c.add('todo', '2026-11-16', 'todo:y', 1, 100);
+    c.confirm('todo', D, 2);
+    c.confirm('habit', D, 1);
+    c.confirm('todo', '2026-11-16', 1);
+    c.fell('todo', D, 1);
+    expect(c.land(b)).toBe(false);
+    expect(c.land(a)).toBe(true);
+    expect(c.land(h)).toBe(true);
+    expect(c.land(other)).toBe(true);
+  });
+  it('touches nothing that has landed or that the store has not counted yet', () => {
+    const c = createClaims();
+    const landed = c.add('habit', D, 'habit:a', 1, 0);
+    c.land(landed);
+    const waiting = c.add('habit', D, 'habit:b', 1, 0);
+    c.fell('habit', D, 2);
+    // one landed and not yet counted (+1), one in the air and not yet counted (0)
+    expect(c.offset(D)).toBe(1);
+    expect(c.waiting()).toBe(2);
+    expect(c.land(waiting)).toBe(true);
+  });
+  it('`land` says whether the Orb still counted: not after its check was taken back', () => {
+    const c = createClaims();
+    const claim = c.add('habit', D, 'habit:a', 1, 0);
+    c.cancel('habit:a');
+    expect(c.land(claim)).toBe(false);
+    expect(c.has('habit', D)).toBe(false);
   });
 });
 
