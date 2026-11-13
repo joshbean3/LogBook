@@ -63,6 +63,26 @@ describe('the full-screen goal page', () => {
       expect(sent).toEqual(['logbook:celebrate:year']);
     }
   });
+  it('a goal whose page opened here is never a big moment later: it is marked seen', async () => {
+    const { celebrate, wait } = await launch();
+    const store = await import('@/features/orbs/store');
+    celebrate(goal('month', '2026-11'));
+    vi.advanceTimersByTime(wait);
+    expect(sent).toEqual(['logbook:celebrate:month']);
+    expect(store.getOrbs()!.seen['goal:month:2026-11']).toBeTruthy();
+    // its Orbs arrive after all (the other phone's copy): nothing waits to open full screen
+    const cur = store.getOrbs()!;
+    store.setOrbs({ ...cur, once: { ...cur.once, 'goal:month:2026-11': { on: '2026-11-20', n: 30 } } });
+    expect(store.pendingMoments().map((m) => m.key)).not.toContain('goal:month:2026-11');
+  });
+  it('with "Show Orbs when you earn them" off, the page that opens also marks the paid goal seen', async () => {
+    const { celebrate } = await launch({ show: false, paid: 'goal:week:2026-11-16' });
+    const store = await import('@/features/orbs/store');
+    celebrate(goal('week', '2026-11-16'));
+    expect(sent).toEqual(['logbook:celebrate:week']);
+    store.setSwitches({ show: true });
+    expect(store.pendingMoments()).toEqual([]);
+  });
   it('one finish, one page, however many places show the goal', async () => {
     const { celebrate } = await launch({ on: false });
     celebrate(goal('week', '2026-11-16'));
