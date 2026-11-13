@@ -6,11 +6,11 @@ import { usePrefs } from '@/lib/prefs';
 import type { TabId } from '@/ui/nav';
 import { useSheet } from '@/ui/Sheet';
 import { TipSheet } from './TipSheet';
-import { TIP_DELAY_MS, TIP_EYEBROW, tipDue, tipsStore, type Tip } from './tips';
+import { TIP_DELAY_MS, TIP_EYEBROW, tipDue, tipsStore, type Tip, type TipMoment } from './tips';
 
 /** How often the tab is looked at while a tip waits for it to be clear. */
 const LOOK_MS = 150;
-/** A tab that is never clear in this long keeps its tip for another visit. */
+/** A tab that is never clear and still in this long keeps its tip for another visit. */
 const GIVE_UP_MS = 12_000;
 /** If the sheet's own step back in history is never heard, the tour opens after this long. */
 const TOUR_CAP_MS = 1500;
@@ -28,7 +28,7 @@ const busyNow = (): boolean => {
   if (a instanceof HTMLElement && (a.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName))) return true;
   const page = document.querySelector<HTMLElement>('.tab[data-active] > .tab-scroll');
   if (!page || !page.firstElementChild) return true;
-  return !!page.querySelector('.skel, .is-skel, .is-shell > .hero-skel, [aria-busy="true"]');
+  return !!page.querySelector('.skel, .is-skel, [aria-busy="true"]');
 };
 
 /** The lit tab's own button in the capsule: where focus goes back to when a tip closes. */
@@ -36,13 +36,15 @@ const tabButton = () => document.querySelector<HTMLElement>('.tabbar .tab-item[a
 
 /**
  * First-visit tips, mounted once in the Shell: the first time a tab is on screen at its root, its tip rises as the app's
- * own sheet. `tipDue` (tips.ts) says whether one is due from what the Shell knows; this hook waits until the tab has been
- * painted and clear for `TIP_DELAY_MS`, opens the sheet, and marks the place seen however the sheet is dismissed. A tab
- * change cancels a tip that has not risen yet.
+ * own sheet. `tipDue` (tips.ts) says whether one is due; this hook gives it what the Shell knows, waits until the tab has
+ * been painted, clear and untouched for `TIP_DELAY_MS`, opens the sheet, and marks the place seen however the sheet is
+ * dismissed. A tab change cancels a tip that has not risen yet.
  */
 export const useTabTip = ({ active, path, overlays }: { /** the tab on screen */ active: TabId; /** the path on screen: the tab's root, or the pushed page over it */ path: string; /** sheets and menus up (`NavState.overlays`) */ overlays: number }): void => {
   const sheet = useSheet();
   const navigate = useNavigate();
+  const go = useRef(navigate);
+  go.current = navigate;
   const prefs = usePrefs();
   const store = useSyncExternalStore(tipsStore.subscribe, tipsStore.get, tipsStore.get);
 
@@ -58,35 +60,36 @@ export const useTabTip = ({ active, path, overlays }: { /** the tab on screen */
   const leave = useRef<(() => void) | null>(null);
   useEffect(() => () => leave.current?.(), []);
 
-  const tip = tipDue({ path, prefs, seen: store.seen, overlays, busy: false, replaying: isReplaying(), rose: store.rose });
-  // the tip's words are fixed per place, account and build: the place is all the effect needs to follow
-  const due = useRef<Tip | null>(tip);
-  due.current = tip;
-  const place = tip?.place ?? null;
+  const moment: Omit<TipMoment, 'busy'> = { path, prefs, seen: store.seen, overlays, replaying: isReplaying(), rose: store.rose };
+  const latest = useRef(moment);
+  latest.current = moment;
+  // the place whose tip is due, as far as the Shell knows: the wait below follows it, and ends when it changes
+  const place = tipDue({ ...moment, busy: false })?.place ?? null;
 
   useEffect(() => {
     if (!place) return;
     const began = performance.now();
     let clearSince: number | null = null;
+    let down = false;
     let timer = 0;
     const open = (t: Tip) => {
       const toTour = () => {
         // the sheet closes, walks back off its own history entry, and only then does the route change: a route written
         // while that step back is still on its way would be undone by it
         let done = false;
-        const go = () => {
-          if (done) return;
-          done = true;
-          stop();
-          setTimeout(() => void navigate(TOUR_PATH, { state: tourFrom(t.place) }), 0);
-        };
-        const cap = window.setTimeout(go, TOUR_CAP_MS);
         const stop = () => {
-          window.removeEventListener('popstate', go);
+          window.removeEventListener('popstate', gone);
           clearTimeout(cap);
           leave.current = null;
         };
-        window.addEventListener('popstate', go);
+        function gone() {
+          if (done) return;
+          done = true;
+          stop();
+          setTimeout(() => void go.current(TOUR_PATH, { state: tourFrom(t.place) }), 0);
+        }
+        const cap = window.setTimeout(gone, TOUR_CAP_MS);
+        window.addEventListener('popstate', gone);
         leave.current = stop;
         sheet.close();
       };
@@ -104,9 +107,9 @@ export const useTabTip = ({ active, path, overlays }: { /** the tab on screen */
     };
     const look = () => {
       const now = performance.now();
-      const t = due.current;
-      if (!t || sheet.isOpen()) return;
-      if (busyNow()) {
+      if (sheet.isOpen()) return;
+      const t = tipDue({ ...latest.current, busy: down || busyNow() });
+      if (!t) {
         clearSince = null;
         if (now - began < GIVE_UP_MS) timer = window.setTimeout(look, LOOK_MS);
         return;
@@ -115,7 +118,29 @@ export const useTabTip = ({ active, path, overlays }: { /** the tab on screen */
       if (now - clearSince >= TIP_DELAY_MS) return open(t);
       timer = window.setTimeout(look, Math.min(LOOK_MS, TIP_DELAY_MS - (now - clearSince)));
     };
+    // a finger on the page, a scroll or a key starts the wait again: a tip never rises under a moving hand
+    const touched = () => (clearSince = null);
+    const onDown = () => {
+      down = true;
+      clearSince = null;
+    };
+    const onUp = () => {
+      down = false;
+      clearSince = null;
+    };
+    document.addEventListener('pointerdown', onDown, true);
+    document.addEventListener('pointerup', onUp, true);
+    document.addEventListener('pointercancel', onUp, true);
+    document.addEventListener('scroll', touched, { capture: true, passive: true });
+    document.addEventListener('keydown', touched, true);
     timer = window.setTimeout(look, 0);
-    return () => clearTimeout(timer);
+    return () => {
+      clearTimeout(timer);
+      document.removeEventListener('pointerdown', onDown, true);
+      document.removeEventListener('pointerup', onUp, true);
+      document.removeEventListener('pointercancel', onUp, true);
+      document.removeEventListener('scroll', touched, { capture: true });
+      document.removeEventListener('keydown', touched, true);
+    };
   }, [place, sheet]);
 };
