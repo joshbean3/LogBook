@@ -162,7 +162,7 @@ export const TodayDemo = ({ running, still, plain }: DemoProps) => {
           <SectionHeader title="Habits" meta={`${habit ? 1 : 0} of 2 done`} action="History" onAction={nothing} />
           <div className="orbs is-grid">
             <Tile name="Stretch" week="dod" on={habit} spot="habit0" />
-            <Tile name="Read 15 min" week="ddo" on={false} spot="habit1" />
+            <Tile name="Read" week="ddo" on={false} spot="habit1" />
           </div>
         </div>
       </Stage>
@@ -395,7 +395,7 @@ export const FitnessDemo = ({ running, still }: DemoProps) => {
         </div>
         <div className="pl-ahead card tfit-days">
           <PathLine>
-            <PathStop key="lift" id="lift" node="dot" state="ahead" caption={moved ? 'Sat 14' : 'Tomorrow · Fri 13'} title="Strength" subtitle={<span data-spot="session">Full body, 40 min</span>} chevron onPress={nothing} />
+            <PathStop key="lift" id="lift" node="dot" state="ahead" caption={moved ? 'Sat 14' : 'Tomorrow · Fri 13'} title="Strength" subtitle={<span data-spot="session">Full body</span>} chevron onPress={nothing} />
             <PathStop key="long" id="long" node="dot" state="ahead" caption="Sun 15" title="Long 8" subtitle="Z2, conversational" chevron onPress={nothing} />
             <PathStop key="add" id="add" state="add" title="Add a session" onPress={nothing} />
           </PathLine>
@@ -585,7 +585,7 @@ export const AskDemo = ({ running, still, plain = false }: DemoProps) => {
       >
         <div className="orbs is-grid">
           <Tile name="Stretch" week="dod" on spot="h0" />
-          <Tile name="Read 15 min" week="ddo" on={false} spot="h1" />
+          <Tile name="Read" week="ddo" on={false} spot="h1" />
         </div>
         <div className="tas-dock">
           <Pressable className="dock-ask" press="surface" onPress={nothing}>
