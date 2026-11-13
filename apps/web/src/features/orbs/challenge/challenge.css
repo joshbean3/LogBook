@@ -71,3 +71,8 @@ html[data-text-xl] .ch-row > .icon-tile {
 .ch-quiet .btn.quiet {
   min-height: var(--hit);
 }
+/* the sheet's title is the challenge itself: it is never cut to two lines (the longest week title runs to four at 320) */
+.sheet:has(.ch-sheet) .sheet-title {
+  -webkit-line-clamp: 5;
+  line-clamp: 5;
+}

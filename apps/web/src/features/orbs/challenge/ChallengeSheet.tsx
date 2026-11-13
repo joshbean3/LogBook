@@ -39,12 +39,12 @@ const ChallengeSheet = ({ slotKey }: { slotKey: string }) => {
   const access = useReviewAccess();
   const [asking, setAsking] = useState<'idle' | 'asking' | 'failed'>('idle');
   const alive = useRef(true);
-  useEffect(
-    () => () => {
+  useEffect(() => {
+    alive.current = true;
+    return () => {
       alive.current = false;
-    },
-    [],
-  );
+    };
+  }, []);
   const live = board?.live[slotKey];
   const latest = useRef(board);
   latest.current = board;
