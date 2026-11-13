@@ -1,9 +1,9 @@
 import { buildMorning, fmtDate, morningDayFor, tone as toneOf, WEEKDAYS, type Goal, type ISODate, type MorningSettings, type Weekday } from '@logbook/shared';
 import { Check, CircleSlash, Flag, Footprints, Medal, Minus, Plus, Timer, Trophy, Zap, type LucideIcon } from 'lucide-react';
-import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
+import { motion, useReducedMotion } from 'motion/react';
 import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import { haptics } from '@/lib/haptics';
-import { crossfade, springs } from '@/lib/motion';
+import { crossfade } from '@/lib/motion';
 import { Pressable } from '@/ui/Pressable';
 import { addHabit, DAY_LETTER, DAY_NAME, fixLongRun, GOALS, HABIT_LIMIT, HABIT_NAME_MAX, hm, hmFull, MIN_GAP, morningFrom, raceSundays, snap5, sortDays, STARTER_HABITS, TRACK_FROM, TRACK_TO, weeksUntil } from './model';
 
@@ -82,6 +82,53 @@ export const GoalChips = ({ value, onChange, id = 'ob-goal', noneOn, onNone }: {
             <motion.span className="ob-goal-check" initial={false} animate={{ opacity: on ? 1 : 0 }} transition={reduce ? { duration: 0 } : crossfade} aria-hidden="true">
               <Check size={18} />
             </motion.span>
+          </Pressable>
+        );
+      })}
+    </div>
+  );
+};
+
+/**
+ * The same five goals as pills, for first run (the question's poster draws what the choice builds, so each choice is
+ * one word here, 44 tall): a radio group, arrows move the choice. The chosen one is Sky with a check, so the choice never
+ * rests on color alone. "No running plan for now" is not a pill: it is the question's quiet link.
+ */
+export const GoalPills = ({ value, onChange }: { value: Goal | null; onChange: (g: Goal) => void }) => {
+  const refs = useRef<Array<HTMLElement | null>>([]);
+  const pick = (g: Goal) => {
+    if (g === value) return;
+    haptics.select();
+    onChange(g);
+  };
+  const onKey = (e: React.KeyboardEvent, i: number) => {
+    const d = e.key === 'ArrowRight' || e.key === 'ArrowDown' ? 1 : e.key === 'ArrowLeft' || e.key === 'ArrowUp' ? -1 : 0;
+    if (!d) return;
+    e.preventDefault();
+    const n = (i + d + GOALS.length) % GOALS.length;
+    pick(GOALS[n]!.id);
+    refs.current[n]?.focus();
+  };
+  return (
+    <div className="ob-chips ob-goal-pills" role="radiogroup" aria-label="What are you training for?">
+      {GOALS.map((g, i) => {
+        const on = value === g.id;
+        return (
+          <Pressable
+            key={g.id}
+            ref={(el: HTMLElement | null) => {
+              refs.current[i] = el;
+            }}
+            role="radio"
+            aria-checked={on}
+            tabIndex={on || (value == null && i === 0) ? 0 : -1}
+            className={`ob-chip ${on ? 'on' : ''}`}
+            label={g.long}
+            onPress={() => pick(g.id)}
+            onKeyDown={(e: React.KeyboardEvent) => onKey(e, i)}
+          >
+            {on ? <Check size={18} aria-hidden="true" /> : null}
+            {g.label}
           </Pressable>
         );
       })}
@@ -400,7 +447,7 @@ const pct = (m: number) => ((m - TRACK_FROM) / (TRACK_TO - TRACK_FROM)) * 100;
  * the nearer one there. Between them the morning draws itself live from the same timeline Morning uses: the run in its
  * color, then the shower and getting ready. Each marker is a slider for the keyboard (arrows 5 min, Page keys 30).
  */
-export const MorningTrack = ({ wake, leave, onChange, run = { type: 'Easy', miles: 4 }, settings }: { wake: number; leave: number; onChange: (wake: number, leave: number) => void; run?: { type: string; miles: number }; settings?: MorningSettings | null }) => {
+export const MorningTrack = ({ wake, leave, onChange, run = { type: 'Easy', miles: 4 }, settings, compact = false }: { wake: number; leave: number; onChange: (wake: number, leave: number) => void; run?: { type: string; miles: number }; settings?: MorningSettings | null; /** The times are shown elsewhere (first run's poster): each marker carries its name only, both over the line. */ compact?: boolean }) => {
   const track = useRef<HTMLDivElement>(null);
   // a drag that starts on a marker moves it at once; a press on the line moves the nearer marker only when it lifts
   // within 8 px of where it went down (a tap), so a vertical drag from the line scrolls the page instead (onboarding-06)
@@ -475,12 +522,17 @@ export const MorningTrack = ({ wake, leave, onChange, run = { type: 'Easy', mile
   const hours = [5, 6, 7, 8, 9, 10];
   const segs = tl.blocks.filter((b) => b.key !== 'wake' && b.key !== 'free' && b.start < tl.leave);
   return (
-    <div className="ob-track-wrap">
+    <div className={`ob-track-wrap${compact ? ' is-compact' : ''}`}>
       <div className="ob-track-labels" aria-hidden="true">
         <span className={`ob-track-label ${active === 'wake' ? 'on' : ''}`} style={{ left: `clamp(0px, calc(${pct(wake)}% - 32px), calc(100% - 64px))` }}>
           <span className="caps">Wake</span>
-          <span className="ob-num ob-track-v">{hm(wake)}</span>
+          {compact ? null : <span className="ob-num ob-track-v">{hm(wake)}</span>}
         </span>
+        {compact ? (
+          <span className={`ob-track-label leave ${active === 'leave' ? 'on' : ''}`} style={{ left: `clamp(0px, calc(${pct(leave)}% - 32px), calc(100% - 64px))` }}>
+            <span className="caps">Leave</span>
+          </span>
+        ) : null}
       </div>
       <div ref={track} className="ob-track" onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp}>
         <div className="ob-track-line" />
@@ -529,9 +581,8 @@ export const MorningTrack = ({ wake, leave, onChange, run = { type: 'Easy', mile
 };
 
 // ---------- habits ----------
-/** Starter habits as chips, plus your own. Above them, the orbs they become on Today, popping in as you pick them. */
+/** Starter habits as chips, plus your own. The tiles they become on Today are the question's poster (posters.tsx HabitTiles). */
 export const HabitPicker = ({ selected, custom, onChange }: { selected: string[]; custom: string[]; onChange: (selected: string[], custom: string[]) => void }) => {
-  const reduce = useReducedMotion();
   const [adding, setAdding] = useState(false);
   const [text, setText] = useState('');
   const all = [...STARTER_HABITS, ...custom];
@@ -579,21 +630,6 @@ export const HabitPicker = ({ selected, custom, onChange }: { selected: string[]
             Your own
           </Pressable>
         )}
-      </div>
-      {/* the picked chips as the coins they become on Today, under the chips so none moves under the finger; nothing
-          until one is picked (plan O6) */}
-      <div className="ob-orbs" aria-hidden="true">
-        <AnimatePresence initial={false}>
-          {selected.slice(0, 6).map((h) => (
-            <motion.span key={h} className="ob-orb" layout={!reduce} initial={reduce ? { opacity: 0 } : { opacity: 0, scale: 0.6 }} animate={{ opacity: 1, scale: 1 }} exit={reduce ? { opacity: 0 } : { opacity: 0, scale: 0.6 }} transition={reduce ? { duration: 0.15 } : springs.settle}>
-              <span className="ob-orb-ring">
-                <span className="ob-orb-initial">{h.charAt(0).toUpperCase()}</span>
-              </span>
-              <span className="ob-orb-name">{h}</span>
-            </motion.span>
-          ))}
-        </AnimatePresence>
-        {selected.length > 6 ? <span className="ob-orb-more">+{selected.length - 6}</span> : null}
       </div>
       {full ? (
         <p className="ob-hint ob-habits-limit" role="status">

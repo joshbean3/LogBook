@@ -1,0 +1,196 @@
+/*
+ * The pictures of first run (posters.tsx). Each picture is the app's own component with the app's own styles (the poster
+ * kit, the training card, the habit tiles, the tab capsule); this file only places them and styles the few parts that
+ * are first run's own (the greeting's Orb, the two Fitness choices). Tokens only; transform and opacity move.
+ */
+
+/* ---------- the name: the assistant's greeting on a poster's sky ---------- */
+.obp-hello .po-words {
+  justify-items: center;
+  padding-top: var(--sp-5);
+  text-align: center;
+}
+.obp-hello .po-title {
+  width: 100%;
+}
+.obp-hello-in {
+  display: grid;
+  justify-items: center;
+  gap: var(--sp-3);
+}
+/* the greeting as the assistant sheet sets it: the sentence italic, 420 (guide 4.2) */
+.obp-hello-line {
+  font: italic 420 var(--fs-sentence) / var(--lh-sentence) var(--serif);
+  letter-spacing: 0;
+  color: var(--ink);
+  overflow-wrap: anywhere;
+}
+
+/* ---------- Fitness: two pictures, two answers ---------- */
+.obp-fit {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--sp-4);
+}
+.obp-choices {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--gap);
+}
+/* a choice: a small poster. Paper, the card radius and shadow, the sky at its top, the words on the sky, the picture
+   under them. Chosen: a Deep Sky edge and the filled check. The other one's picture dims */
+.obp-choice {
+  position: relative;
+  isolation: isolate;
+  border-radius: var(--r-card);
+  background: var(--paper);
+  box-shadow: var(--shadow-1);
+  overflow: hidden;
+}
+.obp-choice::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  border: 2px solid var(--deep-sky);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--dur-color) var(--ease-out);
+}
+.obp-choice.is-on::after {
+  opacity: 1;
+}
+.obp-choice-sky {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: linear-gradient(180deg, var(--haze) 0, var(--cloud) 40%, var(--paper) 66%);
+}
+.obp-choice-art {
+  /* the words' place: two lines and their padding, in rem so the picture stays under them at any text size */
+  padding-top: calc(var(--sp-3) + var(--lh-row) + var(--lh-sub) + var(--sp-1));
+  transition: opacity var(--dur-color) var(--ease-out);
+}
+.obp-choice.is-dim .obp-choice-art {
+  opacity: 0.45;
+}
+.obp-choice[data-choice='yes'] .obp-choice-art {
+  /* the scene's upper sky is empty: the words stand in it, and the sun's place stays clear of the check */
+  padding-top: 2.75rem;
+}
+.obp-choice[data-choice='no'] .obp-choice-art {
+  padding-bottom: var(--sp-1);
+}
+.obp-choice .po-scene {
+  display: block;
+}
+.obp-choice-btn {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  appearance: none;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: var(--ink);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: var(--sp-3);
+  width: 100%;
+  padding: var(--sp-3) var(--pad-card) 0 var(--pad-hero);
+  border-radius: inherit;
+  text-align: left;
+}
+.obp-choice-words {
+  display: grid;
+  min-width: 0;
+}
+.obp-choice-title {
+  font: 600 var(--fs-row) / var(--lh-row) var(--sans);
+  color: var(--ink);
+}
+.obp-choice-line {
+  font: 500 var(--fs-sub) / var(--lh-sub) var(--sans);
+  color: var(--ink-2);
+}
+/* the check: an open ring until chosen, then Deep Sky with a Paper check (never color alone: the glyph says it) */
+.obp-choice-mark {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  margin-top: var(--sp-1);
+  border-radius: 50%;
+  border: 2px solid var(--coin-ring);
+  background: var(--paper);
+  color: var(--paper);
+}
+.obp-choice.is-on .obp-choice-mark {
+  border-color: var(--deep-sky);
+  background: var(--deep-sky);
+}
+
+/* the tab capsule, as the dock draws it (app/shell.css): a picture here */
+.obp-tabs {
+  display: block;
+}
+.obp-tabs .tabbar {
+  flex: none;
+}
+
+/* ---------- the training card: the card's own classes (features/day/day.css); only its place is set here ---------- */
+.hero.aura.obp-train {
+  width: 100%;
+  margin: 0;
+  overflow: hidden;
+  cursor: default;
+  user-select: none;
+}
+/* the morning question: the name over the timeline row alone, so the sky is short and the row is the point */
+.obp-train.is-rowonly .hz-words {
+  min-height: 0;
+  padding-bottom: var(--sp-3);
+}
+.obp-train.is-rowonly .hz-sky {
+  background: linear-gradient(180deg, var(--haze) 0, var(--cloud) 60%, var(--paper) 100%);
+}
+
+/* ---------- the habits: Today's tiles ---------- */
+/* the tiles grow up from the chips under them, in room held for three rows: a starter chip tapped never moves the
+   chips under the finger */
+.obp-well {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  min-height: calc(3 * 60px + 2 * var(--gap-tile));
+}
+.obp-tiles .orb {
+  cursor: default;
+}
+/* none picked: one quiet line, never an empty box */
+.obp-none,
+.obp-more {
+  margin: 0;
+  font: 500 var(--fs-sub) / var(--lh-sub) var(--sans);
+  color: var(--ink-2);
+  text-align: center;
+}
+.obp-more {
+  margin-top: var(--sp-2);
+}
+
+/* ---------- the day poster and tonight's row: the kit and the list row, as they are ---------- */
+.obp-day .pth-stop {
+  cursor: default;
+}
+.obp-tonight .lrow {
+  cursor: default;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .obp-choice::after,
+  .obp-choice-art {
+    transition: none;
+  }
+}

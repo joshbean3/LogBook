@@ -1,6 +1,20 @@
-/* ---------- First run (shape system v2, reference 165, 171, 710): full screen on Cloud; one question to a screen, its
-   answer in Paper cards, the one Sky primary pinned at the bottom. No tab bar, no glow on the questions: the screen's
-   one warm light is the payoff's hero card. ---------- */
+/* ---------- First run: the door looks like the house. Every screen stands on the dawn wash the app's pages use; a
+   question is a Fraunces title, one plain line, a poster (a real piece of the app the answer changes), the controls on
+   Paper, and the one Sky button pinned at the foot. No tab bar.
+
+   THE SHARED RULES. The welcome pager, the account screens, the questions and the tour use these names and sizes, so
+   the flow reads as one thing:
+
+     ob-bar     the top bar: 54 tall under the safe area, Back at the leading edge, the progress marks in the middle
+     ob-title   the question: Fraunces 600 at the section size (the size the tabs use for a title inside a page)
+     ob-lede    the one plain line under a title: Inter 15 Dusk, 8 under the title
+     ob-poster  the picture's place: 16 under the lede, edge to edge inside the 16 px gutter
+     ob-controls  the controls' place: 12 under the poster, 12 between groups
+     ob-foot    the pinned foot: 16 from the edges, above the safe area (and the keyboard)
+     ob-cta     the one Sky button: full width, 54 tall, the row size
+     ob-quiet   a quiet link: Deep Sky words on the ground, 44 tall. On a question it stands over the Sky button, so
+                the button is in the same place on every question; on the reveal it is under it
+   ---------- */
 .ob {
   position: relative;
   isolation: isolate;
@@ -18,31 +32,32 @@
   container: page / inline-size;
   --page-pad: var(--gutter);
 }
-/* the layer the old halo lived on: kept as an element (the edge swipe copies it, the hand-off fades it), painted with the
-   plain Cloud ground. The payoff's warm light is its hero card's own sunrise glow (.aura), so the ground adds none */
+/* the ground: the dawn wash (guide 5.3), Haze at the top of the screen settling into Cloud by 300 px, as on every tab.
+   It is a layer of its own (the edge swipe copies it, the hand-off fades it) and it does not scroll with the step */
 .ob-halo {
   position: fixed;
   inset: 0;
   z-index: -1;
-  background: var(--bg);
+  background:
+    var(--dawn) 0 0 / 100% 300px no-repeat,
+    var(--bg);
   pointer-events: none;
 }
 
-/* ---------- top bar: back, progress dots, skip ---------- */
-.ob-top {
-  /* pinned while the step scrolls under it, on the page's own color (onboarding-20) */
+/* ---------- ob-bar: Back and the progress marks ---------- */
+.ob-bar {
+  /* pinned while the step scrolls under it, on the wash it sits on (the bar's own colors, guide 5.3) */
   position: sticky;
   top: 0;
   z-index: 2;
   flex: none;
   display: grid;
-  /* the end slot takes what "Skip tour" needs at any text size */
   grid-template-columns: minmax(64px, max-content) 1fr minmax(64px, max-content);
   column-gap: var(--sp-2);
   align-items: center;
   padding: calc(6px + var(--safe-t)) var(--gutter) 0; /* brand-ok: geometry, centers the 40 px back button in the 54 px bar */
   height: calc(54px + var(--safe-t));
-  background: var(--bg);
+  background: linear-gradient(180deg, var(--haze), var(--wash-bar));
 }
 .ob .ob-back.icon-btn {
   position: relative;
@@ -59,9 +74,8 @@
   inset: -2px;
   border-radius: 50%;
 }
-/* the chevron and Skip fade with the dots (220 ms, opacity) when a step has none; hidden only once the fade is done. The
-   fade is on the slot (`.ob-slot`), never on the button, so the buttons keep their own press transitions (review 3 code N8:
-   the icon button's 160 ms scale release, the dim verb's instant dim) */
+/* Back fades with the marks (220 ms, opacity) when a step has none; hidden only once the fade is done. The fade is on the
+   slot (`.ob-slot`), never on the button, so the button keeps its own press transition */
 .ob-slot {
   display: grid;
   place-items: center start;
@@ -79,27 +93,6 @@
   transition:
     opacity var(--dur-color) var(--ease-out),
     visibility 0s linear var(--dur-color);
-}
-.ob-dots {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  gap: 6px; /* brand-ok: geometry, the progress dashes' fixed rhythm */
-}
-/* where you are: the coin ring's grey ahead, Dusk behind, a Night Ink bar for this step (as the welcome pager) */
-.ob-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: var(--r-pill);
-  background: var(--coin-ring);
-  transition: background-color var(--dur-color) var(--ease-out);
-}
-.ob-dot.done {
-  background: var(--ink-2);
-}
-.ob-dot.on {
-  width: 20px;
-  background: var(--ink);
 }
 .ob-skip {
   appearance: none;
@@ -127,7 +120,7 @@
   position: relative;
   overflow-x: clip;
 }
-/* the edge swipe (review feel F3): the step being left is an opaque page with its own copy of the halo, over the step
+/* the edge swipe (review feel F3): the step being left is an opaque page with its own copy of the ground, over the step
    before it (at −30 %, under a scrim); nothing in either takes a touch while the finger has it */
 .ob-swipe.is-edge {
   z-index: 1;
@@ -167,13 +160,15 @@
   max-width: 520px;
   margin-inline: auto;
   /* no bottom padding here: the foot carries the safe-area inset, so its resting and pinned places are the same */
-  padding: var(--sp-4) var(--gutter) 0;
+  padding: var(--sp-2) var(--gutter) 0;
   min-width: 0;
 }
 /* a step with no pinned foot on screen (the plan being written) keeps the inset itself */
 .ob-step:not(:has(.ob-foot, .ob-pay-foot)) {
   padding-bottom: calc(var(--sp-4) + var(--safe-b));
 }
+
+/* ---------- ob-title, ob-lede ---------- */
 .ob-title {
   margin-top: var(--sp-2);
   font-style: normal;
@@ -184,38 +179,47 @@
   text-wrap: balance;
   overflow-wrap: break-word;
 }
+.ob-lede,
 .ob-sub {
   margin-top: var(--sp-2);
   font-size: var(--fs-sub);
   line-height: var(--lh-sub);
   color: var(--ink-2);
-  max-width: 36ch;
+  max-width: 40ch;
+  text-wrap: pretty;
 }
-.ob-body {
-  margin-top: var(--sp-6);
+
+/* ---------- ob-poster, ob-controls ---------- */
+.ob-poster {
+  margin-top: var(--sp-4);
+  min-width: 0;
+}
+.ob-poster-in {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--gap);
+  min-width: 0;
+}
+.ob-controls {
+  margin-top: var(--gap);
   display: flex;
   flex-direction: column;
   gap: var(--gap);
   min-width: 0;
+}
+/* a step whose controls are its picture (the Fitness question): they stand where the poster does */
+.ob-lede + .ob-controls {
+  margin-top: var(--sp-4);
 }
 /* an answer's Paper card */
 .card.ob-card {
   gap: 0;
   min-width: 0;
 }
-/* two groups in one card (plan O5): a full-bleed hairline 16 above and below, and the second group's 22 title 8 over
-   its control (layout standard 3.3.3, C2) */
-.card.ob-card.ob-days-card > .rule {
-  margin-block: var(--sp-4);
-}
-.card.ob-card.ob-days-card > .card-title {
-  margin-bottom: var(--sp-2);
-}
-.ob-days-card .ob-miles {
-  margin-top: 0;
-}
+
+/* ---------- ob-foot, ob-cta, ob-quiet ---------- */
 /* The pinned foot: it rests above the home indicator (and above the keyboard, which overlays the web view and reports its
-   height as --kb), in the same place whether the step scrolls or not. Its fade never takes a tap: only the button and
+   height as --kb), in the same place whether the step scrolls or not. Its fade never takes a tap: only the buttons and
    the tour's dots do, so an answer chip that shows through the fade can still be pressed. */
 .ob-foot {
   margin-top: auto;
@@ -231,6 +235,7 @@
 }
 .ob-foot .btn,
 .ob-foot .tour-dots,
+.ob-foot .ob-quiet,
 .ob-pay-foot .btn {
   pointer-events: auto;
 }
@@ -253,6 +258,43 @@
   color: var(--ink-2);
   opacity: 1;
 }
+/* quiet links by the Sky button: one, or two side by side */
+.ob-quiets {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0 var(--sp-4);
+}
+.ob-quiet {
+  appearance: none;
+  border: 0;
+  background: none;
+  font: inherit;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto;
+  pointer-events: auto;
+  min-height: 44px;
+  padding: 0 var(--sp-4);
+  font-size: var(--fs-sub);
+  line-height: var(--lh-sub);
+  font-weight: 600;
+  color: var(--accent-text);
+  border-radius: var(--r-pill);
+  text-align: center;
+}
+.ob-quiets > .ob-quiet {
+  margin: 0;
+}
+/* over the button on a question, 4 clear of it; under it on the reveal */
+.ob-frame .ob-foot > .ob-quiet,
+.ob-frame .ob-foot > .ob-quiets {
+  margin-bottom: var(--sp-1);
+}
+.ob-reveal .ob-foot > .ob-quiet {
+  margin-top: var(--sp-1);
+}
 .ob-q-label {
   display: flex;
   justify-content: space-between;
@@ -274,31 +316,6 @@
   line-height: var(--lh-sub);
   color: var(--ink-2);
   text-align: center;
-}
-
-/* ---------- the promise ---------- */
-.ob-promise {
-  justify-content: flex-end;
-  padding-top: calc(48px + var(--safe-t));
-}
-.ob-mark {
-  width: 56px;
-  height: 56px;
-}
-.ob-promise-title {
-  margin-top: 24px;
-  font-size: 2.75rem;
-  line-height: 2.875rem;
-}
-.ob-promise-sub {
-  margin-top: 8px;
-  font-size: 1.0625rem;
-  line-height: 1.375rem;
-  color: var(--ink-2);
-}
-.ob-promise .ob-foot {
-  margin-top: 40px;
-  background: none;
 }
 
 /* ---------- goal: choice cards (icon, name, one line); the chosen one ringed in Deep Sky, its icon disc lit Sky with a
@@ -770,7 +787,17 @@
   color: var(--ink-2);
   font-variant-numeric: tabular-nums;
 }
-/* the morning's verdict, on the line above Next (plan O5): the door time in Night Ink 600, what it means in Dusk */
+/* first run: the times are on the poster's timeline row above, so the markers carry their names only */
+.ob-track-wrap.is-compact .ob-track-labels {
+  height: var(--lh-caps);
+}
+.ob-track-wrap.is-compact .ob-track-labels.below {
+  display: none;
+}
+.ob-track-wrap.is-compact .ob-track-label.leave {
+  justify-items: center;
+}
+/* a morning too tight for the run: why, on the line above Next (the one-tap fix is the chip under the markers) */
 .ob-later .ob-verdict {
   display: block;
   font-size: var(--fs-sub);
@@ -781,16 +808,12 @@
   font-weight: 600;
   color: var(--ink);
 }
-/* at a very large text size the line above Next keeps only the door time; the rest would take half the screen */
-html[data-text-xl] .ob-verdict-more {
-  display: none;
-}
 /* the one-tap fix under the markers, inside their card */
 .ob-fix-row .ob-fix.ob-chip {
   margin-top: 0;
 }
 
-/* ---------- habits: chips that become coins (flat discs with an Inter initial, never an Orb) ---------- */
+/* ---------- habits: chips; the tiles they become are the question's poster (posters.css) ---------- */
 /* the picker never widens its card: a long name or a 12th chip wraps or clips inside it */
 .ob-habits {
   min-width: 0;
@@ -798,60 +821,10 @@ html[data-text-xl] .ob-verdict-more {
 .ob-hint.ob-habits-limit {
   text-align: left;
 }
-.ob-orbs {
-  display: flex;
-  gap: var(--sp-3);
-  align-items: flex-start;
-  overflow: hidden;
-}
-/* the coins the picked chips become, under the chips (so a chip never moves under the finger), with a hairline over
-   them; nothing at all until one is picked (plan O6: no empty dashed placeholders) */
-.ob-orbs:not(:empty) {
-  margin: var(--sp-4) calc(-1 * var(--pad-card)) 0;
-  padding: var(--sp-4) var(--pad-card) 0;
-  border-top: 1px solid var(--line);
-}
-.ob-orb {
-  display: grid;
-  justify-items: center;
-  gap: var(--sp-2);
-  width: 60px;
-  flex: none;
-}
-.ob-orb-ring {
-  width: 56px;
-  height: 56px;
-  border-radius: 50%;
-  border: 1.5px solid var(--coin-ring);
-  background: var(--surface);
-  display: grid;
-  place-items: center;
-}
-.ob-orb-initial {
-  font: 600 var(--fs-row) / 1 var(--sans);
-  color: var(--ink);
-}
-.ob-orb-name {
-  font-size: var(--fs-orb);
-  line-height: var(--lh-orb);
-  color: var(--ink-2);
-  max-width: 60px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.ob-orb-more {
-  align-self: center;
-  margin-top: -20px; /* brand-ok: geometry, the count sits level with the coins, not their names */
-  font-size: var(--fs-sub);
-  font-weight: 600;
-  color: var(--ink-2);
-}
 .ob-chips {
-  margin-top: var(--sp-4);
   display: flex;
   flex-wrap: wrap;
-  gap: var(--sp-3);
+  gap: var(--sp-2);
 }
 /* a filter chip (guide 6.3): off Paper with its edge and Dusk words; on Sky with Night Ink 650 */
 .ob-chip {
@@ -921,114 +894,41 @@ html[data-text-xl] .ob-verdict-more {
   box-shadow: var(--focus-ring);
 }
 
-/* ---------- the payoff ---------- */
-/* the payoff: the headline fills exactly the room Today's bar, title and strip take (157 + safe-t at 390 × 844), so the
-   first-run face below it sits on Today's hero slot and does not move on the hand-off (§8, contracts §A.5) */
+/* ---------- the payoff: the plan being written, then the reveal ---------- */
 .ob-payoff {
-  padding-top: 0;
+  padding-top: calc(var(--sp-2) + var(--safe-t));
 }
-.ob-pay-head {
-  box-sizing: border-box;
-  /* a floor, not a fixed height: at a large text size the words grow it rather than spill over the top */
-  min-height: calc(157px + var(--safe-t));
+/* the reveal: the arrival. The headline at the page-title size (the size of "Today" on the tab), one line, then Today as
+   a stack of posters, each part of it the app's own (posters.css) */
+.ob-rv-head {
   flex: none;
-  display: flex;
-  flex-direction: column;
-  justify-content: flex-end;
-  padding-bottom: var(--sp-4);
+  min-width: 0;
+  padding-top: var(--sp-4);
+}
+.ob-pay-title {
+  margin: 0;
+  font-style: normal;
+  font-weight: 650;
+  font-size: clamp(30px, var(--fs-title), 44px);
+  line-height: clamp(34px, var(--lh-title), 48px);
+  letter-spacing: var(--tr-title);
+  text-wrap: balance;
+  overflow-wrap: break-word;
+}
+.ob-rv-stack {
+  margin-top: var(--sp-4);
   min-width: 0;
 }
-.ob-pay-hero {
-  flex: none;
-  min-height: 11.5rem;
-}
-/* what the answers made: Today's hero card in size and place (358 wide, 184 tall or more), with its sunrise glow, so the
-   hand-off to Today's hero is one light; plain rows, no caption (plan O11) */
-.aura.ob-made {
-  box-sizing: border-box;
-  width: 100%;
-  max-width: 358px;
-  min-height: 11.5rem;
-  margin: 0 auto;
-  padding: var(--sp-2) var(--sp-4) 0;
+.ob-rv-in {
   display: grid;
-  align-content: start;
-  overflow: hidden;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--gap);
+  min-width: 0;
 }
-.ob-made-rows {
-  list-style: none;
-  margin: 0 calc(-1 * var(--sp-4)) 0;
-  padding: 0;
-  display: grid;
+.ob-rv-part {
+  min-width: 0;
 }
-.ob-made-rows > li {
-  position: relative;
-}
-.ob-made-row {
-  display: grid;
-  grid-template-columns: 32px minmax(0, 1fr) auto;
-  align-items: center;
-  gap: var(--sp-3);
-  min-height: 48px;
-  padding: var(--sp-1) var(--sp-4);
-  width: 100%;
-  text-align: left;
-}
-.ob-made-rows > li + li::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 60px;
-  right: 0;
-  height: 1px;
-  background: var(--line);
-}
-.ob-made-ic {
-  width: 32px;
-  height: 32px;
-  border-radius: var(--r-icon);
-  display: grid;
-  place-items: center;
-  background: var(--haze);
-  color: var(--deep-sky);
-}
-.ob-made-title {
-  font: 500 var(--fs-row) / var(--lh-row) var(--sans);
-  color: var(--ink);
-  overflow-wrap: anywhere;
-}
-.ob-made-value {
-  font: 500 var(--fs-sub) / var(--lh-sub) var(--sans);
-  color: var(--ink-2);
-  white-space: nowrap;
-}
-.ob-made-chev {
-  color: var(--ink-2);
-}
-/* a narrow card in rem (a large text size): the value takes its own line under the title, so "Half marathon plan" stays
-   whole instead of breaking inside a word beside "12 weeks" */
-@container card (max-width: 16rem) {
-  .ob-made-row {
-    grid-template-columns: 32px minmax(0, 1fr) auto;
-    grid-template-areas: 'ic title chev' 'ic value chev';
-    row-gap: 0;
-  }
-  .ob-made-row > .ob-made-ic {
-    grid-area: ic;
-  }
-  .ob-made-title {
-    grid-area: title;
-    overflow-wrap: break-word;
-  }
-  .ob-made-value {
-    grid-area: value;
-    white-space: normal;
-  }
-  .ob-made-chev {
-    grid-area: chev;
-  }
-}
-/* the hand-off layer: a still copy of the payoff over everything while Today mounts under it */
+/* the hand-off layer: a still copy of the reveal over everything while Today mounts under it */
 .ob-handoff {
   position: fixed;
   inset: 0;
@@ -1039,170 +939,27 @@ html[data-text-xl] .ob-verdict-more {
 .ob-handoff > .ob {
   overflow: hidden;
 }
-.ob-pay-eyebrow {
-  color: var(--ink-2);
-}
-/* the session tomorrow, at the screen-title size: "Tomorrow: Easy 5.5." whole on one line at 390, two balanced lines on a
-   small phone, inside the same head (the hero size cut it to "Tomorrow: ...") */
-.ob-pay-title {
-  margin-top: var(--sp-1);
-  font-style: normal;
-  font-weight: 650;
-  font-size: clamp(30px, var(--fs-title), 44px);
-  line-height: clamp(34px, var(--lh-title), 48px);
-  letter-spacing: var(--tr-title);
-  text-wrap: balance;
-  overflow-wrap: break-word;
-}
-.ob-pay-door {
-  margin-top: 2px; /* brand-ok: geometry, the door line hangs under the title */
-  font-size: var(--fs-sentence);
-  line-height: var(--lh-sentence);
-  color: var(--ink-2);
-}
-/* the first week: rows in one Paper card, 12 under the summary card (cards 12 apart, layout standard 3.2) */
-.ob-week {
-  list-style: none;
-  margin: var(--sp-3) 0 0;
-  padding: var(--sp-1) 0;
-  display: grid;
-  border-radius: var(--r-card);
-  background: var(--surface);
-  border: var(--card-border);
-  box-shadow: var(--shadow-1);
-  container: ob-week / inline-size;
-}
-.ob-wrow {
-  position: relative;
-  display: grid;
-  grid-template-columns: max-content 3px minmax(0, 1fr) 28%;
-  align-items: center;
-  gap: var(--sp-3);
-  min-height: 44px;
-  padding-inline: var(--sp-4);
-}
-.ob-wrow + .ob-wrow::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: var(--sp-4);
-  right: 0;
-  height: 1px;
-  background: var(--line);
-}
-/* a tabular weekday column: three letters in their own track, the date right-aligned in the next (no "MON19") */
-.ob-wday {
-  display: grid;
-  grid-template-columns: 2.25rem 1.5rem;
-  align-items: baseline;
-  gap: var(--sp-2);
-}
-.ob-wday .caps {
-  white-space: nowrap;
-}
-.ob-wdate {
-  text-align: right;
-  font-size: var(--fs-sub);
-  font-weight: 650;
-  color: var(--ink-2);
-  font-variant-numeric: tabular-nums;
-}
-.ob-wtone {
-  width: 3px;
-  height: 24px;
-  border-radius: var(--r-pill);
-  background: var(--tone, transparent);
-}
-.ob-wrow.rest .ob-wtone {
-  background: transparent;
-}
-.ob-wname {
-  min-width: 0;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-/* the long-run day: a Planned-style tag (Dusk words on Cloud, a pill), and its bar in full light */
-.ob-wlong {
-  margin-left: var(--sp-2);
-  padding: 2px var(--sp-2); /* brand-ok: geometry, a caption tag inside the 44 px row */
-  border-radius: var(--r-pill);
-  background: var(--cloud);
-  color: var(--ink);
-  vertical-align: 2px; /* brand-ok: geometry, level with the session's x-height */
-}
-.ob-wrow.is-long .ob-wday .caps {
-  color: var(--ink);
-}
-.ob-wsess {
-  font: 600 var(--fs-row) / var(--lh-row) var(--sans);
-  color: var(--ink);
-}
-.ob-wrest {
-  font-size: var(--fs-sub);
-  color: var(--ink-2);
-}
-/* at a large text size on a narrow phone the session's name needs the room more than the bar does: the bar (a picture
-   only) gives way, so "Long 8" stays whole (onboarding-12) */
-@container ob-week (max-width: 16rem) {
-  .ob-week .ob-wrow {
-    grid-template-columns: max-content 3px minmax(0, 1fr);
-  }
-  .ob-wbar {
-    display: none;
-  }
-}
-.ob-wbar {
-  height: 6px;
-  border-radius: var(--r-pill);
-  background: var(--haze);
-  overflow: hidden;
-}
-.ob-wbar-fill {
-  display: block;
-  height: 100%;
-  border-radius: var(--r-pill);
-  background: var(--tone);
-  transform-origin: left center;
-}
 .ob-pay-foot {
   margin-top: auto;
   padding-top: var(--sp-6);
   display: grid;
   gap: var(--sp-3);
 }
+/* the reveal's foot: the Sky button, then the quiet link close under it */
+.ob-reveal .ob-pay-foot {
+  gap: 0;
+}
 .ob-pay-sum {
   display: flex;
   align-items: center;
   gap: var(--sp-2);
+  margin-bottom: var(--sp-3);
   font-size: var(--fs-sub);
   line-height: var(--lh-sub);
   color: var(--ink-2);
 }
-.ob-ok {
-  color: var(--accent-text);
-  flex: none;
-}
 .ob-err {
   color: var(--bad);
-}
-
-/* ---------- small screens: the space tightens (the titles hold their sizes and wrap) ---------- */
-@media (max-width: 359px) {
-  .ob-body {
-    margin-top: var(--sp-4);
-  }
-
-  .ob-wrow {
-    min-height: 44px;
-  }
-
-}
-@container page (max-width: 21rem) {
-  /* the week's mileage bars give the name column room for "Easy 4" and its LONG tag at 320 (it read "LO…") */
-  .ob-wrow {
-    grid-template-columns: max-content 3px minmax(0, 1fr) 20%;
-  }
 }
 /* the payoff's verb stays in reach on a short screen */
 .ob-payoff .ob-pay-foot {
@@ -1213,6 +970,9 @@ html[data-text-xl] .ob-verdict-more {
   padding-inline: var(--gutter);
   pointer-events: none;
   background: linear-gradient(to bottom, transparent, var(--bg) var(--sp-6));
+}
+.ob-payoff .ob-pay-foot .ob-quiet {
+  pointer-events: auto;
 }
 
 /* the morning step: what happens before you leave, and the one-tap fix when it is tight */
@@ -1333,27 +1093,48 @@ html[data-text-xl] .ob-verdict-more {
 html.kb-open .ob-later {
   display: none;
 }
-/* the quiet way out of setup, under the name step's button (onboarding-09) */
-.ob-signout {
-  appearance: none;
-  border: 0;
-  background: none;
-  font: inherit;
-  display: flex;
-  align-items: center;
-  margin: var(--sp-1) auto 0;
-  pointer-events: auto;
-  min-height: 44px;
-  padding: 0 var(--sp-4);
-  font-size: var(--fs-sub);
-  line-height: var(--lh-sub);
-  font-weight: 600;
-  color: var(--accent-text);
-  border-radius: var(--r-pill);
-}
 /* focus moves to a step's heading when it changes (a11y-10); the heading is not a control */
 .ob-title:focus,
 .ob-pay-title:focus,
 .obx-build-title:focus {
   outline: none;
+}
+
+/* ---------- the questions' controls, in the frame ---------- */
+/* every chip a question shows is 44 tall, and wraps inside itself at a large text size */
+.ob .ob-chip {
+  height: auto;
+  min-height: var(--hit);
+}
+/* two groups in one card: a full-bleed hairline 12 above and below */
+.card.ob-card.ob-days-card > .rule {
+  margin-block: var(--sp-3);
+}
+/* the morning's card is a grid with a 12 gap: the hairlines and the groups take their space from it */
+.card.ob-card.ob-when > .rule,
+.card.ob-card.ob-when .ob-track-wrap,
+.card.ob-card.ob-when .ob-routine {
+  margin-block: 0;
+}
+.ob-days-card .ob-miles {
+  margin-top: var(--sp-1);
+}
+/* the goals as pills: a row of three, then a row of two, each as wide as its share */
+.ob-goal-pills {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: var(--sp-2);
+}
+.ob-goal-pills .ob-chip {
+  grid-column: span 2;
+  justify-content: center;
+  padding-inline: var(--sp-2);
+  white-space: normal;
+  text-align: center;
+}
+.ob-goal-pills .ob-chip:nth-child(n + 4) {
+  grid-column: span 3;
+}
+.card.ob-card.ob-race-block {
+  padding-block: var(--sp-3);
 }
