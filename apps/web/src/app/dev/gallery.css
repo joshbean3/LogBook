@@ -403,3 +403,34 @@
   padding: 0;
   overflow: hidden;
 }
+
+/* the earned Orb (ui/OrbLight) on the four grounds it meets, at 12, 20 and 48, with a numeral beside it as in use */
+.gal-lights {
+  display: grid;
+  gap: var(--sp-2);
+}
+.gal-light {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-8);
+  min-height: 96px;
+  padding: var(--sp-4) var(--sp-6);
+  border-radius: var(--r-tile);
+  background: var(--paper);
+  color: var(--ink);
+}
+.gal-light.is-cloud {
+  background: var(--cloud);
+}
+.gal-light.is-deep {
+  background: var(--deep-sky);
+  color: var(--white);
+}
+.gal-light.is-dusk {
+  background: linear-gradient(180deg, var(--night-ink) -30%, var(--twilight) 46%, var(--deep-sky) 100%);
+  color: var(--paper);
+}
+.gal-light-n {
+  margin-left: auto;
+  font: 600 var(--fs-sub) / var(--lh-sub) var(--sans);
+}

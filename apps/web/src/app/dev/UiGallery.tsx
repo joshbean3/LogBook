@@ -8,6 +8,7 @@ import { COMPLETE_SCALE, forScale, reducedFade, springs, type SpringName } from 
 import type { DragPoint } from '@/ui/useHold';
 import { Avatar } from '@/ui/Avatar';
 import { ContextMenu, useContextMenu, type ContextMenuItem } from '@/ui/ContextMenu';
+import { OrbLight } from '@/ui/OrbLight';
 import { DayPager, useDayPagerHandle } from '@/ui/DayPager';
 import { capsWord, DateStrip, dayCaption, dayTitle, NavBar, PushedBar, TodayPill, weekCaption, type StripStatus } from '@/ui/NavBar';
 import { Pressable } from '@/ui/Pressable';
@@ -583,6 +584,19 @@ function Gallery({ onLab }: { onLab: () => void }) {
 
       <Section title="Orb" meta="One complete pop, orb on its apex">
         <OrbDemo />
+      </Section>
+
+      <Section title="Earned Orb" meta="OrbLight: Paper, Cloud, Deep Sky, dusk">
+        <div className="gal-lights" data-testid="orb-lights">
+          {(['paper', 'cloud', 'deep', 'dusk'] as const).map((g) => (
+            <div key={g} className={`gal-light is-${g}`}>
+              <OrbLight size={12} />
+              <OrbLight size={20} />
+              <OrbLight size={48} />
+              <span className="gal-light-n tnum">12</span>
+            </div>
+          ))}
+        </div>
       </Section>
 
       <Section title="Swipe rows" meta="→ Done · ← Later">
