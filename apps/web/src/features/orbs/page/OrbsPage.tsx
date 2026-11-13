@@ -15,7 +15,7 @@ import { useToast } from '@/ui/Toast';
 import { ChallengeRows } from '../challenge/ChallengeRows';
 import { markSeen, newKeys, setSwitches, useCount, useLevelInfo, useNewCount, useOrbsStore, useOrbsToday, useOrbsTotal, useWeekTarget } from '../store';
 import { Keepsakes } from './Keepsakes';
-import { isEmpty, keepsakesOf, levelBand, levelProgress, linesOf, longDate, newRows, nextKeepsake, notStarted, num, orbs, paidOn } from './model';
+import { isEmpty, keepsakesOf, levelBand, levelProgress, linesOf, longDate, newRows, nextKeepsake, notStarted, num, orbs, paidOn, type Line } from './model';
 import { OrbsSwitchRows } from './Switches';
 import { useLeaveWhenOff } from './useLeaveWhenOff';
 import { WeekMarks } from './WeekMarks';
@@ -44,10 +44,11 @@ const TodaySheet = ({ date }: { date: string }): React.JSX.Element | null => {
   );
 };
 
+const weekGoalLine = (n: number): Line => ({ key: 'goal', label: 'Week goal', n, gem: 'goal:week' });
 /** The sheet behind a week goal's "New" row. */
 const GoalSheet = ({ n }: { n: number }): React.JSX.Element => (
   <div className="orp-today-sheet">
-    <Lines lines={[{ key: 'goal', label: 'Week goal', n, gem: 'goal:week' }]} />
+    <Lines lines={[weekGoalLine(n)]} />
     <p className="lb-foot">{`A week goal pays ${num(RULES.goal.base)} Orbs times ${num(RULES.goal.reach.week)}, once, when you mark it done.`}</p>
   </div>
 );
