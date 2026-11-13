@@ -264,7 +264,7 @@ export const statusLine = (gained: number, today: number): string => (today > 0 
 /** The counter's name: "Orbs. 12 today. Level 5." */
 export const counterLabel = (today: number, level: number): string => `Orbs. ${today > 0 ? `${today} today. ` : ''}Level ${level}.`;
 export const FULL_DAY_CHIP = 'Full day +5';
-export const FIRST_ORB = { text: 'Your first Orb. You earn one for each thing you finish.', action: 'Turn off' } as const;
+export const FIRST_ORB = { text: 'Your first Orb. You earn one for each thing you finish.', action: 'Settings' } as const;
 
 const GOAL_WORD: Record<string, string> = { week: 'week', month: 'month', year: 'year' };
 /**

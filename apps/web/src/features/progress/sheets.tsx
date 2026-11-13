@@ -115,10 +115,10 @@ export const WeekSheet = ({ w, today, onGone }: { w: string; today: string; onGo
       ? `${sum.runsPlanned} ${plural(sum.runsPlanned, 'run')} planned.`
       : `${training} ${plural(training, 'session')} planned.`
     : sum.kept
-      ? 'Week kept.'
+      ? 'The week counts.'
       : current
-        ? `${Math.max(0, sum.target - sum.keptSessions)} more ${plural(sum.target - sum.keptSessions, 'session')} to keep the week.`
-        : `${sum.keptSessions} of ${sum.target} ${plural(sum.target, 'session')} done. ${sum.target} ${plural(sum.target, 'keeps', 'keep')} the week.`;
+        ? `${Math.max(0, sum.target - sum.keptSessions)} more ${plural(sum.target - sum.keptSessions, 'session')} for the week to count.`
+        : `${sum.keptSessions} of ${sum.target} ${plural(sum.target, 'session')} done. ${sum.target} ${plural(sum.target, 'makes', 'make')} the week count.`;
   // the seven days live in Plan (the same list, with drag and swipe): one row takes you there instead of repeating it
   // §1.3: a 0 ms cut to Plan already at that week; one Back returns to Progress with the sheet closed
   const openInPlan = () => nav.go(`/plan/week/${w}`);

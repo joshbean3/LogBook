@@ -47,11 +47,11 @@ export const habitWindow = (isDone: (date: ISODate) => boolean, today: ISODate, 
 };
 
 /**
- * The Streaks list's sub line in two parts: the streak (`12-day streak`; a habit with no run yet says so, or its best run
- * when it had one) and the count (`24 of 30`, empty until a day is lit). Joined with ` · `; the count drops where it cannot fit.
+ * The habit list's sub line in two parts: the days in a row (`12 days in a row`; a habit with none yet says so: never a
+ * "best" beside a lower number, which reads as a loss) and the count (`24 of 30`, empty until a day is lit). Joined with ` · `; the count drops where it cannot fit.
  */
 export const streakParts = (w: HabitWindow): { streak: string; count: string } => ({
-  streak: w.streak > 0 ? `${w.streak} ${w.streak === 1 ? 'day' : 'days'} in a row` : w.best >= 2 ? `Best ${w.best} days` : 'Not lit yet',
+  streak: w.streak > 0 ? `${w.streak} ${w.streak === 1 ? 'day' : 'days'} in a row` : 'Not lit yet',
   count: w.lit > 0 ? `${w.lit} of ${w.since.length}` : '',
 });
 export const streakLine = (w: HabitWindow): string => {
@@ -78,8 +78,8 @@ export const habitTiles = (w: Pick<HabitWindow, 'since' | 'lit' | 'streak' | 'be
   const days = (n: number) => (n === 1 ? 'day' : 'days');
   const streak: HabitTile =
     w.streak > 0
-      ? { label: 'In a row', value: String(w.streak), unit: days(w.streak), status: w.best > w.streak ? `Best ${w.best} ${days(w.best)}` : 'Your best yet', none: false }
-      : { label: 'In a row', value: '–', unit: '', status: w.best >= 2 ? `Best ${w.best} days` : 'Light it today', none: w.best < 2 };
+      ? { label: 'In a row', value: String(w.streak), unit: days(w.streak), status: 'Lit today or yesterday', none: false }
+      : { label: 'In a row', value: '–', unit: '', status: 'Light it today', none: true };
   const n = w.since.length;
   const count: HabitTile =
     w.lit > 0

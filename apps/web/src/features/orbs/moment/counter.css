@@ -72,10 +72,10 @@
   opacity: 0;
 }
 .nb-orbs-n.is-changed > .nb-orbs-in {
-  animation: nb-orbs-in var(--dur-reduce) linear both;
+  animation: nb-orbs-in var(--dur-in) var(--ease-out) both;
 }
 .nb-orbs-n.is-changed > .nb-orbs-out {
-  animation: nb-orbs-out var(--dur-reduce) linear both;
+  animation: nb-orbs-out var(--dur-out) var(--ease-out) both;
 }
 @keyframes nb-orbs-in {
   from {
@@ -95,5 +95,6 @@
   .nb-orbs-n.is-changed > .nb-orbs-in,
   .nb-orbs-n.is-changed > .nb-orbs-out {
     animation-duration: var(--dur-reduce) !important;
+    animation-timing-function: linear !important;
   }
 }

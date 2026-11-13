@@ -45,7 +45,7 @@ describe('streakLine', () => {
     expect(line([T, shiftDays(T, -1), shiftDays(T, -2)])).toBe('3 days in a row · 3 of 30');
   });
   it('falls back to the best run, then to nothing yet', () => {
-    expect(line([shiftDays(T, -5), shiftDays(T, -6), shiftDays(T, -9)])).toBe('Best 2 days · 3 of 30');
+    expect(line([shiftDays(T, -5), shiftDays(T, -6), shiftDays(T, -9)])).toBe('Not lit yet · 3 of 30');
     expect(line([shiftDays(T, -5)])).toBe('Not lit yet · 1 of 30');
     expect(line([])).toBe('Not lit yet');
   });
@@ -58,7 +58,7 @@ describe('habitTiles', () => {
   const since = Array.from({ length: 30 }, (_, i) => shiftDays(T, -i));
   it('stamps the streak and the count, with the best run under a shorter streak', () => {
     const [streak, count] = habitTiles({ since, lit: 12, streak: 3, best: 6 }, 'Last 30 days');
-    expect(streak).toMatchObject({ value: '3', unit: 'days', status: 'Best 6 days', none: false });
+    expect(streak).toMatchObject({ value: '3', unit: 'days', status: 'Lit today or yesterday', none: false });
     expect(count).toMatchObject({ label: 'Last 30 days', value: '12', unit: 'of 30', status: '40% of days', none: false });
   });
   it('keeps both tiles with dashes before anything is lit', () => {
@@ -67,7 +67,7 @@ describe('habitTiles', () => {
     expect(count).toMatchObject({ value: '0', unit: 'of 1', status: 'No days yet', none: true });
   });
   it('says one day, not one days', () => {
-    expect(habitTiles({ since, lit: 1, streak: 1, best: 1 }, 'x')[0]).toMatchObject({ unit: 'day', status: 'Your best yet' });
+    expect(habitTiles({ since, lit: 1, streak: 1, best: 1 }, 'x')[0]).toMatchObject({ unit: 'day', status: 'Lit today or yesterday' });
   });
 });
 

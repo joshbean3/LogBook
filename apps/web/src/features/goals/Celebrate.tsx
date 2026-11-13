@@ -4,7 +4,7 @@ import { AnimatePresence, motion } from 'motion/react';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { getOrbs, getSwitches, markSeen } from '@/features/orbs/store';
-import { useReduced } from '@/lib/motion';
+import { crossfadeSlow, reducedFade, springs, useReduced } from '@/lib/motion';
 import { restoreFocus } from '@/ui/focus';
 import { holdInert } from '@/ui/inert';
 import './goals.css';
@@ -87,13 +87,13 @@ export const MomentPage = ({ label, disc, title, line, children, quote, onClose 
     };
   }, []);
   return (
-    <motion.div className="cel" role="dialog" aria-modal="true" aria-label={label} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: reduce ? 0 : 0.25 }}>
+    <motion.div className="cel" role="dialog" aria-modal="true" aria-label={label} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={reduce ? reducedFade : crossfadeSlow}>
       <div className="cel-stage">
-        <motion.span className="cel-shape" initial={reduce ? false : { scale: 0.05, rotate: -40 }} animate={{ scale: 1, rotate: 0 }} transition={{ type: 'spring', duration: 0.9, bounce: 0.45, delay: 0.05 }}>
+        <motion.span className="cel-shape" initial={reduce ? false : { scale: 0.05 }} animate={{ scale: 1 }} transition={{ ...springs.complete, delay: 0.05 }}>
           {disc ? <span className={`cel-num${disc.length > 3 ? ' is-long' : ''}`}>{disc}</span> : <Check className="cel-check" aria-hidden="true" />}
         </motion.span>
       </div>
-      <motion.div className="cel-words" initial={reduce ? false : { opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: reduce ? 0 : 0.45, duration: 0.4, ease: [0.22, 1, 0.36, 1] }}>
+      <motion.div className="cel-words" initial={reduce ? false : { opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={reduce ? reducedFade : { ...crossfadeSlow, delay: 0.45 }}>
         <h2 className="cel-title">{title}</h2>
         <p className="cel-line">{line}</p>
         {children}

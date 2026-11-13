@@ -192,8 +192,8 @@
 }
 /* a numeral in the disc (weeks in a row, days in all, a chapter): Fraunces 650, the static stat */
 .cel-num {
-  font: 650 var(--fs-hero) / 1 var(--display);
-  letter-spacing: var(--tr-title);
+  font: 650 var(--fs-stat) / 1 var(--display);
+  letter-spacing: var(--tr-hero);
   color: var(--ink);
 }
 .cel-num.is-long {

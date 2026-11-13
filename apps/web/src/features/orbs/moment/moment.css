@@ -200,15 +200,15 @@
 .om-chip.is-on > .om-chip-in {
   animation: om-chip-rise var(--dur) var(--ease-out) both;
 }
-/* 160 ms in, held, 200 ms out (as shares of 2,400) */
+/* --dur-in (120 ms) in, held, --dur-out (100 ms) out, as shares of the chip's 2,400 ms stay (guide 9.1) */
 @keyframes om-chip-fade {
   0% {
     opacity: 0;
   }
-  6.67% {
+  5% {
     opacity: 1;
   }
-  91.67% {
+  95.83% {
     opacity: 1;
   }
   100% {
