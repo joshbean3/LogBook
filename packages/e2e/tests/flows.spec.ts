@@ -95,6 +95,52 @@ test('journal: finish the line, write more, then edit the entry', async ({ page 
   expect(JSON.stringify(await lines.json())).toContain(line);
 });
 
+test('the tour by itself: Settings opens it, each page turns, and it ends back on Settings', async ({ page }) => {
+  await signUpByApi(page);
+  await go(page, '/settings');
+  const row = page.getByRole('button', { name: /How Orby works/ });
+  await row.click();
+  await expect(page).toHaveURL(/\/welcome\/how/);
+  // one page per place, headed with the place's own name; the dots say which page of how many
+  const places = ['Today', 'Goals', 'Fitness', 'Journal', 'The assistant'];
+  for (const [i, place] of places.entries()) {
+    await expect(page.getByRole('heading', { level: 1, name: place, exact: true })).toBeVisible();
+    await expect(page.getByRole('img', { name: `Page ${i + 1} of ${places.length}` })).toBeVisible();
+    if (i < places.length - 1) await page.getByRole('button', { name: 'Next', exact: true }).click();
+  }
+  // the chevron turns back a page; the last page's button ends the tour where it was opened
+  await page.getByRole('button', { name: 'Back', exact: true }).click();
+  await expect(page.getByRole('heading', { level: 1, name: 'Journal', exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Next', exact: true }).click();
+  await page.getByRole('button', { name: 'Done', exact: true }).click();
+  await expect(page).toHaveURL(/\/settings$/);
+  await expect(row).toBeVisible();
+  // Skip tour leaves from the first page, to the same place
+  await row.click();
+  await expect(page).toHaveURL(/\/welcome\/how/);
+  await page.getByRole('button', { name: 'Skip tour', exact: true }).click();
+  await expect(page).toHaveURL(/\/settings$/);
+  // opened by its address there is no page to go back to: it ends on Today
+  await page.goto('/welcome/how');
+  await page.getByRole('button', { name: 'Skip tour', exact: true }).click();
+  await expect(page).toHaveURL(/\/today/);
+});
+
+test('the tour with Fitness off: four pages, none of them Fitness', async ({ page }) => {
+  await signUpByApi(page);
+  await page.evaluate(() => localStorage.setItem('logbook.prefs', JSON.stringify({ fitness: false })));
+  await page.goto('/welcome/how');
+  const places = ['Today', 'Goals', 'Journal', 'The assistant'];
+  for (const [i, place] of places.entries()) {
+    await expect(page.getByRole('heading', { level: 1, name: place, exact: true })).toBeVisible();
+    await expect(page.getByRole('img', { name: `Page ${i + 1} of ${places.length}` })).toBeVisible();
+    await expect(page.getByRole('heading', { level: 1, name: 'Fitness', exact: true })).toHaveCount(0);
+    if (i < places.length - 1) await page.getByRole('button', { name: 'Next', exact: true }).click();
+  }
+  await page.getByRole('button', { name: 'Done', exact: true }).click();
+  await expect(page).toHaveURL(/\/today/);
+});
+
 test('offline: a to-do added with no connection is sent when it comes back', async ({ page, context }) => {
   await signUpByApi(page);
   await page.waitForLoadState('networkidle');
