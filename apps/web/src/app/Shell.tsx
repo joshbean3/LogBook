@@ -20,6 +20,7 @@ import { showToast } from '@/ui/toastStore';
 import { usePress } from '@/ui/usePress';
 import { ErrorBoundary } from './ErrorBoundary';
 import { healthSyncNow, useHealthSync } from '@/lib/healthSync';
+import { OrbsMoment } from '@/features/orbs/moment/OrbsMoment';
 import { useReconcile } from '@/features/orbs/useReconcile';
 import { PushedEntryScope, TabScope, useNav, useNavInternal, useNavState, type Controller } from './NavController';
 import './shell.css';
@@ -87,6 +88,7 @@ export const Shell = ({ pages, pushed }: { pages: Record<TabId, ReactNode>; push
   return (
     <div className="shell">
       <CelebrateLayer />
+      <OrbsMoment />
       <div className="tabs-host">
         {tabs.map((t) => (
           <TabSection key={t.id} ctl={ctl} tab={t.id} state={st.tabs[t.id]} active={active === t.id} leaving={leaving === t.id && active !== t.id} mounted={mounted.current.has(t.id)} page={pages[t.id]} pushed={pushed} />

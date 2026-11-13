@@ -1,0 +1,94 @@
+/*
+ * The Orbs counter on Today's title line (features/orbs/moment/OrbCounter.tsx): the bar's own Apricot half-sun with
+ * today's numeral beside it, one 44 pt target. The sun is drawn here while the counter is on the line (the horizon's
+ * own ::after steps aside), in the same place and at the same size, so it can answer a landing.
+ */
+.nb-horizon:has(> .nb-orbs)::after {
+  content: none;
+}
+/* a guaranteed place: the title gives way (an ellipsis) before the counter does */
+.nb-title:has(.nb-orbs) {
+  flex-wrap: nowrap;
+}
+.nb-horizon:has(> .nb-orbs) {
+  flex: 0 0 max(42%, 96px);
+}
+.nb-orbs {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 88px;
+  height: var(--hit);
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: var(--r-tile);
+  background: none;
+  color: var(--ink);
+  pointer-events: auto;
+  -webkit-tap-highlight-color: transparent;
+}
+.nb-orbs:active {
+  opacity: 0.55;
+}
+/* the half-sun, where the horizon draws its own (guide 5.3: 28 x 14, on the line, 52 from the right) */
+.nb-orbs-sun {
+  position: absolute;
+  right: 52px; /* brand-ok: geometry, the half-sun's place on the title line (guide 5.3) */
+  bottom: 11px; /* brand-ok: geometry, the horizon on the title's baseline (plan D2, F2) */
+  width: 28px;
+  height: 14px;
+  border-radius: var(--r-pill) var(--r-pill) 0 0;
+  background: var(--horizon-sun);
+  transform-origin: 50% 100%;
+}
+/* an Orb lands: the sun 1 to 1.18 to 1 over 300 ms */
+.nb-orbs-sun.is-landing {
+  animation: nb-orbs-land var(--dur-complete) var(--ease-out);
+}
+@keyframes nb-orbs-land {
+  40% {
+    transform: scale(1.18);
+  }
+}
+/* today's numeral: Inter 600 at 15, tabular, Night Ink, standing on the line to the right of the sun. Fixed chrome: it
+   grows with the text size as far as the row holds */
+.nb-orbs-n {
+  position: absolute;
+  left: calc(100% - 46px); /* brand-ok: geometry, 6 px after the sun's right edge */
+  bottom: 8px;
+  display: block;
+  min-width: 1ch;
+  font: 600 clamp(15px, var(--fs-sub), 20px) / 1.2 var(--sans);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0;
+  text-align: left;
+  white-space: nowrap;
+}
+.nb-orbs-out {
+  position: absolute;
+  left: 0;
+  top: 0;
+  opacity: 0;
+}
+.nb-orbs-n.is-changed > .nb-orbs-in {
+  animation: nb-orbs-in var(--dur-reduce) linear both;
+}
+.nb-orbs-n.is-changed > .nb-orbs-out {
+  animation: nb-orbs-out var(--dur-reduce) linear both;
+}
+@keyframes nb-orbs-in {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes nb-orbs-out {
+  from {
+    opacity: 1;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .nb-orbs-sun.is-landing {
+    animation: none;
+  }
+}

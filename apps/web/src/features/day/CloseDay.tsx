@@ -40,6 +40,7 @@ import { refusedMark } from './marks';
 import { watchJournalAdd } from './journalGuard';
 import { dayMiles, sessionMiles, weekMiles } from './miles';
 import { afterPaint, useReleaseTap } from './release';
+import { dayClosed, popOrbs, pressRect, trainKey } from '../orbs/moment';
 import { markSuccess } from './success';
 import { keepAboveKeyboard, revealBox } from './reveal';
 import { saveFocus, useFocus } from './WordSheet';
@@ -150,6 +151,9 @@ const RunRow = ({ date, log, p, onOpen, still, markNow }: { date: ISODate; log: 
           done={done}
           onComplete={() => {
             markSuccess(s.id);
+            // its Orbs, at the ring, on the ring's `success`
+            const key = trainKey(s.kind);
+            if (key) popOrbs({ key, date: s.date as ISODate, n: 3, from: pressRect(), id: s.id, haptic: 'success' });
             // the row's words and the MI stamp answer on the card with the check (the hero's override: its own small render),
             // the write after the swap (feel review 3 #2); a refusal takes them back and says so (code review 3 #3)
             if (markNow) return markNow(s, 'done', MORPH_MS);
@@ -550,6 +554,8 @@ const ComposeBox = ({ date, log, lines, onSaved, onRefused }: { date: ISODate; l
                     // the day's close: its one success on the frame the entry shows (the swap above is committed). A
                     // day that already has its line was closed by it
                     if (first && !hasLine) requestAnimationFrame(() => haptics.success());
+                    // the day is done with: a big moment that has been waiting may open now (features/orbs/moment)
+                    if (first) dayClosed();
                   }}
                 />
               </div>

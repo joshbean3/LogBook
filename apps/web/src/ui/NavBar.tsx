@@ -58,6 +58,8 @@ export interface NavBarProps {
   children?: ReactNode;
   /** Ref to the large title row, for handle.attach. */
   titleRef?: React.Ref<HTMLElement>;
+  /** Today's own day: the Orbs counter, drawn on the title-line horizon in place of its sun (features/orbs/moment/OrbCounter.tsx). */
+  horizon?: ReactNode;
 }
 
 /** Three labels stacked in one row: the cur one in flow, prev and next absolute over it (opacities written from progress). */
@@ -84,7 +86,8 @@ const Stacked = ({ l, form = 'full', stacked }: { l: StackedLabel; form?: Form; 
  * a small Apricot half-sun on it. Light, not a Sunrise mark. It is a flex item after the title: when the title and the
  * horizon do not both fit on the line, it wraps to a second line that the 44 px row clips, so it never touches a title.
  */
-const Horizon = () => <span className="nb-horizon" aria-hidden="true" />;
+const Horizon = ({ children }: { children?: ReactNode }) =>
+  children ? <span className="nb-horizon">{children}</span> : <span className="nb-horizon" aria-hidden="true" />;
 
 const keyOf = (n: ReactNode): string => {
   if (!isValidElement(n)) return n == null || n === false ? 'none' : 'node';
@@ -99,7 +102,7 @@ const setRef = <T,>(r: React.Ref<T> | undefined, v: T | null) => {
 };
 
 /** Returns a FRAGMENT: .nb-bar, .nb-title, {children}, .nb-gap, as direct children of the page element. Never a wrapper. */
-export const NavBar = ({ word, caps, title, progress, trailing, wideTrailing, onTitlePress, titleMenu, titleLabel, onDatePress, dateLabel, gap = 24, children, titleRef }: NavBarProps): React.JSX.Element => {
+export const NavBar = ({ word, caps, title, progress, trailing, wideTrailing, onTitlePress, titleMenu, titleLabel, onDatePress, dateLabel, gap = 24, children, titleRef, horizon }: NavBarProps): React.JSX.Element => {
   const reduce = !!useReducedMotion();
   const barRef = useRef<HTMLDivElement>(null);
   const capRef = useRef<HTMLElement>(null);
@@ -159,6 +162,8 @@ export const NavBar = ({ word, caps, title, progress, trailing, wideTrailing, on
     holdMenu: titleMenu,
     menuLabel: 'Title actions',
     press: 'dim' as const,
+    // the counter on the title line is a button of its own
+    ignore: '.nb-orbs',
   };
   // Voice Control (gap-qua-40): the caps line's name starts with what it prints ("Tue, Nov 10"), then says what a tap does
   const printed = speakable([word, shorten(caps.cur, form)].filter(Boolean).join(' · '));
@@ -225,12 +230,12 @@ export const NavBar = ({ word, caps, title, progress, trailing, wideTrailing, on
       {pressable ? (
         <Pressable as="div" ref={titleRefCb} className="nb-title" role="heading" aria-level={1} tabIndex={-1} menuButton={false} {...tp}>
           <Stacked l={title} stacked={stacked} />
-          <Horizon />
+          <Horizon>{horizon}</Horizon>
         </Pressable>
       ) : (
         <h1 ref={titleRefCb} className="nb-title">
           <Stacked l={title} stacked={stacked} />
-          <Horizon />
+          <Horizon>{horizon}</Horizon>
         </h1>
       )}
       {children}

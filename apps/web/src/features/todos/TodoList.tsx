@@ -18,6 +18,7 @@ import { colorOf, colorStyle, groupOf, ListChip } from './colors';
 import { ListSheet } from './ListSheet';
 import { PRIORITY_SHORT, PriorityFlag } from './PriorityDots';
 import { parseQuickAdd, type QuickAdd } from './quickAdd';
+import { popOrbs, unpopOrbs } from '../orbs/moment';
 import { TodoMark } from './TodoMark';
 import { TodoSheet } from './TodoSheet';
 import './todos.css';
@@ -129,6 +130,7 @@ export const useTodoActions = (date: ISODate) => {
 // ---------- the sheet's rows: SwipeRow v2 (sheets may swipe; Today may not, M9) ----------
 const SheetRow = ({ x, date, done, onEdit, onStep, fold, hideList }: { x: Todo; date: ISODate; done: boolean; onEdit: () => void; onStep: (dir: -1 | 1) => void; fold: (x: Todo) => void; hideList?: boolean }) => {
   const act = useTodoActions(date);
+  const today = useToday();
   const [checked, setChecked] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
   // checked, its fold not run yet: the write goes if the row goes first (the sheet closed; code review 1 #8)
@@ -163,6 +165,8 @@ const SheetRow = ({ x, date, done, onEdit, onStep, fold, hideList }: { x: Todo; 
             if (done) return act.reopen(x);
             clearTimeout(timer.current);
             pending.current = null;
+            // taken back before the fold: silent, and the Orb it had not been counted for goes too
+            if (!next) unpopOrbs({ key: 'todo', date, id: x.id });
             setChecked(next);
             // the check is the answer; the row folds into Completed after the beat (still undoable with a tap)
             if (next) {
@@ -173,6 +177,8 @@ const SheetRow = ({ x, date, done, onEdit, onStep, fold, hideList }: { x: Todo; 
               }, FOLD_MS);
             }
           }}
+          // an earned Orb is born at the mark, on the frame its `toggle` fires
+          onPeak={(mark) => !done && date <= today && popOrbs({ key: 'todo', date, n: 1, from: mark, id: x.id })}
         />
         <button
           type="button"

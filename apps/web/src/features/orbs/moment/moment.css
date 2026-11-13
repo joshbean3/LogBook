@@ -1,0 +1,223 @@
+/*
+ * The moment an Orb is earned (features/orbs/moment). One fixed layer on body, six pooled nodes and one chip. Nothing
+ * here takes a touch or is read aloud. Only transform and opacity move, on CSS keyframes; the numbers are written once
+ * per Orb as custom properties (rules.ts holds them), never per frame.
+ *
+ * A node is a point (0 x 0) at the control's center. Inside it, one box per motion, so each has its own easing:
+ *   .om-fx    the flight to the counter, x (eases out)
+ *   .om-fy    the flight, y (eases in and out, so the path bows)
+ *   .om-rise  the rise from the control
+ *   .om-land  the flight's shrink to the size at rest, and its end
+ *   .om-pop   the birth: opacity and the one overshoot; with no counter, also the fade
+ */
+.om-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 65; /* over sheets and the toast (60), under the context menu (70) and a full-screen moment */
+  overflow: hidden;
+  contain: strict;
+  pointer-events: none;
+}
+.om-node,
+.om-fx,
+.om-fy,
+.om-rise,
+.om-land,
+.om-pop {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 0;
+  height: 0;
+}
+.om-node {
+  transform: translate3d(var(--om-x, 0), var(--om-y, 0), 0);
+}
+.om-pop {
+  opacity: 0;
+}
+/* the light is centered on the point */
+.om-pop > .orb-light {
+  position: absolute;
+  left: calc(var(--ol) / -2);
+  top: calc(var(--ol) / -2);
+  width: var(--ol);
+  height: var(--ol);
+}
+
+/* ---------- the rise: 420 ms, from the control's center ---------- */
+.om-node.is-rise .om-rise,
+.om-node.is-fly .om-rise {
+  animation: om-rise var(--om-rise-ms) var(--ease-out) var(--om-delay, 0ms) both;
+}
+@keyframes om-rise {
+  to {
+    transform: translate3d(var(--om-dx), var(--om-dy), 0);
+  }
+}
+
+/* ---------- no counter on screen: born, one overshoot, then it fades where it is ---------- */
+.om-node.is-rise .om-pop {
+  animation: om-pop var(--om-pop-ms) linear var(--om-delay, 0ms) both;
+}
+/* 0 to 120 ms in; to 260 ms back to 1; held to 300 ms; gone by 480 ms (as shares of 480) */
+@keyframes om-pop {
+  0% {
+    opacity: 0;
+    transform: scale(var(--om-from));
+    animation-timing-function: var(--ease-out);
+  }
+  25% {
+    opacity: 1;
+    transform: scale(var(--om-peak));
+    animation-timing-function: var(--ease-in-out);
+  }
+  54.17% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  62.5% {
+    opacity: 1;
+    transform: scale(1);
+    animation-timing-function: var(--ease-in-out);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(var(--om-fade));
+  }
+}
+
+/* ---------- the counter is on screen: born the same way, then at 300 ms it arcs there ---------- */
+.om-node.is-fly .om-pop {
+  animation: om-born var(--om-born-ms) linear var(--om-delay, 0ms) both;
+}
+/* 0 to 120 ms in, to 260 ms back to 1 (as shares of 260) */
+@keyframes om-born {
+  0% {
+    opacity: 0;
+    transform: scale(var(--om-from));
+    animation-timing-function: var(--ease-out);
+  }
+  46.15% {
+    opacity: 1;
+    transform: scale(var(--om-peak));
+    animation-timing-function: var(--ease-in-out);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+.om-node.is-fly .om-fx {
+  animation: om-fx var(--om-fly) var(--ease-out) var(--om-fly-at) both;
+}
+.om-node.is-fly .om-fy {
+  animation: om-fy var(--om-fly) var(--ease-in-out) var(--om-fly-at) both;
+}
+.om-node.is-fly .om-land {
+  animation: om-land var(--om-fly) var(--ease-in-out) var(--om-fly-at) both;
+}
+@keyframes om-fx {
+  to {
+    transform: translate3d(var(--om-fx), 0, 0);
+  }
+}
+@keyframes om-fy {
+  to {
+    transform: translate3d(0, var(--om-fy), 0);
+  }
+}
+/* it shrinks to the size at rest as it goes and is taken in by the sun at the end */
+@keyframes om-land {
+  0% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  84% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: scale(var(--om-end));
+  }
+}
+
+/* ---------- Reduce Motion: it fades in above the control, holds, fades out. No travel, no scale ---------- */
+.om-node.is-still .om-rise {
+  transform: translate3d(var(--om-dx), var(--om-dy), 0);
+}
+.om-node.is-still .om-pop {
+  animation: om-still var(--om-still-ms) linear both;
+}
+/* 150 ms in, 400 ms held, 150 ms out (as shares of 700) */
+@keyframes om-still {
+  0% {
+    opacity: 0;
+  }
+  21.43% {
+    opacity: 1;
+  }
+  78.57% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+/* ---------- the full-day chip: one small Paper pill, by the counter or where the last Orb was born ---------- */
+.om-chip {
+  position: absolute;
+  left: 0;
+  top: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  min-height: 32px;
+  padding: 0 var(--sp-3) 0 var(--sp-2);
+  border-radius: var(--r-pill);
+  background: var(--paper);
+  box-shadow: var(--shadow-pill);
+  color: var(--ink);
+  font: 600 var(--fs-foot) / var(--lh-foot) var(--sans);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  opacity: 0;
+  transform: translate3d(var(--om-x, 0), var(--om-y, 0), 0);
+}
+.om-chip > .om-chip-in {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+.om-chip.is-on {
+  animation: om-chip-fade var(--om-chip-ms) linear both;
+}
+.om-chip.is-on > .om-chip-in {
+  animation: om-chip-rise var(--dur) var(--ease-out) both;
+}
+/* 160 ms in, held, 200 ms out (as shares of 2,400) */
+@keyframes om-chip-fade {
+  0% {
+    opacity: 0;
+  }
+  6.67% {
+    opacity: 1;
+  }
+  91.67% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+@keyframes om-chip-rise {
+  from {
+    transform: translate3d(0, 8px, 0);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .om-chip.is-on > .om-chip-in {
+    animation: none;
+  }
+}

@@ -223,8 +223,11 @@ export const playHaptics = (steps: ReadonlyArray<HapticStep>, clock: () => numbe
  * the value has risen above its start (the apex; the first frame does not rise, so "stops rising" alone would fire at once).
  * With reduced motion (no pop) the caller passes the fill's progress value instead and it fires on the frame that reaches 1.
  * A FILL_MS fallback fires it if neither frame comes. Returns an unsubscribe. The only way `orb` and `toggle` are fired.
+ *
+ * `then` runs on that same frame, right after the haptic, whether or not haptics are switched on: what is born with the
+ * completion (an earned Orb, features/orbs/moment) rides the haptic's frame and adds none of its own.
  */
-export const hapticAtPeak = (scale: MotionValue<number>, e: 'orb' | 'toggle') => {
+export const hapticAtPeak = (scale: MotionValue<number>, e: 'orb' | 'toggle', then?: () => void) => {
   const start = scale.get();
   let prev = start;
   let rose = false;
@@ -237,6 +240,7 @@ export const hapticAtPeak = (scale: MotionValue<number>, e: 'orb' | 'toggle') =>
     queueMicrotask(off);
     clearTimeout(timer);
     haptics[e]();
+    then?.();
   };
   // a value that starts at 0 is a 0 → 1 fill progress (reduced motion: no pop); anything else is a scale with an apex
   const progress = start <= 0;

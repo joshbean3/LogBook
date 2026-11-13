@@ -17,13 +17,13 @@ import { useToast } from '@/ui/Toast';
 import { useHold } from '@/ui/useHold';
 import { useIsLive } from '../day/live';
 import { useFaceMinutes } from '../day/useDeferred';
-import { useCelebrate } from '../goals/Celebrate';
 import { celebrateOnce } from '../goals/game';
 import { goalIdea, ideaGoal, type GoalIdea } from '../goals/goalIdea';
 import { useOpenGoal } from '../goals/GoalSheets';
 import { goalOf, STATUS_WORD } from '../goals/model';
 import { ReviewRow } from '../goals/ReviewRow';
 import { newStepId, useSaveSteps } from '../goals/Steps';
+import { popOrbs, pressRect } from '../orbs/moment';
 import type { Log } from '../log/useLog';
 import { groupOf } from '../todos/colors';
 import { groupsOn } from '../todos/groups';
@@ -81,7 +81,6 @@ export const PlanDay = memo(function PlanDay({ date, today, log, slim, yesterday
   const qc = useQueryClient();
   const act = useTodoActions(date);
   const saveSteps = useSaveSteps();
-  const celebrate = useCelebrate();
   const { set, clear } = useGoalMutations();
   const { patch, reorder } = useTodoMutations();
 
@@ -100,14 +99,15 @@ export const PlanDay = memo(function PlanDay({ date, today, log, slim, yesterday
     setAdding(true);
   };
 
-  // the goal turned done (its sheet, the Goals tab): the moment plays once
+  // the goal turned done (its sheet, the Goals tab): its one `success`, and three Orbs at the control that did it. Today's
+  // goal no longer opens the full-screen page (features/goals/Celebrate.tsx)
   const wasStatus = useRef(goal?.status);
   useEffect(() => {
     const before = wasStatus.current;
     wasStatus.current = goal?.status;
     if (!goal || before !== 'open' || goal.status !== 'done') return;
     celebrateOnce(`${goal.id}:${goal.updatedAt}`, false);
-    celebrate(goal);
+    popOrbs({ key: 'goal:day', date: goal.period as ISODate, n: 3, from: pressRect(1500), haptic: 'success' });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [goal?.status, goal]);
 
@@ -140,8 +140,10 @@ export const PlanDay = memo(function PlanDay({ date, today, log, slim, yesterday
   };
   const tick = (x: Todo) => {
     if (checking) return;
-    // the key moment's one haptic
+    // the key moment's one haptic, and on its frame the to-do's Orb, born at the check. The stop's light moves on after
+    // the beat below (320 ms): never two warm things moving at once
     haptics.toggle();
+    popOrbs({ key: 'todo', date: date <= today ? date : today, n: 1, from: pressRect(), id: x.id });
     setChecking(x.id);
     flush.current = () => {
       flush.current = null;
