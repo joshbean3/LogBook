@@ -1,9 +1,19 @@
+import type * as React from 'react';
 import { addKeepsakes, emptyRewards, keepsakesDue, mondayLine, reconcile, RULES, ruleLine, shiftDays, daysBetween, type Aim, type DayFacts, type Rewards } from '@logbook/shared';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { ReactNode } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+
+// the page holds the challenge rows, which read the app's caches: an empty client is all a static render needs
+const draw = (Page: React.ComponentType): string =>
+  renderToStaticMarkup(
+    <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity, enabled: false } } })}>
+      <Page />
+    </QueryClientProvider>,
+  );
 
 /**
  * The Orbs page, "How Orbs work" and the switches, rendered on the server renderer in each of their states: before the
@@ -107,7 +117,7 @@ afterEach(() => {
 describe('the Orbs page before the first Orb', () => {
   it('is the poster at rest with one sentence, the rule and How Orbs work: no grid, no zero', async () => {
     const m = await launch(START, emptyRewards(U, START));
-    const html = renderToStaticMarkup(<m.OrbsPage />);
+    const html = draw(m.OrbsPage);
     const said = text(html);
     expect(said).toContain('Your first Orb is one thing away');
     expect(said).toContain(ruleLine(5));
@@ -124,14 +134,14 @@ describe('the Orbs page before the first Orb', () => {
   });
   it('before the rules’ first day it says when Orbs start, and promises nothing sooner', async () => {
     const m = await launch(shiftDays(START, -3), emptyRewards(U, START));
-    const said = text(renderToStaticMarkup(<m.OrbsPage />));
+    const said = text(draw(m.OrbsPage));
     expect(said).toContain('Orbs start Monday');
     expect(said).toContain('Monday, November 16');
     expect(said).not.toContain('one thing away');
   });
   it('a day that counted by its journal line alone shows the week and still no zero', async () => {
     const m = await launch(START, live(START, () => ({ lines: 1 })));
-    const html = renderToStaticMarkup(<m.OrbsPage />);
+    const html = draw(m.OrbsPage);
     expect(text(html)).toContain('Your first Orb is one thing away');
     expect(text(html)).toContain('1 day this week · 1 in all');
     expect(count(html, 'orp-day is-on')).toBe(1);
@@ -142,7 +152,7 @@ describe('the Orbs page in a first week', () => {
   it('reads top to bottom: the total, the level, the week, today, the keepsakes, then how it works and the switches', async () => {
     const s = firstWeek();
     const m = await launch(WEEK_TODAY, s);
-    const html = renderToStaticMarkup(<m.OrbsPage />);
+    const html = draw(m.OrbsPage);
     const said = text(html);
     // Monday 3, Tuesday 6, today 3 + 4 + 3 and a full day's 5
     expect(m.store.getOrbs()!.days[WEEK_TODAY]).toMatchObject({ n: 15 });
@@ -156,7 +166,7 @@ describe('the Orbs page in a first week', () => {
   });
   it('the week is seven marks, Monday first: a check on a day that counts, an open ring otherwise, today named', async () => {
     const m = await launch(WEEK_TODAY, firstWeek());
-    const html = renderToStaticMarkup(<m.OrbsPage />);
+    const html = draw(m.OrbsPage);
     const days = [...html.matchAll(/class="(orp-day[^"]*)"/g)].map((x) => x[1]);
     expect(days).toEqual(['orp-day is-on', 'orp-day is-on', 'orp-day', 'orp-day is-on is-today', 'orp-day', 'orp-day', 'orp-day']);
     expect(html).toContain('aria-label="This week: Monday, Tuesday and Thursday count."');
@@ -164,12 +174,12 @@ describe('the Orbs page in a first week', () => {
   });
   it('today not yet counted is ringed in the strip’s own way', async () => {
     const m = await launch(WEEK_TODAY, live(shiftDays(START, 2), (_d, i) => (i < 2 ? { habitsDone: 2, habitsLiveDone: 2 } : {})));
-    const days = [...renderToStaticMarkup(<m.OrbsPage />).matchAll(/class="(orp-day[^"]*)"/g)].map((x) => x[1]);
+    const days = [...draw(m.OrbsPage).matchAll(/class="(orp-day[^"]*)"/g)].map((x) => x[1]);
     expect(days[3]).toBe('orp-day is-today');
   });
   it('keepsakes: one dashed ring for what comes next, then the earned ones newest first; the newest glows and unseen ones say New', async () => {
     const m = await launch(WEEK_TODAY, firstWeek());
-    const html = renderToStaticMarkup(<m.OrbsPage />);
+    const html = draw(m.OrbsPage);
     expect(count(html, 'orp-disc is-next')).toBe(1);
     expect(html).toContain('aria-label="Next: 10 days in all."');
     expect(text(html)).toContain('Next: 10 days in all');
@@ -179,7 +189,7 @@ describe('the Orbs page in a first week', () => {
     expect(count(html, 'orb-light')).toBe(1);
     expect(count(html, 'orp-keep-new')).toBe(2);
     m.store.markSeen('first');
-    const after = renderToStaticMarkup(<m.OrbsPage />);
+    const after = draw(m.OrbsPage);
     expect(count(after, 'orp-keep-new')).toBe(1);
     expect(after).toContain('aria-label="First light. Monday, November 16."');
     expect(text(after)).toContain('Nov 16');
@@ -187,10 +197,10 @@ describe('the Orbs page in a first week', () => {
   it('on a Monday the engine’s Monday line stands over the fact line', async () => {
     const monday = shiftDays(START, 7);
     const m = await launch(monday, live(monday, (_d, i) => (i < 5 || i === 7 ? { habitsDone: 2, habitsLiveDone: 2 } : {})));
-    const said = text(renderToStaticMarkup(<m.OrbsPage />));
+    const said = text(draw(m.OrbsPage));
     expect(said).toContain(`${mondayLine(5)}\n1 day this week · 6 in all`);
     const other = await launch(WEEK_TODAY, firstWeek());
-    expect(text(renderToStaticMarkup(<other.OrbsPage />))).not.toContain('New week');
+    expect(text(draw(other.OrbsPage))).not.toContain('New week');
   });
 });
 
@@ -198,7 +208,7 @@ describe('the Orbs page a year in', () => {
   it('shows the total with its unit, a numbered level, weeks in a row, and every keepsake earned', async () => {
     const s = yearIn();
     const m = await launch(YEAR_TODAY, s);
-    const html = renderToStaticMarkup(<m.OrbsPage />);
+    const html = draw(m.OrbsPage);
     const said = text(html);
     const total = m.store.getOrbs()!;
     expect(Object.keys(total.keepsakes)).toEqual(expect.arrayContaining(['first', 'full', 'weeks:52', 'days:250', 'goal:month:2027-03', 'goal:year:2027', `chapter:${START}`]));
@@ -213,13 +223,13 @@ describe('the Orbs page a year in', () => {
   });
   it('never says a word the words table forbids, shows no zero, no "best" and nothing that ended', async () => {
     const m = await launch(YEAR_TODAY, yearIn());
-    const said = text(renderToStaticMarkup(<m.OrbsPage />));
+    const said = text(draw(m.OrbsPage));
     expect(said).not.toMatch(/streak|sprint|quest|points|coins|\bXP\b|\bAI\b|coach|\bbot\b|rest days|\bbest\b|days in a row|\u2014/i);
     expect(said).not.toMatch(/(^|\n)0(\n|$)| 0 /);
   });
   it('the earned Orb’s light is the only Orb drawn: the assistant’s glossy Orb is not on this page', async () => {
     const m = await launch(YEAR_TODAY, yearIn());
-    const html = renderToStaticMarkup(<m.OrbsPage />);
+    const html = draw(m.OrbsPage);
     expect(html).not.toMatch(/class="[^"]*\blb-orb\b/);
     expect(html).not.toContain('logo-mark');
   });
@@ -229,7 +239,7 @@ describe('Fitness off', () => {
   it('nothing on the page or in How Orbs work names training', async () => {
     const m = await launch(YEAR_TODAY, yearIn());
     m.prefs.setFitness(false);
-    const page = text(renderToStaticMarkup(<m.OrbsPage />));
+    const page = text(draw(m.OrbsPage));
     const how = text(renderToStaticMarkup(<m.OrbsHow />));
     for (const said of [page, how]) expect(said).not.toMatch(/session|training|\bplan\b|\blift\b|Sick|Injured|pace|distance/i);
     expect(how).not.toMatch(/\brun\b/i);
@@ -243,17 +253,17 @@ describe('Orbs off', () => {
   it('the pages draw nothing of Orbs but their bar, and take themselves off', async () => {
     const m = await launch(YEAR_TODAY, yearIn());
     m.store.setSwitches({ on: false });
-    const page = renderToStaticMarkup(<m.OrbsPage />);
+    const page = draw(m.OrbsPage);
     const how = renderToStaticMarkup(<m.OrbsHow />);
     expect(text(page)).toBe('Orbs');
     expect(text(how)).toBe('How Orbs work');
   });
   it('turning Orbs off loses nothing: on again, the page is as it was', async () => {
     const m = await launch(YEAR_TODAY, yearIn());
-    const before = text(renderToStaticMarkup(<m.OrbsPage />));
+    const before = text(draw(m.OrbsPage));
     m.store.setSwitches({ on: false });
     m.store.setSwitches({ on: true });
-    expect(text(renderToStaticMarkup(<m.OrbsPage />))).toBe(before);
+    expect(text(draw(m.OrbsPage))).toBe(before);
   });
 });
 
@@ -289,9 +299,9 @@ describe('the switches', () => {
   });
   it('“Show Orbs when you earn them” off keeps the count and the page', async () => {
     const m = await launch(WEEK_TODAY, firstWeek());
-    const before = text(renderToStaticMarkup(<m.OrbsPage />));
+    const before = text(draw(m.OrbsPage));
     m.store.setSwitches({ show: false });
-    expect(text(renderToStaticMarkup(<m.OrbsPage />))).toBe(before);
+    expect(text(draw(m.OrbsPage))).toBe(before);
     expect(renderToStaticMarkup(<m.Switches.OrbsSwitchRows place="settings" />)).toMatch(/aria-checked="false" aria-label="Show Orbs when you earn them"/);
   });
   it('with Orbs off Settings keeps the switch and How Orbs work, and asks nothing else', async () => {

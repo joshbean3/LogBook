@@ -1,4 +1,4 @@
-import { PLAN_SHAPE_BLANK } from '@logbook/shared';
+import { challengeSlots, PLAN_SHAPE_BLANK, type ISODate, type Slot } from '@logbook/shared';
 import { openDatabase, type DB } from '../db/index.js';
 import { env } from '../env.js';
 import { buildApp } from '../index.js';
@@ -8,7 +8,7 @@ import { writeConsent } from '../services/consent.js';
 
 /**
  * Shared test kit: an app on an in-memory database, a signed-up account, and one recording fake for every Claude call
- * site (the assistant, the plan builder, the goal review, Remember when, the daily pick).
+ * site (the assistant, the plan builder, the goal review, Remember when, the daily pick, the challenge pick).
  */
 export type App = ReturnType<typeof buildApp>;
 
@@ -47,6 +47,19 @@ export const signUp = async (app: App, email: string, password = 'correct horse 
   return { id, email, cookie, call };
 };
 
+/**
+ * A new account that has a challenge slot of `kind` on `today` (a day slot on that very day, or the week's slot). Which
+ * days hold a slot follows from the account's id, so accounts are made until one fits (two or three, as a rule).
+ */
+export const signUpWithSlot = async (app: App, kind: Slot['kind'], today: ISODate, tag = 'slot'): Promise<{ account: Account; slot: Slot }> => {
+  for (let i = 0; i < 60; i++) {
+    const account = await signUp(app, `${tag}-${i}@example.com`);
+    const slot = challengeSlots(account.id, today, 1).find((s) => s.kind === kind && (kind === 'week' || s.date === today));
+    if (slot) return { account, slot };
+  }
+  throw new Error(`no account with a ${kind} slot on ${today} in 60 tries`);
+};
+
 /** Say yes to every AI switch, as the permission step and Settings, Privacy would. */
 export const grantAll = (db: DB, userId: string) => writeConsent(db, userId, { training: true, recall: true, reads: true });
 
@@ -67,6 +80,10 @@ export interface FakeClaudeOptions {
   shape?: unknown;
   /** The stop reason of the plan builder's assistant's answer (`refusal`, `max_tokens`); `end_turn` when left out. */
   shapeStop?: string;
+  /** What the challenge pick answers with: an object (sent as JSON) or a string sent as it is. The menu's first item and a plain reason when left out. */
+  challenge?: unknown;
+  /** The stop reason of the challenge pick's answer; `end_turn` when left out. */
+  challengeStop?: string;
   /** Throw this from every call instead of answering. */
   fail?: unknown;
   /** Runs as each request arrives, before it is answered (to change something mid-answer). */
@@ -130,6 +147,12 @@ export const fakeClaude = (o: FakeClaudeOptions = {}) => {
         fail();
         // the plan builder's assistant is the call whose answer has a runsPerWeek field
         if (params.output_config?.format?.schema?.properties?.runsPerWeek) return { ...text(shape), stop_reason: o.shapeStop ?? 'end_turn' };
+        // the challenge pick is the call whose answer is an item and a reason
+        const props = params.output_config?.format?.schema?.properties;
+        if (props?.item && props?.reason) {
+          const first = /"id":"([^"]+)"/.exec(String(params.messages?.[0]?.content ?? ''))?.[1];
+          return { ...text(o.challenge ?? { item: first, reason: 'It fits what you have on.' }), stop_reason: o.challengeStop ?? 'end_turn' };
+        }
         return text(params.output_config?.format ? goal : (o.recall ?? 'You wrote about it. Do not forget that.'));
       },
     },

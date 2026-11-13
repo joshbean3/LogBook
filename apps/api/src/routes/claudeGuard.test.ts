@@ -9,12 +9,13 @@ import { activities, hrZones, stravaAccounts } from '../db/schema.js';
 import { env } from '../env.js';
 import { AI_IDENTITY_RULE, DATA_RULE, SAFETY_BLOCK } from '../services/aiSafety.js';
 import { resetRecallMemory } from '../services/recall.js';
-import { fakeClaude, grantAll, makeApp, signUp, type Account, type App } from '../test/helpers.js';
+import type { Slot } from '@logbook/shared';
+import { fakeClaude, grantAll, makeApp, signUp, signUpWithSlot, type Account, type App } from '../test/helpers.js';
 
 /**
  * Three promises checked against what the Claude client actually receives, for every call site in the server (the
- * assistant, the plan builder in its four modes, the goal review, Remember when, the daily pick, and the plan builder's
- * assistant):
+ * assistant, the plan builder in its four modes, the goal review, Remember when, the daily pick, the plan builder's
+ * assistant, and the challenge pick):
  * 1. nothing from Strava (activities, heart rate zones, the Strava account) is ever in a request;
  * 2. the shared safety rules are in the system text of every request;
  * 3. nothing from the server's environment describes a person in a prompt.
@@ -23,6 +24,8 @@ const T = today();
 let app: App;
 let db: DB;
 let me: Account;
+/** The account's day challenge slot for today (the account is made so that it has one). */
+let slot: Slot;
 let claude: ReturnType<typeof fakeClaude>;
 
 const ZONES = [
@@ -40,6 +43,10 @@ const seedStrava = (userId: string) => {
     db.insert(activities)
       .values({ id: `1300000009${i}`, userId, date: shiftDays(T, -i), time: '07:1' + i, name: `Rainy Riverside Loop ${i}`, sportType: 'TrailRun', kind: 'run', distanceM: 8851 + i, movingSec: 2713 + i, elapsedSec: 2767 + i, elevM: 123.4, avgHr: 151, maxHr: 173, cadence: 177, polyline: 'gfo}EtohhUxD@bAxJmGF', lapsJson: JSON.stringify([[1609, 487, 149]]), deletedAt: null, updatedAt: new Date().toISOString(), perfAt: null, perfFailed: 0 })
       .run();
+  // today's planned run is done only because this synced activity says so: the person gave it no mark
+  db.insert(activities)
+    .values({ id: '13000000777', userId, date: T, time: '06:42', name: 'Foggy Towpath Shuffle', sportType: 'Run', kind: 'run', distanceM: 9719, movingSec: 3187, elapsedSec: 3254, elevM: 67.5, avgHr: 149, maxHr: 172, cadence: 175, polyline: 'mxn}EbqjhUzE@dByK', lapsJson: JSON.stringify([[1609, 512, 147]]), deletedAt: null, updatedAt: new Date().toISOString(), perfAt: null, perfFailed: 0 })
+    .run();
 };
 
 /** Every value in the three Strava tables for this user that could be recognised in a request body. */
@@ -86,14 +93,16 @@ const runEveryCallSite = async () => {
     (await me.call('GET', '/api/reads/pick')).status,
     // the plan builder's assistant, with the builder's settings as the app sends them
     (await me.call('POST', '/api/plans/template/assist', { kind: 'shape', words: '4 runs a week, long run Sunday', settings: { goal: 'half', weeks: 12, runDays: ['tue', 'thu', 'sat', 'sun'], longRunDay: 'sun', weeklyMiles: 20, peakMiles: null, startDate: shiftDays(T, 5), raceDate: shiftDays(T, 88) } })).status,
+    // the challenge pick: the phone sends the slot and nothing else
+    (await me.call('POST', '/api/challenges/pick', { slot: slot.key }, { 'x-local-date': T })).status,
   ];
-  expect(statuses).toEqual([200, 200, 200, 200, 200, 200, 200, 200, 200]);
+  expect(statuses).toEqual([200, 200, 200, 200, 200, 200, 200, 200, 200, 200]);
 };
 
 beforeEach(async () => {
   ({ app, db } = makeApp());
   resetRecallMemory();
-  me = await signUp(app, 'guard@example.com');
+  ({ account: me, slot } = await signUpWithSlot(app, 'day', T, 'guard'));
   grantAll(db, me.id);
   await me.call('PATCH', '/api/me', { name: 'Robin Example' });
   // their own data: this is what a request may carry
@@ -102,6 +111,11 @@ beforeEach(async () => {
     await me.call('POST', `/api/sessions/${s.id}/mark`, { mark: 'done' });
   }
   await me.call('POST', '/api/sessions', { date: shiftDays(T, 2), kind: 'run', type: 'Long', title: 'Long 10', miles: 10 });
+  // today: a planned run with no mark (a synced activity is what makes it done, `seedStrava`), a goal and two to-dos
+  await me.call('POST', '/api/sessions', { date: T, kind: 'run', type: 'Tempo', title: 'Tempo 6', miles: 6 });
+  await me.call('PUT', `/api/goals/day/${T}`, { text: 'Finish the quarterly summary' });
+  await me.call('POST', '/api/todos', { text: 'Call the plumber', date: T });
+  await me.call('POST', '/api/todos', { text: 'Renew the library card', date: T });
   await me.call('POST', '/api/journal', { date: shiftDays(T, -20), text: 'A good week of easy running. More words after.' });
   await me.call('POST', '/api/reads', { url: 'https://logbook-test.invalid/a-saved-piece' });
   seedStrava(me.id);
@@ -110,9 +124,9 @@ beforeEach(async () => {
 afterEach(() => claude.restore());
 
 describe('every Claude call site', () => {
-  it('is exercised here: one request each from the assistant, the four plan modes, the goal review, Remember when, the daily pick and the plan builder’s assistant', async () => {
+  it('is exercised here: one request each from the assistant, the four plan modes, the goal review, Remember when, the daily pick, the plan builder’s assistant and the challenge pick', async () => {
     await runEveryCallSite();
-    expect(claude.calls.map((c) => c.api)).toEqual(['beta.messages.stream', 'messages.stream', 'messages.stream', 'messages.stream', 'messages.stream', 'messages.create', 'messages.create', 'messages.stream', 'messages.create']);
+    expect(claude.calls.map((c) => c.api)).toEqual(['beta.messages.stream', 'messages.stream', 'messages.stream', 'messages.stream', 'messages.stream', 'messages.create', 'messages.create', 'messages.stream', 'messages.create', 'messages.create']);
   }, 20_000);
 
   it('never carries a value from activities, hr_zones or strava_accounts', async () => {
@@ -126,12 +140,34 @@ describe('every Claude call site', () => {
     for (const v of values) expect(sent, `Strava value ${v} reached Claude`).not.toContain(v);
   }, 20_000);
 
+  it('the challenge pick cannot tell that today’s session was done by a synced activity: not its name, its distance, its time, or the fact of it', async () => {
+    // the app itself shows today's run as done, by the activity alone
+    const month = (await me.call('GET', `/api/months/${T.slice(0, 7)}`)).body;
+    expect(month.activities.some((a: { date: string; name: string }) => a.date === T && a.name === 'Foggy Towpath Shuffle')).toBe(true);
+    expect(month.sessions.find((s: { date: string }) => s.date === T).mark).toBeNull();
+    const ask = () => me.call('POST', '/api/challenges/pick', { slot: slot.key }, { 'x-local-date': T });
+    expect((await ask()).status).toBe(200);
+    const withActivity = claude.calls.at(-1)!;
+    const text = String(withActivity.params.messages[0].content);
+    // the person's own plan is in the request, so this is not passing on an empty prompt
+    expect(text).toContain('Tempo 6');
+    expect(text).toContain('Finish the quarterly summary');
+    // the session is still on the menu, as it would be had no run been tracked
+    expect(text).toContain('{"id":"session:run","title":"Today’s session, done"}');
+    const body = JSON.stringify(withActivity.params);
+    for (const v of ['Foggy', 'Towpath', '9719', '3187', '3254', '06:42', '6.04', '53:07', '"149"', ':149', ':172']) expect(body, `activity value ${v} reached Claude`).not.toContain(v);
+    // with every activity gone the request is the same, byte for byte
+    db.delete(activities).where(eq(activities.userId, me.id)).run();
+    expect((await ask()).status).toBe(200);
+    expect(JSON.stringify(claude.calls.at(-1)!.params)).toBe(body);
+  }, 20_000);
+
   it('carries the shared safety rules in its system text, with the line about being an AI', async () => {
     await runEveryCallSite();
     expect(SAFETY_BLOCK).toContain(AI_IDENTITY_RULE);
     expect(AI_IDENTITY_RULE).toBe('Say truthfully that you are an AI when asked.');
     for (const need of ['Do not diagnose', 'medication', 'train through pain', '988', 'emergency services', 'role play', 'not a doctor']) expect(SAFETY_BLOCK).toContain(need);
-    expect(claude.calls).toHaveLength(9);
+    expect(claude.calls).toHaveLength(10);
     for (const c of claude.calls) {
       const system = claude.systemOf(c);
       expect(system, `${c.api} has no safety block`).toContain(SAFETY_BLOCK);
@@ -194,7 +230,7 @@ describe('the source', () => {
       const n = (read(f).match(/messages\s*\.\s*(create|stream)\(/g) ?? []).length;
       if (n) sites[path.relative(src, f).split(path.sep).join('/')] = n;
     }
-    expect(sites).toEqual({ 'services/assistant.ts': 1, 'services/claude.ts': 2, 'services/planAssist.ts': 1, 'services/reads.ts': 1, 'services/recall.ts': 1 });
+    expect(sites).toEqual({ 'services/assistant.ts': 1, 'services/challengePick.ts': 1, 'services/claude.ts': 2, 'services/planAssist.ts': 1, 'services/reads.ts': 1, 'services/recall.ts': 1 });
   });
 
   it('names no person, no model and no athlete context anywhere in the server code or its example env', () => {

@@ -25,6 +25,7 @@ import { coreRoutes } from './routes/core.js';
 import { goalRoutes } from './routes/goals.js';
 import { assistantRoutes } from './routes/assistant.js';
 import { dayPlanRoutes } from './routes/dayplans.js';
+import { challengeRoutes } from './routes/challenges.js';
 import { journalRoutes } from './routes/journal.js';
 import { learnedRoutes } from './routes/learned.js';
 import { timelineRoutes } from './routes/timeline.js';
@@ -120,6 +121,7 @@ export const buildApp = (db: DB) => {
   authed.route('/', goalRoutes(db));
   authed.route('/', assistantRoutes(db));
   authed.route('/', dayPlanRoutes(db));
+  authed.route('/', challengeRoutes(db));
   authed.route('/', appleHealthRoutes(db));
   app.route('/api', authed);
 

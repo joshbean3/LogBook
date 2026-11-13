@@ -56,5 +56,5 @@ test('a reworded sentence is not covered by the old row', () => {
 
 test('the document names each Claude call site', () => {
   const doc = fs.readFileSync(path.join(root, 'docs/launch/privacy-claims.md'), 'utf8');
-  for (const site of ['services/assistant.ts', 'draftPlan', 'refineGoal', 'claudeSummary', 'claudePicker.generate', 'requireAiPermission', 'mayWriteRecall', 'mayPickReads', 'assistantMayReadTraining']) assert.ok(doc.includes(site), site);
+  for (const site of ['services/assistant.ts', 'draftPlan', 'refineGoal', 'claudeSummary', 'claudePicker.generate', 'shapePlan', 'pickChallenge', 'services/challengePick.ts', 'requireAiPermission', 'mayWriteRecall', 'mayPickReads', 'assistantMayReadTraining']) assert.ok(doc.includes(site), site);
 });

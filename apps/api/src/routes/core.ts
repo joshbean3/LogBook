@@ -117,7 +117,9 @@ export const coreRoutes = (db: DB) => {
       morningSettings: morningSettingsOf(db, userId),
       zones: zonesOf(db, userId),
       strava: st,
-      features: { claude: env.claudeConfigured, strava: env.stravaConfigured },
+      // `challengePick`: this server has `POST /challenges/pick` and an assistant to ask. A server from before it sends no
+      // such key, so a phone never shows "Ask the assistant to pick" against a route that is not there.
+      features: { claude: env.claudeConfigured, strava: env.stravaConfigured, challengePick: env.claudeConfigured },
       // contract 1: what may go to Claude, the same record GET /me/consent answers
       consent: readConsent(db, userId),
       // when they usually train and when work ends, as onboarding saved it (null before)

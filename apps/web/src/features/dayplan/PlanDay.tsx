@@ -1,8 +1,9 @@
-import { awaitingReview, fmtDate, GOAL_STEPS_MAX, label as sessionLabel, shiftDays, type Aim, type ISODate, type Todo } from '@logbook/shared';
+import { fmtDate, GOAL_STEPS_MAX, label as sessionLabel, shiftDays, type Aim, type ISODate, type Todo } from '@logbook/shared';
 import { useQueryClient } from '@tanstack/react-query';
 import { ArrowRight, ArrowUp, Check, ChevronRight, CloudOff, Moon, RotateCcw, Target, Trash2 } from 'lucide-react';
 import { memo, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { isWriteRejected } from '@/api/outbox';
+import { SectionBoundary } from '@/app/ErrorBoundary';
 import { newTodoId, useGoalMutations, useGoals, useTodoGroups, useTodoMutations, useTodos } from '@/api/queries';
 import { haptics } from '@/lib/haptics';
 import { revealField, useKeyboardOpen } from '@/lib/keyboard';
@@ -25,6 +26,7 @@ import { ReviewRow } from '../goals/ReviewRow';
 import { newStepId, useSaveSteps } from '../goals/Steps';
 import { popOrbs, pressRect } from '../orbs/moment';
 import type { Log } from '../log/useLog';
+import { ChallengeRows } from '../orbs/challenge/ChallengeRows';
 import { groupOf } from '../todos/colors';
 import { groupsOn } from '../todos/groups';
 import { PriorityFlag } from '../todos/PriorityDots';
@@ -379,7 +381,6 @@ export const PlanDay = memo(function PlanDay({ date, today, log, slim, yesterday
     );
   }
 
-  const owed = isToday && awaitingReview(goals.data ?? [], today).length > 0;
   const tomorrow = shiftDays(today, 1);
   const tGoal = isToday && minutes >= EVENING ? goalOf(goals.data, 'day', tomorrow) : null;
   const evening = isToday && minutes >= EVENING;
@@ -428,11 +429,18 @@ export const PlanDay = memo(function PlanDay({ date, today, log, slim, yesterday
           ) : undefined
         }
       >
-        {/* yesterday's business (a review owed, Close yesterday) and, in the evening, tomorrow's goal: quiet rows under the line */}
-        {owed || yesterday || evening ? (
+        {/* yesterday's business (a review owed, Close yesterday), today's challenge and, in the evening, tomorrow's goal:
+            quiet rows under the line. The foot is not drawn while it holds no row (dayplan.css). */}
+        {isToday || yesterday ? (
           <div className="pd-more">
             {isToday ? <ReviewRow today={today} /> : null}
             {yesterday}
+            {/* today's challenge, when one is on offer or running (it draws nothing otherwise) */}
+            {isToday ? (
+              <SectionBoundary name="today.challenge" resetKey={date}>
+                <ChallengeRows scope="today" />
+              </SectionBoundary>
+            ) : null}
             {evening ? (
               <Pressable className="pd-yrow" press="surface" onPress={() => open('day', tomorrow)} label={tGoal ? `Tomorrow’s goal: ${tGoal.text}. Open` : 'Set tomorrow’s goal'}>
                 <span className="pd-yrow-text">{tGoal ? `Tomorrow: ${tGoal.text}` : 'Set tomorrow’s goal'}</span>

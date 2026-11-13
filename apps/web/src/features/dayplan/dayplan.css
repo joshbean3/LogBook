@@ -93,6 +93,10 @@
   display: grid;
   border-top: 1px solid var(--line);
 }
+/* the foot with no row in it (no review owed, no challenge, not yet evening) is not there at all */
+.pd-more:empty {
+  display: none;
+}
 .pd-more > .k-row {
   padding-right: var(--pad-hero);
   padding-left: var(--pad-hero);

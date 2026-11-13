@@ -1,0 +1,82 @@
+/* The challenge row and its sheet (spec section 8). Tokens only; the row is the shared row template (kit.css `.k-row.two`). */
+
+/* ---------- the row: an icon tile, the title over its line, a chevron ---------- */
+.ch-row.pressable {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  text-align: left;
+}
+/* a challenge's words are never cut: the title and the line under it wrap (the week titles are long, and the worth sits
+   at the end of the line) */
+.ch-row .k-row-title,
+.ch-row .k-row-sub {
+  white-space: normal;
+  overflow-wrap: break-word;
+}
+.ch-row .ch-cap {
+  margin-bottom: var(--sp-1);
+}
+/* Larger Text: the words get the row's width, as the other rows of this foot do */
+html[data-text-xl] .ch-row > .icon-tile {
+  display: none;
+}
+
+/* ---------- the sheet ---------- */
+.ch-card {
+  display: grid;
+  gap: var(--sp-2);
+}
+.ch-card p {
+  margin: 0;
+  overflow-wrap: break-word;
+}
+.ch-line,
+.ch-reason {
+  font: 400 var(--fs-row) / var(--lh-row) var(--sans);
+  color: var(--ink);
+}
+.ch-line.is-strong {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.ch-note {
+  font: 500 var(--fs-sub) / var(--lh-sub) var(--sans);
+  color: var(--ink-3);
+}
+/* the assistant at work, and the one quiet line when asking came to nothing */
+.ch-status {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-2);
+  min-height: var(--hit);
+  margin: 0;
+  font: 500 var(--fs-sub) / var(--lh-sub) var(--sans);
+  color: var(--ink-3);
+  text-align: center;
+}
+/* the quiet actions under the Sky button: one row that wraps at a narrow width or at Larger Text */
+.ch-quiet {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0 var(--sp-4);
+  margin-top: calc(var(--sp-2) - var(--gap));
+}
+.ch-quiet:empty {
+  display: none;
+}
+.ch-quiet .btn.quiet {
+  min-height: var(--hit);
+}
+/* the sheet's title is the challenge itself: it is never cut to two lines (the longest week title runs to four at 320) */
+.sheet:has(.ch-sheet) .sheet-title {
+  -webkit-line-clamp: 5;
+  line-clamp: 5;
+}
+/* the line under the title holds numbers that change ("2 of 3 habits"): tabular, so it does not shift as it counts */
+.ch-row .k-row-sub {
+  font-variant-numeric: tabular-nums;
+}

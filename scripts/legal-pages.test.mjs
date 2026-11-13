@@ -45,7 +45,7 @@ test('a release is refused while the text is a draft, a fact is missing or the a
 test('privacy policy: names every processor, every AI flow, the three Health types and the retention days', () => {
   const t = text(build(filled).find((p) => p.file === 'privacy.html').html);
   for (const who of ['Orby Test LLC', 'Anthropic', filled.hostingProvider, filled.mailProvider, filled.backupProvider]) assert.ok(t.includes(who), who);
-  for (const flow of ['You ask the assistant', 'You draft or revise a plan', 'You describe a new plan', 'You review a goal', 'Remember when', 'Daily pick']) assert.ok(t.includes(flow), flow);
+  for (const flow of ['You ask the assistant', 'You draft or revise a plan', 'You describe a new plan', 'You review a goal', 'You ask the assistant to pick a challenge', 'Remember when', 'Daily pick']) assert.ok(t.includes(flow), flow);
   for (const type of ['Sleep:', 'Heart rate variability.', 'Resting heart rate.']) assert.ok(t.includes(type), type);
   for (const flow of ['Your email address', 'journal entries and learnings', 'Links you save', 'Error reports', 'Reminders', 'Cards you share', 'Server logs', 'our server fetches that page']) assert.ok(t.includes(flow), flow);
   assert.match(t, /Server snapshots 5 days\./);
@@ -54,6 +54,8 @@ test('privacy policy: names every processor, every AI flow, the three Health typ
   assert.match(t, /Deleted by Anthropic within 30 days\. Up to 2 years if flagged/);
   assert.match(t, /We do not delete accounts for being inactive\./);
   assert.match(t, /never sold/);
+  // the challenge pick: what is sent, when, and that habits and the journal are not
+  assert.match(t, /You ask the assistant to pick a challenge The short list of challenges Orby made for you, your open to-dos \(20 at most\), your current goals and the names of this week's planned sessions\. Your habits and your journal are not sent\. Only if the training switch is on\./);
   assert.doesNotMatch(t, /Strava/);
   assert.doesNotMatch(t, /never shared|Apple Health data/);
 });

@@ -3,8 +3,8 @@ import { ApiError } from '../lib/util.js';
 import type { AiFlow } from './consent.js';
 
 /**
- * Cost and load limits for the Claude calls a person starts: the assistant, the plan builder, its settings assistant and
- * the goal review. Kept in
+ * Cost and load limits for the Claude calls a person starts: the assistant, the plan builder, its settings assistant,
+ * the goal review and the challenge pick. Kept in
  * memory, per user, in this one process (a restart clears them, which only ever gives a person a little more room).
  *
  * For each flow: one call running at a time, a short window, and a daily budget. Across every user: a cap on calls
@@ -17,6 +17,8 @@ export const AI_LIMITS: Record<AiFlow, { window: number; windowMs: number; perDa
   goal: { window: 5, windowMs: 60_000, perDay: 30, noun: 'goal reviews' },
   // the plan builder's assistant: a small call a person may make a few times in a row while they shape one plan
   shape: { window: 10, windowMs: 5 * 60_000, perDay: 50, noun: 'plan requests' },
+  // "Ask the assistant to pick" on a challenge: a person asks once per challenge, and there are two or three a week
+  challenge: { window: 3, windowMs: 5 * 60_000, perDay: 6, noun: 'challenge picks' },
 };
 /** Claude calls running at once, all users together. */
 export const AI_MAX_RUNNING = 6;
@@ -31,7 +33,7 @@ const users = new Map<string, Usage>();
 let running = 0;
 
 const dayOf = (now: number) => new Date(now).toISOString().slice(0, 10);
-const fresh = (day: string): Usage => ({ day, count: { assistant: 0, plan: 0, goal: 0, shape: 0 }, recent: { assistant: [], plan: [], goal: [], shape: [] }, running: new Set() });
+const fresh = (day: string): Usage => ({ day, count: { assistant: 0, plan: 0, goal: 0, shape: 0, challenge: 0 }, recent: { assistant: [], plan: [], goal: [], shape: [], challenge: [] }, running: new Set() });
 
 const limited = (message: string, retryAfterSec: number) => new ApiError(429, message, 'rate_limited', { 'Retry-After': String(Math.max(1, Math.ceil(retryAfterSec))) });
 export const claudeBusy = () => new ApiError(503, 'The assistant is busy right now. Try again in a minute.', 'claude_busy', { 'Retry-After': '60' });

@@ -285,10 +285,13 @@ export const addChallenge = (s: Rewards, sl: Slot, f: ChallengeFacts, at: Date):
   } else next.base = progressOf(c, f);
   return put(s, sl.key, next);
 };
-/** "Skip": costs nothing, is never mentioned, and settles the slot. */
+/**
+ * "Skip", and "Drop it" on a challenge that was added: either costs nothing, is never mentioned, and settles the slot. A
+ * finished one (done, void, already skipped) is left as it is.
+ */
 export const skipChallenge = (s: Rewards, key: string, at: Date): Rewards => {
   const c = s.challenges[key];
-  return c && c.state === 'offered' ? put(s, key, { ...c, state: 'skipped', at: at.toISOString() }) : s;
+  return c && (c.state === 'offered' || c.state === 'added') ? put(s, key, { ...c, state: 'skipped', at: at.toISOString() }) : s;
 };
 /** Does this challenge have a size, so "Easier" can be offered? */
 export const hasEasier = (c: Pick<Challenge, 'item' | 'target' | 'state'>): boolean => c.state === 'offered' && isNumbered(c.item) && c.target > CHALLENGE_BOUNDS[c.item][0];
