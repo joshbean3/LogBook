@@ -104,7 +104,7 @@
 
 /* ---------- keepsakes: one Paper card, 48 pt discs four across ---------- */
 .orp-keeps-card {
-  padding: var(--sp-5) var(--sp-3) var(--sp-4);
+  padding: var(--pad-card);
 }
 .orp-keeps {
   display: grid;
@@ -170,7 +170,7 @@
 }
 /* a chapter: the open book over its number */
 .orp-disc.is-both {
-  gap: 1px;
+  gap: 0;
 }
 .orp-disc.is-both .orp-disc-n {
   font-size: min(var(--fs-foot), 15px);
@@ -313,7 +313,7 @@
 .orh-text {
   flex: 1 1 auto;
   display: grid;
-  gap: 2px; /* brand-ok: geometry, a title to its own second line */
+  gap: var(--sp-1);
   min-width: 0;
 }
 .orh .lb-foot {
@@ -371,7 +371,7 @@
 .orh-curious-body .orp-fact {
   flex-direction: column;
   align-items: flex-start;
-  gap: 2px; /* brand-ok: geometry, a label to its own value */
+  gap: var(--sp-1);
   min-height: 0;
   padding-block: var(--sp-3);
 }

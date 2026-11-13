@@ -34,6 +34,7 @@ html[data-text-xl] .ch-row > .icon-tile {
 .ch-line,
 .ch-reason {
   font: 400 var(--fs-row) / var(--lh-row) var(--sans);
+  font-variant-numeric: tabular-nums;
   color: var(--ink);
 }
 .ch-line.is-strong {

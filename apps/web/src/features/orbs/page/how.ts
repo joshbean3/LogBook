@@ -98,7 +98,7 @@ export const howSections = (opts: { fitness: boolean; target: 3 | 4 | 5; rules?:
       key: 'weeks',
       title: 'Weeks in a row',
       rows: [{ key: 'week', title: 'A week that counts', sub: `${num(r.week.bonus)} Orbs times the weeks in a row, up to × ${num(r.week.top)}: ${steps(week)}.`, value: `${num(week[0]!)} to ${num(week.at(-1)!)}` }],
-      foot: 'A missed week steps it down one, never to nothing. A paused week leaves it where it was.',
+      foot: fitness ? 'A missed week steps it down one, never to nothing. A paused week leaves it where it was.' : 'A missed week steps it down one, never to nothing.',
     },
     { key: 'count', title: 'The count', rows: count, foot: 'One missed week is forgiven when the next one counts. Days in all never go down.' },
     { key: 'challenges', title: 'Challenges', rows: challenges },
