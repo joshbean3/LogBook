@@ -738,9 +738,9 @@ For brand surfaces (heroes, store art, share cards, the deck): flat bands of sky
 
 ### 8.4 The milestone stamp
 
-A round Sunrise stamp for a streak or a finished block, rotated -10 degrees, Night Ink on Sunrise (4.96, bold), with a Paper keyline of `max(2px, 3.3%)` of its diameter. One per screen; it counts toward the orange budget.
+A round Sunrise stamp for days in a row or a finished block, rotated -10 degrees, Night Ink on Sunrise (4.96, bold), with a Paper keyline of `max(2px, 3.3%)` of its diameter. One per screen; it counts toward the orange budget.
 
-- **In the app (44 px):** the numeral only, Inter 700 tnum Night Ink, with `aria-label="Day 12 streak"`. No words: they cannot fit at the 11 px floor.
+- **In the app (44 px):** the numeral only, Inter 700 tnum Night Ink, with `aria-label="12 days in a row"`. No words: they cannot fit at the 11 px floor.
 - **On brand art (92 to 118 px):** the numeral in Fraunces 700 (static art), with "DAY" and "STREAK" in caption style (Inter Tight 600, caps, +0.14 em) at 10 percent of the diameter.
 
 ### 8.5 The circle vocabulary

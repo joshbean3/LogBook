@@ -128,7 +128,7 @@ const HistoryTiles = ({ log }: { log: Log }) => {
       </div>
       <div className="tile">
         <span className="tile-label">
-          <Flame size={15} aria-hidden="true" /> Top streak
+          <Flame size={15} aria-hidden="true" /> Longest in a row
         </span>
         <span className="tile-value tnum">
           {top ? top.streak : '–'}

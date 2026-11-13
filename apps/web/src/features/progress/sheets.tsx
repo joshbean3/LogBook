@@ -117,8 +117,8 @@ export const WeekSheet = ({ w, today, onGone }: { w: string; today: string; onGo
     : sum.kept
       ? 'Week kept.'
       : current
-        ? `${Math.max(0, sum.target - sum.keptSessions)} more ${plural(sum.target - sum.keptSessions, 'session')} to keep your streak.`
-        : `${sum.keptSessions} of ${sum.target} ${plural(sum.target, 'session')} done. ${sum.target} ${plural(sum.target, 'keeps', 'keep')} your streak.`;
+        ? `${Math.max(0, sum.target - sum.keptSessions)} more ${plural(sum.target - sum.keptSessions, 'session')} to keep the week.`
+        : `${sum.keptSessions} of ${sum.target} ${plural(sum.target, 'session')} done. ${sum.target} ${plural(sum.target, 'keeps', 'keep')} the week.`;
   // the seven days live in Plan (the same list, with drag and swipe): one row takes you there instead of repeating it
   // §1.3: a 0 ms cut to Plan already at that week; one Back returns to Progress with the sheet closed
   const openInPlan = () => nav.go(`/plan/week/${w}`);

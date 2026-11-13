@@ -42,15 +42,15 @@ describe('habitWindow', () => {
 describe('streakLine', () => {
   const line = (lit: string[], created = '2026-01-01') => streakLine(habitWindow(doneOn(lit), T, created));
   it('says the streak and the count', () => {
-    expect(line([T, shiftDays(T, -1), shiftDays(T, -2)])).toBe('3-day streak · 3 of 30');
+    expect(line([T, shiftDays(T, -1), shiftDays(T, -2)])).toBe('3 days in a row · 3 of 30');
   });
   it('falls back to the best run, then to nothing yet', () => {
     expect(line([shiftDays(T, -5), shiftDays(T, -6), shiftDays(T, -9)])).toBe('Best 2 days · 3 of 30');
-    expect(line([shiftDays(T, -5)])).toBe('No streak yet · 1 of 30');
-    expect(line([])).toBe('No streak yet');
+    expect(line([shiftDays(T, -5)])).toBe('Not lit yet · 1 of 30');
+    expect(line([])).toBe('Not lit yet');
   });
   it('counts a young habit over its own days', () => {
-    expect(line([T], shiftDays(T, -2))).toBe('1-day streak · 1 of 3');
+    expect(line([T], shiftDays(T, -2))).toBe('1 day in a row · 1 of 3');
   });
 });
 
