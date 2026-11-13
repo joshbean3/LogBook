@@ -41,7 +41,7 @@ const trains: Fill = (m) => {
   return {
     sessions: runs.map((d) => ({ id: `s-${d}`, date: d, kind: 'run', type: 'Easy', title: null, details: null, miles: 4, minutes: null, position: 0, mark: 'done', blockId: null, movedFrom: null })) as MonthBundle['sessions'],
     activities: runs.map((d) => ({ id: `a-${d}`, date: d, kind: 'run', name: 'Morning Run', sportType: 'Run', miles: 4.1, movingSec: 2200, elevFt: 80, avgHr: 140, maxHr: null, cadence: null, laps: null, perfAt: null, polyline: null, time: '06:40' })) as MonthBundle['activities'],
-    lifts: monthOf(shiftDays(T, -3)) === m ? ([{ id: 'l1', date: shiftDays(T, -3), exercise: 'Squat', weight: 185, reps: 5, position: 0 }] as MonthBundle['lifts']) : [],
+    lifts: monthOf(shiftDays(T, -3)) === m ? ([{ id: 'l1', date: shiftDays(T, -3), exercise: 'Squat', weight: 185, reps: 5, position: 0 }] as unknown as MonthBundle['lifts']) : [],
     checks: monthOf(shiftDays(T, -1)) === m ? ([{ habitId: 'h1', date: shiftDays(T, -1), done: true, note: null }] as MonthBundle['checks']) : [],
   };
 };
