@@ -1,6 +1,6 @@
 import { mondayOf, monthOf, shiftDays, type Habit, type ISODate } from '@logbook/shared';
 import { Archive, Info, PenLine, Plus } from 'lucide-react';
-import { animate, motion, motionValue, useMotionValue, type MotionValue } from 'motion/react';
+import { animate, motionValue, useMotionValue, type MotionValue } from 'motion/react';
 import type * as React from 'react';
 import { memo, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
@@ -21,7 +21,8 @@ import type { DragPoint } from '@/ui/useHold';
 import { isPagerMoving } from '../day/live';
 import type { Log } from '../log/useLog';
 import { HabitNoteSheet, useArchiveHabit, useOpenHabit } from './HabitSheet';
-import { initialOf, sameName } from './initial';
+import { sameName } from './initial';
+import { OrbFace } from './OrbFace';
 import { createLedger } from './ledger';
 import './habits.css';
 
@@ -174,7 +175,6 @@ interface OrbProps {
 const Orb = memo(function Orb({ h, date, on: lit, note, index, onLight, menu, onDragStart, onDragMove, onDragEnd, onStep, bind, week, dayIdx }: OrbProps) {
   const reduce = useReduced();
   const pop = useMotionValue(1);
-  const mark = initialOf(h.name);
   // the tap's answer lands on its own frame: the shown state runs ahead of the cache until the cache agrees
   const [ahead, setAheadSelf] = useState<boolean | null>(null);
   const on = ahead ?? lit;
@@ -329,22 +329,7 @@ const Orb = memo(function Orb({ h, date, on: lit, note, index, onLight, menu, on
       }}
       data-habit={h.id}
     >
-      <motion.span className="orb-ring" style={{ scale: pop }}>
-        <svg width={22} height={22} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.75} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-          <motion.path d="M20 6 9 17l-5-5" initial={false} animate={{ pathLength: on ? 1 : 0, opacity: on ? 1 : 0 }} transition={reduce ? { duration: 0 } : on ? { pathLength: { duration: 0.16, ease: 'easeOut' }, opacity: { duration: 0.01 } } : { duration: 0.1 }} />
-        </svg>
-        {!on ? <span className={`orb-initial is-${mark.kind}`}>{mark.text}</span> : null}
-        {note ? <i className="orb-note" aria-hidden="true" /> : null}
-      </motion.span>
-      <span className="orb-text">
-        <span className="orb-name">{h.name}</span>
-        <span className="orb-week" aria-hidden="true">
-          {Array.from(week, (c, i) => {
-            const v = i === dayIdx ? (on ? 'd' : 'o') : c;
-            return <i key={i} className={`${v === 'd' ? 'is-d' : v === 'o' ? 'is-o' : ''} ${i === dayIdx ? 'is-day' : ''}`} />;
-          })}
-        </span>
-      </span>
+      <OrbFace name={h.name} on={on} note={!!note} week={week} dayIdx={dayIdx} pop={pop} reduce={reduce} />
     </Pressable>
   );
 });
