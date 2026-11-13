@@ -18,6 +18,7 @@ import type { Bootstrap, Daily, ExportBundle, MonthBundle, OnboardingAnswers, On
 // ── WP1 ──
 // (an import inside the block, so the shared header above stays untouched)
 import { useSyncExternalStore } from 'react';
+import { takeBootstrap } from '@/features/orbs/intake';
 export const keys = {
   bootstrap: ['bootstrap'] as const,
   month: (m: string) => ['month', m] as const,
@@ -39,7 +40,10 @@ export const keys = {
 export const fetchBootstrap = async (): Promise<Bootstrap> => {
   const raw = await api<unknown>('/bootstrap');
   if (!raw || typeof raw !== 'object') throw new BadShapeError('not an object');
-  const { serverTime: _serverTime, ...b } = raw as Record<string, unknown>;
+  // Orbs: the account's copy of the rewards store and the server's time are taken here, before the cache sees them
+  // (features/orbs/intake.ts), so a sync never changes the cached bootstrap's identity
+  takeBootstrap(raw as Record<string, unknown>);
+  const { serverTime: _serverTime, rewards: _rewards, ...b } = raw as Record<string, unknown>;
   // checked before it reaches the cache: an answer in a bad shape is an error, and the last good copy stays (api/bootstrap.ts)
   return parseBootstrap(b);
 };
@@ -224,7 +228,7 @@ export const useStravaCheck = (): UseMutationResult<StravaSyncAnswer, Error, voi
 // ── WP2 ──
 // To-dos as the app reads them (api/shapes.ts): an answer that is not a list is a failed request (the last good copy
 // stays); a row that cannot be a to-do is left out, on the way in and when read from the saved copy.
-function fetchTodos(): Promise<Todo[]> {
+export function fetchTodos(): Promise<Todo[]> {
   return api<unknown>('/todos').then((raw) => {
     if (!Array.isArray(raw)) throw new BadShapeError('to-dos: not a list');
     return todosOf(raw);
@@ -1081,7 +1085,7 @@ const aimsOf = (gs: unknown): Aim[] => goalsOf(gs);
 /** A goal the server just answered with, or the one the screen already shows when the answer is not a goal. */
 const aimOf = (g: unknown, shown: Aim): Aim => goalOfRow(g) ?? shown;
 // an answer that is not a list at all is a failed request, so the last good copy stays (a proxy's error page, an older server)
-const fetchGoals = async (): Promise<Aim[]> => {
+export const fetchGoals = async (): Promise<Aim[]> => {
   const raw = await api<unknown>('/goals');
   if (!Array.isArray(raw)) throw new BadShapeError('goals: not a list');
   return aimsOf(raw);
