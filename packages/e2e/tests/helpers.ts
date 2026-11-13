@@ -53,6 +53,20 @@ export const signUpByApi = async (page: Page, opts: { habits?: string[]; name?: 
 };
 
 /**
+ * A new account that has not been through setup, made through the API: the page that follows is signed in and lands on
+ * setup's first question (/welcome/name).
+ */
+export const signUpForSetup = async (page: Page) => {
+  const email = newEmail('setup');
+  await page.goto('/start');
+  const created = await page.request.post('/api/auth/signup', { data: { email, password: PASSWORD } });
+  expect(created.status(), await created.text()).toBe(201);
+  await page.goto('/welcome');
+  await expect(page).toHaveURL(/\/welcome\/name/, { timeout: 30_000 });
+  return email;
+};
+
+/**
  * Opens a route and waits for the app to settle on it. Right after sign-up the app can still move itself to Today once
  * its first data lands, so a route that did not stick is opened again.
  */
@@ -96,12 +110,13 @@ export const createAccount = async (page: Page, email: string) => {
   await expect(page).toHaveURL(/\/welcome/, { timeout: 30_000 });
 };
 
-const FORWARD = /^(Next|Continue|Not now|Skip for now|Build my week|Build my plan|Open Today|See my day|Go to Today|Done)$/;
+const FORWARD = /^(Next|Continue|Not now|Skip for now|Continue without|Open Today)$/;
 
 /**
- * Walks setup one step at a time, the way a person who takes the defaults would: picks the first answer where a choice
- * is needed, picks the "Stretch" habit, says Not now to reminders, and goes on until Today. Written against what each
- * step shows, not its order, so a reordered or added step does not break it.
+ * Walks setup one step at a time, the way a person who takes the defaults would: types a name, picks the first answer
+ * where a choice is needed (Yes to training, Just running), picks the "Stretch" habit, and goes on through the plan
+ * being written to the reveal and "Open Today". The tour is not in the path (the reveal's quiet link opens it). Written
+ * against what each step shows, not its order, so a reordered or added step does not break it.
  */
 export const finishSetup = async (page: Page, opts: { habit?: string } = {}) => {
   const habit = opts.habit ?? 'Stretch';
