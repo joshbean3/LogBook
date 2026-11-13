@@ -5,6 +5,7 @@ import type { Aim } from './goals.js';
 import {
   addKeepsakes,
   applySet,
+  chapterLines,
   chapterOf,
   compact,
   countLine,
@@ -1252,5 +1253,28 @@ describe('edge cases: keepsakes after a rebuild', () => {
     const later = rebuild([...lived, ...Array.from({ length: 21 }, (_, i) => facts(day(28 + i)))], D0, day(49), U);
     expect(later.keepsakes['weeks:4']).toBeDefined();
     expect(countOf(later, day(49)).weeks).toBe(0);
+  });
+});
+
+describe('edge cases: a chapter’s one line', () => {
+  it('a chapter that closed before the journal had loaded takes its line when the lines are there', () => {
+    let s = live(28, (i) => (i % 7 < 5 ? { habitsDone: 1 } : null));
+    // a cold open on the Monday: the store is read long before the journal's list answers
+    s = addKeepsakes(reconcile(s, [], at(day(28))).store, keepsakesDue(s, at(day(28)), { lines: [] }));
+    const key = `chapter:${D0}`;
+    expect(s.keepsakes[key]).toEqual({ on: day(28), d: 20, s: 0, g: 0 });
+    // lines of another chapter, or only blank ones, change nothing, and the same object comes back
+    expect(chapterLines(s, [{ date: day(30), text: 'Next chapter.' }, { date: day(3), text: '   ' }])).toBe(s);
+    const lines = [{ date: day(3), text: ' Slow is smooth. ' }, { date: day(12), text: 'Ask sooner.' }, { date: day(40), text: 'Later.' }];
+    const filled = chapterLines(s, lines);
+    expect(['Slow is smooth.', 'Ask sooner.']).toContain(filled.keepsakes[key]!.t);
+    expect(filled.keepsakes[key]).toMatchObject({ on: day(28), d: 20, s: 0, g: 0 });
+    // the same line as the chapter would have carried had the lines been there when it closed
+    const born = keepsakesDue({ ...s, keepsakes: {} }, at(day(28)), { lines }).find((k) => k.key === key)!.keepsake;
+    expect(filled.keepsakes[key]).toEqual(born);
+    // once it has a line it keeps it, and a merge with a copy that has none keeps it too
+    expect(chapterLines(filled, [{ date: day(5), text: 'Another.' }])).toBe(filled);
+    expect(mergeRewards(s, filled).keepsakes[key]).toEqual(filled.keepsakes[key]);
+    expect(mergeRewards(filled, s).keepsakes[key]).toEqual(filled.keepsakes[key]);
   });
 });

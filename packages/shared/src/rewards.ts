@@ -1248,12 +1248,35 @@ export const keepsakesDue = (s: Rewards, now: Date, extra: KeepsakeExtra = {}): 
     if (!d) continue;
     const end = shiftDays(closes, -1);
     for (const k in s.once) if (k.startsWith('goal:') && s.once[k]!.on >= start && s.once[k]!.on <= end) goals++;
-    const written = (extra.lines ?? []).filter((l) => l.date >= start && l.date <= end && l.text.trim()).sort((x, y) => (x.date < y.date ? -1 : x.date > y.date ? 1 : x.text < y.text ? -1 : 1));
-    const line = written.length ? written[fnv(`${s.userId}:${start}`) % written.length]!.text.trim() : null;
-    chapters.push({ key, keepsake: { on: closes, d, s: sessions, g: goals, ...(line ? { t: clip(line) } : null) } });
+    const line = chapterLine(s.userId, start, extra.lines ?? []);
+    chapters.push({ key, keepsake: { on: closes, d, s: sessions, g: goals, ...(line ? { t: line } : null) } });
   }
   out.push(...chapters.reverse());
   return out;
+};
+/** The one line a chapter carries: chosen by a seed (the account and the chapter), so every device picks the same one from the same lines. */
+const chapterLine = (userId: string, start: ISODate, lines: ReadonlyArray<{ date: ISODate; text: string }>): string | null => {
+  const end = shiftDays(start, RULES.chapterDays - 1);
+  const written = lines.filter((l) => l.date >= start && l.date <= end && l.text.trim()).sort((x, y) => (x.date < y.date ? -1 : x.date > y.date ? 1 : x.text < y.text ? -1 : 1));
+  return written.length ? clip(written[fnv(`${userId}:${start}`) % written.length]!.text.trim()) : null;
+};
+/**
+ * A chapter's keepsake that holds no line yet takes one, when the journal's lines are there. A chapter closes on the
+ * first pass of its Monday, and on a cold open that pass runs before the journal's list has answered: the keepsake was
+ * then made without its line and, a keepsake being left as it is once held, never got one. Only the line is added; the
+ * same store comes back when there is nothing to add.
+ */
+export const chapterLines = (s: Rewards, lines: ReadonlyArray<{ date: ISODate; text: string }>): Rewards => {
+  if (!lines.length) return s;
+  let keepsakes: Rewards['keepsakes'] | null = null;
+  for (const key in s.keepsakes) {
+    if (!key.startsWith('chapter:') || s.keepsakes[key]!.t) continue;
+    const line = chapterLine(s.userId, key.slice(8), lines);
+    if (!line) continue;
+    keepsakes ??= { ...s.keepsakes };
+    keepsakes[key] = { ...s.keepsakes[key]!, t: line };
+  }
+  return keepsakes ? { ...s, keepsakes } : s;
 };
 /** Put keepsakes in the store. One already there is left as it is; the same store comes back when nothing is new. */
 export const addKeepsakes = (s: Rewards, due: ReadonlyArray<{ key: string; keepsake: Keepsake }>): Rewards => {

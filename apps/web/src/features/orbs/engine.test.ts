@@ -300,6 +300,21 @@ describe('the reconciler reads the caches and the store follows', () => {
     expect(k.run()).toEqual([]);
     expect(totalOf(k.store.getOrbs()!)).toBe(9);
   });
+  it('a chapter that closed before the journal’s list had loaded takes its line when the list answers', async () => {
+    // three weeks and two days in: the first chapter closes on the fourth Monday, five days from TODAY
+    const monday = shiftDays(RULES.startsOn, 28);
+    vi.setSystemTime(noon(monday, 9));
+    const days = Object.fromEntries(Array.from({ length: 20 }, (_, i) => [shiftDays(RULES.startsOn, Math.floor(i / 5) * 7 + (i % 5)), { n: 1, a: 1, k: { habit: 1 }, c: 1 as const }]));
+    const k = await launch({ stored: existing({ clock: shiftDays(monday, -1), days }) });
+    k.qc.setQueryData(['month', monday.slice(0, 7)], month(monday.slice(0, 7)));
+    k.run();
+    const key = `chapter:${RULES.startsOn}`;
+    expect(k.store.getOrbs()!.keepsakes[key]).toEqual({ on: monday, d: 20, s: 0, g: 0 });
+    // the journal answers a moment later
+    k.qc.setQueryData(['learnings', 'list', { month: null, q: null }], lines({ id: 'l1', date: shiftDays(RULES.startsOn, 9), text: 'Ask sooner.', createdAt: '', editedAt: null }));
+    k.run();
+    expect(k.store.getOrbs()!.keepsakes[key]).toEqual({ on: monday, d: 20, s: 0, g: 0, t: 'Ask sooner.' });
+  });
   it('a weekly bonus that came due while the app was closed is said on the first pass, though the days are not', async () => {
     // last week: five counted days, closed. It is Wednesday: the bonus is due.
     const monday = shiftDays(TODAY, -9);

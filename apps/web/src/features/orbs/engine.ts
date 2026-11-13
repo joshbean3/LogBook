@@ -1,4 +1,4 @@
-import { addKeepsakes, adoptSet, baselineOf, challengeSlots, daysBetween, eachDay, emptyRewards, fillFrom, keepsakesDue, mayOffer, mondayOf, monthOf, monthsBetween, offerChallenge, offerInto, orbsOn, parseRewards, rebuild, reconcile, RULES, settleChallenges, shiftDays, slotOf, toISO, totalOf, within, type ChallengeFacts, type Gained, type ISODate, type Rewards } from '@logbook/shared';
+import { addKeepsakes, adoptSet, baselineOf, chapterLines, challengeSlots, daysBetween, eachDay, emptyRewards, fillFrom, keepsakesDue, mayOffer, mondayOf, monthOf, monthsBetween, offerChallenge, offerInto, orbsOn, parseRewards, rebuild, reconcile, RULES, settleChallenges, shiftDays, slotOf, toISO, totalOf, within, type ChallengeFacts, type Gained, type ISODate, type Rewards } from '@logbook/shared';
 import type { QueryClient } from '@tanstack/react-query';
 import { fetchGoals, fetchMonth, fetchTodos, keys } from '@/api/queries';
 import type { Bootstrap } from '@/api/types';
@@ -170,6 +170,8 @@ export const reconcileNow = (qc: QueryClient, now: Date = new Date()): Gained[] 
     gained.push(...ch.gained);
   }
   if (next !== s || today !== lastDay) next = addKeepsakes(next, keepsakesDue(next, now, { goals: c.goals ?? [], lines: linesOf(c) }));
+  // a chapter that closed before the journal's list had answered takes its line now
+  next = chapterLines(next, linesOf(c));
   lastSig = c.sig;
   lastDay = today;
   lastEarly = early;
