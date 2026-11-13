@@ -75,6 +75,7 @@ export const RangeBars = ({
   idle,
   hint,
   hintRead,
+  read,
   onScrub,
   onOpen,
   onRead,
@@ -92,6 +93,8 @@ export const RangeBars = ({
   hint?: string | null;
   /** It has just been read: the line's words fade, its room stays. */
   hintRead?: boolean;
+  /** A bucket to draw as being read, with no finger on the chart (a still picture of the chart being read: the tour's demo). Under a finger, the finger's bucket wins. */
+  read?: number | null;
   onScrub: (i: number | null) => void;
   onOpen?: (i: number) => void;
   onRead?: () => void;
@@ -136,7 +139,8 @@ export const RangeBars = ({
     onRead,
   });
   // the bucket being read, while the chart still has it (a reading never outlives its bucket)
-  const a = scrub.active != null && scrub.active < n ? scrub.active : null;
+  const shownAt = scrub.active ?? (read != null && read >= first ? read : null);
+  const a = shownAt != null && shownAt < n ? shownAt : null;
   const bindRef = scrub.bind.ref;
   const setRefs = useCallback(
     (node: HTMLDivElement | null) => {

@@ -42,6 +42,19 @@ describe('the hero chart, to a screen reader and the keyboard', () => {
     expect(draw({ hint: 'Drag across to see each week', hintRead: true })).toContain('<p class="rb-hint is-read" aria-hidden="true">');
   });
 
+  it('draws a bucket as read when it is handed one, and none before the log began', () => {
+    // at rest the slider is on the bucket holding today and nothing is marked as being read
+    expect(draw()).not.toContain('data-reading');
+    const html = draw({ read: 8 });
+    expect(html).toContain('data-reading');
+    expect(html).toContain('aria-valuenow="8"');
+    expect(html).toContain('aria-valuetext="bucket 8"');
+    // a bucket before the first one shown, or past the last, is not read
+    expect(draw({ read: 2 })).not.toContain('data-reading');
+    expect(draw({ read: 40 })).not.toContain('data-reading');
+    expect(draw({ read: null })).not.toContain('data-reading');
+  });
+
   it('draws nothing it cannot measure, and never a NaN', () => {
     // before the plot has a width there is only its box, as tall as it will draw
     for (const html of [draw(), draw({ marks: marks.map((m) => ({ ...m, value: 0, ahead: 0 })) }), draw({ span: { ...span, buckets: [] }, marks: [] })]) {

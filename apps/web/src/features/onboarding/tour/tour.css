@@ -1,6 +1,8 @@
-/* ---------- the tour (Tour.tsx, demos.tsx): one page per part of Orby, each with a short looping demo. The demos are
-   pictures of the real screens, so they wear the same brand: Paper cards, Sky for lit and chosen things, Deep Sky marks,
-   Night Ink words, the session tones on markers only ---------- */
+/* ---------- the tour (Tour.tsx, demos.tsx, TourScreen.tsx): one page per place in Orby, each with a short looping demo.
+   The demos are the real pages: they are drawn with the pages' own parts (the poster kit, the training card's horizon, the
+   habit tile, the Progress chart, the proposal card) and wear those parts' own styles. This sheet holds the page round
+   them, the stage they play on, the finger, and the few things a demo needs that no page has (a sheet drawn inside the
+   stage, a toast in it) ---------- */
 
 .tour {
   display: flex;
@@ -19,27 +21,27 @@
   gap: var(--sp-4);
   min-width: 0;
 }
-.tour-eyebrow {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--sp-2);
-  color: var(--accent-text);
+/* Reduce Motion: the picture holds still and is drawn whole, however tall, so the three steps come before it: every
+   word of the page is on screen at once and the picture runs on under them (the reading order is unchanged) */
+.tour-page.tis-still > .tstage {
+  order: 1;
 }
-.tour-eyebrow svg {
-  flex: none;
+/* the headline is the place's own name, set as its tab sets it: Fraunces 650 at the screen-title size */
+.tour-title {
+  margin: 0;
+  font: 650 var(--fs-title) / var(--lh-title) var(--display);
+  letter-spacing: var(--tr-title);
+  text-wrap: balance;
+  overflow-wrap: break-word;
+  color: var(--ink);
 }
 .tour-title:focus {
   outline: none;
 }
-.tour-title {
-  margin: 0;
-  font: 600 var(--fs-section) / var(--lh-section) var(--serif);
-  text-wrap: balance;
-  color: var(--ink);
-}
+/* the one line under it, in Dusk; 8 under the title (the page's gap is 16) */
 .tour-lede {
-  margin: calc(-1 * var(--sp-1)) 0 0;
-  font: 400 var(--fs-sub) / var(--lh-row) var(--sans);
+  margin: calc(-1 * var(--sp-2)) 0 0;
+  font: 400 var(--fs-sub) / var(--lh-sub) var(--sans);
   text-wrap: pretty;
   color: var(--ink-2);
 }
@@ -48,17 +50,22 @@
 .tour-steps {
   display: grid;
   gap: var(--sp-2);
-  margin: 2px 0 0; /* brand-ok: geometry, the steps hang just under the stage */
+  margin: 0;
   padding: 0;
   list-style: none;
 }
 .tour-steps li {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: var(--sp-3);
   font: 500 var(--fs-sub) / var(--lh-sub) var(--sans);
   color: var(--ink-2);
   transition: color var(--dur-color) var(--ease-out);
+}
+/* the words sit on the number's middle on one line, and wrap under themselves on two */
+.tour-steps li > span {
+  min-width: 0;
+  padding-top: 1px; /* brand-ok: optical, a 20 line beside a 22 disc */
 }
 /* the step number: a Cloud disc, Night Ink with White numerals for the step being shown (16.14) */
 .tour-steps li b {
@@ -102,28 +109,82 @@
   width: 18px;
   background: var(--ink);
 }
-
-/* ---------- the stage and the finger ---------- */
-.tstage {
-  position: relative;
-  /* sized in rem, and grows past it rather than cut a demo off mid-row (onboarding-12, onboarding-20) */
-  min-height: 14.75rem;
-  overflow: hidden;
-  /* no frame (plan O10): the demo's cards sit on the step's own ground at the full width of the page, their edges on the
-     16 px gutter; the stage reaches 8 past it only so the cards' shadows are not cut */
-  margin-inline: calc(-1 * var(--sp-2));
-  padding: var(--sp-2);
-  isolation: isolate;
+.tour-foot {
+  display: grid;
+  gap: var(--sp-4);
 }
+
+/* ---------- the stage: a window onto the page being shown ---------- */
+.tstage {
+  /* as tall as the screen has room for: the screen less the bar, the headline, its line, the three steps and the foot
+     (24.75rem of them at the default text size), never under 20rem (a small phone, or large text: the screen scrolls)
+     and never over 27rem */
+  --tstage-h: clamp(20rem, calc(100dvh - var(--safe-t) - var(--safe-b) - 24.75rem), 27rem);
+  position: relative;
+  isolation: isolate;
+  /* the demo's cards sit on the page's own ground at the full width of the page, their edges on the 16 px gutter; the
+     stage reaches 8 past it only so the cards' shadows are not cut */
+  margin-inline: calc(-1 * var(--sp-2));
+}
+.tstage-win {
+  max-height: var(--tstage-h);
+  overflow: hidden;
+  padding-inline: var(--sp-2);
+  /* where the page goes on past the window's edge it fades out, as a page does under the dock (any solid color masks) */
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0, var(--ink) var(--tcut-top, 0px), var(--ink) calc(100% - var(--tcut-end, 0px)), transparent 100%);
+  mask-image: linear-gradient(to bottom, transparent 0, var(--ink) var(--tcut-top, 0px), var(--ink) calc(100% - var(--tcut-end, 0px)), transparent 100%);
+}
+.tstage-win.tis-cut-top {
+  --tcut-top: var(--sp-5);
+}
+.tstage-win.tis-cut-end {
+  --tcut-end: var(--sp-6);
+}
+/* the page: as tall as it needs. It scrolls by a transform, as a thumb would scroll it; a little air so the first card's
+   edge and the last card's shadow are inside the window */
+.tstage-page {
+  position: relative;
+  display: grid;
+  gap: var(--gap);
+  padding: var(--sp-1) 0 var(--sp-3);
+  transition: transform var(--dur-number) var(--ease-out);
+}
+/* Reduce Motion: no window. The whole page is drawn, still, and the screen scrolls */
+.tstage.tis-still .tstage-win {
+  max-height: none;
+  -webkit-mask-image: none;
+  mask-image: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .tstage-page {
+    transition: none;
+  }
+}
+/* what does not scroll with the page: the finger, a sheet, a toast */
+.tstage-over {
+  position: absolute;
+  inset: 0 var(--sp-2);
+  overflow: hidden;
+  pointer-events: none;
+}
+/* a demo's buttons are pictures of the real ones: the Sky primary with Night Ink words, without its glow, so the screen's
+   own Next stays the one lit button */
+.tstage .btn.primary {
+  box-shadow: none;
+}
+
+/* ---------- the finger ---------- */
+/* it glides by a transform, on the sheet's curve: the engine sets where (engine.tsx Finger) */
 .tf {
   position: absolute;
+  left: 0;
+  top: 0;
   z-index: 5;
   width: 0;
   height: 0;
   pointer-events: none;
   transition:
-    left 560ms cubic-bezier(0.45, 0, 0.2, 1),
-    top 560ms cubic-bezier(0.45, 0, 0.2, 1),
+    transform var(--dur-sheet) var(--ease-sheet),
     opacity var(--dur-color) var(--ease-out);
 }
 .tf i {
@@ -173,661 +234,149 @@
     opacity: 0;
   }
 }
-
 @media (prefers-reduced-motion: reduce) {
   .tf {
     display: none;
   }
 }
 
-.tour-foot {
-  display: grid;
-  gap: var(--sp-4);
-}
+/* a caret in a field being typed in: a still Deep Sky bar, as the app's own resting caret is (nothing blinks for ever) */
 .tcaret {
   display: inline-block;
-  width: 1.5px;
+  width: 2px;
   height: 1.05em;
   margin-left: 1px;
   vertical-align: -0.15em;
   background: var(--deep-sky);
-  animation: tcaret 1s steps(1) infinite;
-}
-@keyframes tcaret {
-  50% {
-    opacity: 0;
-  }
-}
-/* Reduce Motion: the caret holds still (a11y-16) */
-@media (prefers-reduced-motion: reduce) {
-  .tcaret {
-    animation: none;
-  }
-}
-.tf-carry {
-  position: absolute;
-  left: 0;
-  top: 0;
-  transform: translate(-50%, -110%) rotate(-3deg);
 }
 
-/* mini parts shared by the demos */
-.tstage .caps {
-  color: var(--ink-2);
-}
-/* a to-do's coin (as TodoMark): a field-edge ring, Sky with a Night Ink check when done */
-.tour-todo-mark {
-  flex: none;
-  display: grid;
-  place-items: center;
-  width: 20px;
-  height: 20px;
-  border-radius: 50%;
-  box-shadow: inset 0 0 0 1.5px var(--field-edge);
-  color: var(--accent-ink);
-  transition: background-color var(--dur-fast) var(--ease-out);
-}
+/* ---------- what a demo needs that no page has ---------- */
 
-/* Today: to-dos */
-.tour-todo-box {
-  padding: var(--sp-3) var(--sp-3) var(--sp-2);
-  border-radius: var(--r-tile);
-  background: var(--surface);
-  box-shadow: var(--shadow-1);
-}
-.tour-todo-head {
-  display: flex;
-  justify-content: space-between;
-  margin: 0 0 var(--sp-1);
-  font: 500 var(--fs-foot) / var(--lh-foot) var(--sans);
-  color: var(--ink-2);
-}
-.tour-todo-head b {
-  font: 650 var(--fs-row) / var(--lh-row) var(--sans);
-  color: var(--ink);
-}
-.tour-todo-box ul {
-  display: grid;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-.tour-todo-box li {
-  display: flex;
-  align-items: center;
-  gap: var(--sp-3);
-  min-height: 36px;
-  font: 500 var(--fs-sub) / var(--lh-sub) var(--sans);
-  color: var(--ink);
-}
-.tour-todo-box li + li {
-  border-top: 1px solid var(--line);
-}
-.tour-todo-rank {
-  width: 10px;
-  font: 650 var(--fs-orb) / 1 var(--sans);
-  font-variant-numeric: tabular-nums;
-  color: var(--ink-2);
-}
-.tour-todo-box li.tis-done {
-  color: var(--ink-2);
-  text-decoration: line-through;
-}
-.tour-todo-box li.tis-done .tour-todo-mark,
-.tg-step.tis-done .tour-todo-mark {
-  background: var(--accent);
-  box-shadow: none;
-}
-.tour-todo-fold {
-  margin: var(--sp-3) var(--sp-1) 0;
-  font: 500 var(--fs-foot) / var(--lh-foot) var(--sans);
-  color: var(--ink-2);
-}
-/* the add row, drawn as the field it is: Paper with its edge (guide 6.14) */
-.tour-todo-add {
-  display: flex;
-  align-items: center;
-  gap: var(--sp-2);
-  margin: var(--sp-2) 0 0;
-  padding: var(--sp-2) var(--sp-3);
-  border-radius: var(--r-control);
-  background: var(--surface);
-  box-shadow: inset 0 0 0 1px var(--field-edge);
-  font: 500 var(--fs-sub) / var(--lh-sub) var(--sans);
-  color: var(--ink-2);
-}
-.tour-todo-typed {
-  color: var(--ink);
-}
-
-/* Today: habits, as two tiles of the real grid (habits.css .orbs.is-grid, guide 6.6): Paper tiles r 18 with the card
-   shadow, a 42 px coin, the name in Inter 600 at the tile size and this week's seven dots */
-.th-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--gap-tile);
-}
-.th-tile {
-  display: flex;
-  align-items: center;
-  gap: var(--sp-3);
-  min-width: 0;
-  min-height: 60px;
-  padding: 9px var(--sp-3); /* brand-ok: geometry, plan D26: 9 + 42 + 9 keeps the 60 px tile, as on Today */
-  border-radius: var(--r-tile);
-  background: var(--surface);
-  box-shadow: var(--shadow-1);
-}
-.th-tile-text {
-  display: grid;
-  gap: 5px; /* brand-ok: geometry, the week's dots under the name, as on Today */
-  min-width: 0;
-}
-.th-tile-text b {
-  font: 600 var(--fs-tile) / var(--lh-tile) var(--sans);
-  color: var(--ink);
-  overflow-wrap: break-word;
-}
-.th-week {
-  display: flex;
-  gap: var(--gap-dot);
-}
-.th-week i {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--dot-ahead);
-}
-.th-week i.is-o {
-  background: transparent;
-  box-shadow: inset 0 0 0 1.25px var(--pencil);
-}
-.th-week i.is-d {
-  background: var(--deep-sky);
-}
-.th-week i.is-day {
-  outline: 1.5px solid var(--ink);
-  outline-offset: 1.5px;
-}
-/* a habit coin (guide 6.6): a flat disc, the off ring decorative; lit, Sky with a Night Ink check; never a glossy ball */
-.th-orb {
-  flex: none;
-  display: grid;
-  place-items: center;
-  width: 42px;
-  height: 42px;
-  border-radius: 50%;
-  background: var(--surface);
-  box-shadow: inset 0 0 0 1.5px var(--coin-ring);
-  font: 600 var(--fs-row) / 1 var(--sans);
-  color: var(--ink);
-  transition:
-    background-color var(--dur-color) var(--ease-out),
-    color var(--dur-color) var(--ease-out);
-}
-.th-orb.tis-lit,
-.th-tile.tis-lit .th-orb {
-  background: var(--accent);
-  box-shadow: none;
-  color: var(--accent-ink);
-}
-@media (max-width: 359px) {
-  .th-tile {
-    gap: var(--sp-2);
-    padding: 9px var(--sp-2); /* brand-ok: geometry, plan D26 */
-  }
-  .th-orb {
-    width: 34px;
-    height: 34px;
-  }
-}
-/* the coin's menu (guide 6.14): Paper on the menu radius with the menu shadow */
-.th-menu {
-  position: absolute;
-  left: var(--sp-2);
-  top: 76px;
-  display: grid;
-  width: 150px;
-  padding: var(--sp-1) 0;
-  border-radius: var(--r-menu);
-  background: var(--surface);
-  box-shadow: var(--shadow-2);
-  transform-origin: top left;
-}
-.th-menu span {
-  padding: var(--sp-2) var(--sp-4);
-  font: 500 var(--fs-sub) / var(--lh-sub) var(--sans);
-  color: var(--ink);
-}
-.th-menu span + span {
-  border-top: 1px solid var(--line);
-}
-.th-menu span:last-child {
-  color: var(--bad);
-}
-
-/* Goals */
-.tg-card {
-  position: relative;
-  display: grid;
-  gap: var(--sp-2);
-  height: 100%;
-  padding: var(--sp-4);
-  overflow: hidden;
-  border-radius: var(--r-tile);
-  background: var(--surface);
-  box-shadow: var(--shadow-1);
-  align-content: start;
-}
-/* the Today card's sun, in Apricot as on Goals (guide 12.1): light, not a Sunrise mark */
-.tg-sun {
-  position: absolute;
-  right: -40px;
-  top: -40px;
-  width: 150px;
-  height: 150px;
-  border-radius: 50%;
-  background: var(--g-sun);
-  opacity: 0.85;
-  transition: transform var(--dur-ring) var(--ease-out);
-}
-.tg-card > :not(.tg-sun) {
-  position: relative;
-}
-.tg-ask,
-.tg-goal {
-  max-width: 78%;
-  font: italic 420 var(--fs-sentence) / var(--lh-sentence) var(--serif);
-  color: var(--ink);
-}
-/* the demo's buttons are pictures of the real ones: the Sky primary with Night Ink words, without its glow, so they never
-   compete with the screen's own Next */
-.tg-cta,
-.tg-set,
-.ta-apply {
-  padding: var(--sp-2) var(--sp-4);
-  border-radius: var(--r-pill);
-  background: var(--accent);
-  font: 650 var(--fs-sub) / var(--lh-sub) var(--sans);
-  color: var(--accent-ink);
-}
-.tg-cta {
-  justify-self: start;
-  margin-top: var(--sp-3);
-}
-.tg-bar {
-  display: flex;
-  align-items: center;
-  gap: var(--sp-2);
-  max-width: 70%;
-}
-.tg-bar i {
-  position: relative;
-  flex: 1;
-  height: 6px;
-  overflow: hidden;
-  border-radius: var(--r-pill);
-  background: var(--haze);
-}
-/* the fill grows as a transform (guide 9.1), --p from 0 to 1 */
-.tg-bar i::before {
-  content: '';
+/* a sheet drawn inside the stage: Paper on the card radius at its top corners, the sheet's shadow, a grabber, and the
+   caps line and title a real sheet has, centered (ui/Sheet.tsx, shape.css) */
+.tsheet-scrim {
   position: absolute;
   inset: 0;
-  background: var(--deep-sky);
-  transform: scaleX(var(--p, 0));
-  transform-origin: left center;
-  transition: transform var(--dur-number) var(--ease-out);
+  border-radius: var(--r-card) var(--r-card) 0 0;
+  background: var(--scrim);
 }
-.tg-bar em {
-  font: 650 var(--fs-foot) / 1 var(--sans);
-  font-style: normal;
-  font-variant-numeric: tabular-nums;
-  color: var(--ink-2);
-}
-.tg-step {
-  display: flex;
-  align-items: center;
-  gap: var(--sp-3);
-  margin-top: var(--sp-2);
-  font: 500 var(--fs-sub) / var(--lh-sub) var(--sans);
-  color: var(--ink);
-}
-.tg-step.tis-done {
-  color: var(--ink-2);
-  text-decoration: line-through;
-}
-.tg-sheet {
+.tsheet {
   position: absolute;
   inset: auto 0 0;
   z-index: 3;
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--sp-3);
-  padding: var(--sp-4);
+  padding: var(--sp-2) var(--gutter) var(--sp-4);
   border-radius: var(--r-card) var(--r-card) 0 0;
-  background: var(--surface);
+  background: var(--sheet-bg);
   box-shadow: var(--shadow-sheet);
 }
-.tg-sheet-t {
-  font: 650 var(--fs-row) / var(--lh-row) var(--sans);
-  color: var(--ink);
+.tsheet-grip {
+  justify-self: center;
+  width: 36px;
+  height: 5px;
+  border-radius: var(--r-pill);
+  background: var(--grabber);
 }
-/* the demo's fields: Paper with the field edge (guide 6.14), Inter 17 */
-.tg-field,
-.tj-field {
-  min-height: 44px;
-  padding: var(--sp-2) var(--sp-3);
-  border-radius: var(--r-control);
-  background: var(--surface);
-  box-shadow: inset 0 0 0 1px var(--field-edge);
-  font: 400 var(--fs-row) / var(--lh-row) var(--sans);
-  color: var(--ink);
-}
-.tg-set {
-  justify-self: end;
-}
-
-/* Journal: the dusk poster (ui/poster, the kit's own, drawn at 70 percent so the whole card reads as one picture) and
-   the line attached under it, in one Paper card as on the tab */
-/* the card is taller before the line is kept (the field and its button) than after (one row). Its place keeps the
-   tallest height it has had (demos.tsx measures it: the picture follows the width, the words the text size), so the
-   steps under it do not move when the line is kept */
-.tj-hold {
+.tsheet-head {
   display: grid;
-  align-content: start;
+  justify-items: center;
+  gap: 1px; /* brand-ok: geometry, the sheet head's hairline between its caps line and its title */
+  text-align: center;
 }
-.tj-card {
-  border-radius: var(--r-card);
-  background: var(--surface);
-  box-shadow: var(--shadow-1);
-  overflow: hidden;
-}
-.tj-poster {
-  zoom: 0.7;
-}
-/* inside the card the poster has no edge of its own: the card carries the corners and the shadow */
-.tj-po {
-  border: 0;
-  border-radius: 0;
-  box-shadow: none;
-}
-.tj-compose {
-  display: grid;
-  gap: var(--sp-2);
-  padding: var(--sp-3) var(--sp-4);
-}
-/* two lines tall from the start, as the real field is: the words being typed never push the button down */
-.tj-field {
-  display: block;
-  min-height: calc(2 * var(--lh-row) + 2 * var(--sp-2));
-}
-/* after the line is kept, the same spot is the way to say more: one quiet row */
-.tj-more {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--sp-2);
-  min-height: 44px;
-  padding: var(--sp-3) var(--sp-4);
-  font: 600 var(--fs-sub) / var(--lh-sub) var(--sans);
-  color: var(--ink);
-}
-.tj-more svg {
-  flex: none;
+.tsheet-eyebrow {
+  font: 600 var(--fs-caps) / var(--lh-caps) var(--stamp);
+  letter-spacing: var(--tr-caps);
+  text-transform: uppercase;
   color: var(--ink-2);
 }
-
-/* Plan */
-.tour-line {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  margin: 2px 2px var(--sp-3); /* brand-ok: geometry, the head over the week */
-  font: 500 var(--fs-foot) / var(--lh-foot) var(--sans);
-  color: var(--ink-2);
-}
-.tour-line b {
+.tsheet-title {
   font: 600 var(--fs-head) / var(--lh-head) var(--serif);
   color: var(--ink);
 }
-.tour-week {
-  display: grid;
-  grid-template-columns: repeat(7, minmax(0, 1fr));
-  gap: var(--sp-1);
+/* the goal's field as the sheet draws it, three lines shorter: the picture of a field being typed in */
+.gs-input.tsheet-field {
+  min-height: calc(2 * var(--lh-row) + 2 * var(--sp-3));
 }
-.tour-day {
-  display: grid;
-  justify-items: center;
-  align-content: start;
-  gap: var(--sp-1);
-  min-height: 112px;
-  padding: 6px 2px; /* brand-ok: geometry, seven days across the stage */
-  border-radius: var(--r-icon);
-  background: var(--surface);
-  box-shadow: var(--shadow-1);
-  transition: background-color var(--dur-fast) var(--ease-out);
+.tsheet .gs-ask {
+  margin-inline: 0;
 }
-/* the drop target while a run is carried, as Plan draws it: the Sky tint and a 2 px Deep Sky ring */
-.tour-day.tis-target {
-  background: var(--accent-tint);
-  box-shadow:
-    inset 0 0 0 2px var(--deep-sky),
-    var(--shadow-1);
-}
-.tour-day small {
-  font: 600 var(--fs-caps) / 1 var(--stamp);
-  letter-spacing: var(--tr-caps);
-  color: var(--ink-2);
-}
-.tour-date {
-  font: 650 var(--fs-sub) / 1 var(--sans);
-  font-variant-numeric: tabular-nums;
-  color: var(--ink);
-}
-/* a session in the week: a Cloud tile with Night Ink words and its tone as a 3 px marker across its top (guide 3.1: tones
-   are marks, never a surface; a session kind never takes orange). The name may take two lines in a seven-column day */
-.tour-pill {
-  --tone: var(--t-easy);
-  position: relative;
-  margin-top: var(--sp-2);
-  padding: var(--sp-2) 2px var(--sp-1); /* brand-ok: geometry, a name in a seven-column day */
-  border-radius: var(--r-icon);
-  background: var(--cloud);
-  font: 600 var(--fs-orb) / var(--lh-orb) var(--sans);
-  text-align: center;
-  color: var(--ink);
-  white-space: normal;
-}
-.tour-pill::before {
-  content: '';
+/* a toast in the stage, at its top as the app's are: Night Ink, White words, the action in Haze (guide 6.10) */
+.ttoast {
   position: absolute;
   left: 50%;
-  top: 3px; /* brand-ok: geometry, the tone marker inside the tile's top edge */
-  width: 16px;
-  height: 3px;
-  translate: -50% 0;
-  border-radius: var(--r-pill);
-  background: var(--tone);
-}
-.tour-pill.c-easy {
-  --tone: var(--t-easy);
-}
-.tour-pill.c-hard {
-  --tone: var(--t-hard);
-}
-.tour-pill.c-long {
-  --tone: var(--t-long);
-}
-/* carried: Paper, lifted on the menu shadow, as Plan's drag pill */
-.tour-pill.tis-lifted {
-  display: block;
-  width: 44px;
-  background: var(--surface);
-  box-shadow: var(--shadow-2);
-  transform: scale(1.06);
-}
-.tour-rest {
-  margin-top: var(--sp-2);
-  font: 500 var(--fs-orb) / 1 var(--sans);
-  color: var(--ink-2);
-}
-/* the week holds its own toast, across the foot of the days and the gap under them, so it covers neither a session's
-   name nor the chart */
-.tour-wk {
-  position: relative;
-}
-.tour-toast {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: calc(-1 * var(--sp-3));
+  top: var(--sp-3);
+  z-index: 4;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
   width: max-content;
-  margin-inline: auto !important;
+  max-width: calc(100% - var(--sp-4));
   margin: 0;
-  padding: var(--sp-2) var(--sp-4);
-  border-radius: var(--r-pill);
+  padding: var(--sp-3) var(--sp-5);
+  translate: -50% 0;
+  border-radius: var(--r-card);
   background: var(--ink);
-  font: 500 var(--fs-foot) / var(--lh-foot) var(--sans);
+  box-shadow: var(--shadow-2);
+  font: 500 var(--fs-sub) / var(--lh-sub) var(--sans);
   color: var(--white);
-  white-space: nowrap;
 }
-/* the toast's action: Haze 600 on Night Ink (guide 5.4 toast) */
-.tour-toast b {
-  margin-left: var(--sp-3);
+.ttoast b {
   font-weight: 600;
   color: var(--haze);
 }
 
-/* Fitness, the lower half: Progress, under the week. The chart is bars, a week each, as the page draws them */
-.tq {
+/* a section's head in the stage's column: the column's own 12 is the gap under it, and a section stands 24 from the one
+   above (the column's 12 and 12 more) */
+.tstage-page > .lb-head,
+.tstage-page > div > .lb-head {
+  margin-bottom: 0;
+}
+.tstage-page > div:has(> .lb-head) {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--sec-gap);
+  margin-top: var(--sp-3);
+}
+/* Fitness: the week's days and Progress are cards of the page's own column here (the stage sets the 12 between) */
+.tfit .pl-ahead.card.tfit-days {
+  margin-top: 0;
+}
+/* the finger's places over the chart: one per week, across the plot (the 30 at the right is the chart's own scale) */
+.tfit-progress {
   position: relative;
-  margin-top: var(--sp-4);
-  padding-top: var(--sp-3);
-  border-top: 1px solid var(--line);
 }
-.tq-head {
+.tfit-spots {
+  position: absolute;
+  inset: 50% calc(var(--pad-card) + 30px) 38% var(--pad-card); /* brand-ok: geometry, the plot's own box inside its card */
   display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  margin: 0 2px var(--sp-3); /* brand-ok: geometry, the head over the chart */
+  pointer-events: none;
 }
-/* the chart's headline number: Inter 650 with even figures, never Fraunces (guide 6.8) */
-.tq-head b {
-  font: 650 var(--fs-head) / 1 var(--sans);
-  color: var(--ink);
-  font-variant-numeric: tabular-nums;
-}
-.tq-chart {
-  display: flex;
-  align-items: flex-end;
-  gap: var(--sp-1);
-  height: 72px;
-  margin: 0 2px; /* brand-ok: geometry, the bars inside the head's own inset */
-}
-/* a week done: a Sky bar with round shoulders (guide 6.8). The one being read turns Deep Sky and the others step back
-   to 70 percent, as on the page: a selection, never a now mark */
-.tq-bar {
+.tfit-spots i {
   flex: 1 1 0;
-  min-width: 0;
-  border-radius: var(--r-icon) var(--r-icon) 0 0;
-  background: var(--sky);
-  transition: opacity var(--dur-out) var(--ease-out);
 }
-.tq-chart.tis-reading .tq-bar:not(.tis-lit) {
-  opacity: 0.7;
-}
-.tq-bar.tis-lit {
-  background: var(--deep-sky);
-  transition: none;
-}
-@media (prefers-reduced-motion: reduce) {
-  .tq-bar {
-    transition: none;
-  }
+/* the plot is the stage's picture: it takes no touch, so a swipe on it still turns the tour's page */
+.tstage .rb-plot {
+  touch-action: pan-y;
 }
 
-/* the ask bar */
-.ta {
+/* the assistant: any page, with the dock over its foot. The page is as tall as the sheet that will rise over it */
+.tas .tstage-page {
+  min-height: 23rem;
+  align-content: space-between;
+}
+/* the dock as the shell draws it (shell.css): the ask bar over the tab capsule, 8 apart, in flow here */
+.tas-dock {
   display: grid;
-  align-content: end;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--dock-gap);
 }
-.ta-bar {
-  display: flex;
-  align-items: center;
-  gap: var(--sp-3);
-  margin-bottom: var(--sp-5);
-  padding: var(--sp-3) var(--sp-4);
-  border-radius: var(--r-pill);
-  background: var(--surface);
-  box-shadow: var(--shadow-float);
-  font: 500 var(--fs-sub) / var(--lh-sub) var(--sans);
-  color: var(--ink-2);
+.tas-dock .tabbar {
+  display: block;
 }
-.ta-sheet {
+.tas-thread {
   display: grid;
-  gap: var(--sp-3);
-  margin: 0 -14px -14px; /* brand-ok: geometry, the sheet reaches the stage's edges past its 14 px inset */
-  padding: var(--sp-5) var(--sp-4);
-  border-radius: var(--r-card) var(--r-card) 0 0;
-  background: var(--surface);
-  box-shadow: var(--shadow-sheet);
-}
-.ta-you {
-  justify-self: end;
-  max-width: 85%;
-  padding: var(--sp-2) var(--sp-3);
-  border-radius: var(--r-tile);
-  background: var(--cloud);
-  font: 500 var(--fs-sub) / var(--lh-sub) var(--sans);
-  color: var(--ink);
-}
-.ta-reply {
-  display: grid;
-  gap: var(--sp-3);
-  padding: var(--sp-3);
-  border-radius: var(--r-tile);
-  box-shadow: inset 0 0 0 1px var(--line);
-}
-.ta-reply > span {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--sp-2);
-  font: 600 var(--fs-sub) / var(--lh-sub) var(--sans);
-  color: var(--ink);
-}
-.ta-apply {
-  justify-self: start;
-}
-/* done: a Deep Sky check and words (the ok tone), Undo beside it */
-.ta-applied {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--sp-2);
-  font: 600 var(--fs-sub) / var(--lh-sub) var(--sans);
-  color: var(--ok);
-}
-.ta-applied em {
-  margin-left: var(--sp-2);
-  font-style: normal;
-  color: var(--accent-text);
-}
-.ta-behind {
-  position: absolute;
-  inset: 14px 14px auto;
-  display: grid;
-  grid-template-columns: auto 1fr;
-  align-items: baseline;
-  gap: var(--sp-1) var(--sp-3);
-  padding: var(--sp-3);
-  border-radius: var(--r-tile);
-  background: var(--surface);
-  box-shadow: var(--shadow-1);
-}
-.ta-behind b {
-  font: 650 var(--fs-row) / var(--lh-row) var(--sans);
-  color: var(--ink);
-}
-.ta-sheet {
-  position: relative;
-  z-index: 1;
+  gap: var(--sp-4);
+  min-width: 0;
 }

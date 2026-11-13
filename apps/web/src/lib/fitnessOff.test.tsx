@@ -216,15 +216,37 @@ describe('Fitness off: no screen speaks of training', () => {
     for (const html of [on, off, habit]) expect(said(html)).not.toMatch(/in a row|streak/i);
   }, 60_000);
 
-  it('the tour has no Fitness page (and Progress is part of that page, not one of its own)', async () => {
+  it('the tour has no Fitness page, and no other page of it shows a run, a lift or a plan', async () => {
     const { tourPages } = await import('@/features/onboarding/tour/Tour');
-    expect(tourPages(false).map((p) => p.key)).toEqual(['todos', 'habits', 'goals', 'journal', 'ask']);
-    // with Fitness on: six pages, one for training, and one place to write
-    expect(tourPages(true).map((p) => p.key)).toEqual(['todos', 'habits', 'goals', 'journal', 'plan', 'ask']);
-    expect(tourPages(true).map((p) => p.where)).toEqual(['Today', 'Today', 'Goals and Today', 'Journal', 'Fitness', 'Every tab']);
+    expect(tourPages(false).map((p) => p.key)).toEqual(['today', 'goals', 'journal', 'ask']);
+    // with Fitness on: five pages, one for training (Progress is part of it), and one place to write
+    expect(tourPages(true).map((p) => p.key)).toEqual(['today', 'goals', 'plan', 'journal', 'ask']);
+    expect(tourPages(true).map((p) => p.title)).toEqual(['Today', 'Goals', 'Fitness', 'Journal', 'The assistant']);
     // no page still sends a person to a tab that is gone
-    for (const p of tourPages(true)) expect(`${p.where} ${p.title} ${p.lede}`).not.toMatch(/\bLearned\b|What I learned|\bProgress\b/);
-    for (const p of tourPages(false)) expect(`${p.where} ${p.title} ${p.lede}`).not.toMatch(WORDS);
-  });
+    for (const p of tourPages(true)) expect(`${p.title} ${p.lede}`).not.toMatch(/\bLearned\b|What I learned|\bProgress\b/);
+    for (const p of tourPages(false)) expect(`${p.title} ${p.lede}`).not.toMatch(WORDS);
+    // the demos themselves, each on its finished frame (as Reduce Motion holds it): every word and label in them
+    const demos = (fitness: boolean): Screen => [
+      'the tour',
+      async () => ({
+        default: () => (
+          <>
+            {tourPages(fitness).map((p) => (
+              <p.Demo key={p.key} running={false} still plain={!fitness} />
+            ))}
+          </>
+        ),
+      }),
+      '/welcome/how',
+      /./,
+      /./,
+    ];
+    const on = said(await render(demos(true), true));
+    expect(on).toMatch(/Easy 4[\s\S]*Runs this week[\s\S]*Add a session[\s\S]*On my run today I learned/);
+    const off = await render(demos(false), false);
+    // the four pages are whole: the day’s poster and the habits, the goal and the hills, the line, the dock and the proposal
+    expect(off.replace(/<[^>]+>/g, ' ')).toMatch(/Finish the report[\s\S]*Stretch[\s\S]*Further out[\s\S]*Today I learned[\s\S]*Write more about today[\s\S]*Ask or change anything[\s\S]*Applied/);
+    expect(hits(off)).toEqual([]);
+  }, 60_000);
 
 });

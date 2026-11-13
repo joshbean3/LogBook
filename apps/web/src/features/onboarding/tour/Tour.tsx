@@ -1,59 +1,56 @@
-import { MessageCircle } from 'lucide-react';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
-import { useEffect, useRef, type ComponentType } from 'react';
-import { HEALTH_BUILT } from '@/lib/features';
+import { useEffect, useRef } from 'react';
 import { haptics } from '@/lib/haptics';
 import { springs } from '@/lib/motion';
 import { Pressable } from '@/ui';
-import { FitnessIcon, GoalsIcon, HabitIcon, JournalIcon, TodayIcon } from '@/ui/icons';
-import { AskDemo, FitnessDemo, GoalsDemo, HabitsDemo, JournalDemo, TodosDemo, type DemoProps } from './demos';
+import { AskDemo, FitnessDemo, GoalsDemo, JournalDemo, TodayDemo, type DemoProps } from './demos';
 import './tour.css';
 
 /**
- * How Logbook works, one page per part of it (first run's last step before the plan is written). Each page names the
- * place it lives, says in one line what it is for, and plays a short demo of the real gestures with the real labels.
- * Swipe or Next to move on; Skip tour (in the header) jumps to the plan. Each demo plays twice and rests on its finished
- * frame; under Reduce Motion it holds that frame from the start, with every step lit.
+ * How Orby works, one page per place: Today, Goals, Fitness, Journal and the assistant. Each page is headed with the
+ * place's own name, set as the tab sets it, says in one line what the place is for, and plays a short demo of the real
+ * page, drawn with the page's own parts at their own sizes, with the one thing to tap. Swipe or Next to move on. Each demo
+ * plays twice and rests on its finished frame; under Reduce Motion it holds that frame from the start, with every step lit.
+ *
+ * `Tour` is the pages, the dots and the button. The screen round it (the bar with Back and Skip tour) is the caller's:
+ * first run's own (Welcome.tsx), or `TourScreen` when the tour is opened by itself.
  */
-interface Page {
-  key: string;
-  /** The eyebrow's glyph: the brand set's glyph for where it lives (a tab, or the habit), Lucide only where the set has none. */
-  icon: ComponentType<{ size?: number; 'aria-hidden'?: boolean | 'true' }>;
-  where: string;
+export type TourKey = 'today' | 'goals' | 'plan' | 'journal' | 'ask';
+export interface TourPage {
+  key: TourKey;
+  /** The place, named as its tab names it: the page's headline. */
   title: string;
+  /** What the place is for, in one line. */
   lede: string;
   Demo: (p: DemoProps) => React.JSX.Element;
 }
-export const TOUR_ALL: readonly Page[] = [
-  { key: 'todos', icon: TodayIcon, where: 'Today', title: 'Your three that matter.', lede: 'The first three to-dos are your priorities. Check one off and the next moves up; the rest wait folded below.', Demo: TodosDemo },
-  { key: 'habits', icon: HabitIcon, where: 'Today', title: 'Habits you can tap.', lede: 'Each habit is a tile on Today. Tap it when it’s done; the week fills in under it.', Demo: HabitsDemo },
-  { key: 'goals', icon: GoalsIcon, where: 'Goals and Today', title: 'One goal a day.', lede: 'Set the one thing that would make today count, then break it into steps. Week, month and year goals live in Goals.', Demo: GoalsDemo },
-  { key: 'journal', icon: JournalIcon, where: 'Journal', title: 'One line a day.', lede: 'What you learned today, in a line. Write more any time. Old days come back as Remember when.', Demo: JournalDemo },
-  // one page for training: what is next (the week), then how it is going (Progress, the lower half of the tab)
-  {
-    key: 'plan',
-    icon: FitnessIcon,
-    where: 'Fitness',
-    title: 'What’s next, and how it’s going.',
-    lede: HEALTH_BUILT ? 'Your sessions, day by day, then your miles, week by week. Connect Apple Health to add sleep, HRV and resting heart rate.' : 'Your sessions, day by day, then your miles, week by week. Life happens: tap a run to move it to another day.',
-    Demo: FitnessDemo,
-  },
-  { key: 'ask', icon: MessageCircle, where: 'Every tab', title: 'Ask, or change anything.', lede: 'The assistant answers questions and makes changes for you, and shows them to you first. It can be wrong, so check anything important.', Demo: AskDemo },
+export const TOUR_ALL: readonly TourPage[] = [
+  { key: 'today', title: 'Today', lede: 'One goal, your to-dos and your habits.', Demo: TodayDemo },
+  { key: 'goals', title: 'Goals', lede: 'Today’s goal first, then further out.', Demo: GoalsDemo },
+  // one page for training (its key keeps the tab's old name): what is next, then how it is going
+  { key: 'plan', title: 'Fitness', lede: 'What is next, and how it is going.', Demo: FitnessDemo },
+  { key: 'journal', title: 'Journal', lede: 'One line a day is enough.', Demo: JournalDemo },
+  { key: 'ask', title: 'The assistant', lede: 'It answers, and makes changes you approve. It can be wrong, so check anything important.', Demo: AskDemo },
 ];
 
-/** The pages a person sees: all of them, or with Fitness off (lib/prefs.ts) the ones that are not about training. */
-export const tourPages = (fitness: boolean): readonly Page[] => (fitness ? TOUR_ALL : TOUR_ALL.filter((p) => p.key !== 'plan'));
+/** The pages a person sees: all five, or with Fitness off (lib/prefs.ts) the four that are not about training. */
+export const tourPages = (fitness: boolean): readonly TourPage[] => (fitness ? TOUR_ALL : TOUR_ALL.filter((p) => p.key !== 'plan'));
+/** The page a number names, held inside the pages there are (a page kept from a longer tour lands on the last one). */
+export const tourPage = (page: number, count: number): number => Math.min(Math.max(0, count - 1), Math.max(0, Number.isFinite(page) ? Math.floor(page) : 0));
+/** What the dots say to VoiceOver: "Page 2 of 5". */
+export const dotsLabel = (page: number, count: number): string => `Page ${tourPage(page, count) + 1} of ${count}`;
 
-export const Tour = ({ page, onPage, onDone, doneLabel = 'Build my week', fitness = true }: { page: number; onPage: (p: number) => void; onDone: () => void; /** the last page's button */ doneLabel?: string; /** false: the answer to the Fitness question was No */ fitness?: boolean }) => {
+export const Tour = ({ page, onPage, onDone, doneLabel = 'Build my week', fitness = true }: { page: number; onPage: (p: number) => void; onDone: () => void; /** the last page's button */ doneLabel?: string; /** false: Fitness is off (the answer to the Fitness question was No) */ fitness?: boolean }) => {
   const reduce = !!useReducedMotion();
   const TOUR = tourPages(fitness);
-  const p = Math.min(TOUR.length - 1, Math.max(0, page));
+  const p = tourPage(page, TOUR.length);
   const last = p === TOUR.length - 1;
   const dir = useRef(1);
   const go = (n: number) => {
     if (n < 0 || n > TOUR.length - 1 || n === p) return;
     dir.current = n > p ? 1 : -1;
-    turned.current = true;
+    mine.current = true;
+    // the page turn's one haptic: the demos play in silence
     haptics.select();
     onPage(n);
   };
@@ -71,16 +68,24 @@ export const Tour = ({ page, onPage, onDone, doneLabel = 'Build my week', fitnes
     if (Math.abs(dx) < 48 || Math.abs(dx) < Math.abs(e.clientY - s.y) * 1.5) return;
     go(dx < 0 ? p + 1 : p - 1);
   };
-  // a page turn moves focus to the new page's heading (a11y-10); the arrival on the tour is the flow's own
+  // a page turn moves focus to the new page's heading (a11y-10); the arrival on the tour is the caller's. The page may
+  // also be turned from outside (the screen's Back), so the turn is read off the page number
   const turned = useRef(false);
+  const mine = useRef(false);
+  const was = useRef(p);
+  if (was.current !== p) {
+    if (!mine.current) dir.current = p > was.current ? 1 : -1;
+    mine.current = false;
+    turned.current = true;
+    was.current = p;
+  }
   const track = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (!turned.current) return;
     const id = setTimeout(() => track.current?.querySelector<HTMLElement>(`.tour-page[data-key="${TOUR[p]!.key}"] h1`)?.focus({ preventScroll: true }), reduce ? 40 : 240);
     return () => clearTimeout(id);
-  }, [p, reduce]);
+  }, [p, reduce]); // eslint-disable-line react-hooks/exhaustive-deps
   const pg = TOUR[p]!;
-  const Icon = pg.icon;
   return (
     <div className="ob-step tour">
       <div ref={track} className="tour-track" onPointerDown={onDown} onPointerUp={onUp} onPointerCancel={() => (swipe.current = null)}>
@@ -88,7 +93,7 @@ export const Tour = ({ page, onPage, onDone, doneLabel = 'Build my week', fitnes
           <motion.section
             key={pg.key}
             data-key={pg.key}
-            className="tour-page"
+            className={`tour-page${reduce ? ' tis-still' : ''}`}
             custom={dir.current}
             initial={reduce ? { opacity: 0 } : { opacity: 0, x: dir.current * 40 }}
             animate={{ opacity: 1, x: 0 }}
@@ -97,11 +102,7 @@ export const Tour = ({ page, onPage, onDone, doneLabel = 'Build my week', fitnes
             aria-roledescription="slide"
             aria-label={`${p + 1} of ${TOUR.length}: ${pg.title}`}
           >
-            <span className="caps tour-eyebrow">
-              <Icon size={15} aria-hidden="true" />
-              {pg.where}
-            </span>
-            <h1 className="tour-title display" tabIndex={-1}>
+            <h1 className="tour-title" tabIndex={-1}>
               {pg.title}
             </h1>
             <p className="tour-lede">{pg.lede}</p>
@@ -111,7 +112,7 @@ export const Tour = ({ page, onPage, onDone, doneLabel = 'Build my week', fitnes
       </div>
       <div className="ob-foot tour-foot">
         {/* where you are, not a control: Next and swipe do the paging (a11y-10, onboarding-19) */}
-        <div className="tour-dots" role="img" aria-label={`Page ${p + 1} of ${TOUR.length}`}>
+        <div className="tour-dots" role="img" aria-label={dotsLabel(p, TOUR.length)}>
           {TOUR.map((t, i) => (
             <span key={t.key} className={i === p ? 'tis-on' : ''} aria-hidden="true" />
           ))}

@@ -42,6 +42,7 @@ const views = {
   settingsSection: () => import('@/features/settings/SettingsSection'),
   plans: () => import('@/features/plan/PlansPage'),
   welcome: () => import('@/features/onboarding/Welcome'),
+  tour: () => import('@/features/onboarding/tour/TourScreen'),
   metric: () => import('@/features/progress/MetricPage'),
 };
 
@@ -82,6 +83,7 @@ const SettingsView = view(views.settings);
 const SettingsSection = view(views.settingsSection);
 const PlansPage = view(views.plans);
 const Welcome = view(views.welcome);
+const TourRoute = view(views.tour);
 // the component gallery and the test stubs exist only where DEV_TOOLS is true: a release build has no chunk for them
 const UiGallery = DEV_TOOLS ? view(() => import('./dev/UiGallery')) : null;
 const MetricPage = view(views.metric);
@@ -293,6 +295,17 @@ const Authed = () => {
   if (boot.data?.user.onboardedAt === null && !loc.pathname.startsWith('/welcome')) return <Navigate to="/welcome" replace />;
   return (
     <Routes>
+      {/* "How Orby works" by itself, from Settings and from the end of first run: full screen, as first run is */}
+      <Route
+        path="/welcome/how"
+        element={
+          <ErrorBoundary>
+            <Suspense fallback={null}>
+              <TourRoute />
+            </Suspense>
+          </ErrorBoundary>
+        }
+      />
       {/* first run is full screen (react-router's; NavController sleeps there): no tab bar */}
       <Route
         path="/welcome/*"

@@ -148,6 +148,8 @@
 }
 .po-words-b {
   font: 650 var(--fs-row) / var(--lh-row) var(--sans);
+  /* the band's words are often a count ("1 of 3 done"): even figures, which the shorthand above would switch off */
+  font-variant-numeric: tabular-nums;
   text-wrap: pretty;
 }
 .po-band-end {
