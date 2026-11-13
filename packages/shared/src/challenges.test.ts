@@ -103,12 +103,23 @@ describe('test 11: slots', () => {
       }
     }
   });
-  it('the day cannot be told from the date alone: on any one week, accounts land on every day it can be', () => {
+  it('the day cannot be told from the date alone: in any one week accounts land on every day, and every day of the week is used', () => {
     for (let w = 0; w < 8; w++) {
       const seen = new Set<string>();
       for (let u = 0; u < 200; u++) seen.add(challengeSlots(`u_${u}_${(u * 7919).toString(36)}`, day(w * 7)).find((s) => s.kind === 'day')!.date);
-      expect(seen.size).toBeGreaterThanOrEqual(6);
+      expect(seen.size).toBe(7);
     }
+  });
+  it('“Two a week” holds the day “One a week” gives, in every week, so a slot is the account’s own under either setting', () => {
+    for (let u = 0; u < 60; u++)
+      for (let w = 0; w < 60; w++) {
+        const who = `u_${u}_${(u * 7919).toString(36)}`;
+        const one = challengeSlots(who, day(w * 7), 1).filter((s) => s.kind === 'day');
+        const two = challengeSlots(who, day(w * 7), 2).filter((s) => s.kind === 'day');
+        expect(two.map((s) => s.key)).toContain(one[0]!.key);
+        expect(new Set(two.map((s) => s.date)).size).toBe(2);
+        for (const s of two) expect(mondayOf(s.date)).toBe(day(w * 7));
+      }
   });
   it('slotOf reads a slot back from its key', () => {
     const s = challengeSlots(U, MON)[0]!;

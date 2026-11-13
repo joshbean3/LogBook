@@ -26,14 +26,29 @@ const slot = (userId: string, kind: 'day' | 'week', date: ISODate): Slot => {
   return { key, kind, date, seed: seedOf(`${userId}:${key}`) };
 };
 
+/*
+ * Which days of a week hold a day challenge (Monday 0 to Sunday 6). Never two days running:
+ * - "One a week" is the seed's day; a Monday gives way to Tuesday when the week before chose its Sunday;
+ * - the second of "Two a week" is Tuesday to Sunday, never beside the first, and not a Sunday when next week's first is
+ *   its Monday.
+ * Each looks one week away at most, and only at the seeds, so every device agrees.
+ */
+const seedDay = (userId: string, monday: ISODate): number => seedOf(`${userId}:d:${monday}`) % 7;
+const firstDay = (userId: string, monday: ISODate): number => {
+  const d = seedDay(userId, monday);
+  return d === 0 && seedDay(userId, shiftDays(monday, -7)) === 6 ? 1 : d;
+};
+const secondDay = (userId: string, monday: ISODate, first: number): number => {
+  const mondayNext = firstDay(userId, shiftDays(monday, 7)) === 0;
+  const free = [1, 2, 3, 4, 5, 6].filter((d) => Math.abs(d - first) > 1 && !(d === 6 && mondayNext));
+  return free[seedOf(`${userId}:d2:${monday}`) % free.length]!;
+};
+
 /**
  * The week's slots for an account: the same on every device, since they are a function of the account's id and the week
- * alone. One day challenge on a day chosen by seed (two with "Two a week", none with Off), and a week challenge on three
- * Mondays in four. Any day of the week may be passed.
- *
- * Day challenges never fall on two days running. They are chosen from Tuesday to Sunday: Monday is the week challenge's
- * day (Today shows one row), so a Sunday is never followed by next week's Monday; and the second of "Two a week" is never
- * the day before or after the first.
+ * (and the week before) alone. One day challenge on a day chosen by seed (two with "Two a week", none with Off), and a
+ * week challenge on three Mondays in four. Day challenges never fall on two days running (`firstDay`, `secondDay`). Any
+ * day of the week may be passed.
  */
 export const challengeSlots = (userId: string, week: ISODate, cadence: 0 | 1 | 2 = 1): Slot[] => {
   if (cadence === 0) return [];
@@ -41,12 +56,8 @@ export const challengeSlots = (userId: string, week: ISODate, cadence: 0 | 1 | 2
   const out: Slot[] = [];
   const index = Math.round(daysBetween(WEEK_ZERO, monday) / 7);
   if ((((index + seedOf(userId)) % 4) + 4) % 4 !== 3) out.push(slot(userId, 'week', monday));
-  const first = 1 + (seedOf(`${userId}:d:${monday}`) % 6);
-  const days = [first];
-  if (cadence === 2) {
-    const apart = [1, 2, 3, 4, 5, 6].filter((d) => Math.abs(d - first) > 1);
-    days.push(apart[seedOf(`${userId}:d2:${monday}`) % apart.length]!);
-  }
+  const first = firstDay(userId, monday);
+  const days = cadence === 2 ? [first, secondDay(userId, monday, first)] : [first];
   for (const d of days.sort((a, b) => a - b)) out.push(slot(userId, 'day', shiftDays(monday, d)));
   return out;
 };
