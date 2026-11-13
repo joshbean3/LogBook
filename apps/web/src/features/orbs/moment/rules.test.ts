@@ -312,9 +312,9 @@ describe('words', () => {
     expect(gainToast({ key: 'week:2026-11-16', n: 5 })).toBe('Last week counted. 5 Orbs');
   });
   it('a goal says its Orbs and its real multiplier', () => {
-    expect(gainToast({ key: 'goal:week:2026-11-16', n: 9 })).toBe('9 Orbs · week goal x3');
-    expect(gainToast({ key: 'goal:month:2026-11', n: 30 })).toBe('30 Orbs · month goal x10');
-    expect(gainToast({ key: 'goal:year:2026', n: 90 })).toBe('90 Orbs · year goal x30');
+    expect(gainToast({ key: 'goal:week:2026-11-16', n: 9 })).toBe('9 Orbs · week goal × 3');
+    expect(gainToast({ key: 'goal:month:2026-11', n: 30 })).toBe('30 Orbs · month goal × 10');
+    expect(gainToast({ key: 'goal:year:2026', n: 90 })).toBe('90 Orbs · year goal × 30');
   });
   it('a challenge and the comeback', () => {
     expect(gainToast({ key: 'challenge:d:2026-11-17', n: 5 })).toBe('Today’s challenge, done. 5 Orbs');
@@ -342,12 +342,12 @@ describe('words', () => {
 
 describe('a big moment’s words', () => {
   it('a goal: the check, its line, what it paid, and the goal’s own words', () => {
-    expect(momentWords({ key: 'goal:week:2026-11-16', on: '2026-11-20', n: 9 }, { goalText: 'Run three times' })).toEqual({ disc: 'check', title: 'Goal done', line: 'A whole week, done.', paid: '9 Orbs · week goal x3', quote: 'Run three times', label: 'Goal done' });
+    expect(momentWords({ key: 'goal:week:2026-11-16', on: '2026-11-20', n: 9 }, { goalText: 'Run three times' })).toEqual({ disc: 'check', title: 'Goal done', line: 'A whole week, done.', paid: '9 Orbs · week goal × 3', quote: 'Run three times', label: 'Goal done' });
     // a month goal's keepsake carries its words, whatever the app still holds
     const month = momentWords({ key: 'goal:month:2026-11', on: '2026-11-30', n: 30, keepsake: { on: '2026-11-30', t: 'Read two books' } }, { goalText: 'Something newer' });
     expect(month.quote).toBe('Read two books');
     expect(month.line).toBe('A month of it, done.');
-    expect(momentWords({ key: 'goal:year:2026', on: '2026-12-31', n: 90 }).paid).toBe('90 Orbs · year goal x30');
+    expect(momentWords({ key: 'goal:year:2026', on: '2026-12-31', n: 90 }).paid).toBe('90 Orbs · year goal × 30');
   });
   it('weeks in a row and days in all: the numeral in the disc', () => {
     expect(momentWords({ key: 'weeks:4', on: '2026-12-14' }, { rule: 'One thing a day. Two days off a week.' })).toMatchObject({ disc: '4', title: '4 weeks in a row', line: 'One thing a day. Two days off a week.' });

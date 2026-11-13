@@ -195,7 +195,7 @@
   gap: var(--sp-2);
 }
 .om-chip.is-on {
-  animation: om-chip-fade var(--om-chip-ms) linear both;
+  animation: om-chip-fade var(--om-chip-ms) var(--ease-out) both;
 }
 .om-chip.is-on > .om-chip-in {
   animation: om-chip-rise var(--dur) var(--ease-out) both;
@@ -217,7 +217,7 @@
 }
 @keyframes om-chip-rise {
   from {
-    transform: translate3d(0, 8px, 0);
+    transform: translate3d(0, var(--sp-1), 0);
   }
 }
 @media (prefers-reduced-motion: reduce) {

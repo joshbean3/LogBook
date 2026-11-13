@@ -284,7 +284,7 @@ export const gainToast = (g: { key: string; n: number }, ctx: { weeks?: number }
     if (!level) return null;
     // the multiplier is real: a goal is 3 Orbs times its reach
     const times = g.n / 3;
-    return `${orbs(g.n)} · ${level} goal${Number.isInteger(times) && times > 1 ? ` x${times}` : ''}`;
+    return `${orbs(g.n)} · ${level} goal${Number.isInteger(times) && times > 1 ? ` × ${times}` : ''}`;
   }
   if (g.key.startsWith('challenge:d:')) return `Today’s challenge, done. ${orbs(g.n)}`;
   if (g.key.startsWith('challenge:w:')) return `This week’s challenge, done. ${orbs(g.n)}`;
@@ -308,7 +308,7 @@ export interface MomentWords {
   disc: string | 'check';
   title: string;
   line: string;
-  /** The Orbs it paid, in type: "30 Orbs · month goal x10". */
+  /** The Orbs it paid, in type: "30 Orbs · month goal × 10". */
   paid?: string;
   /** A chapter's facts: "18 days · 9 sessions · 2 goals". */
   facts?: string;

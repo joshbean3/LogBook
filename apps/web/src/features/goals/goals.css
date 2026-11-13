@@ -239,7 +239,7 @@
   font-size: var(--fs-sub);
   line-height: var(--lh-sub);
 }
-/* what the moment paid, in type with one light beside it: "30 Orbs · month goal x10" */
+/* what the moment paid, in type with one light beside it: "30 Orbs · month goal × 10" */
 .cel-paid {
   display: inline-flex;
   align-items: center;
