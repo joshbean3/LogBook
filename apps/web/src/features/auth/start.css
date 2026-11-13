@@ -94,7 +94,7 @@
   flex: 1 1 0;
   min-height: 16rem;
   /* no taller than the tallest poster with the bar under it: on a tall screen the bar stays close under the picture */
-  max-height: 32rem;
+  max-height: 34rem;
   min-width: 0;
 }
 .start-window {
@@ -248,9 +248,9 @@
   width: 100%;
   max-width: 432px;
   margin-inline: auto;
-  padding: var(--sp-6) var(--gutter) var(--sp-4);
+  padding: var(--sp-4) var(--gutter) var(--sp-4);
 }
-/* the question: Fraunces 600 at the section size, left aligned, 24 under the top bar as every question in setup is
+/* the question: Fraunces 600 at the section size, left aligned, 16 under the top bar as every question in setup is
    (layout standard 2.11; plan O7, O8) */
 .pv-title {
   margin: 0;
@@ -266,9 +266,11 @@
 }
 /* the one line under the question: Dusk at the secondary size, as under every question in setup */
 .pv-promise {
+  max-width: 40ch;
   font-size: var(--fs-sub);
   line-height: var(--lh-sub);
   color: var(--ink-2);
+  text-wrap: pretty;
 }
 .start-privacy .pv-facts {
   margin-top: var(--sp-3);
