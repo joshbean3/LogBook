@@ -373,7 +373,8 @@ export const dayLines = (s: Rewards, date: ISODate): Array<{ key: DayKey; n: num
  *
  * 0 for a day that takes nothing: a closed day, with or without a record (two or more behind the store's clock); a day
  * that has not come; a day before the start, or while Orbs are off; and anything that is not a day. Hand in `now` (every
- * caller that has a clock should) and the answer is also 0 for yesterday once it has stopped taking taps at 03:00.
+ * caller that has a clock should) and the answer is also 0 for yesterday once it has stopped taking taps at 03:00 (its
+ * goal keeps its room until the next day ends, as the reconciler pays it).
  */
 export const roomFor = (s: Rewards, date: ISODate, key: Exclude<DayKey, 'full' | 'back'>, now?: Date): number => {
   if (!s.set.on || !isISODate(date) || shiftDays(date, 0) !== date) return 0;
@@ -382,7 +383,8 @@ export const roomFor = (s: Rewards, date: ISODate, key: Exclude<DayKey, 'full' |
   // closed by the clock: the reconciler never reads a day two or more behind the highest day this store has seen
   if (date < shiftDays(s.clock, -1)) return 0;
   // not yet come (by the time when there is one: the clock may be one pass behind on a new morning), or yesterday after 03:00
-  if (now ? !isOpen(date, now, 'tap') : date > s.clock) return 0;
+  // (a day's goal reviewed the next morning is still paid: it is evidence, taken until that next day ends)
+  if (now ? !isOpen(date, now, key === 'goal:day' ? 'evidence' : 'tap') : date > s.clock) return 0;
   const have = r?.k?.[key] ?? 0;
   if (key === 'todo') return Math.max(0, RULES.todo.cap * RULES.todo.each - have);
   if (key === 'habit') return Math.max(0, RULES.habit.cap * RULES.habit.each - have);
@@ -798,15 +800,20 @@ export const within = (s: Rewards, limit: ISODate): Rewards => {
   return { ...s, days, once, keepsakes, seen, challenges, wt, off, clock: s.clock > limit ? limit : s.clock, startedOn };
 };
 
-/** Is `d` the first counted day after three or more missed, with no comeback in the 13 days before it and a counted day before the gap? */
+/**
+ * Is `d` the first counted day after a real gap, with no comeback in the 13 days before it and a counted day before the
+ * gap? A gap is three or more missed days, and more than the days off the person's own week allows: with a week of four
+ * days (three days off) a Friday to Sunday away is the plan, not a return, so it takes four; a week of three takes five.
+ */
 const comebackDue = (s: Rewards, d: ISODate): boolean => {
   // the usual case, first: yesterday counted, so today is no return
   if ((s.days[shiftDays(d, -1)]?.a ?? 0) >= 1) return false;
   for (let i = 1; i < RULES.comeback.every; i++) if (s.days[shiftDays(d, -i)]?.k?.back) return false;
+  const need = Math.max(RULES.comeback.missed, 8 - targetOf(s, mondayOf(shiftDays(d, -1))));
   let missed = 0;
   for (let x = shiftDays(d, -1), i = 0; x >= s.startedOn && i < 400; x = shiftDays(x, -1), i++) {
     const st = dayState(s, x, d);
-    if (st === 'counted') return missed >= RULES.comeback.missed;
+    if (st === 'counted') return missed >= need;
     if (st === 'missed') missed++;
   }
   return false;

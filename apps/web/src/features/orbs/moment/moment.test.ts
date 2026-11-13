@@ -113,9 +113,9 @@ describe('the pop and the clock', () => {
   });
 
   it('a Today still held on yesterday after 03:00 pops nothing, though the store has not closed the day yet', async () => {
-    // the store was last worked out before 03:00: yesterday has room by its count
+    // the store was last worked out before 03:00: yesterday has room by its count, and none by the clock
     const { store, moment, shown } = await launch({ now: at(TODAY, '03:01'), store: stored({ days: { [YESTERDAY]: { n: 2, a: 2, k: { todo: 2 } } } }) });
-    expect(store.orbRoom('todo', YESTERDAY)).toBe(3);
+    expect(store.orbRoom('todo', YESTERDAY)).toBe(0);
     expect(moment.popOrbs({ key: 'todo', date: YESTERDAY, n: 1, from: rect(300, 500), id: 'a' })).toBe(0);
     expect(moment.popOrbs({ key: 'habit', date: YESTERDAY, n: 1, from: rect(40, 500), id: 'h' })).toBe(0);
     expect(spawned).toHaveLength(0);
@@ -133,9 +133,9 @@ describe('the pop and the clock', () => {
     const { store, moment } = await launch();
     const tomorrow = shiftDays(TODAY, 1);
     const old = shiftDays(TODAY, -3);
-    // the store itself would say yes to each
-    expect(store.orbRoom('goal:day', tomorrow)).toBe(3);
-    expect(store.orbRoom('goal:day', old)).toBe(3);
+    // the store says no to each, and so does the pop's own guard
+    expect(store.orbRoom('goal:day', tomorrow)).toBe(0);
+    expect(store.orbRoom('goal:day', old)).toBe(0);
     for (const date of [tomorrow, old, 'not-a-date' as ISODate]) expect(moment.popOrbs({ key: 'goal:day', date, n: 3, from: rect(60, 600) })).toBe(0);
     expect(spawned).toHaveLength(0);
   });

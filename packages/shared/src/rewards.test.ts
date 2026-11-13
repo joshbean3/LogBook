@@ -320,6 +320,18 @@ describe('the comeback', () => {
     const first = live(4, () => null);
     expect(run(first, facts(day(4), { habitsDone: 1 })).store.days[day(4)]?.k?.back).toBeUndefined();
   });
+  it('days off the person planned are not a gap: a week of four takes four missed days, a week of three takes five', () => {
+    const week = (target: 3 | 4 | 5, gap: number) => {
+      const base = live(gap + 1, (i) => (i === 0 ? { habitsDone: 1 } : null));
+      const s = { ...base, set: { ...base.set, weekTarget: target }, wt: {} };
+      return run(s, facts(day(gap + 1), { habitsDone: 1 })).store.days[day(gap + 1)]?.k?.back;
+    };
+    expect(week(5, 3)).toBe(3);
+    expect(week(4, 3)).toBeUndefined();
+    expect(week(4, 4)).toBe(3);
+    expect(week(3, 4)).toBeUndefined();
+    expect(week(3, 5)).toBe(3);
+  });
 });
 
 describe('goals multiply by reach, once per period', () => {
@@ -965,7 +977,9 @@ describe('roomFor: is there an Orb left for this tap?', () => {
     expect(roomFor(s, day(4), 'habit', at(day(5), 2, 59))).toBe(8);
     expect(roomFor(s, day(4), 'habit', at(day(5), 3, 0))).toBe(0);
     expect(roomFor(s, day(4), 'todo', at(day(5), 12))).toBe(0);
-    expect(roomFor(s, day(4), 'goal:day', at(day(5), 12))).toBe(0);
+    // its goal reviewed the next morning is still paid (the reconciler takes it as evidence until that day ends), so it keeps its room
+    expect(roomFor(s, day(4), 'goal:day', at(day(5), 12))).toBe(3);
+    expect(roomFor(s, day(4), 'goal:day', at(day(6), 0, 1))).toBe(0);
     expect(roomFor(s, day(5), 'habit', at(day(5), 12))).toBe(7);
     // tomorrow's page, and any later day
     expect(roomFor(s, day(6), 'habit', at(day(5), 12))).toBe(0);
