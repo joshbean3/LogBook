@@ -19,6 +19,7 @@ import { showToast } from '@/ui/toastStore';
 import { usePress } from '@/ui/usePress';
 import { ErrorBoundary } from './ErrorBoundary';
 import { healthSyncNow, useHealthSync } from '@/lib/healthSync';
+import { useReconcile } from '@/features/orbs/useReconcile';
 import { PushedEntryScope, TabScope, useNav, useNavInternal, useNavState, type Controller } from './NavController';
 import './shell.css';
 import './healthPill.css';
@@ -31,6 +32,8 @@ import './healthPill.css';
 export const Shell = ({ pages, pushed }: { pages: Record<TabId, ReactNode>; pushed: (entry: PushedEntry) => ReactNode }): React.JSX.Element => {
   const ctl = useNavInternal();
   const st = useNavState();
+  // Orbs: the one reconciler, for the whole app. It draws nothing (features/orbs/useReconcile.ts)
+  useReconcile();
   // with Fitness off its tab is not mounted and not drawn; the ones that remain share the capsule evenly
   const tabs = shownTabs(useFitness());
   // the tab on screen is always one the capsule draws: should the state ever name one that is not shown (Fitness, the
