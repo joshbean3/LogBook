@@ -171,7 +171,7 @@ export const DROP = {
 // ---------- what the window may hold ----------
 export const FILL = {
   /** The share of the circle's area the Orbs may cover: past it, older Orbs fuse further. */
-  limit: 0.6,
+  limit: 0.5,
   /** Earlier weeks kept as one Orb each before they join their chapter. */
   weeks: 4,
   /** A chapter is four weeks; a year is this many chapters (364 days). */
