@@ -5,8 +5,9 @@ import './orbs.css';
 import './legend.css';
 
 /**
- * Lines of Orbs in a sheet: what earned them, each with its own Orb before its name (a to-do's, a habit's, the goal's),
- * and the number at the row's end. The Orb is decoration beside the words: the label says the kind.
+ * Lines of Orbs in a sheet: what earned them, each with its own form before its name (a to-do's disc, a habit's lit
+ * disc, the goal's target), and the number at the row's end. The form is decoration beside the words: the label says
+ * the kind.
  */
 export const Lines = ({ lines }: { lines: readonly Line[] }): React.JSX.Element => {
   const legend = lines.some((l) => l.gem);

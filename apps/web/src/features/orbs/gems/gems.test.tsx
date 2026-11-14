@@ -313,3 +313,17 @@ describe('OrbGem', () => {
     expect(named).toContain('class="orb-gem x"');
   });
 });
+
+describe('where a form is drawn', () => {
+  const read = (rel: string) => fs.readFileSync(path.resolve(__dirname, rel), 'utf8');
+  it('is flat in its styles too: no blur, no glow, no shadow on a form', () => {
+    expect(read('./gem.css')).not.toMatch(/filter|shadow|blur|gradient|opacity/);
+    const moment = read('../moment/moment.css');
+    const pop = moment.slice(moment.indexOf('.om-pop > .orb-gem'), moment.indexOf('/* ---------- the rise'));
+    expect(pop).not.toMatch(/filter|box-shadow|blur\(|gradient/);
+    // in the air it rides on a disc of Paper, 2 px wider all round, so it is seen over the Deep Sky band and at dusk
+    expect(pop).toMatch(/\.om-pop > \.orb-gem::before \{[^}]*inset: -2px;[^}]*background: var\(--paper\);/);
+    expect(contrast(TOKEN['--t-easy'], TOKEN['--deep-sky'])).toBeLessThan(1.2);
+    for (const name of Object.values(HUES)) if (name !== '--haze' && name !== '--hill-1') expect(contrast(TOKEN[name], TOKEN['--paper']), name).toBeGreaterThan(1.6);
+  });
+});

@@ -11,10 +11,10 @@ import { howSections, type HowRow } from './how';
 import './orbs.css';
 import './legend.css';
 
-/** A row's Orb: 22 pt, or three small ones for a session (a run's, a lift's, cross-training's). The title beside it says the kind. */
+/** A row's form: 22 pt, or three of 16 pt for a session (a run's, a lift's, cross-training's). The title beside it says the kind. */
 const RowGems = ({ keys }: { keys?: readonly string[] }): React.JSX.Element => (
   <span className={`orl-gem${keys && keys.length > 1 ? ' is-trio' : ''}`} aria-hidden="true">
-    {keys?.map((k) => <OrbGem key={k} gem={gemFor(k)} size={keys.length > 1 ? 14 : 22} />)}
+    {keys?.map((k) => <OrbGem key={k} gem={gemFor(k)} size={keys.length > 1 ? 16 : 22} />)}
   </span>
 );
 
@@ -84,7 +84,7 @@ export const HowBody = ({ fitness, target }: { fitness: boolean; target: 3 | 4 |
   <div className="orh">
     <div className="orh-lead">
       <p className="orh-rule">{ruleLine(target)}</p>
-      <p className="orh-about">Orbs are small lights you earn for what you finish. What you finish decides which. They mark the day. They are never the point.</p>
+      <p className="orh-about">You earn Orbs for what you finish. What you finish decides the shape. They mark the day. They are never the point.</p>
     </div>
     {howSections({ fitness, target }).map((sec) => (
       <PageSection key={sec.key} size="sm" title={sec.title} className="orh-sec">
