@@ -153,24 +153,24 @@ describe('which Orb is born', () => {
   it('its kind’s own: a habit’s, a to-do’s, a run’s, a lift’s, cross-training’s', async () => {
     const { moment } = await launch();
     const kinds = [
-      ['habit', 'apricot'],
-      ['todo', 'lagoon'],
-      ['train:run', 'deepsky'],
-      ['train:lift', 'indigo'],
-      ['train:cross', 'ochre'],
+      ['habit', 'apricot', 'lit'],
+      ['todo', 'deepsky', 'disc'],
+      ['train:run', 'lagoon', 'orbit'],
+      ['train:lift', 'indigo', 'orbit'],
+      ['train:cross', 'ochre', 'orbit'],
     ] as const;
-    for (const [key, hue] of kinds) {
+    for (const [key, hue, style] of kinds) {
       spawned.length = 0;
       expect(moment.popOrbs({ key, date: TODAY, n: 1, from: rect(300, 500), id: key })).toBe(1);
       expect(spawned).toHaveLength(1);
-      expect(spawned[0]!.gem).toEqual({ hue, style: 'plain', shift: 0 });
+      expect(spawned[0]!.gem).toEqual({ hue, style, shift: 0 });
     }
   });
 
   it('three for today’s goal are three of the goal’s Orb, as large and as far apart as before', async () => {
     const { moment } = await launch();
     expect(moment.popOrbs({ key: 'goal:day', date: TODAY, n: 3, from: rect(60, 600), haptic: 'success' })).toBe(3);
-    expect(spawned.map((s) => s.gem)).toEqual(Array.from({ length: 3 }, () => ({ hue: 'gold', style: 'ring1', shift: 0 })));
+    expect(spawned.map((s) => s.gem)).toEqual(Array.from({ length: 3 }, () => ({ hue: 'sky', style: 'target1', shift: 0 })));
     expect(spawned.map((s) => s.light!.size)).toEqual([18, 18, 18]);
     expect(spawned.map((s) => s.light!.delay)).toEqual([0, 60, 120]);
   });
@@ -178,7 +178,7 @@ describe('which Orb is born', () => {
   it('a session at its floor is two of its kind', async () => {
     const { moment } = await launch();
     expect(moment.popOrbs({ key: 'train:run', date: TODAY, n: 2, from: rect(60, 600), id: 's' })).toBe(2);
-    expect(spawned.map((s) => s.gem!.hue)).toEqual(['deepsky', 'deepsky']);
+    expect(spawned.map((s) => s.gem!.hue)).toEqual(['lagoon', 'lagoon']);
   });
 });
 

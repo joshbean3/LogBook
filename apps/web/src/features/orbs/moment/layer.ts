@@ -1,4 +1,4 @@
-import { gemBox, gemFor, gemUrl, type Gem } from '../gems';
+import { gemFor, gemUrl, type Gem } from '../gems';
 import '../gems/gem.css';
 import { CHIP_GEM, createPool, FULL_DAY_CHIP, LAND, POOL_SIZE, POP, STILL, type Light, type PopMode } from './rules';
 import './moment.css';
@@ -14,7 +14,7 @@ import './moment.css';
  */
 interface Node {
   el: HTMLElement;
-  /** The Orb's box and its art (`features/orbs/gems`): which Orb it is, is written at each birth. */
+  /** The Orb's box and its art (`features/orbs/gems`): which form it is, is written at each birth. */
   gem: HTMLElement;
   art: HTMLImageElement;
   timer: ReturnType<typeof setTimeout> | undefined;
@@ -54,7 +54,6 @@ const gemIn = (parent: HTMLElement, size: number) => {
 /** Which Orb a box shows. The art's address is written only when it changes. */
 const dress = (box: { el: HTMLElement; art: HTMLImageElement }, gem: Gem, size: number) => {
   box.el.style.setProperty('--og', `${size}px`);
-  box.el.style.setProperty('--ob', String(gemBox(gem)));
   const url = gemUrl(gem);
   if (box.art.getAttribute('src') !== url) box.art.setAttribute('src', url);
 };
@@ -83,7 +82,7 @@ const ensure = (): HTMLElement | null => {
   }
   chip = span('om-chip', layer);
   const inner = span('om-chip-in', chip);
-  // the full day's own Orb, the Pearl, beside its words
+  // the full day's own form, the sunrise, beside its words
   dress(gemIn(inner, CHIP_GEM), gemFor('full'), CHIP_GEM);
   inner.appendChild(document.createTextNode(FULL_DAY_CHIP));
   document.body.appendChild(layer);
@@ -95,7 +94,7 @@ export interface Spawn {
   x: number;
   y: number;
   light: Light;
-  /** Which Orb it is: its kind's (`gemFor(key)`). */
+  /** Which form it is: its kind's (`gemFor(key)`), upright, at the token's own color. */
   gem: Gem;
   mode: PopMode;
   /** A flight: where the counter's sun is from the end of the rise, and how long the flight takes. */

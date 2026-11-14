@@ -1,129 +1,165 @@
-import { lightnessOf, mix, scale, shifted, tint, WHITE } from './color';
-import { HUES, isStarred, lightOf, SHIFT, TOKEN, type Gem, type GemHue, type GemStyle } from './table';
+import { toneOf } from './color';
+import { HUES, LINE, TOKEN, type FormHue, type FormStyle, type Gem } from './table';
 
 /**
- * The art of an earned Orb, as one SVG document: the logo's own form (`docs/brand/tools/orb.mjs`: the body lit from the
- * top, the pale light and the warm Apricot underlight from below, the blurred glow along the lower limb, the soft
- * specular, the thin edge) in another hue, with the mark of its kind. Same 100-unit geometry as the logo: the sphere is
- * r 48 at (50, 50). The document's box is the sphere's diameter times `gemBox`, centered on the sphere.
+ * The art of an earned Orb, as one SVG document: a flat form built on a circle (brand guide 2.1). One color, one
+ * silhouette, see-through gaps, so it sits on Paper, Cloud, the poster's sky and Twilight alike. No gradient, no gloss,
+ * no shadow, no glow, no filter: the assistant's Orb is the only glossy thing in Orby.
  *
- * It is drawn as an image (an `<img>`, or once onto a canvas as a sprite), so its ids are its own and it may use blurs.
- * No script, no font, nothing fetched.
+ * The geometry is the logo's own 100-unit square: the form's circle is r 48 at (50, 50), and nothing is drawn outside
+ * it. Three measures, each a share of the diameter (96), are used by every form and nowhere changed:
+ *   stroke  3/32   a line: a lit disc's ring, the orbit, the arc over the sunrise, the horizon (2 px at 22 px)
+ *   gap     1/16   the air between two parts of one form
+ *   hair    3/64   half a stroke: a pale disc's edge and the thin rings round an earlier chapter and year, which are
+ *                  never drawn small
+ * A target is the one form that cannot keep the stroke (four rings do not fit at it): its radius is cut into equal
+ * bands instead, one per dot, gap and ring.
+ *
+ * It is drawn as an image (an `<img>`, or once onto a canvas as a sprite). No script, no font, nothing fetched.
  */
 const R = 48;
 const C = 50;
-/** Two decimals at most, no trailing zeros: the art stays under 4 KB. */
+export const FORM = { stroke: 9, gap: 6, hair: 4.5 } as const;
+const { stroke: W, gap: G, hair: H } = FORM;
+/** Two decimals at most, no trailing zeros. */
 const f = (n: number): string => String(Math.round(n * 100) / 100);
 
-export interface Sphere {
-  /** The body's six stops, from the light at the top to the edge (the token's own color is the fourth). */
-  body: readonly string[];
-  /** The pale light from below: three tints of the body. */
-  fill: readonly string[];
-  /** The warm underlight: two Apricot lights, then two tints of the body it fades into. */
-  under: readonly string[];
-  /** The glow along the lower limb. */
-  glow: readonly string[];
-  /** The edge that holds the silhouette on Paper. */
-  edge: string;
-}
-/** Every color of a sphere, derived from its hue's tokens and its shift. The one place a stop is worked out. */
-export const sphereOf = (hue: GemHue, shift = 0): Sphere => {
-  const spec = HUES[hue];
-  const apricot = TOKEN['--apricot'];
-  const paper = TOKEN['--paper'];
-  const turn = (hex: string) => shifted(hex, shift * SHIFT.hue, lightOf(shift));
-  const token = typeof spec.body === 'string' ? TOKEN[spec.body] : mix(TOKEN[spec.body[0]], TOKEN[spec.body[1]], spec.body[2]);
-  const base = turn(mix(token, WHITE, spec.lift));
-  const deep = spec.deep ? turn(TOKEN[spec.deep]) : null;
-  // a light body (Apricot, Marigold) needs more color toward its edge to read as a sphere, where a deep one needs less
-  const rich = lightnessOf(base) > 0.7 ? 1.25 : 1.04;
-  const d1 = deep ? mix(base, deep, 0.55) : scale(base, 0.85, rich);
-  const d2 = deep ? scale(deep, hue === 'pearl' ? 0.86 : 0.94, hue === 'pearl' ? 1.5 : 1) : scale(base, 0.68, rich);
-  const light1 = mix(mix(apricot, WHITE, 0.59), paper, spec.warm);
-  const light2 = mix(mix(apricot, WHITE, 0.27), paper, spec.warm * 0.8);
-  return {
-    body: [tint(base, 0.97, 0.1), tint(base, 0.8, 0.5), tint(base, 0.42, 0.95), base, d1, d2],
-    fill: [mix(base, WHITE, 0.78), mix(base, WHITE, 0.46), mix(base, WHITE, 0.3)],
-    under: [light1, light2, mix(base, WHITE, 0.85), mix(base, WHITE, 0.5)],
-    glow: [mix(mix(apricot, WHITE, 0.44), paper, spec.warm), mix(apricot, paper, spec.warm * 0.7)],
-    edge: scale(d2, 0.88),
-  };
+/** A filled circle and a ring whose outer edge is at `outer`. */
+const dot = (r: number, fill: string, cx = C, cy = C) => `<circle cx="${f(cx)}" cy="${f(cy)}" r="${f(r)}" fill="${fill}"/>`;
+const ring = (outer: number, w: number, color: string) => `<circle cx="${C}" cy="${C}" r="${f(outer - w / 2)}" fill="none" stroke="${color}" stroke-width="${f(w)}"/>`;
+const rad = (deg: number) => (deg * Math.PI) / 180;
+/** A point on the form's own clock: 0 degrees is three o'clock, and the angle grows clockwise, as SVG's y does. */
+const at = (r: number, deg: number, cx = C, cy = C): [number, number] => [cx + r * Math.cos(rad(deg)), cy + r * Math.sin(rad(deg))];
+const pt = ([x, y]: readonly [number, number]) => `${f(x)} ${f(y)}`;
+
+// ---------- the forms ----------
+/** The orbit: a solid circle, one orbit line round it, and a small moon on the line at the upper right, with a gap each side. */
+const ORBIT = { body: W * 2, moon: 8, toward: -45 } as const;
+const orbit = (c: string): string => {
+  const { body, moon, toward } = ORBIT;
+  // the moon touches the form's circle from inside, and the line runs through its center
+  const r = R - moon;
+  const open = (2 * Math.asin((moon + G) / (2 * r)) * 180) / Math.PI;
+  return `<path d="M${pt(at(r, toward + open))}A${f(r)} ${f(r)} 0 1 1 ${pt(at(r, toward - open))}" fill="none" stroke="${c}" stroke-width="${W}"/>` + dot(body, c) + dot(moon, c, ...at(r, toward));
 };
 
-// ---------- the marks ----------
-/** Rings: tilted like a planet's, behind the sphere at the top and across it at the bottom. Radii and widths by count. */
-const RING = {
-  tilt: -18,
-  flat: 0.34,
-  radii: [[], [62], [57.5, 69.5], [56.5, 66, 75.5]],
-  width: [0, 4.6, 3.2, 2.6],
-} as const;
-const ringsOf = (style: GemStyle): 0 | 1 | 2 | 3 => (style === 'ring1' || style === 'starred-ring1' ? 1 : style === 'ring2' || style === 'starred-ring2' ? 2 : style === 'ring3' ? 3 : 0);
-/** Pearl's halo reaches this far (the sphere is 48). */
-const HALO = 70;
-/** Star points: x, y and reach, the largest first. A fused week shows one per day that counted. */
-const STARS: ReadonlyArray<readonly [number, number, number]> = [
-  [42, 50, 10],
-  [68, 60, 6.6],
-  [26, 64, 5.4],
-  [63, 37, 5.4],
-  [49, 75, 5.8],
-  [79, 43, 4.4],
-  [30, 38, 4.6],
-];
-const star = ([x, y, s]: readonly [number, number, number]): string => {
-  const k = s * 0.24;
-  const a = s - k;
-  return `M${f(x)} ${f(y - s)}l${f(k)} ${f(a)} ${f(a)} ${f(k)} ${f(-a)} ${f(k)} ${f(-k)} ${f(a)} ${f(-k)} ${f(-a)} ${f(-a)} ${f(-k)} ${f(a)} ${f(-k)}z`;
+/** A target: a center dot and `n` rings. The radius is cut into 2n + 1 equal bands, so dot, gap and ring are one width. */
+const target = (n: number, c: string): string => {
+  const band = R / (2 * n + 1);
+  let out = dot(band, c);
+  for (let i = 1; i <= n; i++) out += ring(band * (2 * i + 1), band, c);
+  return out;
 };
 
-/** How far the art reaches from the sphere's center, in the sphere's own units (48 is the sphere itself). */
-const reach = (gem: Gem): number => {
-  const n = ringsOf(gem.style);
-  if (n) {
-    const t = (RING.tilt * Math.PI) / 180;
-    const rx = Math.max(...RING.radii[n]);
-    return Math.hypot(rx * Math.cos(t), rx * RING.flat * Math.sin(t)) + RING.width[n] / 2 + 0.5;
+/** The sunrise: a half-disc on a short horizon line, one arc over it. The horizon is the form's second color. */
+const SUN = { horizon: 59, reach: 42, line: 44 } as const;
+const sunrise = (c: string, line: string): string => {
+  const { horizon: y, reach } = SUN;
+  const sun = reach - W - G;
+  const arc = reach - W / 2;
+  return (
+    `<path d="M${f(C - sun)} ${y}A${f(sun)} ${f(sun)} 0 0 1 ${f(C + sun)} ${y}Z" fill="${c}"/>` +
+    `<path d="M${f(C - arc)} ${y}A${f(arc)} ${f(arc)} 0 0 1 ${f(C + arc)} ${y}" fill="none" stroke="${c}" stroke-width="${W}"/>` +
+    `<path d="M${f(C - SUN.line)} ${y}h${f(SUN.line * 2)}v${W}h${f(-SUN.line * 2)}z" fill="${line}"/>`
+  );
+};
+
+/** Seven dots in a ring, one per day of a week, the first at twelve o'clock. */
+const SEVEN = { dot: 12 } as const;
+const seven = (c: string): string => {
+  let out = '';
+  for (let i = 0; i < 7; i++) {
+    const [x, y] = at(R - SEVEN.dot, -90 + (360 / 7) * i);
+    out += dot(SEVEN.dot, c, x, y);
   }
-  return gem.hue === 'pearl' ? HALO : R;
+  return out;
 };
-/** The art box over the sphere's diameter: 1 for a plain Orb, more where rings or a halo reach outside. */
-export const gemBox = (gem: Gem): number => Math.ceil((reach(gem) / R) * 100) / 100;
 
-const stop = (offset: number, color: string, opacity?: number) => `<stop offset="${f(offset)}" stop-color="${color}"${opacity === undefined ? '' : ` stop-opacity="${f(opacity)}"`}/>`;
+/** A crescent: the form's circle with the same circle, moved up and to the left, taken out of it. */
+const CRESCENT = { move: 30, toward: -135 } as const;
+const crescent = (c: string): string => {
+  const { move, toward } = CRESCENT;
+  const half = Math.sqrt(R * R - (move / 2) ** 2);
+  const [mx, my] = at(move / 2, toward);
+  const p1 = at(half, toward - 90, mx, my);
+  const p2 = at(half, toward + 90, mx, my);
+  return `<path d="M${pt(p1)}A${R} ${R} 0 1 0 ${pt(p2)}A${R} ${R} 0 0 1 ${pt(p1)}Z" fill="${c}"/>`;
+};
 
-/** The art as one SVG document. The sphere is centered; `gemBox(gem)` is the art box over the sphere's diameter. */
+/** An open ring: two strokes thick, round at its ends, with a gap at the top right. */
+const OPEN = { width: W * 2, gap: 72, toward: -45 } as const;
+const open = (c: string): string => {
+  const r = R - OPEN.width / 2;
+  const p1 = at(r, OPEN.toward + OPEN.gap / 2);
+  const p2 = at(r, OPEN.toward - OPEN.gap / 2);
+  return `<path d="M${pt(p1)}A${f(r)} ${f(r)} 0 1 1 ${pt(p2)}" fill="none" stroke="${c}" stroke-width="${f(OPEN.width)}" stroke-linecap="round"/>`;
+};
+
+const KNOWN_HUE = (h: string): h is FormHue => Object.prototype.hasOwnProperty.call(HUES, h);
+const STYLES: readonly FormStyle[] = ['disc', 'lit', 'orbit', 'target1', 'target2', 'target3', 'target4', 'sunrise', 'seven', 'crescent', 'open', 'pale', 'pale-ring', 'disc-rings'];
+
+/** The parts of a form in color `c`, with `line` for its second color and `fill` for a pale disc's inside (`none` in the one-color print). */
+const parts = (style: FormStyle, c: string, line: string, fill: string): string => {
+  switch (style) {
+    case 'lit':
+      return ring(R, W, c) + dot(R - W - G, c);
+    case 'orbit':
+      return orbit(c);
+    case 'target1':
+      return target(1, c);
+    case 'target2':
+      return target(2, c);
+    case 'target3':
+      return target(3, c);
+    case 'target4':
+      return target(4, c);
+    case 'sunrise':
+      return sunrise(c, line);
+    case 'seven':
+      return seven(c);
+    case 'crescent':
+      return crescent(c);
+    case 'open':
+      return open(c);
+    case 'pale':
+      return dot(R - H / 2, fill) + ring(R, H, line);
+    case 'pale-ring':
+      return ring(R, H, line) + dot(R - H * 2.5, fill) + ring(R - H * 2, H, line);
+    case 'disc-rings':
+      return ring(R, H, c) + ring(R - H * 2, H, c) + dot(R - H * 4, c);
+    default:
+      return dot(R, c);
+  }
+};
+
+const doc = (inner: string) => `<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96" viewBox="2 2 96 96">${inner}</svg>`;
+const styleOf = (gem: Gem): FormStyle => (STYLES.includes(gem.style as FormStyle) ? (gem.style as FormStyle) : 'disc');
+
+/** The color a gem is drawn in: its token at its tint. A lighter tint with no edge of its own is held to 1.5:1 on Paper. */
+export const colorOf = (gem: Gem): string => {
+  const token = TOKEN[HUES[KNOWN_HUE(gem.hue) ? gem.hue : 'deepsky']];
+  const edged = gem.style === 'pale' || gem.style === 'pale-ring';
+  return toneOf(token, gem.shift, edged ? undefined : TOKEN['--paper']);
+};
+
+/** The art as one SVG document: the form's circle fills the box. */
 export const gemSvg = (gem: Gem): string => {
-  const s = sphereOf(gem.hue, gem.shift);
-  const apricot = TOKEN['--apricot'];
-  const paper = TOKEN['--paper'];
-  const half = R * gemBox(gem);
-  const rings = ringsOf(gem.style);
-  const ringColor = gem.hue === 'night' ? apricot : scale(s.body[3]!, 0.76, 1.1);
-  const ringPath = (sweep: 0 | 1) =>
-    RING.radii[rings]
-      .map((rx) => `M${f(C - rx)} ${C}A${f(rx)} ${f(rx * RING.flat)} 0 0 ${sweep} ${f(C + rx)} ${C}`)
-      .join('');
-  const ring = (sweep: 0 | 1, opacity: number) => (rings ? `<path transform="rotate(${RING.tilt} ${C} ${C})" d="${ringPath(sweep)}" fill="none" stroke="${ringColor}" stroke-width="${RING.width[rings]}" opacity="${opacity}"/>` : '');
-  const bands =
-    gem.style === 'banded'
-      ? `<g fill="none" stroke="${apricot}"><path d="M0 27Q50 39 100 27" stroke-width="4" opacity=".5"/><path d="M0 44Q50 60 100 44" stroke-width="8.5" opacity=".9"/><path d="M0 64Q50 81 100 64" stroke-width="5.5" opacity=".75"/></g>`
-      : '';
-  const shadow = gem.style === 'half' ? `<path transform="rotate(28 ${C} ${C})" d="M50 2A48 48 0 0 1 50 98A11 48 0 0 0 50 2Z" fill="${scale(s.body[5]!, 0.5)}" opacity=".86" filter="url(#t)"/>` : '';
-  const stars = isStarred(gem.style) && gem.stars ? `<path d="${STARS.slice(0, gem.stars).map(star).join('')}" fill="${paper}" opacity=".94"/>` : '';
-  const halo = gem.hue === 'pearl' ? `<circle cx="${C}" cy="${C}" r="${HALO}" fill="url(#h)"/>` : '';
-  const haloColor = mix(apricot, paper, 0.3);
-  // opal: two faint colors along the limb under the gloss, Rose on one side and Lagoon on the other, none in the middle
-  const opal = gem.hue === 'pearl' ? '<path d="M0 0h100v100H0z" fill="url(#o)"/>' : '';
-  const opalDef = opal ? `<linearGradient id="o" x1="0" y1=".7" x2="1" y2=".3">${stop(0.04, tint(TOKEN['--t-fast'], 0.6, 0.8), 0.5)}${stop(0.4, paper, 0)}${stop(0.62, paper, 0)}${stop(0.97, tint(TOKEN['--t-easy'], 0.62, 1), 0.5)}</linearGradient>` : '';
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${f(half * 2)}" height="${f(half * 2)}" viewBox="${f(C - half)} ${f(C - half)} ${f(half * 2)} ${f(half * 2)}"><defs><radialGradient id="b" cx="50%" cy="36%" r="64%" fx="50%" fy="26%">${[0, 0.12, 0.34, 0.6, 0.84, 1].map((o, i) => stop(o, s.body[i]!)).join('')}</radialGradient><radialGradient id="w" cx="50%" cy="104%" r="58%">${stop(0, s.fill[0]!, 0.95)}${stop(0.5, s.fill[1]!, 0.45)}${stop(1, s.fill[2]!, 0)}</radialGradient><radialGradient id="a" gradientUnits="userSpaceOnUse" cx="50" cy="99" r="32" gradientTransform="translate(50 99) scale(1.9 1) translate(-50 -99)">${stop(0, s.under[0]!, 0.78)}${stop(0.34, s.under[1]!, 0.61)}${stop(0.68, s.under[2]!, 0.43)}${stop(1, s.under[3]!, 0)}</radialGradient><radialGradient id="k" gradientUnits="userSpaceOnUse" cx="50" cy="98" r="44">${stop(0, s.glow[0]!)}${stop(0.5, s.glow[1]!, 0.85)}${stop(1, s.glow[1]!, 0)}</radialGradient><linearGradient id="r" x1="0" y1="0" x2="0" y2="1">${stop(0, s.edge, 0.35)}${stop(0.75, s.edge, 0.3)}${stop(1, s.edge, 0.25)}</linearGradient><radialGradient id="s" cx="50%" cy="40%" r="60%">${stop(0, WHITE, 0.7)}${stop(0.45, WHITE, 0.42)}${stop(1, WHITE, 0)}</radialGradient>${halo ? `<radialGradient id="h">${stop(0.6, haloColor, 0.7)}${stop(0.8, haloColor, 0.24)}${stop(1, haloColor, 0)}</radialGradient>` : ''}<mask id="m"><circle cx="50" cy="50" r="47.2" fill="${WHITE}"/><circle cx="50" cy="44.5" r="48.83"/></mask><filter id="f" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="2.5"/></filter><filter id="g" x="-30%" y="-60%" width="160%" height="220%"><feGaussianBlur stdDeviation="2.5"/></filter>${shadow ? '<filter id="t"><feGaussianBlur stdDeviation="1.6"/></filter>' : ''}${opalDef}<clipPath id="c"><circle cx="50" cy="50" r="48"/></clipPath><clipPath id="i"><circle cx="50" cy="50" r="47.2"/></clipPath></defs>${halo}${ring(1, 0.72)}<circle cx="50" cy="50" r="48" fill="url(#b)"/><g clip-path="url(#c)"><circle cx="50" cy="50" r="48" fill="url(#w)"/>${opal}${bands}${shadow}<path d="M0 0h100v100H0z" fill="url(#a)"/><g clip-path="url(#i)"><g filter="url(#f)"><path d="M0 0h100v100H0z" fill="url(#k)" mask="url(#m)" opacity=".6"/></g></g>${stars}<ellipse cx="50" cy="22" rx="27" ry="15" fill="url(#s)" filter="url(#g)"/></g><circle cx="50" cy="50" r="47.6" fill="none" stroke="url(#r)" stroke-width=".8"/>${ring(0, 1)}</svg>`;
+  const c = colorOf(gem);
+  return doc(parts(styleOf(gem), c, TOKEN[LINE].toLowerCase(), c));
 };
+/**
+ * The same form printed in one color (the silhouette test: every form must be told from every other with no hue). A
+ * pale disc prints as its edge, open inside.
+ */
+export const gemInk = (gem: Gem, ink: string = TOKEN['--night-ink'].toLowerCase()): string => doc(parts(styleOf(gem), ink, ink, 'none'));
+
+/** The art box over the form's diameter. Every form is drawn inside its own circle, so it is always 1. */
+export const gemBox = (_gem: Gem): number => 1;
 
 const urls = new Map<string, string>();
-/** A cached `data:` URL of `gemSvg` (the same string for the same gem). */
+/** A cached `data:` URL of `gemSvg` (the same string for the same form and tint). */
 export const gemUrl = (gem: Gem): string => {
-  const id = `${gem.hue}|${gem.style}|${gem.shift}|${gem.stars ?? ''}`;
+  const id = `${gem.hue}|${gem.style}|${gem.shift}`;
   let url = urls.get(id);
   if (!url) {
     // the few characters a data URL cannot carry as they are; the art uses double quotes only in attributes
