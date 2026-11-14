@@ -357,7 +357,7 @@ describe('the switches', () => {
   const rows = (m: Mods, place: 'page' | 'settings') => text(renderToStaticMarkup(<m.Switches.OrbsSwitchRows place={place} />));
   it('are Orbs, Show Orbs when you earn them, Your week, Challenges and How Orbs work', async () => {
     const m = await launch(WEEK_TODAY, firstWeek());
-    expect(rows(m, 'settings')).toBe(['Orbs', 'Small lights for what you finish', 'Show Orbs when you earn them', 'Off, the count still grows', 'Your week', ruleLine(5), '5 days', 'Challenges', 'Size: Steady', 'One a week', 'How Orbs work', 'What earns them, and the count'].join('\n'));
+    expect(rows(m, 'settings')).toBe(['Orbs', 'Earned for what you finish', 'Show Orbs when you earn them', 'Off, the count still grows', 'Your week', ruleLine(5), '5 days', 'Challenges', 'Size: Steady', 'One a week', 'How Orbs work', 'What earns them, and the count'].join('\n'));
     expect(rows(m, 'page').startsWith('How Orbs work')).toBe(true);
   });
   it('go through the store: the week, the cadence and the size change what the rows and the page say', async () => {
@@ -393,7 +393,7 @@ describe('the switches', () => {
   it('with Orbs off Settings keeps the switch and How Orbs work, and asks nothing else', async () => {
     const m = await launch(WEEK_TODAY, firstWeek());
     m.store.setSwitches({ on: false });
-    expect(rows(m, 'settings')).toBe(['Orbs', 'Small lights for what you finish', 'How Orbs work', 'What earns them, and the count'].join('\n'));
+    expect(rows(m, 'settings')).toBe(['Orbs', 'Earned for what you finish', 'How Orbs work', 'What earns them, and the count'].join('\n'));
     expect(renderToStaticMarkup(<m.Switches.OrbsSwitchRows place="settings" />)).toMatch(/aria-checked="false" aria-label="Orbs"/);
     // the count is paused from today: a range of neutral days is open, and nothing was lost
     expect(m.store.getOrbs()!.off).toEqual([{ from: WEEK_TODAY, to: null }]);

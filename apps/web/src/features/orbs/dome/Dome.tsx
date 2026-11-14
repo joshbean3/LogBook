@@ -184,9 +184,9 @@ export const Dome = ({ store, today, total, level, fitness = true, empty, childr
       )}
       {empty || reduce ? null : (
         <div className="status-row dm-pills">
-          <StatusPill className="dm-pill is-tilt" glyph={<Smartphone size={16} strokeWidth={1.75} />} label="Tilt" voiceLabel="Tilt. Gravity follows the phone" pressed={tilt} onPress={onTilt} />
-          <StatusPill className="dm-pill" glyph={<RefreshCw size={16} strokeWidth={1.75} />} label="Stir" voiceLabel="Stir. One swirl" onPress={onStir} />
-          <StatusPill className="dm-pill" glyph={<Bubbles size={16} strokeWidth={1.75} />} label="Float" voiceLabel="Float. Gravity lets go" pressed={float} onPress={onFloat} />
+          <StatusPill className="dm-pill is-tilt" glyph={<Smartphone size={15} strokeWidth={1.75} />} label="Tilt" voiceLabel="Tilt. Gravity follows the phone" pressed={tilt} onPress={onTilt} />
+          <StatusPill className="dm-pill" glyph={<RefreshCw size={15} strokeWidth={1.75} />} label="Stir" voiceLabel="Stir. One swirl" onPress={onStir} />
+          <StatusPill className="dm-pill" glyph={<Bubbles size={15} strokeWidth={1.75} />} label="Float" voiceLabel="Float. Gravity lets go" pressed={float} onPress={onFloat} />
         </div>
       )}
     </>

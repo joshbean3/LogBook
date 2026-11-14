@@ -417,6 +417,8 @@ export const createStage = ({ oculus, canvas, caption }: StageParts, { reduce }:
       held.moved = true;
       hush();
       haptics.lift();
+      // the lift is this moment's haptic: what the Orb bumps on its way up waits its turn
+      lastFelt = performance.now();
     }
     kick();
   };

@@ -56,7 +56,7 @@ export const FRICTION = {
   rim: 0.006,
 } as const;
 export const ROLL = {
-  /** The share of its speed along the rim an Orb loses each second while it rolls on it: one Orb let go on the slope swings past the lowest point once or twice and is still there inside two seconds. */
+  /** The share of its speed along the rim an Orb loses each second while it rolls on it: one Orb let go on the slope swings past the lowest point once or twice and is still there inside about three seconds. */
   drag: 4,
   /** How fast an Orb's turning takes up the rolling its contacts ask for, per second. Its angle is read from its motion against what it touches; nothing is pushed by it. */
   grip: 40,

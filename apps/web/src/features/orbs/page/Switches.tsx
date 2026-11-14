@@ -108,7 +108,7 @@ export const OrbsSwitchRows = ({ place, onHow, onOrbs, orbsShown }: OrbsSwitchRo
   return (
     <>
       {place === 'page' ? how : null}
-      <Row className="s-wrap has-tile" left={<Tile icon={TodayIcon} />} title="Orbs" sub="Small lights for what you finish" right={<Switch on={orbsShown ?? on} label="Orbs" onChange={onOrbs ?? ((v) => setSwitches({ on: v }))} />} />
+      <Row className="s-wrap has-tile" left={<Tile icon={TodayIcon} />} title="Orbs" sub="Earned for what you finish" right={<Switch on={orbsShown ?? on} label="Orbs" onChange={onOrbs ?? ((v) => setSwitches({ on: v }))} />} />
       {on ? (
         <>
           <Row className="s-wrap has-tile" left={<Tile icon={Eye} />} title="Show Orbs when you earn them" sub="Off, the count still grows" right={<Switch on={show} label="Show Orbs when you earn them" onChange={(v) => setSwitches({ show: v })} />} />

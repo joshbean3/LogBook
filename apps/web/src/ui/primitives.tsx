@@ -395,8 +395,8 @@ export const StatStrip = ({ children, className = '' }: { children: ReactNode; c
  * one line that never wraps. `dot` is the 6 px state dot (Deep Sky while training, Pencil while paused), `chevron` the 16
  * px glyph after the words ('down' opens a sheet here, 'right' goes somewhere). `voiceLabel` is what VoiceOver says: the
  * whole state, including what the words leave out (the plan's name, an end date the row had no room for). A pill that
- * does something in place (the Orbs page's Tilt, Stir and Float) leads with a 16 px `glyph`; one that stays on says so
- * with `pressed` (`aria-pressed`): on, it fills Haze and its glyph is Deep Sky.
+ * does something in place (the Orbs page's Tilt, Stir and Float) leads with a 15 px `glyph`; one that stays on says so
+ * with `pressed` (`aria-pressed`): on, it fills Haze, takes a Deep Sky edge and its glyph is Deep Sky.
  */
 export const StatusPill = ({ label, dot, glyph, chevron, onPress, pressed, voiceLabel, className = '' }: { label: ReactNode; dot?: 'sky' | 'pencil'; glyph?: ReactNode; chevron?: 'down' | 'right'; onPress?: () => void; pressed?: boolean; voiceLabel?: string; className?: string }) => {
   const press = usePress({ disabled: !onPress });
