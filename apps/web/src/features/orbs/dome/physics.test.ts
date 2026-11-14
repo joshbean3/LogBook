@@ -7,7 +7,7 @@ const R = D / 2;
 /** An oculus about as full as it may be: an earlier year, some chapters and weeks, and a busy week of small Orbs. */
 const radii = (n: number): number[] => Array.from({ length: n }, (_, i) => (i < 1 ? RADIUS.year : i < 4 ? RADIUS.chapter[1] : i < 8 ? RADIUS.week[1] : unit(i) < 0.14 ? RADIUS.train : RADIUS.habit));
 /** This many of them fill the circle to just under the limit. */
-const FULL = 51;
+const FULL = 36;
 const area = (W: World) => Math.PI * W.R * W.R;
 const filled = (rs: readonly number[]) => rs.reduce((t, r) => t + Math.PI * r * r, 0);
 const oculus = (n: number): World => {
@@ -62,7 +62,7 @@ describe('the test piles are honest', () => {
   it('the full pile fills a little under the limit of the circle', () => {
     const W = createWorld(D);
     const share = filled(radii(FULL)) / area(W);
-    expect(share).toBeGreaterThan(0.55);
+    expect(share).toBeGreaterThan(FILL.limit - 0.05);
     expect(share).toBeLessThan(FILL.limit);
   });
 });
@@ -435,10 +435,10 @@ describe('the same every time, and fast', () => {
     expect(advance(W, 5)).toBeLessThanOrEqual(Math.ceil(TIME.maxFrame / TIME.step) + 1);
   });
   it('200 Orbs in the air step a whole frame in under 4 ms', () => {
-    // far more than the fill limit lets the page show at these sizes: small ones, so 200 have room to fly
+    // far more than the fill limit lets the page show: small ones, with room left in the circle for 200 to fly
     const small = Array.from({ length: 200 }, (_, i) => (unit(i) < 0.2 ? 9 : 7));
     const W = createWorld(D);
-    expect(filled(small) / area(W)).toBeLessThan(FILL.limit);
+    expect(filled(small) / area(W)).toBeLessThan(0.6);
     pour(W, small);
     settle(W);
     const times: number[] = [];

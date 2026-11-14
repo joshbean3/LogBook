@@ -204,7 +204,7 @@ describe('the past fuses', () => {
   });
 });
 
-describe('the circle is never more than 60 percent covered', () => {
+describe('the circle is never more than half covered', () => {
   it('for a year and for two, light, usual and with everything the rules pay', () => {
     for (const [name, s] of Object.entries(stores)) {
       for (let k = 0; k < 8; k++) {
@@ -223,8 +223,9 @@ describe('the circle is never more than 60 percent covered', () => {
       expect(of(bodies, 'day')).toHaveLength(0);
       expect(of(bodies, 'week')).toEqual(of(whole, 'week'));
       expect(of(bodies, 'chapter').length).toBeLessThan(of(whole, 'chapter').length);
-      expect(of(bodies, 'chapter').length).toBeGreaterThanOrEqual(2);
     }
+    // a usual year still keeps its newest chapters apart; two usual years keep the weeks and give up the chapters
+    expect(of(domeBodies(stores.year, stores.year.clock), 'chapter').length).toBeGreaterThanOrEqual(2);
     // with less to hold, more of the past is kept apart
     const count = (s: Rewards) => of(domeBodies(s, s.clock), 'chapter').length;
     expect(count(stores.lightYear)).toBeGreaterThan(count(stores.twoYears));
@@ -268,14 +269,14 @@ describe('the circle is never more than 60 percent covered', () => {
 });
 
 describe('which plan each store gets', () => {
-  it('six weeks keep everything apart; a year and two keep some chapters; a year of everything gives up the past and the week’s own days', () => {
+  it('six weeks keep everything apart; a year keeps some chapters; two years keep the weeks; a year of everything gives up the past and the week’s own days', () => {
     const planOf = (s: Rewards) => PLANS.findIndex((_p, i) => areaOf(domeBodiesUnder(s, s.clock, i)) <= FILL_AREA);
     const chapters = (s: Rewards) => PLANS[planOf(s)]!.chapters;
     expect(planOf(stores.oneDay)).toBe(0);
     expect(planOf(stores.sixWeeks)).toBe(0);
     expect(chapters(stores.lightYear)).toBeGreaterThanOrEqual(4);
     expect(chapters(stores.year)).toBeGreaterThanOrEqual(2);
-    expect(chapters(stores.twoYears)).toBeGreaterThanOrEqual(2);
+    expect(PLANS[planOf(stores.twoYears)]).toMatchObject({ merge: false, weeks: FILL.weeks, days: 'each' });
     expect(PLANS[planOf(stores.mostYear)]).toEqual({ chapters: 0, merge: true, weeks: 0, days: 'day' });
   });
 });
@@ -297,7 +298,7 @@ describe('in words', () => {
     expect(six.summary).toMatch(/^[\d,]+ Orbs\. This week: \d+ habits, \d+ to-dos, \d runs?, \d days’ goals, \d full days?(, 1 week that counts)?\. 6 earlier weeks\.$/);
     expect(six.items).toHaveLength(6);
     expect(six.items[0]).toMatch(/^Week of Dec 21 · /);
-    expect(domeSaid(stores.twoYears, stores.twoYears.clock).summary).toMatch(/\d+ earlier weeks, \d+ chapters, 2 longer stretches\.$/);
+    expect(domeSaid(stores.twoYears, stores.twoYears.clock).summary).toMatch(/\d+ earlier weeks, 2 longer stretches\.$/);
   });
   it('with Fitness off nothing names training', () => {
     const s = stores.sixWeeks;
