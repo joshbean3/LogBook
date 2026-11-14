@@ -52,8 +52,8 @@
   inset: 0;
   z-index: -2;
   background:
-    radial-gradient(70% 22% at 50% 100%, var(--horizon-2), transparent),
-    linear-gradient(180deg, var(--poster-sky-2) 0, var(--poster-sky-3) 40%, var(--horizon-1) 84%);
+    radial-gradient(64% 12% at 50% 100%, var(--horizon-2), transparent),
+    linear-gradient(180deg, var(--poster-sky-2) 0, var(--poster-sky-3) 42%, var(--horizon-1) 88%);
 }
 /* two orbits behind the spheres, in Haze: ornament, never moving */
 .dm-orbits {
@@ -64,7 +64,7 @@
   aspect-ratio: 1;
   fill: none;
   stroke: var(--haze);
-  stroke-width: 1.25;
+  stroke-width: 1.5;
 }
 .dm-orbits circle {
   fill: var(--haze);

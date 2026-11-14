@@ -450,7 +450,9 @@ const step = (W: World, h: number): void => {
       const rx = vx[j]! - vx[i]!;
       const ry = vy[j]! - vy[i]!;
       const vn = rx * nx + ry * ny;
-      const want = pre < -BOUNCE.floor ? -e * pre : pre < 0 ? 0 : Math.min(vn, pre);
+      // what a finger holds is damped by the finger: it shoulders the pile aside, it does not strike it
+      const bounce = i === held || j === held ? BOUNCE.held : e;
+      const want = pre < -BOUNCE.floor ? -bounce * pre : pre < 0 ? 0 : Math.min(vn, pre);
       const vt = -rx * ny + ry * nx;
       const lim = FRICTION.sphere * most;
       const dt = vt > lim ? -lim : vt < -lim ? lim : -vt;

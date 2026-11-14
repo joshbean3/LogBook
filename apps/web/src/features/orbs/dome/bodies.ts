@@ -48,11 +48,8 @@ export interface DomeOpts {
 const num = (n: number): string => n.toLocaleString('en-US');
 const orbs = (n: number): string => `${num(n)} ${n === 1 ? 'Orb' : 'Orbs'}`;
 const lerp = (range: readonly [number, number], t: number): number => Math.round(range[0] + (range[1] - range[0]) * Math.sqrt(Math.max(0, Math.min(1, t))));
-/** The gem with its shift on one of five steps: a pile of forty habits is five drawings, not forty. */
-const gemOf = (key: string, id: string, stars?: number): Gem => {
-  const g = gemFor(key, id, stars ? { stars: Math.max(0, Math.min(7, stars)) } : undefined);
-  return { ...g, shift: Math.round(Math.max(-1, Math.min(1, g.shift)) * 2) / 2 || 0 };
-};
+/** An Orb's drawing: its kind's, with the shift its own id gives it (one of five steps, so a pile of forty habits is five pictures), and for a fused sphere its star points. */
+const gemOf = (key: string, id: string, stars?: number): Gem => gemFor(key, id, stars === undefined ? undefined : { stars: Math.max(0, Math.min(7, stars)) });
 
 /** The glass's area at its smallest, in square units, and what the spheres may cover of it. */
 export const GLASS_AREA = (Math.PI * (GLASS.w / 2) ** 2) / 2 + GLASS.w * (GLASS.minH - GLASS.w / 2);

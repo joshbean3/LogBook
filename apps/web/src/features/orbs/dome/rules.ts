@@ -48,6 +48,8 @@ export const BOUNCE = {
   floor: 70,
   /** While floating, bumps are softer and lose less. */
   floating: 0.55,
+  /** Off a sphere a finger is holding: almost none, so dragging one through a pile pushes it aside instead of scattering it. */
+  held: 0.08,
 } as const;
 
 // ---------- the roll ----------

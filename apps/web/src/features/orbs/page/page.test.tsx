@@ -115,12 +115,12 @@ afterEach(() => {
 });
 
 describe('the Orbs page before the first Orb', () => {
-  it('is the poster at rest with one sentence, the rule and How Orbs work: no grid, no zero', async () => {
+  it('is the empty glass with one sentence, the rule and How Orbs work: no grid, no zero, no keys', async () => {
     const m = await launch(START, emptyRewards(U, START));
     const html = draw(m.OrbsPage);
     const said = text(html);
-    expect(said).toContain('Your first Orb is one thing away');
-    expect(said).toContain(ruleLine(5));
+    expect(said).toContain('Finish one thing and it lands here.');
+    expect(said).toContain(`The rule\n${ruleLine(5)}`);
     expect(said).toContain('How Orbs work');
     expect(html).not.toContain('orp-keeps');
     expect(html).not.toContain('orp-week');
@@ -128,21 +128,22 @@ describe('the Orbs page before the first Orb', () => {
     expect(html).not.toContain('Keepsakes');
     expect(said).not.toMatch(/(^|\D)0(\D|$)/);
     expect(said).not.toMatch(/Level/);
-    // the kit's own Apricot sun, standing at the start of its way: not a Sunrise now mark
-    expect(html).toContain('po-sun is-quiet');
-    expect(html).toContain('translate(0px, 0px)');
+    // the glass is there and empty: nothing to stir, no dial, no total, nothing said of what it holds
+    expect(html).toContain('class="dm is-empty"');
+    expect(html).toContain('dm-glass');
+    for (const part of ['dm-keys', 'dm-gauge', 'dm-total', 'sr-only']) expect(html).not.toContain(part);
   });
   it('before the rules’ first day it says when Orbs start, and promises nothing sooner', async () => {
     const m = await launch(shiftDays(START, -3), emptyRewards(U, START));
     const said = text(draw(m.OrbsPage));
     expect(said).toContain('Orbs start Monday');
     expect(said).toContain('Monday, November 16');
-    expect(said).not.toContain('one thing away');
+    expect(said).not.toContain('lands here');
   });
   it('a day that counted by its journal line alone shows the week and still no zero', async () => {
     const m = await launch(START, live(START, () => ({ lines: 1 })));
     const html = draw(m.OrbsPage);
-    expect(text(html)).toContain('Your first Orb is one thing away');
+    expect(text(html)).toContain('Finish one thing and it lands here.');
     expect(text(html)).toContain('1 day this week · 1 in all');
     expect(count(html, 'orp-day is-on')).toBe(1);
   });
@@ -156,8 +157,9 @@ describe('the Orbs page in a first week', () => {
     const said = text(html);
     // Monday 3, Tuesday 6, today 3 + 4 + 3 and a full day's 5
     expect(m.store.getOrbs()!.days[WEEK_TODAY]).toMatchObject({ n: 15 });
-    expect(said).toMatch(/^Orbs\n24\nOrbs\nLevel 1\n1 to level 2\n/);
-    const order = ['orp-total', 'po-scene', 'po-band', 'orp-week', 'orp-line', 'orp-now', '>Keepsakes<', 'class="orp-keeps"', 'How Orbs work', 'role="switch"'].map((part) => html.indexOf(part));
+    // the glass in words (what VoiceOver hears in its place), then the console: the total, the level, the keys
+    expect(said).toMatch(/^Orbs\n24 Orbs\. This week: 11 habits, 5 to-dos, today’s goal, 1 full day\.\n24\nOrbs\nLevel 1\n1 to level 2\nTilt\nStir\nFloat\n/);
+    const order = ['dm-glass', 'dm-canvas', 'class="sr-only"', 'dm-total', 'dm-gauge', 'dm-keys', 'orp-week', 'orp-line', 'orp-now', '>Keepsakes<', 'class="orp-keeps"', 'How Orbs work', 'role="switch"'].map((part) => html.indexOf(part));
     expect(order.every((at) => at >= 0)).toBe(true);
     expect([...order].sort((x, y) => x - y)).toEqual(order);
     expect(said).toContain('3 days this week · 3 in all');
@@ -212,7 +214,7 @@ describe('the Orbs page a year in', () => {
     const said = text(html);
     const total = m.store.getOrbs()!;
     expect(Object.keys(total.keepsakes)).toEqual(expect.arrayContaining(['first', 'full', 'weeks:52', 'days:250', 'goal:month:2027-03', 'goal:year:2027', `chapter:${START}`]));
-    expect(said).toMatch(/^Orbs\n[\d,]+\nOrbs\nLevel \d+\n[\d,]+ to level \d+\n/);
+    expect(said).toMatch(/^Orbs\n([\d,]+) Orbs\. This week: [^\n]+\. \d+ earlier weeks, \d+ chapters\.\n(?:[^\n]+ · [\d,]+ Orbs[^\n]*\n)+\1\nOrbs\nLevel \d+\n[\d,]+ to level \d+\nTilt\nStir\nFloat\n/);
     expect(said).toMatch(/\d days? this week · \d+ in all · 52 weeks in a row/);
     expect(count(html, 'class="orp-keep-cell"')).toBe(Object.keys(total.keepsakes).length);
     expect(count(html, 'orp-keep is-newest')).toBe(1);
@@ -232,6 +234,34 @@ describe('the Orbs page a year in', () => {
     const html = draw(m.OrbsPage);
     expect(html).not.toMatch(/class="[^"]*\blb-orb\b/);
     expect(html).not.toContain('logo-mark');
+  });
+});
+
+describe('the dome at the head of the page', () => {
+  it('the glass is a picture: hidden from VoiceOver, which hears the same in words and reaches the keys as buttons', async () => {
+    const m = await launch(YEAR_TODAY, yearIn());
+    const html = draw(m.OrbsPage);
+    expect(html).toMatch(/<div class="dm-glass" aria-hidden="true">/);
+    expect(count(html, '<canvas')).toBe(1);
+    expect(html).toMatch(/<div class="sr-only"><p>[\d,]+ Orbs\. This week: [^<]+<\/p><ul>(?:<li>[^<]+<\/li>)+<\/ul><\/div>/);
+    // the total is said once: the big numeral is the picture of it
+    expect(html).toMatch(/<p class="dm-total" aria-hidden="true">/);
+    // Tilt and Float are toggles, off until tapped; Stir is a plain button
+    expect([...html.matchAll(/<button[^>]*class="pressable dm-key"[^>]*>/g)].map((x) => /aria-pressed="(\w+)"/.exec(x[0])?.[1] ?? null)).toEqual(['false', null, 'false']);
+    expect(text(html)).toContain('Tilt\nStir\nFloat');
+  });
+  it('the level is a dial with its words beside it, and the dial stands at the share of the level earned', async () => {
+    const s = firstWeek();
+    const m = await launch(WEEK_TODAY, s);
+    const html = draw(m.OrbsPage);
+    // 24 of the first level's 25: the needle is 96 percent of the way round its 240 degrees, from 150
+    expect(html).toContain(`rotate(${(150 + 240 * (24 / 25)).toFixed(2)}deg)`);
+    expect(html).toMatch(/<svg class="dm-gauge"[^>]*aria-hidden="true"/);
+    expect(text(html)).toContain('Level 1\n1 to level 2');
+  });
+  it('nothing about it says a word the brief forbids', async () => {
+    const m = await launch(YEAR_TODAY, yearIn());
+    expect(text(draw(m.OrbsPage))).not.toMatch(/\bjar\b|marble|coins?\b|\bdome\b/i);
   });
 });
 
@@ -276,8 +306,8 @@ describe('before this phone has a store (a new sign-in, the error screen’s Res
     expect(said.split('\n')[0]).toBe('Orbs');
     for (const row of ['How Orbs work', 'Show Orbs when you earn them', 'Your week', 'Challenges']) expect(said).toContain(row);
     // no total, no level, no week, no keepsakes, and no promise about a first Orb it cannot know of
-    for (const part of ['orp-poster', 'orp-total', 'orp-week', 'orp-now', 'orp-keeps']) expect(html).not.toContain(part);
-    expect(said).not.toMatch(/Level|one thing away|Orbs start|Keepsakes/);
+    for (const part of ['class="dm', 'dm-total', 'orp-week', 'orp-now', 'orp-keeps']) expect(html).not.toContain(part);
+    expect(said).not.toMatch(/Level|lands here|Orbs start|Keepsakes/);
     expect(said).not.toMatch(/(^|\D)0(\D|$)/);
   });
   it('and it is the whole page as soon as the store is there', async () => {
@@ -295,10 +325,11 @@ describe('before this phone has a store (a new sign-in, the error screen’s Res
 
 describe('one broken part never blanks the page', () => {
   // what the boundary does when a section throws is covered where it lives (app/SectionBoundary.test.tsx)
-  it('the challenge rows and the keepsakes each sit in their own boundary', () => {
+  it('the challenge rows, the keepsakes and the dome each sit in their own boundary', () => {
     const src = readFileSync(join(__dirname, 'OrbsPage.tsx'), 'utf8');
     expect(src).toMatch(/<SectionBoundary name="orbs\.challenge"[^>]*>\s*<ChallengeRows scope="page" \/>\s*<\/SectionBoundary>/);
     expect(src).toMatch(/<SectionBoundary name="orbs\.keepsakes"[^>]*>\s*<Keepsakes [^>]*\/>\s*<\/SectionBoundary>/);
+    expect(src).toMatch(/<SectionBoundary name="orbs\.dome"[^>]*>\s*<Dome [\s\S]*?<\/Dome>\s*<\/SectionBoundary>/);
   });
 });
 
@@ -369,12 +400,16 @@ describe('How Orbs work', () => {
 
 describe('a very large text size', () => {
   const css = readFileSync(join(__dirname, 'orbs.css'), 'utf8');
+  const dome = readFileSync(join(__dirname, '../dome/dome.css'), 'utf8');
   it('the keepsakes go from four across to two', () => {
     expect(css).toMatch(/\.orp-keeps \{[^}]*grid-template-columns: repeat\(4, minmax\(0, 1fr\)\)/);
     expect(css).toMatch(/:root\[data-text-xl\] \.orp-keeps \{\s*grid-template-columns: repeat\(2, minmax\(0, 1fr\)\)/);
   });
   it('the total is held between 44 and 64 px, in Inter with even figures', () => {
-    expect(css).toMatch(/\.orp-poster\.is-count \.po-title \{[^}]*font: 650 clamp\(44px, var\(--fs-stat-live\), 64px\) \/ 1 var\(--sans\);[^}]*font-variant-numeric: tabular-nums/);
+    expect(dome).toMatch(/\.dm-num \{[^}]*font: 650 clamp\(44px, var\(--fs-stat-live\), 64px\) \/ 1 var\(--sans\);[^}]*font-variant-numeric: tabular-nums/);
+  });
+  it('the readout wraps before it clips: the level drops under the total when the two no longer fit', () => {
+    expect(dome).toMatch(/\.dm-read \{[^}]*flex-wrap: wrap/);
   });
   it('nothing in the stylesheet animates', () => {
     expect(css).not.toMatch(/\b(transition|animation)\s*:/);
