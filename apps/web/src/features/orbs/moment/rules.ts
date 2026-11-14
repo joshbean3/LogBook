@@ -40,7 +40,7 @@ export const POP = {
   /** Everything of one Orb is over by here (the node is free again). */
   goneMs: 620,
 } as const;
-/** The Pearl on the full-day chip, in px (its halo reaches past this and takes no room). */
+/** The sunrise on the full-day chip, in px. */
 export const CHIP_GEM = 16;
 /** Reduce Motion: the Orb fades in above the control, holds, fades out. No travel, no scale. */
 export const STILL = { inMs: 150, holdMs: 400, outMs: 150, above: 14 } as const;

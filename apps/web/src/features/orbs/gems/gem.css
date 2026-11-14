@@ -1,12 +1,9 @@
 /*
- * An earned Orb (features/orbs/gems/OrbGem.tsx): the family's art as one image. The box is the sphere (`--og` square);
- * rings and a halo are drawn outside it and take no room, as the old light's glow did. Nothing here animates: what
- * moves an Orb moves the box.
+ * An earned Orb (features/orbs/gems/OrbGem.tsx): a flat form as one image. The box is the form's circle (`--og`
+ * square) and the art fills it: nothing is drawn outside. Nothing here animates: what moves an Orb moves the box.
  */
 .orb-gem {
-  --og: 20px; /* brand-ok: geometry, the sphere's diameter, set by the component's `size` */
-  --ob: 1;
-  position: relative;
+  --og: 20px; /* brand-ok: geometry, the form's diameter, set by the component's `size` */
   display: inline-block;
   flex: none;
   width: var(--og);
@@ -15,14 +12,10 @@
   pointer-events: none;
 }
 .orb-gem > img {
-  position: absolute;
-  left: 50%;
-  top: 50%;
   display: block;
-  width: calc(var(--og) * var(--ob));
-  height: calc(var(--og) * var(--ob));
+  width: 100%;
+  height: 100%;
   max-width: none;
-  transform: translate(-50%, -50%);
   user-select: none;
   -webkit-user-drag: none;
 }
