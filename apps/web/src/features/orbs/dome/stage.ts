@@ -1,28 +1,30 @@
 import { haptics } from '@/lib/haptics';
 import type { DomeBody } from './bodies';
 import { addBody, advance, createWorld, drag, grab, nearest, pour, release, resting, setFloating, setGravity, settle, stir as stirWorld, unit, wake, type World } from './physics';
-import { DROP, FELT, FLING, GLASS, GRAVITY, HOLD, REST, TILT, TIME } from './rules';
+import { DROP, FELT, FLING, GRAVITY, HOLD, OCULUS, REST, TILT, TIME } from './rules';
 import { loadSprite, spriteKey, spriteNow, type Sprite } from './sprites';
 import { askMotion, DOWN, follow, gravityFrom, turned, type Pull } from './tilt';
 
 /**
- * The glass, alive: one canvas, the physics world behind it, the finger, the three keys and the phone's lean. Plain DOM,
- * no React: the component (Dome.tsx) hands it three elements and the spheres, and takes it down when it leaves.
+ * The oculus, alive: one canvas, the physics world behind it, the finger, the three pills and the phone's lean. Plain
+ * DOM, no React: the component (Dome.tsx) hands it three elements and the Orbs, and takes it down when it leaves.
  *
  * What it promises:
  *   - Everything from before today is at rest when it is first seen (the pile is settled off screen, a few milliseconds
  *     a frame so the page's own slide is not held up, and painted once it is still). Today's Orbs then drop in.
- *   - A frame only copies pictures (sprites.ts). When every sphere sleeps the frames stop: no timer, no battery. A
- *     touch, a key, a turn of the phone or a new Orb starts them again.
+ *   - A frame only copies pictures (sprites.ts), each turned by its Orb's own angle: the forms have an up, and they
+ *     roll. When every Orb sleeps the frames stop: no timer, no battery. A touch, a pill, a turn of the phone or a new
+ *     Orb starts them again.
  *   - While the page is hidden, off screen, or under another page or a sheet (an `inert` ancestor), nothing runs.
- *   - With Reduce Motion there is no loop at all: the settled pile is drawn once, and a tap still names a sphere.
+ *   - With Reduce Motion there is no loop at all: the settled pile is drawn once, every form upright, and a tap still
+ *     names an Orb.
  *   - `destroy` takes down everything it put up.
  */
 export interface StageParts {
-  /** The touch surface: the canvas's box, clipped to the glass's shape. */
-  glass: HTMLElement;
+  /** The touch surface: the round window itself (a square box clipped to a circle). */
+  oculus: HTMLElement;
   canvas: HTMLCanvasElement;
-  /** The small label a tap shows, placed by the stage (it lies over the glass, unclipped). */
+  /** The small label a tap shows, placed by the stage (it lies over the window, unclipped). */
   caption: HTMLElement;
 }
 export interface StageOpts {
@@ -30,26 +32,26 @@ export interface StageOpts {
 }
 export type TiltAnswer = 'on' | 'off' | 'failed';
 export interface Stage {
-  /** The spheres, as `domeBodies` gives them. New ones drop in; ones that are gone leave; the rest stay where they lie. */
+  /** The Orbs, as `domeBodies` gives them. New ones drop in; ones that are gone leave; the rest stay where they lie. */
   setBodies: (bodies: readonly DomeBody[]) => void;
   stir: () => void;
   setFloat: (on: boolean) => void;
   /** Call from the tap itself: turning it on may ask for motion access. `failed`: refused, missing, or no reading came. */
   setTilt: (on: boolean) => Promise<TiltAnswer>;
   destroy: () => void;
-  /** For tests and measurements: is a frame scheduled, and how many spheres are in the glass. */
+  /** For tests and measurements: is a frame scheduled, and how many Orbs are in the window. */
   running: () => boolean;
   count: () => number;
 }
 
-/** A settled pile, remembered for as long as the page lives: the same spheres in the same glass settle the same way. */
-const layouts = new Map<string, { x: Float64Array; y: Float64Array }>();
-const signature = (bodies: readonly DomeBody[], h: number): string => `${Math.round(h)}|${bodies.map((b) => `${b.id}:${b.r}`).join(',')}`;
+/** A settled pile, remembered for as long as the page lives: the same Orbs settle the same way, turned the same way. */
+const layouts = new Map<string, { x: Float64Array; y: Float64Array; rot: Float64Array }>();
+const signature = (bodies: readonly DomeBody[]): string => bodies.map((b) => `${b.id}:${b.r}`).join(',');
 
 interface Held {
   pointer: number;
   id: string;
-  /** From the finger to the sphere's center, in units: it stays where it was taken. */
+  /** From the finger to the Orb's center, in units: it stays where it was taken. */
   ox: number;
   oy: number;
   /** Where the touch began, in px, and when. */
@@ -60,20 +62,19 @@ interface Held {
   samples: Array<[t: number, x: number, y: number]>;
 }
 
-export const createStage = ({ glass, canvas, caption }: StageParts, { reduce }: StageOpts): Stage => {
+export const createStage = ({ oculus, canvas, caption }: StageParts, { reduce }: StageOpts): Stage => {
   const ctx = canvas.getContext('2d');
   let W: World | null = null;
-  /** What each sphere of the world is, by its index. */
+  /** What each body of the world is, by its index. */
   let list: DomeBody[] = [];
   let sprites: Array<Sprite | null | undefined> = [];
-  /** Everything the glass should hold, as last given. */
+  /** Everything the window should hold, as last given. */
   let all: readonly DomeBody[] = [];
   /** Waiting to drop in. */
   let queue: DomeBody[] = [];
   let scale = 1;
   let k = 1;
   let wide = 0;
-  let tall = 0;
   let ready = false;
   let building = 0;
   let destroyed = false;
@@ -95,56 +96,64 @@ export const createStage = ({ glass, canvas, caption }: StageParts, { reduce }: 
   let inView = true;
   let plain = '';
 
-  // ---------- the page: is the glass to be seen at all? ----------
-  const shown = (): boolean => !document.hidden && inView && !glass.closest('[inert]');
+  // ---------- the page: is the window to be seen at all? ----------
+  const shown = (): boolean => !document.hidden && inView && !oculus.closest('[inert]');
 
   // ---------- size ----------
   const measure = (): boolean => {
-    const w = glass.clientWidth;
-    const h = glass.clientHeight;
-    if (w < 8 || h < 8) return false;
-    const dpr = Math.min(window.devicePixelRatio || 1, GLASS.dprCap);
+    // a circle: its box is square, and the smaller side is the diameter if it ever is not
+    const w = Math.min(oculus.clientWidth, oculus.clientHeight);
+    if (w < 8) return false;
+    const dpr = Math.min(window.devicePixelRatio || 1, OCULUS.dprCap);
     wide = w;
-    tall = h;
-    scale = w / GLASS.w;
+    scale = w / OCULUS.d;
     k = scale * dpr;
     const cw = Math.round(w * dpr);
-    const ch = Math.round(h * dpr);
     if (canvas.width !== cw) canvas.width = cw;
-    if (canvas.height !== ch) canvas.height = ch;
+    if (canvas.height !== cw) canvas.height = cw;
     return true;
   };
   const px = (b: DomeBody): number => Math.max(2, Math.round(b.r * 2 * k));
 
-  // ---------- drawing: copy each sphere's picture to where it is ----------
+  // ---------- drawing: copy each Orb's picture to where it is, turned as it has rolled ----------
   const draw = (still: boolean): void => {
     if (!ctx || !W) return;
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     for (let i = 0; i < W.n; i++) {
       const s = sprites[i];
-      const cx = W.x[i]! * k;
-      const cy = W.y[i]! * k;
+      let cx = W.x[i]! * k;
+      let cy = W.y[i]! * k;
       if (s) {
-        let x = cx - s.side / 2;
-        let y = cy - s.side / 2;
         if (still) {
-          // at rest, on whole pixels: the art is as sharp as it was drawn
-          x = Math.round(x);
-          y = Math.round(y);
+          // at rest, on whole pixels: an upright form is as sharp as it was drawn
+          cx = Math.round(cx - s.side / 2) + s.side / 2;
+          cy = Math.round(cy - s.side / 2) + s.side / 2;
         }
-        ctx.drawImage(s.img, x, y);
+        // with Reduce Motion every form stands upright
+        const a = reduce ? 0 : W.rot[i]!;
+        if (a) {
+          const c = Math.cos(a);
+          const d = Math.sin(a);
+          ctx.setTransform(c, d, -d, c, cx, cy);
+          ctx.drawImage(s.img, -s.side / 2, -s.side / 2);
+        } else {
+          ctx.setTransform(1, 0, 0, 1, 0, 0);
+          ctx.drawImage(s.img, cx - s.side / 2, cy - s.side / 2);
+        }
       } else if (s === null) {
-        // the art could not be cut: a plain disc, so the sphere is still there to take
-        plain ||= getComputedStyle(glass).getPropertyValue('--pencil').trim();
+        // the art could not be cut: a plain disc, so the Orb is still there to take
+        plain ||= getComputedStyle(oculus).getPropertyValue('--pencil').trim();
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
         ctx.fillStyle = plain;
         ctx.beginPath();
         ctx.arc(cx, cy, W.r[i]! * k, 0, Math.PI * 2);
         ctx.fill();
       }
     }
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
   };
-  /** The picture for a sphere: at once when it is cut already; otherwise it is cut, and drawn when it is. Null: its art cannot be drawn. */
+  /** The picture for an Orb: at once when it is cut already; otherwise it is cut, and drawn when it is. Null: its art cannot be drawn. */
   const failed = new Set<string>();
   const look = (b: DomeBody): Sprite | null | undefined => {
     const size = px(b);
@@ -177,9 +186,9 @@ export const createStage = ({ glass, canvas, caption }: StageParts, { reduce }: 
     const r = W.r[i]! * scale;
     const cy = W.y[i]! * scale;
     const x = Math.max(4, Math.min(wide - w - 4, cx - w / 2));
-    // over the sphere; under it when there is no room over it
+    // over the Orb; under it when there is no room over it
     const over = cy - r - 8 - h;
-    const y = over >= 4 ? over : Math.min(tall - h - 4, cy + r + 8);
+    const y = over >= 4 ? over : Math.min(wide - h - 4, cy + r + 8);
     caption.style.transform = `translate3d(${Math.round(x)}px, ${Math.round(y)}px, 0)`;
   };
   const hush = (): void => {
@@ -207,7 +216,7 @@ export const createStage = ({ glass, canvas, caption }: StageParts, { reduce }: 
       return;
     }
     if (now - lastFelt < FELT.gapMs) return;
-    if (W.glass > FELT.glass) {
+    if (W.rim > FELT.rim) {
       haptics.select();
       lastFelt = now;
     } else if (W.clack > FELT.clack) {
@@ -221,7 +230,7 @@ export const createStage = ({ glass, canvas, caption }: StageParts, { reduce }: 
     if (!W) return;
     const b = queue[0]!;
     const u = unit(W.n + 31);
-    addBody(W, W.R + (u * 2 - 1) * DROP.spread, b.r + 6, b.r, { fresh: b.fresh, vx: (u - 0.5) * 60, vy: 140 });
+    addBody(W, W.R + (u * 2 - 1) * DROP.spread, b.r + DROP.under, b.r, { fresh: b.fresh, vx: (u - 0.5) * 60, vy: 140 });
     queue.shift();
     list.push(b);
     sprites.push(look(b));
@@ -271,18 +280,19 @@ export const createStage = ({ glass, canvas, caption }: StageParts, { reduce }: 
     cancelAnimationFrame(raf);
     raf = 0;
     if (!measure()) return;
-    const world = createWorld(GLASS.w, tall / scale, all.length + 16);
+    const world = createWorld(OCULUS.d, all.length + 16);
     W = world;
     // with Reduce Motion nothing drops: today's Orbs lie in the pile with the rest
     const lying = reduce ? [...all] : all.filter((b) => !b.fresh);
     queue = reduce ? [] : all.filter((b) => b.fresh);
     list = lying;
     pour(world, lying.map((b) => b.r));
-    const sig = signature(lying, world.h);
+    const sig = signature(lying);
     const hit = layouts.get(sig);
     if (hit && hit.x.length === world.n) {
       world.x.set(hit.x);
       world.y.set(hit.y);
+      world.rot.set(hit.rot);
       for (let i = 0; i < world.n; i++) world.asleep[i] = 1;
     }
     if (floating) setFloating(world, true);
@@ -294,12 +304,12 @@ export const createStage = ({ glass, canvas, caption }: StageParts, { reduce }: 
       if (!resting(world) && simmed < REST.settle && !floating) return;
       if (!hit) {
         if (layouts.size > 6) layouts.clear();
-        layouts.set(sig, { x: world.x.slice(0, world.n), y: world.y.slice(0, world.n) });
+        layouts.set(sig, { x: world.x.slice(0, world.n), y: world.y.slice(0, world.n), rot: world.rot.slice(0, world.n) });
       }
       ready = true;
       felt = 0;
       draw(true);
-      glass.setAttribute('data-ready', '');
+      oculus.setAttribute('data-ready', '');
       nextDrop = performance.now() + DROP.afterMs;
       kick();
     };
@@ -329,7 +339,7 @@ export const createStage = ({ glass, canvas, caption }: StageParts, { reduce }: 
       build();
       return;
     }
-    // the store changed while the glass is open: keep every sphere that is still there where it lies
+    // the store changed while the page is open: keep every Orb that is still there where it lies
     const world = W;
     const at = new Map(list.map((b, i) => [b.id, i]));
     const ids = new Set(next.map((b) => b.id));
@@ -339,12 +349,12 @@ export const createStage = ({ glass, canvas, caption }: StageParts, { reduce }: 
         release(world);
         held = null;
       }
-      const fresh = createWorld(world.w, world.h, next.length + 16);
+      const fresh = createWorld(world.d, next.length + 16);
       const kept: DomeBody[] = [];
       for (const b of next) {
         const i = at.get(b.id);
         if (i === undefined) continue;
-        addBody(fresh, world.x[i]!, world.y[i]!, b.r, { vx: world.vx[i]!, vy: world.vy[i]!, seed: world.seed[i]! });
+        addBody(fresh, world.x[i]!, world.y[i]!, b.r, { vx: world.vx[i]!, vy: world.vy[i]!, rot: world.rot[i]!, seed: world.seed[i]! });
         kept.push(b);
       }
       fresh.gx = world.gx;
@@ -368,7 +378,7 @@ export const createStage = ({ glass, canvas, caption }: StageParts, { reduce }: 
       if (changed) wake(world);
     }
     queue = next.filter((b) => !at.has(b.id));
-    // Orbs earned while the glass is open are felt as the first ones were
+    // Orbs earned while the page is open are felt as the first ones were
     if (queue.length) felt = 0;
     dress();
     if (said && !ids.has(said)) hush();
@@ -379,7 +389,7 @@ export const createStage = ({ glass, canvas, caption }: StageParts, { reduce }: 
 
   // ---------- the finger ----------
   const point = (e: PointerEvent | MouseEvent): [number, number] => {
-    const box = glass.getBoundingClientRect();
+    const box = oculus.getBoundingClientRect();
     return [(e.clientX - box.left) / scale, (e.clientY - box.top) / scale];
   };
   const down = (e: PointerEvent): void => {
@@ -391,7 +401,7 @@ export const createStage = ({ glass, canvas, caption }: StageParts, { reduce }: 
     held = { pointer: e.pointerId, id: list[i]!.id, ox: W.x[i]! - x, oy: W.y[i]! - y, x0: e.clientX, y0: e.clientY, t0: e.timeStamp, moved: false, samples: [[e.timeStamp, x, y]] };
     grab(W, i, W.x[i]!, W.y[i]!);
     try {
-      glass.setPointerCapture(e.pointerId);
+      oculus.setPointerCapture(e.pointerId);
     } catch {
       /* the pointer is already gone */
     }
@@ -415,7 +425,7 @@ export const createStage = ({ glass, canvas, caption }: StageParts, { reduce }: 
     const h = held;
     held = null;
     try {
-      glass.releasePointerCapture(e.pointerId);
+      oculus.releasePointerCapture(e.pointerId);
     } catch {
       /* it was never captured */
     }
@@ -429,14 +439,14 @@ export const createStage = ({ glass, canvas, caption }: StageParts, { reduce }: 
       const lastS = h.samples[h.samples.length - 1]!;
       const from = h.samples.find((s) => lastS[0] - s[0] <= FLING.windowMs) ?? lastS;
       const span = (lastS[0] - from[0]) / 1000;
-      // a finger that stopped before it lifted lets the sphere fall where it is
+      // a finger that stopped before it lifted lets the Orb fall where it is
       const stale = e.timeStamp - lastS[0] > FLING.windowMs;
       if (e.type === 'pointerup' && span > 0.008 && !stale) release(W, (lastS[1] - from[1]) / span, (lastS[2] - from[2]) / span);
       else release(W);
     }
     kick();
   };
-  /** With Reduce Motion nothing is dragged, and the page scrolls over the glass: a tap is a click. */
+  /** With Reduce Motion nothing is dragged, and the page scrolls over the window: a tap is a click. */
   const click = (e: MouseEvent): void => {
     if (!reduce || !W || !ready) return;
     const [x, y] = point(e);
@@ -444,13 +454,13 @@ export const createStage = ({ glass, canvas, caption }: StageParts, { reduce }: 
     if (i >= 0) say(list[i]!);
     else hush();
   };
-  glass.addEventListener('pointerdown', down);
-  glass.addEventListener('pointermove', move);
-  glass.addEventListener('pointerup', up);
-  glass.addEventListener('pointercancel', up);
-  glass.addEventListener('click', click);
+  oculus.addEventListener('pointerdown', down);
+  oculus.addEventListener('pointermove', move);
+  oculus.addEventListener('pointerup', up);
+  oculus.addEventListener('pointercancel', up);
+  oculus.addEventListener('click', click);
 
-  // ---------- the keys ----------
+  // ---------- the pills ----------
   const stir = (): void => {
     if (!W || !ready || reduce) return;
     stirWorld(W);
@@ -531,8 +541,8 @@ export const createStage = ({ glass, canvas, caption }: StageParts, { reduce }: 
           inView = es.some((en) => en.isIntersecting);
           kick();
         });
-  io?.observe(glass);
-  // a page pushed over this one, or a sheet, makes an ancestor inert; when it lets go the glass picks up where it was
+  io?.observe(oculus);
+  // a page pushed over this one, or a sheet, makes an ancestor inert; when it lets go the pile picks up where it was
   const mo = typeof MutationObserver === 'undefined' ? null : new MutationObserver(again);
   mo?.observe(document.body, { attributes: true, subtree: true, attributeFilter: ['inert'] });
   const ro =
@@ -540,12 +550,10 @@ export const createStage = ({ glass, canvas, caption }: StageParts, { reduce }: 
       ? null
       : new ResizeObserver(() => {
           if (destroyed) return;
-          const w = glass.clientWidth;
-          const h = glass.clientHeight;
-          if (Math.abs(w - wide) < 1 && Math.abs(h - tall) < 1) return;
+          if (Math.abs(Math.min(oculus.clientWidth, oculus.clientHeight) - wide) < 1) return;
           if (all.length || W) build();
         });
-  ro?.observe(glass);
+  ro?.observe(oculus);
 
   return {
     setBodies,
@@ -563,11 +571,11 @@ export const createStage = ({ glass, canvas, caption }: StageParts, { reduce }: 
       clearTimeout(tiltWait);
       window.removeEventListener('deviceorientation', lean);
       document.removeEventListener('visibilitychange', again);
-      glass.removeEventListener('pointerdown', down);
-      glass.removeEventListener('pointermove', move);
-      glass.removeEventListener('pointerup', up);
-      glass.removeEventListener('pointercancel', up);
-      glass.removeEventListener('click', click);
+      oculus.removeEventListener('pointerdown', down);
+      oculus.removeEventListener('pointermove', move);
+      oculus.removeEventListener('pointerup', up);
+      oculus.removeEventListener('pointercancel', up);
+      oculus.removeEventListener('click', click);
       io?.disconnect();
       mo?.disconnect();
       ro?.disconnect();

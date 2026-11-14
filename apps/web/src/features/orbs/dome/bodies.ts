@@ -1,37 +1,37 @@
 import { chapterOf, DAY_KEYS, daysBetween, fmt, mondayOf, parseISO, RULES, shiftDays, totalOf, type DayKey, type ISODate, type Rewards } from '@logbook/shared';
 import { gemFor, gemName, type Gem } from '../gems';
-import { FILL, GLASS, RADIUS } from './rules';
+import { FILL, OCULUS, RADIUS } from './rules';
 
 /**
- * What the dome holds, worked out from the stored object and today's date, with nothing drawn. Pure: the same store and
- * day give the same spheres, in the same order, with the same names.
+ * What the oculus holds, worked out from the stored object and today's date, with nothing drawn. Pure: the same store
+ * and day give the same Orbs, in the same order, with the same names.
  *
- * A sphere is an award, not a single Orb: a run is one sphere worth 3. The worth of every sphere adds up to the total
- * (`totalOf`), always: nothing is lost and nothing is taken out, however far back it goes. What changes with time is
- * how much each sphere holds:
+ * A body in the oculus is an award, not a single Orb: a run is one form worth 3. The worth of every body adds up to the
+ * total (`totalOf`), always: nothing is lost and nothing is taken out, however far back it goes. What changes with time
+ * is how much each one holds:
  *
- *   - this week: one sphere per award (a to-do, a habit, a session, today's goal, a full day, a week that counts);
- *   - earlier weeks: one sphere each, with a star for every day that counted;
- *   - past the last four weeks: one sphere per chapter (the engine's own four weeks), for a year;
- *   - older than that: one sphere per year of the store (thirteen chapters).
+ *   - this week: one per award (a to-do, a habit, a session, today's goal, a full day, a week that counts);
+ *   - earlier weeks: one each;
+ *   - past the last four weeks: one per chapter (the engine's own four weeks), for a year;
+ *   - older than that: one per year of the store (thirteen chapters).
  *
- * And further whenever the spheres would cover more than `FILL.limit` of the glass: fewer chapters are kept apart, then
+ * And further whenever they would cover more than `FILL.limit` of the circle's area: fewer chapters are kept apart, then
  * the years become one, then the earlier weeks join them, and at the very last the days of this week before today
- * become one sphere each, then one together. `PLANS` is that order; the first plan that fits is the one used.
+ * become one each, then one together. `PLANS` is that order; the first plan that fits is the one used.
  */
 
 export type DomeTier = 'award' | 'day' | 'week' | 'chapter' | 'year';
 export interface DomeBody {
-  /** The same for the same award on every pass, so a sphere keeps its place when the store changes. */
+  /** The same for the same award on every pass, so a body keeps its place when the store changes. */
   id: string;
   /** What its Orb is drawn from: a day's kind, a once-key, or `fused:week`, `fused:chapter`, `fused:year`. */
   key: string;
   tier: DomeTier;
-  /** Its Orbs. The worth of every sphere adds up to the total. */
+  /** Its Orbs. The worth of every body adds up to the total. */
   worth: number;
-  /** Its radius, in dome units. */
+  /** Its radius, in oculus units. */
   r: number;
-  /** The day it belongs to; a fused sphere's first day. */
+  /** The day it belongs to; a fused one's first day. */
   date: ISODate;
   /** It was earned today: it drops in when the page opens. */
   fresh: boolean;
@@ -48,13 +48,13 @@ export interface DomeOpts {
 const num = (n: number): string => n.toLocaleString('en-US');
 const orbs = (n: number): string => `${num(n)} ${n === 1 ? 'Orb' : 'Orbs'}`;
 const lerp = (range: readonly [number, number], t: number): number => Math.round(range[0] + (range[1] - range[0]) * Math.sqrt(Math.max(0, Math.min(1, t))));
-/** An Orb's drawing: its kind's, with the shift its own id gives it (one of five steps, so a pile of forty habits is five pictures), and for a fused sphere its star points. */
+/** An Orb's drawing: its kind's, with the shift its own id gives it (a few steps, so a pile of forty habits is a few pictures); a fused one also hands on how many days or weeks it holds. */
 const gemOf = (key: string, id: string, stars?: number): Gem => gemFor(key, id, stars === undefined ? undefined : { stars: Math.max(0, Math.min(7, stars)) });
 
-/** The glass's area at its smallest, in square units, and what the spheres may cover of it. */
-export const GLASS_AREA = (Math.PI * (GLASS.w / 2) ** 2) / 2 + GLASS.w * (GLASS.minH - GLASS.w / 2);
-export const FILL_AREA = FILL.limit * GLASS_AREA;
-/** What these spheres cover, in square units. */
+/** The circle's area, in square units, and what the Orbs may cover of it. */
+export const OCULUS_AREA = Math.PI * (OCULUS.d / 2) ** 2;
+export const FILL_AREA = FILL.limit * OCULUS_AREA;
+/** What these bodies cover, in square units. */
 export const areaOf = (bodies: readonly Pick<DomeBody, 'r'>[]): number => bodies.reduce((t, b) => t + Math.PI * b.r * b.r, 0);
 
 // ---------- names ----------
@@ -87,13 +87,13 @@ const radiusOf = (key: string, n: number): number => {
 
 // ---------- the plans: how far the past is fused, most detail first ----------
 interface Plan {
-  /** Chapters kept as one sphere each (the newest ones, and never one older than a year). */
+  /** Chapters kept as one body each (the newest ones, and never one older than a year). */
   chapters: number;
-  /** Every stretch older than the kept chapters becomes one sphere, not one a year. */
+  /** Every stretch older than the kept chapters becomes one body, not one a year. */
   merge: boolean;
-  /** Earlier weeks kept as one sphere each. */
+  /** Earlier weeks kept as one body each. */
   weeks: number;
-  /** This week's days before today: each award, one sphere a day, or one sphere together. */
+  /** This week's days before today: each award, one body a day, or one together. */
   days: 'each' | 'day' | 'week';
 }
 const tight = { chapters: 0, merge: true, weeks: 0 } as const;
@@ -136,7 +136,7 @@ const build = (s: Rewards, today: ISODate, plan: Plan, fitness: boolean): DomeBo
   const paid = Object.keys(s.once).sort();
   for (const k of paid) if (s.once[k]!.on < monday) into(s.once[k]!.on, s.once[k]!.n, false);
 
-  // each week is a sphere of its own, or goes to its chapter; each chapter is a sphere, or goes to its year
+  // each week is a body of its own, or goes to its chapter; each chapter is one, or goes to its year
   const chapterGroups = new Map<number, Group>();
   const chapterStart = new Map<number, ISODate>();
   const alone: Group[] = [];
@@ -209,7 +209,7 @@ const build = (s: Rewards, today: ISODate, plan: Plan, fitness: boolean): DomeBo
           for (let i = 0; i < count; i++) award(`d:${d}:${key}:${i}`, key, unit, d);
           left -= count * unit;
         }
-        // Orbs the day holds that its kinds do not account for (a record whose detail was lost): one sphere, so the sum stands
+        // Orbs the day holds that its kinds do not account for (a record whose detail was lost): one body, so the sum stands
         if (left > 0) fusedDay(`r:${d}`, left, d, 0, d === today ? 'Today' : day(d));
       }
     }
@@ -225,14 +225,14 @@ const build = (s: Rewards, today: ISODate, plan: Plan, fitness: boolean): DomeBo
   return out;
 };
 
-/** The spheres under one plan (by its place in `PLANS`), whether or not it fits: for the tests, which try them all. */
+/** The bodies under one plan (by its place in `PLANS`), whether or not it fits: for the tests, which try them all. */
 export const domeBodiesUnder = (store: Rewards, today: ISODate, plan: number, opts: DomeOpts = {}): DomeBody[] => build(store, today, PLANS[Math.max(0, Math.min(PLANS.length - 1, plan))]!, opts.fitness !== false);
 
 const memo = new WeakMap<Rewards, Map<string, DomeBody[]>>();
 /**
- * The spheres in the dome, oldest first (the order they are poured in, so the oldest lie at the bottom): the years, the
- * chapters, the earlier weeks, then this week's awards day by day, today's last. The first plan whose spheres cover no
- * more than `FILL.limit` of the smallest glass is used; the last one always is (it is today and three spheres).
+ * The bodies in the oculus, oldest first (the order they are poured in, so the oldest lie lowest): the years, the
+ * chapters, the earlier weeks, then this week's awards day by day, today's last. The first plan whose bodies cover no
+ * more than `FILL.limit` of the circle is used; the last one always is (it is today and three bodies).
  */
 export const domeBodies = (store: Rewards, today: ISODate, opts: DomeOpts = {}): DomeBody[] => {
   const fitness = opts.fitness !== false;
@@ -270,10 +270,10 @@ const list = (words: readonly string[]): string => words.join(', ');
 export interface DomeSaid {
   /** "128 Orbs. This week: 6 habits, 3 to-dos, 1 run, today’s goal. 11 earlier weeks." */
   summary: string;
-  /** The fused spheres, newest first, each by its caption. */
+  /** The fused ones, newest first, each by its caption. */
   items: string[];
 }
-/** What the glass shows, in words: the total, this week's awards counted by kind, and how much of the past there is. */
+/** What the oculus shows, in words: the total, this week's awards counted by kind, and how much of the past there is. */
 export const domeSaid = (store: Rewards, today: ISODate, opts: DomeOpts = {}): DomeSaid => {
   const fitness = opts.fitness !== false;
   const bodies = domeBodies(store, today, opts);

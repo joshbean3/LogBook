@@ -1,26 +1,30 @@
-import { AIR, BOUNCE, FLING, FLOAT, FRICTION, GRAVITY, HOLD, MAX_SPEED, REST, STIR, TIME } from './rules';
+import { AIR, BOUNCE, FLING, FLOAT, FRICTION, GRAVITY, HOLD, MAX_SPEED, REST, ROLL, STIR, TIME } from './rules';
 
 /**
- * The dome's physics, with no DOM in it: circles with weight inside a glass that has a floor, two straight walls and a
- * half-circle top. Pure arithmetic on typed arrays, so the same calls give the same pile on every phone.
+ * The oculus's physics, with no DOM in it: circles with weight inside one big circle. Pure arithmetic on typed arrays,
+ * so the same calls give the same pile on every phone.
  *
- * How it works. Time moves in small fixed steps (`TIME.step`, eight to a frame). Each step: every waking sphere takes
- * gravity and moves; every overlapping pair is pushed apart by weight, then every sphere is put back inside the glass
- * (the glass is a rule about where a center may be, so no speed can pass through it); speeds are read back from where
- * the spheres ended up; then each contact gets its bounce and its friction, and whatever speed the pushing apart added
- * is taken out again, which is what keeps a squeezed pile from bursting. A sphere that has been slow among slow
- * neighbors for a moment goes to sleep (it stops being moved at all, so a resting pile cannot shiver), and wakes when
- * something closes on it. When every sphere sleeps the world is at rest and the caller can stop its frames.
+ * How it works. Time moves in small fixed steps (`TIME.step`, eight to a frame). Each step: every waking Orb takes
+ * gravity and moves; every overlapping pair is pushed apart by weight, then every Orb is put back inside the rim (the
+ * rim is a rule about where a center may be, so no speed can pass through it); speeds are read back from where the
+ * Orbs ended up; then each contact gets its bounce and its friction, and whatever speed the pushing apart added is
+ * taken out again, which is what keeps a squeezed pile from bursting. An Orb that has been slow among slow neighbors
+ * for a moment goes to sleep (it stops being moved at all, so a resting pile cannot shiver), and wakes when something
+ * closes on it. When every Orb sleeps the world is at rest and the caller can stop its frames.
  *
- * Pairs are found by sorting the spheres by their left edge and sweeping (the order barely changes from one step to
- * the next, so the sort is nearly free): 200 spheres step in well under a millisecond.
+ * The rim is a bowl whichever way gravity points: an Orb on it rolls down the curve, swings past the lowest point and
+ * comes to rest there (`ROLL.drag` is what it loses on the way). Each Orb also has an angle, because its drawing has an
+ * up: the angle is read from how the Orb moves against what it touches (rolling without slipping), it pushes nothing,
+ * and it stops when the Orb does.
+ *
+ * Pairs are found by sorting the Orbs by their left edge and sweeping (the order barely changes from one step to the
+ * next, so the sort is nearly free): 200 Orbs step in well under a millisecond.
  */
 export interface World {
-  /** The glass: `w` wide, `h` tall, its top a half circle of radius `R` centered at (`R`, `R`). The floor is at y = `h`. */
-  readonly w: number;
-  readonly h: number;
+  /** The oculus: a circle of radius `R` centered at (`R`, `R`), so `d` across. */
+  readonly d: number;
   readonly R: number;
-  /** How many spheres. The arrays below are at least this long. */
+  /** How many Orbs. The arrays below are at least this long. */
   n: number;
   x: Float64Array;
   y: Float64Array;
@@ -30,17 +34,22 @@ export interface World {
   vx: Float64Array;
   vy: Float64Array;
   r: Float64Array;
-  /** One over the weight (a sphere weighs its radius squared). */
+  /** One over the weight (an Orb weighs its radius squared). */
   im: Float64Array;
+  /** How far each has turned from upright, in radians (clockwise on the page), and how fast it is turning. */
+  rot: Float64Array;
+  spin: Float64Array;
   /** How long each has stayed within a small circle about (`ax`, `ay`), in seconds. */
   still: Float64Array;
   ax: Float64Array;
   ay: Float64Array;
   moved: Uint8Array;
+  /** Steps left in which an Orb still counts as leaning on another (a resting touch is only seen every few steps). */
+  near: Uint8Array;
   asleep: Uint8Array;
-  /** 1 while a sphere dropped in has touched nothing yet. */
+  /** 1 while an Orb dropped in has touched nothing yet. */
   fresh: Uint8Array;
-  /** Each sphere's own number from 0 to 1: its share of a stir, its height while floating. */
+  /** Each Orb's own number from 0 to 1: its share of a stir, its rise and fall while floating. */
   seed: Float64Array;
   order: Int32Array;
   /** Gravity, in units per second squared. */
@@ -49,14 +58,14 @@ export interface World {
   floating: boolean;
   /** Simulated time, in seconds. */
   t: number;
-  /** The held sphere, or -1, and where the finger wants it. */
+  /** The held Orb, or -1, and where the finger wants it. */
   held: number;
   hx: number;
   hy: number;
   acc: number;
-  /** What the last `advance` saw: the fastest closing of two spheres (or a sphere and the floor), of a sphere and the glass, and how many dropped spheres first touched something. */
+  /** What the last `advance` saw: the fastest closing of two Orbs (or of an Orb and the rim), the fastest meeting with the rim alone, and how many dropped Orbs first touched something. */
   clack: number;
-  glass: number;
+  rim: number;
   landed: number;
   // contacts of the step in hand
   ci: Int32Array;
@@ -66,10 +75,14 @@ export interface World {
   cvn: Float64Array;
   cc: Float64Array;
   nc: number;
+  // the turning each Orb's contacts ask of it in the step in hand, and how many asked
+  ws: Float64Array;
+  wn: Float64Array;
 }
 
-const FLOOR = -1;
-const WALL = -2;
+const RIM = -1;
+/** An Orb that touched another within this many steps is leaning on it, not alone on the rim. */
+const LEAN = 48;
 
 const alloc = (cap: number) => ({
   x: new Float64Array(cap),
@@ -80,10 +93,13 @@ const alloc = (cap: number) => ({
   vy: new Float64Array(cap),
   r: new Float64Array(cap),
   im: new Float64Array(cap),
+  rot: new Float64Array(cap),
+  spin: new Float64Array(cap),
   still: new Float64Array(cap),
   ax: new Float64Array(cap),
   ay: new Float64Array(cap),
   moved: new Uint8Array(cap),
+  near: new Uint8Array(cap),
   asleep: new Uint8Array(cap),
   fresh: new Uint8Array(cap),
   seed: new Float64Array(cap),
@@ -94,14 +110,16 @@ const alloc = (cap: number) => ({
   cny: new Float64Array(cap * 8 + 16),
   cvn: new Float64Array(cap * 8 + 16),
   cc: new Float64Array(cap * 8 + 16),
+  ws: new Float64Array(cap),
+  wn: new Float64Array(cap),
 });
 
-/** An empty glass `w` by `h` (its top a half circle, so `h` is at least `w / 2`), with gravity straight down. */
-export const createWorld = (w: number, h: number, cap = 64): World => ({ w, h: Math.max(h, w / 2), R: w / 2, n: 0, ...alloc(Math.max(8, cap)), gx: 0, gy: GRAVITY, floating: false, t: 0, held: -1, hx: 0, hy: 0, acc: 0, clack: 0, glass: 0, landed: 0, nc: 0 });
+/** An empty oculus `d` across, with gravity straight down. */
+export const createWorld = (d: number, cap = 64): World => ({ d, R: d / 2, n: 0, ...alloc(Math.max(8, cap)), gx: 0, gy: GRAVITY, floating: false, t: 0, held: -1, hx: 0, hy: 0, acc: 0, clack: 0, rim: 0, landed: 0, nc: 0 });
 
 const grow = (W: World): void => {
   const next = alloc(W.x.length * 2);
-  for (const k of ['x', 'y', 'px', 'py', 'vx', 'vy', 'r', 'im', 'still', 'ax', 'ay', 'asleep', 'fresh', 'seed', 'order'] as const) (next[k] as Float64Array).set(W[k] as Float64Array);
+  for (const k of ['x', 'y', 'px', 'py', 'vx', 'vy', 'r', 'im', 'rot', 'spin', 'still', 'ax', 'ay', 'near', 'asleep', 'fresh', 'seed', 'order'] as const) (next[k] as Float64Array).set(W[k] as Float64Array);
   Object.assign(W, next);
 };
 
@@ -113,17 +131,18 @@ export const unit = (i: number): number => {
   h ^= h >>> 13;
   return (h >>> 0) / 4294967296;
 };
-
 export interface BodyOpts {
   vx?: number;
   vy?: number;
+  /** How far it has turned from upright, in radians. */
+  rot?: number;
   /** It is dropping in: its first touch is counted in `landed`. */
   fresh?: boolean;
   /** Its own number from 0 to 1 (by default from its index). */
   seed?: number;
   asleep?: boolean;
 }
-/** Put a sphere in the glass. Returns its index. A center outside the glass is brought inside by the first step. */
+/** Put an Orb in the oculus. Returns its index. A center outside the rim is brought inside by the first step. */
 export const addBody = (W: World, x: number, y: number, r: number, o: BodyOpts = {}): number => {
   if (W.n >= W.x.length) grow(W);
   const i = W.n++;
@@ -133,7 +152,10 @@ export const addBody = (W: World, x: number, y: number, r: number, o: BodyOpts =
   W.vy[i] = o.vy ?? 0;
   W.r[i] = r;
   W.im[i] = 1 / (r * r);
+  W.rot[i] = o.rot !== undefined && Number.isFinite(o.rot) ? o.rot : 0;
+  W.spin[i] = 0;
   W.still[i] = 0;
+  W.near[i] = 0;
   W.asleep[i] = o.asleep ? 1 : 0;
   W.fresh[i] = o.fresh ? 1 : 0;
   W.seed[i] = o.seed ?? unit(i);
@@ -141,14 +163,14 @@ export const addBody = (W: World, x: number, y: number, r: number, o: BodyOpts =
   return i;
 };
 
-/** Wake every sphere (a touch, a key, the phone turning). */
+/** Wake every Orb (a touch, a pill, the phone turning). */
 export const wake = (W: World): void => {
   for (let i = 0; i < W.n; i++) {
     W.asleep[i] = 0;
     W.still[i] = 0;
   }
 };
-/** Is every sphere asleep, with nothing held and nothing floating? Then nothing will move until something wakes it. */
+/** Is every Orb asleep, with nothing held and nothing floating? Then nothing will move until something wakes it. */
 export const resting = (W: World): boolean => {
   if (W.held >= 0 || W.floating) return false;
   for (let i = 0; i < W.n; i++) if (!W.asleep[i]) return false;
@@ -156,18 +178,21 @@ export const resting = (W: World): boolean => {
 };
 
 const step = (W: World, h: number): void => {
-  const { x, y, px, py, vx, vy, r, im, still, asleep, fresh, seed, order, ci, cj, cnx, cny, cvn, cc, ax, ay, moved } = W;
+  const { x, y, px, py, vx, vy, r, im, rot, spin, still, asleep, fresh, seed, order, ci, cj, cnx, cny, cvn, cc, ax, ay, moved, near, ws, wn } = W;
   const n = W.n;
+  const R = W.R;
   const held = W.held;
   const floating = W.floating;
   const air = Math.max(0, 1 - (floating ? FLOAT.air : AIR) * h);
   const room = ci.length;
 
   // ---------- 1. gravity (or the drift, or the finger), then move ----------
-  const phase = 0.35 * Math.sin(W.t * 0.17);
   for (let i = 0; i < n; i++) {
     px[i] = x[i]!;
     py[i] = y[i]!;
+    ws[i] = 0;
+    wn[i] = 0;
+    if (near[i]) near[i] = near[i]! - 1;
     if (asleep[i]) continue;
     let ux = vx[i]!;
     let uy = vy[i]!;
@@ -191,17 +216,16 @@ const step = (W: World, h: number): void => {
       ux += dx;
       uy += dy;
     } else if (floating) {
-      // a slow turn: up the middle, out along the top, down the walls; and each sphere is drawn to a height of its own
+      // each Orb is drawn to a place of its own in the window: the places are laid out evenly, the oldest Orbs
+      // nearest the middle (a sunflower's spiral), and the whole of it goes slowly round, each riding up and down a
+      // little as it goes
       const s = seed[i]!;
-      const fx = (x[i]! / W.w) * 2 * Math.PI + phase;
-      const fy = (y[i]! / W.h) * Math.PI;
-      const tx = -FLOAT.speed * Math.sin(fx) * Math.cos(fy);
-      const ty = FLOAT.speed * Math.cos(fx) * Math.sin(fy);
-      const home = W.h * (0.16 + 0.68 * s) + 18 * Math.sin(W.t * (0.4 + 0.5 * s) + 6.283 * s);
-      ux += (tx - ux) * FLOAT.pull * h;
-      uy += (ty - uy) * FLOAT.pull * h + (home - y[i]!) * FLOAT.lift * h;
-      ux *= air;
-      uy *= air;
+      const reach = Math.max(0, R - r[i]! - 6) * Math.sqrt((i + 0.5) / n);
+      const at = i * 2.39996 + W.t * FLOAT.turn;
+      const hx = R + reach * Math.cos(at);
+      const hy = R + reach * Math.sin(at) + FLOAT.bob * Math.sin(W.t * (0.4 + 0.5 * s) + 6.283 * s);
+      ux = (ux + (hx - x[i]!) * FLOAT.lift * h) * air;
+      uy = (uy + (hy - y[i]!) * FLOAT.lift * h) * air;
     } else {
       ux = (ux + W.gx * h) * air;
       uy = (uy + W.gy * h) * air;
@@ -255,7 +279,7 @@ const step = (W: World, h: number): void => {
       }
       // closing when negative
       const vn = (vx[j]! - vx[i]!) * nx + (vy[j]! - vy[i]!) * ny;
-      // a sleeper wakes when something that is really moving closes on it (a sphere wedged in a tight pocket can read
+      // a sleeper wakes when something that is really moving closes on it (an Orb wedged in a tight pocket can read
       // as fast while going nowhere: it has not left its own small circle, and wakes no one)
       if (vn < -REST.wake && ((asleep[i] && still[j]! < REST.moving) || (asleep[j] && still[i]! < REST.moving))) {
         asleep[i] = asleep[j] = 0;
@@ -265,12 +289,12 @@ const step = (W: World, h: number): void => {
       let wj = asleep[j] ? 0 : im[j]!;
       if (i === held) wi /= HOLD.weight;
       else if (j === held) wj /= HOLD.weight;
-      const ws = wi + wj;
-      if (ws === 0) continue;
+      const ws2 = wi + wj;
+      if (ws2 === 0) continue;
       let c = rr - d;
       if (c > REST.push) c = REST.push;
-      const pi = (c * wi) / ws;
-      const pj = (c * wj) / ws;
+      const pi = (c * wi) / ws2;
+      const pj = (c * wj) / ws2;
       x[i] = x[i]! - nx * pi;
       y[i] = y[i]! - ny * pi;
       x[j] = x[j]! + nx * pj;
@@ -296,86 +320,40 @@ const step = (W: World, h: number): void => {
     }
   }
 
-  // ---------- 3. the glass: the floor, the walls, the round top ----------
-  const R = W.R;
+  // ---------- 3. the rim: no center is further from the middle than the rim allows ----------
   const pairs = nc;
   for (let i = 0; i < n; i++) {
     if (asleep[i]) continue;
-    const ri = r[i]!;
-    let hit = 0;
-    if (y[i]! + ri > W.h) {
-      const c = y[i]! + ri - W.h;
-      y[i] = W.h - ri;
-      hit = 1;
-      if (vy[i]! > W.clack) W.clack = vy[i]!;
-      if (nc < room) {
-        ci[nc] = i;
-        cj[nc] = FLOOR;
-        cnx[nc] = 0;
-        cny[nc] = -1;
-        cvn[nc] = -vy[i]!;
-        cc[nc] = c;
-        nc++;
-      }
+    const dx = x[i]! - R;
+    const dy = y[i]! - R;
+    const d = Math.hypot(dx, dy);
+    const lim = Math.max(0, R - r[i]!);
+    if (!(d > lim) || d < 1e-9) continue;
+    // the rim's push, toward the middle
+    const nx = -dx / d;
+    const ny = -dy / d;
+    x[i] = R - nx * lim;
+    y[i] = R - ny * lim;
+    const vn = vx[i]! * nx + vy[i]! * ny;
+    if (-vn > W.rim) W.rim = -vn;
+    if (-vn > W.clack) W.clack = -vn;
+    if (nc < room) {
+      ci[nc] = i;
+      cj[nc] = RIM;
+      cnx[nc] = nx;
+      cny[nc] = ny;
+      cvn[nc] = vn;
+      cc[nc] = d - lim;
+      nc++;
     }
-    if (y[i]! >= R) {
-      let c = 0;
-      let nx = 0;
-      if (x[i]! - ri < 0) {
-        c = ri - x[i]!;
-        x[i] = ri;
-        nx = 1;
-      } else if (x[i]! + ri > W.w) {
-        c = x[i]! + ri - W.w;
-        x[i] = W.w - ri;
-        nx = -1;
-      }
-      if (nx) {
-        hit = 1;
-        const vn = vx[i]! * nx;
-        if (-vn > W.glass) W.glass = -vn;
-        if (nc < room) {
-          ci[nc] = i;
-          cj[nc] = WALL;
-          cnx[nc] = nx;
-          cny[nc] = 0;
-          cvn[nc] = vn;
-          cc[nc] = c;
-          nc++;
-        }
-      }
-    } else {
-      const dx = x[i]! - R;
-      const dy = y[i]! - R;
-      const d = Math.hypot(dx, dy);
-      const lim = Math.max(0, R - ri);
-      if (d > lim && d > 1e-9) {
-        const nx = -dx / d;
-        const ny = -dy / d;
-        x[i] = R - nx * lim;
-        y[i] = R - ny * lim;
-        hit = 1;
-        const vn = vx[i]! * nx + vy[i]! * ny;
-        if (-vn > W.glass) W.glass = -vn;
-        if (nc < room) {
-          ci[nc] = i;
-          cj[nc] = WALL;
-          cnx[nc] = nx;
-          cny[nc] = ny;
-          cvn[nc] = vn;
-          cc[nc] = d - lim;
-          nc++;
-        }
-      }
-    }
-    if (hit && fresh[i]) {
+    if (fresh[i]) {
       fresh[i] = 0;
       W.landed++;
     }
   }
 
-  // ---------- 3b. once more over the same pairs, backwards, then the glass again: a tall pile's weight is passed
-  // down to the floor and back up within the step, so a pile at rest is not left pressed into itself ----------
+  // ---------- 3b. once more over the same pairs, backwards, then the rim again: a tall pile's weight is passed
+  // down to the rim and back up within the step, so a pile at rest is not left pressed into itself ----------
   for (let k = pairs - 1; k >= 0; k--) {
     const i = ci[k]!;
     const j = cj[k]!;
@@ -388,36 +366,29 @@ const step = (W: World, h: number): void => {
     let wj = asleep[j] ? 0 : im[j]!;
     if (i === held) wi /= HOLD.weight;
     else if (j === held) wj /= HOLD.weight;
-    const ws = wi + wj;
-    if (ws === 0) continue;
+    const ws2 = wi + wj;
+    if (ws2 === 0) continue;
     const d = Math.sqrt(d2);
     let c = rr - d;
     if (c > REST.push) c = REST.push;
     const nx = dx / d;
     const ny = dy / d;
-    x[i] = x[i]! - (nx * c * wi) / ws;
-    y[i] = y[i]! - (ny * c * wi) / ws;
-    x[j] = x[j]! + (nx * c * wj) / ws;
-    y[j] = y[j]! + (ny * c * wj) / ws;
+    x[i] = x[i]! - (nx * c * wi) / ws2;
+    y[i] = y[i]! - (ny * c * wi) / ws2;
+    x[j] = x[j]! + (nx * c * wj) / ws2;
+    y[j] = y[j]! + (ny * c * wj) / ws2;
     cc[k] = cc[k]! + c;
   }
-  // the glass has the last word: nothing ends a step outside it
+  // the rim has the last word: nothing ends a step outside it
   for (let i = 0; i < n; i++) {
     if (asleep[i]) continue;
-    const ri = r[i]!;
-    if (y[i]! + ri > W.h) y[i] = W.h - ri;
-    if (y[i]! >= R) {
-      if (x[i]! < ri) x[i] = ri;
-      else if (x[i]! > W.w - ri) x[i] = W.w - ri;
-    } else {
-      const dx = x[i]! - R;
-      const dy = y[i]! - R;
-      const d = Math.hypot(dx, dy);
-      const lim = Math.max(0, R - ri);
-      if (d > lim && d > 1e-9) {
-        x[i] = R + (dx / d) * lim;
-        y[i] = R + (dy / d) * lim;
-      }
+    const dx = x[i]! - R;
+    const dy = y[i]! - R;
+    const d = Math.hypot(dx, dy);
+    const lim = Math.max(0, R - r[i]!);
+    if (d > lim && d > 1e-9) {
+      x[i] = R + (dx / d) * lim;
+      y[i] = R + (dy / d) * lim;
     }
   }
   W.nc = nc;
@@ -431,8 +402,9 @@ const step = (W: World, h: number): void => {
   }
 
   // ---------- 5. each contact's bounce and friction; the speed the pushing apart added is taken out ----------
-  const e = floating ? BOUNCE.floating : BOUNCE.sphere;
-  const eg = floating ? BOUNCE.floating : BOUNCE.glass;
+  const e = floating ? BOUNCE.floating : BOUNCE.orb;
+  const eg = floating ? BOUNCE.floating : BOUNCE.rim;
+  const drag = Math.min(1, ROLL.drag * h);
   for (let k = 0; k < nc; k++) {
     const i = ci[k]!;
     const j = cj[k]!;
@@ -445,8 +417,8 @@ const step = (W: World, h: number): void => {
       let wj = asleep[j] ? 0 : im[j]!;
       if (i === held) wi /= HOLD.weight;
       else if (j === held) wj /= HOLD.weight;
-      const ws = wi + wj;
-      if (ws === 0) continue;
+      const ws2 = wi + wj;
+      if (ws2 === 0) continue;
       const rx = vx[j]! - vx[i]!;
       const ry = vy[j]! - vy[i]!;
       const vn = rx * nx + ry * ny;
@@ -454,30 +426,64 @@ const step = (W: World, h: number): void => {
       const bounce = i === held || j === held ? BOUNCE.held : e;
       const want = pre < -BOUNCE.floor ? -bounce * pre : pre < 0 ? 0 : Math.min(vn, pre);
       const vt = -rx * ny + ry * nx;
-      const lim = FRICTION.sphere * most;
+      const lim = FRICTION.orb * most;
       const dt = vt > lim ? -lim : vt < -lim ? lim : -vt;
-      const ax = nx * (want - vn) - ny * dt;
-      const ay = ny * (want - vn) + nx * dt;
-      const si = wi / ws;
-      const sj = wj / ws;
-      vx[i] = vx[i]! - ax * si;
-      vy[i] = vy[i]! - ay * si;
-      vx[j] = vx[j]! + ax * sj;
-      vy[j] = vy[j]! + ay * sj;
+      const ax2 = nx * (want - vn) - ny * dt;
+      const ay2 = ny * (want - vn) + nx * dt;
+      const si = wi / ws2;
+      const sj = wj / ws2;
+      vx[i] = vx[i]! - ax2 * si;
+      vy[i] = vy[i]! - ay2 * si;
+      vx[j] = vx[j]! + ax2 * sj;
+      vy[j] = vy[j]! + ay2 * sj;
+      // the two roll on each other: how fast one slides past the other is shared out as turning, the lighter taking more
+      ws[i] = ws[i]! + (vt * si) / r[i]!;
+      wn[i] = wn[i]! + 1;
+      ws[j] = ws[j]! + (vt * sj) / r[j]!;
+      wn[j] = wn[j]! + 1;
+      near[i] = near[j] = LEAN;
     } else {
       const vn = vx[i]! * nx + vy[i]! * ny;
       const want = pre < -BOUNCE.floor ? -eg * pre : pre < 0 ? 0 : Math.min(vn, pre);
       const vt = -vx[i]! * ny + vy[i]! * nx;
-      const lim = (j === FLOOR ? FRICTION.floor : FRICTION.glass) * most;
-      const dt = vt > lim ? -lim : vt < -lim ? lim : -vt;
+      // rolling along the rim: it turns as fast as it travels, loses a share of that each second, and the last of it
+      // to friction
+      ws[i] = ws[i]! + vt / r[i]!;
+      // alone on the slope, where friction cannot hold it, it is not at rest however slowly it is turning round at
+      // the top of a swing: it sleeps at the lowest point, not beside it
+      if (!near[i] && !floating && Math.abs(-W.gx * ny + W.gy * nx) > FRICTION.rim * Math.max(0, -(W.gx * nx + W.gy * ny)) + 1) still[i] = 0;
+      wn[i] = wn[i]! + 1;
+      const left = vt * (1 - drag);
+      const lim = FRICTION.rim * most;
+      const dt = left - vt + (left > lim ? -lim : left < -lim ? lim : -left);
       vx[i] = vx[i]! + nx * (want - vn) - ny * dt;
       vy[i] = vy[i]! + ny * (want - vn) + nx * dt;
     }
   }
 
+  // ---------- 5b. turning: toward what the contacts ask; in the air it runs on and fades; a finger stops it ----------
+  const grip = Math.min(1, ROLL.grip * h);
+  const loose = Math.max(0, 1 - ROLL.air * h);
+  const pinch = Math.max(0, 1 - ROLL.held * h);
+  for (let i = 0; i < n; i++) {
+    if (asleep[i]) continue;
+    let w = spin[i]!;
+    if (i === held) w *= pinch;
+    else if (floating) {
+      // a slow drift of its own, one way or the other, whatever it bumps into
+      w += ((seed[i]! * 2 - 1) * FLOAT.spin - w) * grip;
+    } else if (wn[i]! > 0) w += (ws[i]! / wn[i]! - w) * grip;
+    else w *= loose;
+    if (!(w > -ROLL.max)) w = -ROLL.max;
+    else if (!(w < ROLL.max)) w = ROLL.max;
+    if (w !== w) w = 0;
+    spin[i] = w;
+    rot[i] = rot[i]! + w * h;
+  }
+
   // ---------- 6. sleep: all but still, among neighbors that are, for a moment ----------
-  // "Still" is where a sphere is, not how fast: a pile at rest trembles by hundredths of a unit as its contacts are
-  // solved, and a speed read from that never falls to nothing. A sphere that has not left a small circle has.
+  // "Still" is where an Orb is, not how fast: a pile at rest trembles by hundredths of a unit as its contacts are
+  // solved, and a speed read from that never falls to nothing. An Orb that has not left a small circle has.
   const drift = REST.drift * REST.drift;
   for (let i = 0; i < n; i++) {
     moved[i] = 0;
@@ -503,17 +509,18 @@ const step = (W: World, h: number): void => {
       if (asleep[i] || i === held || still[i]! < REST.after) continue;
       asleep[i] = 1;
       vx[i] = vy[i] = 0;
+      spin[i] = 0;
     }
   }
 };
 
 /**
  * Move the world on by `dt` seconds of real time, in whole fixed steps (what is left over waits for the next call).
- * Returns how many steps were taken. `clack`, `glass` and `landed` say what happened in them.
+ * Returns how many steps were taken. `clack`, `rim` and `landed` say what happened in them.
  */
 export const advance = (W: World, dt: number): number => {
   W.clack = 0;
-  W.glass = 0;
+  W.rim = 0;
   W.landed = 0;
   if (!(dt > 0)) return 0;
   W.acc += Math.min(dt, TIME.maxFrame);
@@ -535,11 +542,11 @@ export const settle = (W: World, seconds: number = REST.settle): number => {
     step(W, TIME.step);
     W.t += TIME.step;
   }
-  W.clack = W.glass = W.landed = 0;
+  W.clack = W.rim = W.landed = 0;
   return W.t - was;
 };
 
-/** The sphere under a point, or the nearest one within `slop` of its edge; -1 when there is none. */
+/** The Orb under a point, or the nearest one within `slop` of its edge; -1 when there is none. */
 export const nearest = (W: World, x: number, y: number, slop = 0): number => {
   let best = -1;
   let gap = slop;
@@ -553,7 +560,7 @@ export const nearest = (W: World, x: number, y: number, slop = 0): number => {
   return best;
 };
 
-/** Take hold of sphere `i`: it follows (`x`, `y`) until it is let go. Everything wakes. */
+/** Take hold of Orb `i`: it follows (`x`, `y`) until it is let go. Everything wakes. */
 export const grab = (W: World, i: number, x: number, y: number): void => {
   if (i < 0 || i >= W.n) return;
   wake(W);
@@ -561,12 +568,12 @@ export const grab = (W: World, i: number, x: number, y: number): void => {
   W.hx = x;
   W.hy = y;
 };
-/** Where the finger wants the held sphere now. */
+/** Where the finger wants the held Orb now. */
 export const drag = (W: World, x: number, y: number): void => {
   W.hx = x;
   W.hy = y;
 };
-/** Let go. With a speed, the sphere leaves with it (a flick), no faster than `FLING.max`. */
+/** Let go. With a speed, the Orb leaves with it (a flick), no faster than `FLING.max`. */
 export const release = (W: World, vx?: number, vy?: number): void => {
   const i = W.held;
   W.held = -1;
@@ -584,7 +591,7 @@ export const release = (W: World, vx?: number, vy?: number): void => {
   W.still[i] = 0;
 };
 
-/** One upward swirl: every sphere is lifted against gravity and turned about the middle of the pile. */
+/** One upward swirl: every Orb is lifted against gravity and turned about the middle of the pile. */
 export const stir = (W: World): void => {
   wake(W);
   if (!W.n) return;
@@ -607,7 +614,7 @@ export const stir = (W: World): void => {
   }
 };
 
-/** Float on: gravity lets go and the spheres drift. Off: they fall again. */
+/** Float on: gravity lets go and the Orbs drift. Off: they fall again. */
 export const setFloating = (W: World, on: boolean): void => {
   W.floating = on;
   wake(W);
@@ -618,33 +625,31 @@ export const setGravity = (W: World, x: number, y: number): void => {
   W.gy = y * GRAVITY;
 };
 
-/** How far inside the glass's edge a point is (negative: outside). */
-export const inside = (W: World, x: number, y: number): number => {
-  const floor = W.h - y;
-  if (y >= W.R) return Math.min(floor, x, W.w - x);
-  return Math.min(floor, W.R - Math.hypot(x - W.R, y - W.R));
-};
+/** How far inside the rim a point is (negative: outside). */
+export const inside = (W: World, x: number, y: number): number => W.R - Math.hypot(x - W.R, y - W.R);
 
 /**
- * Lay spheres of these radii in rows from the floor up, in the order given (so the first are at the bottom), each a
- * little off the row's line so the pile is not a lattice. They are close to rest; `settle` finishes the job.
+ * Lay Orbs of these radii in rows from the bottom of the circle up, in the order given (so the first are lowest), each
+ * a little off the row's line so the pile is not a lattice, and each turned a little from upright by its own seed (they
+ * rolled to where they lie). They are close to rest; `settle` finishes the job.
  */
 export const pour = (W: World, radii: readonly number[]): void => {
-  let base = W.h;
+  const R = W.R;
+  let base = W.d;
   let k = 0;
   let row = 0;
+  // the chord a row of Orbs this tall may stand on, when its lowest point is at `bottom`
+  const span = (rad: number, bottom: number): [number, number] => {
+    const lim = Math.max(0, R - rad);
+    const dy = bottom - rad - R;
+    const half = Math.sqrt(Math.max(0, lim * lim - dy * dy));
+    return [R - half, R + half];
+  };
   while (k < radii.length) {
     // how many fit along this row
     let tall = 0;
     let end = k;
     let used = 0;
-    const span = (rad: number, top: number): [number, number] => {
-      const cy = top - rad;
-      if (cy >= W.R) return [rad, W.w - rad];
-      const lim = Math.max(0, W.R - rad);
-      const half = Math.sqrt(Math.max(0, lim * lim - (W.R - cy) * (W.R - cy)));
-      return [W.R - half, W.R + half];
-    };
     for (; end < radii.length; end++) {
       const rad = radii[end]!;
       const [lo, hi] = span(Math.max(tall, rad), base);
@@ -661,14 +666,14 @@ export const pour = (W: World, radii: readonly number[]): void => {
     for (let i = k; i < end; i++) {
       const rad = radii[i]!;
       const u = unit(W.n + 7919);
-      const px = cx + rad;
-      const x = back ? W.w - px : px;
-      addBody(W, x, base - rad - u * 1.5, rad);
+      const at = cx + rad;
+      const x = back ? W.d - at : at;
+      addBody(W, x, base - rad - u * 1.5, rad, { rot: (unit(W.n + 104729) * 2 - 1) * 6.283 * ROLL.lying });
       cx += rad * 2 + 1.5 + gap;
     }
     base -= tall * 2 + 0.5;
     k = end;
     row++;
-    if (base < 0) base = W.R * 0.5; // more than the glass holds: the solver eases them apart
+    if (base < tall * 2) base = R; // more than the window holds: the solver eases them apart
   }
 };

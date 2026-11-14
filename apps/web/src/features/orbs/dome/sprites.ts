@@ -1,21 +1,23 @@
 import { gemBox, gemSvg, type Gem } from '../gems';
 
 /**
- * The spheres as pictures: each Orb's drawing at each size is turned into pixels once and kept, and a frame only copies
- * them (`drawImage`). Nothing is painted with gradients while the pile moves, and no sphere is a DOM node.
+ * The Orbs as pictures: each Orb's drawing at each size is turned into pixels once and kept, and a frame only copies
+ * them (`drawImage`, turned by the Orb's angle). Nothing is painted from paths while the pile moves, and no Orb is a
+ * DOM node.
  *
- * A sprite is cut from the gem's own SVG at the exact device pixels it will be shown at, so it is as sharp as the art.
- * The cache lives as long as the page does: opening the dome a second time draws at once.
+ * A sprite is cut from the gem's own SVG at the exact device pixels it will be shown at, upright, so at rest and
+ * upright it is as sharp as the art. The cache lives as long as the page does: opening the page a second time draws at
+ * once. A gem is taken as it comes: what its fields mean is the family's business (features/orbs/gems).
  */
 export interface Sprite {
   /** The pixels: a canvas the art was drawn into once. */
   img: HTMLCanvasElement;
-  /** Its side in device pixels (the sphere's diameter times the art box). */
+  /** Its side in device pixels (the Orb's diameter times the art box). */
   side: number;
 }
 
 const idOf = (g: Gem): string => `${g.hue}|${g.style}|${g.shift}|${g.stars ?? 0}`;
-/** What names one sprite: the gem and the sphere's diameter in device pixels. */
+/** What names one sprite: the gem and the Orb's diameter in device pixels. */
 export const spriteKey = (g: Gem, px: number): string => `${idOf(g)}@${px}`;
 
 const ready = new Map<string, Sprite>();

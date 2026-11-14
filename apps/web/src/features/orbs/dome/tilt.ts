@@ -1,7 +1,7 @@
 import { TILT } from './rules';
 
 /**
- * The phone's lean as the dome's gravity, with no DOM in it.
+ * The phone's lean as the oculus's gravity, with no DOM in it.
  *
  * `beta` and `gamma` are a `deviceorientation` event's angles in degrees: beta is the lean front to back (0 flat on a
  * table, 90 upright, -90 upside down), gamma the lean left to right (positive: the right edge is lower). `angle` is the
@@ -9,11 +9,11 @@ import { TILT } from './rules';
  * with the phone turned a quarter to the left so its top points left, 180, and 270 or -90 turned to the right).
  *
  * Gravity in the phone's own frame is (cos beta x sin gamma, -sin beta) across and up its screen; the part straight
- * through the glass is dropped, since the dome is flat. Turned by the screen's angle and with y pointing down the page,
- * that is which way the spheres fall. Its length is the share of gravity that lies in the screen: 1 upright, 0 flat on a
+ * through the screen is dropped, since the oculus is flat. Turned by the screen's angle and with y pointing down the page,
+ * that is which way the Orbs fall. Its length is the share of gravity that lies in the screen: 1 upright, 0 flat on a
  * table. A phone is seldom held bolt upright, so the pull is whole from a lean of `TILT.full` (about 30 degrees) and
- * fades to nothing below it: held as people hold phones the spheres have their full weight, and laid flat they stay
- * where they are, as marbles on a table would.
+ * fades to nothing below it: held as people hold phones the Orbs have their full weight, and laid flat they stay
+ * where they are, as discs on a table would.
  *
  * Returns (0, 1), straight down, for a reading that is not a number: no sensor is never a reason for the pile to fly.
  */

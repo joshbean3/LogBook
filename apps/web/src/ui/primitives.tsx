@@ -394,13 +394,20 @@ export const StatStrip = ({ children, className = '' }: { children: ReactNode; c
  * The status pill (Today, guide 6.13 and 6.14, layout standard 6.7): glass, 32 tall with a 44 hit, Inter 15 500 Night Ink,
  * one line that never wraps. `dot` is the 6 px state dot (Deep Sky while training, Pencil while paused), `chevron` the 16
  * px glyph after the words ('down' opens a sheet here, 'right' goes somewhere). `voiceLabel` is what VoiceOver says: the
- * whole state, including what the words leave out (the plan's name, an end date the row had no room for).
+ * whole state, including what the words leave out (the plan's name, an end date the row had no room for). A pill that
+ * does something in place (the Orbs page's Tilt, Stir and Float) leads with a 16 px `glyph`; one that stays on says so
+ * with `pressed` (`aria-pressed`): on, it fills Haze and its glyph is Deep Sky.
  */
-export const StatusPill = ({ label, dot, chevron, onPress, voiceLabel, className = '' }: { label: ReactNode; dot?: 'sky' | 'pencil'; chevron?: 'down' | 'right'; onPress?: () => void; voiceLabel?: string; className?: string }) => {
+export const StatusPill = ({ label, dot, glyph, chevron, onPress, pressed, voiceLabel, className = '' }: { label: ReactNode; dot?: 'sky' | 'pencil'; glyph?: ReactNode; chevron?: 'down' | 'right'; onPress?: () => void; pressed?: boolean; voiceLabel?: string; className?: string }) => {
   const press = usePress({ disabled: !onPress });
   const inner = (
     <>
       {dot ? <span className={`status-pill-dot ${dot === 'pencil' ? 'is-pencil' : ''}`.trim()} aria-hidden="true" /> : null}
+      {glyph ? (
+        <span className="status-pill-glyph" aria-hidden="true">
+          {glyph}
+        </span>
+      ) : null}
       <span className="status-pill-label">{label}</span>
       {chevron === 'down' ? <ChevronDown size={16} aria-hidden="true" /> : chevron === 'right' ? <ChevronRight size={16} aria-hidden="true" /> : null}
     </>
@@ -412,7 +419,7 @@ export const StatusPill = ({ label, dot, chevron, onPress, voiceLabel, className
       </span>
     );
   return (
-    <button type="button" className={`status-pill ${className}`.trim()} onClick={onPress} aria-label={voiceLabel} {...press.handlers}>
+    <button type="button" className={`status-pill ${className}`.trim()} onClick={onPress} aria-label={voiceLabel} aria-pressed={pressed} {...press.handlers}>
       {inner}
     </button>
   );

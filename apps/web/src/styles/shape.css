@@ -1088,11 +1088,31 @@ html[data-text-xl] .ctx-row.ctx-row .ctx-chip {
 .status-pill[data-pressed] {
   transform: scale(0.97);
 }
+/* a leading glyph (the Orbs page's Tilt, Stir, Float): 16 px, Dusk. A pill that is on fills Haze; its glyph is Deep Sky */
+.status-pill-glyph {
+  flex: none;
+  display: grid;
+  place-items: center;
+  color: var(--ink-2);
+}
+.status-pill[aria-pressed='true'] {
+  background: var(--haze);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+.status-pill[aria-pressed='true'] .status-pill-glyph {
+  color: var(--deep-sky);
+}
 @media (prefers-contrast: more) {
   .status-pill {
     background: var(--surface);
     -webkit-backdrop-filter: none;
     backdrop-filter: none;
+  }
+  /* on is an edge as well as a fill */
+  .status-pill[aria-pressed='true'] {
+    background: var(--haze);
+    box-shadow: inset 0 0 0 1.5px var(--deep-sky);
   }
 }
 
