@@ -49,7 +49,7 @@ export interface World {
   asleep: Uint8Array;
   /** 1 while an Orb dropped in has touched nothing yet. */
   fresh: Uint8Array;
-  /** Each Orb's own number from 0 to 1: its share of a stir, its place while floating. */
+  /** Each Orb's own number from 0 to 1: its share of a stir, its rise and fall while floating. */
   seed: Float64Array;
   order: Int32Array;
   /** Gravity, in units per second squared. */
@@ -131,12 +131,6 @@ export const unit = (i: number): number => {
   h ^= h >>> 13;
   return (h >>> 0) / 4294967296;
 };
-/** A second number from 0 to 1 out of a first: an Orb's seed gives it a place across the window as well as a share. */
-const second = (s: number): number => {
-  const v = s * 7919.137;
-  return v - Math.floor(v);
-};
-
 export interface BodyOpts {
   vx?: number;
   vy?: number;
@@ -222,12 +216,12 @@ const step = (W: World, h: number): void => {
       ux += dx;
       uy += dy;
     } else if (floating) {
-      // each Orb is drawn to a place of its own in the window, and the places go slowly round the middle, some one
-      // way and some the other, riding up and down a little as they go
+      // each Orb is drawn to a place of its own in the window: the places are laid out evenly, the oldest Orbs
+      // nearest the middle (a sunflower's spiral), and the whole of it goes slowly round, each riding up and down a
+      // little as it goes
       const s = seed[i]!;
-      const s2 = second(s);
-      const reach = Math.max(0, R - r[i]! - 6) * Math.sqrt(s);
-      const at = 6.283 * s2 + W.t * FLOAT.turn * (s2 < 0.5 ? 1 : -1) * (0.5 + 0.5 * s);
+      const reach = Math.max(0, R - r[i]! - 6) * Math.sqrt((i + 0.5) / n);
+      const at = i * 2.39996 + W.t * FLOAT.turn;
       const hx = R + reach * Math.cos(at);
       const hy = R + reach * Math.sin(at) + FLOAT.bob * Math.sin(W.t * (0.4 + 0.5 * s) + 6.283 * s);
       ux = (ux + (hx - x[i]!) * FLOAT.lift * h) * air;

@@ -124,10 +124,10 @@ export const STIR = {
 } as const;
 export const FLOAT = {
   /** How hard an Orb is drawn to its own place in the window, per second squared. */
-  lift: 2.6,
+  lift: 7,
   /** The air is thicker while floating. */
-  air: 1.1,
-  /** Each Orb's place goes round the middle of the window, this many radians a second at most (some one way, some the other). */
+  air: 2.2,
+  /** The places go round the middle of the window together, this many radians a second. */
   turn: 0.07,
   /** And rides up and down by this much, in units. */
   bob: 10,
