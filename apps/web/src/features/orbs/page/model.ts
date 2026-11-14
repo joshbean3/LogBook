@@ -28,6 +28,8 @@ export interface Line {
   key: string;
   label: string;
   n: number;
+  /** Which Orb the line earned, as a key for `gemFor` (features/orbs/gems). None where the line must not say its kind. */
+  gem?: string;
 }
 /**
  * A day's Orbs, line by line, in the order of the rules table: "To-dos 3", "Habits 4", "Today's goal 3", "Full day 5".
@@ -38,7 +40,7 @@ export const linesOf = (s: Rewards, date: ISODate, fitness: boolean): Line[] => 
   let earlier = 0;
   for (const l of dayLines(s, date)) {
     if (!fitness && l.key.startsWith('train:')) earlier += l.n;
-    else out.push({ key: l.key, label: LINE[l.key], n: l.n });
+    else out.push({ key: l.key, label: LINE[l.key], n: l.n, gem: l.key });
   }
   if (earlier) out.push({ key: 'train', label: 'Earlier today', n: earlier });
   return out;
@@ -55,7 +57,7 @@ const ONCE: Array<[prefix: string, label: string]> = [
 /** What was paid once on `date` (a weekly bonus, a goal, a challenge): it is in the total and in no day's number. */
 export const paidOn = (s: Rewards, date: ISODate): Line[] => {
   const out: Line[] = [];
-  for (const [prefix, label] of ONCE) for (const k of Object.keys(s.once).sort()) if (k.startsWith(prefix) && s.once[k]!.on === date && s.once[k]!.n > 0) out.push({ key: k, label, n: s.once[k]!.n });
+  for (const [prefix, label] of ONCE) for (const k of Object.keys(s.once).sort()) if (k.startsWith(prefix) && s.once[k]!.on === date && s.once[k]!.n > 0) out.push({ key: k, label, n: s.once[k]!.n, gem: k });
   return out;
 };
 

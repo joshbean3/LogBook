@@ -1,0 +1,36 @@
+/*
+ * The family's legend (features/orbs/gems): the Orb a row earns, at the row's leading edge, on How Orbs work and in the
+ * sheet of today's lines. The place is 28 pt wide whether or not the row has an Orb, so the titles of a group line up;
+ * a goal's rings reach a little past it into the gap, and take no room.
+ */
+.orl-gem {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+}
+/* a session: a run's, a lift's and cross-training's, small, one over two */
+.orl-gem.is-trio {
+  position: relative;
+}
+.orl-gem.is-trio > .orb-gem {
+  position: absolute;
+  left: 7px;
+  top: 0;
+}
+.orl-gem.is-trio > .orb-gem:nth-child(2) {
+  left: 0;
+  top: 13px;
+}
+.orl-gem.is-trio > .orb-gem:nth-child(3) {
+  left: 14px;
+  top: 13px;
+}
+/* a line of today's Orbs: its Orb, then its name */
+.orp-fact > dt.orl-line {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+}

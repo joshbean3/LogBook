@@ -6,7 +6,7 @@ import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { GoalDoneTitle, MomentPage } from '@/features/goals/Celebrate';
 import { useFitness } from '@/lib/prefs';
-import { OrbLight } from '@/ui/OrbLight';
+import { gemFor, OrbGem } from '../gems';
 import { getOrbs, getSwitches, markSeen, pendingMoments } from '../store';
 import { handState, overlaysOpen, popping, subscribeRest } from './index';
 import { mayShowBig, momentWords } from './rules';
@@ -92,7 +92,7 @@ export const BigMoment = (): React.JSX.Element => {
       <MomentPage key={m.key} label={w.label} disc={w.disc === 'check' ? undefined : w.disc} title={what === 'goal' ? <GoalDoneTitle /> : w.title} line={w.line} quote={w.quote} onClose={close}>
         {w.paid ? (
           <p className="cel-paid">
-            <OrbLight size={20} />
+            <OrbGem gem={gemFor(m.key)} size={20} />
             {w.paid}
           </p>
         ) : null}

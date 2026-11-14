@@ -19,19 +19,9 @@ import { isEmpty, keepsakesOf, linesOf, longDate, newRows, nextKeepsake, notStar
 import { OrbsSwitchRows } from './Switches';
 import { useLeaveWhenOff } from './useLeaveWhenOff';
 import { WeekMarks } from './WeekMarks';
+import { Lines } from './Lines';
 import '@/features/settings/settings.css';
 import './orbs.css';
-
-const Lines = ({ lines }: { lines: readonly Line[] }): React.JSX.Element => (
-  <dl className="group orp-facts">
-    {lines.map((l) => (
-      <div key={l.key} className="orp-fact">
-        <dt>{l.label}</dt>
-        <dd aria-label={orbs(l.n)}>{num(l.n)}</dd>
-      </div>
-    ))}
-  </dl>
-);
 
 /** The small sheet behind "Today": the day's Orbs line by line, and under them what was paid once today. */
 const TodaySheet = ({ date }: { date: string }): React.JSX.Element | null => {
@@ -54,10 +44,11 @@ const TodaySheet = ({ date }: { date: string }): React.JSX.Element | null => {
   );
 };
 
+const weekGoalLine = (n: number): Line => ({ key: 'goal', label: 'Week goal', n, gem: 'goal:week' });
 /** The sheet behind a week goal's "New" row. */
 const GoalSheet = ({ n }: { n: number }): React.JSX.Element => (
   <div className="orp-today-sheet">
-    <Lines lines={[{ key: 'goal', label: 'Week goal', n }]} />
+    <Lines lines={[weekGoalLine(n)]} />
     <p className="lb-foot">{`A week goal pays ${num(RULES.goal.base)} Orbs times ${num(RULES.goal.reach.week)}, once, when you mark it done.`}</p>
   </div>
 );

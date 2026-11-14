@@ -6,6 +6,8 @@ import { num } from './model';
  * lines (`ruleLine`), so the page cannot say one thing while the rules do another. A number in a sentence here is always
  * read from `rules`; the test changes the rules and expects the page to follow.
  *
+ * A row that earns an Orb names which (`gems`): the page is the family's legend, so no hue has to be learned by heart.
+ *
  * With Fitness off nothing names training: the session row, the training condition of a full day and Pause (the app's
  * statuses belong to training) are left out, and the day's ceiling is the sum without sessions.
  */
@@ -19,6 +21,8 @@ export interface HowRow {
   note?: string;
   /** The Orbs it pays, at the row's end: "1", "+5", "10 to 20". */
   value?: string;
+  /** The Orb it earns, at the row's leading edge: keys for `gemFor` (features/orbs/gems). A session has one per kind. */
+  gems?: readonly string[];
 }
 export interface HowSection {
   key: string;
@@ -45,7 +49,7 @@ export const goalRows = (rules: Rules): HowRow[] =>
       ['month', 'This month’s goal'],
       ['year', 'This year’s goal'],
     ] as const
-  ).map(([level, title]) => ({ key: `goal:${level}`, title, note: `× ${num(rules.goal.reach[level])}`, value: num(rules.goal.base * rules.goal.reach[level]) }));
+  ).map(([level, title]) => ({ key: `goal:${level}`, title, note: `× ${num(rules.goal.reach[level])}`, value: num(rules.goal.base * rules.goal.reach[level]), gems: [`goal:${level}`] }));
 
 /** The weekly bonus, week by week, up to its top: 5, 10, 15, 20. */
 export const weekSteps = (rules: Rules): number[] => Array.from({ length: rules.week.top }, (_, i) => rules.week.bonus * (i + 1));
@@ -59,11 +63,11 @@ export const howSections = (opts: { fitness: boolean; target: 3 | 4 | 5; rules?:
   const { fitness, target } = opts;
   const r = opts.rules ?? RULES;
   const earn: HowRow[] = [
-    { key: 'todo', title: 'A to-do', sub: `The first ${num(r.todo.cap)} a day`, value: num(r.todo.each) },
-    { key: 'habit', title: 'A habit', sub: `Up to ${num(r.habit.cap)} a day`, value: num(r.habit.each) },
-    ...(fitness ? [{ key: 'train', title: 'A session', sub: `${num(r.train.floor)} for its floor. ${numberWord(r.train.kinds)} kinds a day at most.`, value: num(r.train.done) }] : []),
-    { key: 'goal:day', title: 'Today’s goal', value: num(r.goalDay) },
-    { key: 'full', title: 'A full day', sub: fitness ? 'Today’s goal, your training or its floor, and every habit but one' : 'Today’s goal and every habit but one', value: `+${num(r.full.bonus)}` },
+    { key: 'todo', title: 'A to-do', sub: `The first ${num(r.todo.cap)} a day`, value: num(r.todo.each), gems: ['todo'] },
+    { key: 'habit', title: 'A habit', sub: `Up to ${num(r.habit.cap)} a day`, value: num(r.habit.each), gems: ['habit'] },
+    ...(fitness ? [{ key: 'train', title: 'A session', sub: `${num(r.train.floor)} for its floor. ${numberWord(r.train.kinds)} kinds a day at most.`, value: num(r.train.done), gems: ['train:run', 'train:lift', 'train:cross'] }] : []),
+    { key: 'goal:day', title: 'Today’s goal', value: num(r.goalDay), gems: ['goal:day'] },
+    { key: 'full', title: 'A full day', sub: fitness ? 'Today’s goal, your training or its floor, and every habit but one' : 'Today’s goal and every habit but one', value: `+${num(r.full.bonus)}`, gems: ['full'] },
     { key: 'line', title: 'Tonight’s line', sub: 'Makes the day count. It earns no Orb: it has its own light.' },
   ];
   const things = ['a to-do', 'a habit', ...(fitness ? ['a session or its floor'] : []), 'today’s goal', 'tonight’s line'];
@@ -76,8 +80,8 @@ export const howSections = (opts: { fitness: boolean; target: 3 | 4 | 5; rules?:
   ];
   const challenges: HowRow[] = [
     { key: 'offer', title: 'Offered, never assigned', sub: 'Add it, skip it or make it easier. Skipping costs nothing.' },
-    { key: 'day', title: 'Today’s challenge', value: num(r.challenge.day) },
-    { key: 'week', title: 'This week’s challenge', sub: `${num(r.challenge.weekFloor)} at its floor, ${num(r.challenge.weekFull)} in full`, value: `${num(r.challenge.weekFloor)} to ${num(r.challenge.weekFull)}` },
+    { key: 'day', title: 'Today’s challenge', value: num(r.challenge.day), gems: ['challenge:d'] },
+    { key: 'week', title: 'This week’s challenge', sub: `${num(r.challenge.weekFloor)} at its floor, ${num(r.challenge.weekFull)} in full`, value: `${num(r.challenge.weekFloor)} to ${num(r.challenge.weekFull)}`, gems: ['challenge:w'] },
     fitness ? { key: 'size', title: 'Never more than your plan holds', sub: 'Sized from your own last four weeks. No added distance, pace, weight or sessions.' } : { key: 'size', title: 'Sized from your own record', sub: 'What you met in your last four weeks, never a stretch past it.' },
   ];
   const forWhat: HowRow[] = [
@@ -97,7 +101,7 @@ export const howSections = (opts: { fitness: boolean; target: 3 | 4 | 5; rules?:
     {
       key: 'weeks',
       title: 'Weeks in a row',
-      rows: [{ key: 'week', title: 'A week that counts', sub: `${num(r.week.bonus)} Orbs times the weeks in a row, up to × ${num(r.week.top)}: ${steps(week)}.`, value: `${num(week[0]!)} to ${num(week.at(-1)!)}` }],
+      rows: [{ key: 'week', title: 'A week that counts', sub: `${num(r.week.bonus)} Orbs times the weeks in a row, up to × ${num(r.week.top)}: ${steps(week)}.`, value: `${num(week[0]!)} to ${num(week.at(-1)!)}`, gems: ['week'] }],
       foot: fitness ? 'A missed week steps it down one, never to nothing. A paused week leaves it where it was.' : 'A missed week steps it down one, never to nothing.',
     },
     { key: 'count', title: 'The count', rows: count, foot: 'One missed week is forgiven when the next one counts. Days in all never go down.' },

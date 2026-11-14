@@ -1,6 +1,7 @@
 /*
- * The earned Orb (ui/OrbLight.tsx): an orb of light. Apricot, glowing, never glossy, never blue, never Sunrise, no Paper
- * keyline. Two layers, both painted once: the glow and the core. Nothing here animates; what moves an Orb moves the box.
+ * The keepsake's light (ui/OrbLight.tsx): Apricot, glowing, never glossy, never blue, never Sunrise, no Paper keyline.
+ * Two layers, both painted once: the glow and the core. Nothing here animates. (An earned Orb is drawn by
+ * features/orbs/gems.)
  */
 .orb-light {
   --ol: 20px; /* brand-ok: geometry, the core's diameter, set by the component's `size` */

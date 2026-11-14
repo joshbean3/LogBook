@@ -1,6 +1,7 @@
 import { countOf, today as clockToday, type ISODate } from '@logbook/shared';
 import { haptics } from '@/lib/haptics';
 import { showToast, toastStore, type ToastAction } from '@/ui/toastStore';
+import { gemFor } from '../gems';
 import { getOrbs, getSwitches, onOrbsChange, orbRoom, ORBS_EVENT, type OrbsGained } from '../store';
 import { CHIP_MS, clearOrbs, liveOrbs, showChip, spawn } from './layer';
 import { CLAIM_MS, createClaims, dayTakes, FIRST_ORB, flightMs, gainToast, keepsakeToast, lightsOf, POP, popPlan, popsAtControl, SHEET_OPENING_MS, STATUS_AFTER_MS, statusLine, STILL, stillLights, SUBJECT_QUIET_MS, type Claim } from './rules';
@@ -278,11 +279,13 @@ export const popOrbs = (o: PopOrbs): number => {
     const x = rect.left + rect.width / 2;
     const y = rect.top + rect.height / 2;
     const lights = mode === 'still' ? stillLights(first.n, rect.height / 2) : lightsOf(first.n, dir);
+    // what was finished decides which Orb is born: a habit's, a to-do's, a run's; three of it for a session or today's goal
+    const gem = gemFor(o.key);
     let longest = 0;
     for (const light of lights) {
       const fly = mode === 'fly' && target ? { dx: target.x - (x + light.dx), dy: target.y - (y + light.dy), ms: 0 } : undefined;
       if (fly) fly.ms = flightMs(Math.hypot(fly.dx, fly.dy));
-      spawn({ x, y, light, mode, fly, onEnd: land });
+      spawn({ x, y, light, gem, mode, fly, onEnd: land });
       longest = Math.max(longest, light.delay + (fly ? POP.flyAtMs + fly.ms : mode === 'still' ? STILL.inMs + STILL.holdMs : POP.fadeEndMs));
     }
     const t = performance.now();

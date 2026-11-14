@@ -9,6 +9,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 vi.mock('idb-keyval', () => ({ get: async () => undefined, set: async () => undefined, del: async () => undefined, clear: async () => undefined }));
 interface Spawned {
   mode: string;
+  gem?: { hue: string; style: string; shift: number };
+  light?: { size: number; delay: number };
   x: number;
   y: number;
   onEnd?: (landed: boolean) => void;
@@ -138,6 +140,45 @@ describe('the pop and the clock', () => {
     expect(store.orbRoom('goal:day', old)).toBe(0);
     for (const date of [tomorrow, old, 'not-a-date' as ISODate]) expect(moment.popOrbs({ key: 'goal:day', date, n: 3, from: rect(60, 600) })).toBe(0);
     expect(spawned).toHaveLength(0);
+  });
+});
+
+describe('which Orb is born', () => {
+  beforeEach(() => vi.useFakeTimers());
+  afterEach(() => {
+    vi.useRealTimers();
+    for (const k of ['window', 'document', 'Element', 'localStorage', 'sessionStorage']) delete g[k];
+  });
+
+  it('its kind’s own: a habit’s, a to-do’s, a run’s, a lift’s, cross-training’s', async () => {
+    const { moment } = await launch();
+    const kinds = [
+      ['habit', 'apricot'],
+      ['todo', 'lagoon'],
+      ['train:run', 'deepsky'],
+      ['train:lift', 'indigo'],
+      ['train:cross', 'ochre'],
+    ] as const;
+    for (const [key, hue] of kinds) {
+      spawned.length = 0;
+      expect(moment.popOrbs({ key, date: TODAY, n: 1, from: rect(300, 500), id: key })).toBe(1);
+      expect(spawned).toHaveLength(1);
+      expect(spawned[0]!.gem).toEqual({ hue, style: 'plain', shift: 0 });
+    }
+  });
+
+  it('three for today’s goal are three of the goal’s Orb, as large and as far apart as before', async () => {
+    const { moment } = await launch();
+    expect(moment.popOrbs({ key: 'goal:day', date: TODAY, n: 3, from: rect(60, 600), haptic: 'success' })).toBe(3);
+    expect(spawned.map((s) => s.gem)).toEqual(Array.from({ length: 3 }, () => ({ hue: 'gold', style: 'ring1', shift: 0 })));
+    expect(spawned.map((s) => s.light!.size)).toEqual([18, 18, 18]);
+    expect(spawned.map((s) => s.light!.delay)).toEqual([0, 60, 120]);
+  });
+
+  it('a session at its floor is two of its kind', async () => {
+    const { moment } = await launch();
+    expect(moment.popOrbs({ key: 'train:run', date: TODAY, n: 2, from: rect(60, 600), id: 's' })).toBe(2);
+    expect(spawned.map((s) => s.gem!.hue)).toEqual(['deepsky', 'deepsky']);
   });
 });
 
