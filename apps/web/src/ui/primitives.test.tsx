@@ -51,5 +51,11 @@ describe('SectionEmpty, NoData, StatusPill', () => {
     const html = renderToStaticMarkup(<StatusPill label="Week 3 of 12" voiceLabel="Half marathon, week 3 of 12. Open Fitness" chevron="right" onPress={() => {}} />);
     expect(html).toContain('aria-label="Half marathon, week 3 of 12. Open Fitness"');
     expect(html).toContain('status-pill-label');
+    expect(html).not.toContain('aria-pressed');
+  });
+  it('a pill with a glyph leads with it, hidden from VoiceOver, and one that stays on says whether it is', () => {
+    const html = renderToStaticMarkup(<StatusPill glyph={<i />} label="Tilt" voiceLabel="Tilt. Gravity follows the phone" pressed={false} onPress={() => {}} />);
+    expect(html).toMatch(/aria-pressed="false"[^>]*><span class="status-pill-glyph" aria-hidden="true"><i><\/i><\/span><span class="status-pill-label">Tilt<\/span><\/button>$/);
+    expect(renderToStaticMarkup(<StatusPill glyph={<i />} label="Float" pressed onPress={() => {}} />)).toContain('aria-pressed="true"');
   });
 });
