@@ -1,23 +1,21 @@
 /**
- * The dome's numbers, in one place: the glass, the weight of a sphere, how it bounces, slides and comes to rest, how a
- * finger holds it, what the three keys do, when a hit is felt, and how much the glass may hold. Nothing here touches the
- * DOM. Lengths are dome units: the glass is always `GLASS.w` units wide, whatever the phone, and is drawn scaled to fit,
- * so the same store settles into the same pile on every phone.
+ * The oculus's numbers, in one place: the round window, the weight of an Orb, how it bounces, rolls and comes to rest,
+ * how a finger holds it, what the three pills do, when a hit is felt, and how much the window may hold. Nothing here
+ * touches the DOM. Lengths are oculus units: the window is always `OCULUS.d` units across, whatever the phone, and is
+ * drawn scaled to fit, so the same store settles into the same pile on every phone.
  *
- * The four an owner is most likely to tune by thumb: `BOUNCE.sphere` (the clack), `FRICTION.floor` (how far a sphere
- * rolls), `HOLD.stiffness` (how tightly a held sphere follows the finger) and `FLING.gain` (how hard a flick throws).
+ * The four an owner is most likely to tune by thumb: `BOUNCE.orb` (the clack), `ROLL.drag` (how long an Orb rocks in
+ * the bowl of the circle), `HOLD.stiffness` (how tightly a held Orb follows the finger) and `FLING.gain` (how hard a
+ * flick throws).
  */
 
-// ---------- the glass ----------
-export const GLASS = {
-  /** The glass's inner width, in dome units. Its top is a half circle of half this. */
-  w: 334,
-  /** The least height the glass is ever given, in dome units: the fill limit is worked out against this one. */
-  minH: 388,
-  /** The glass's height on the page: 56 percent of the screen, 440 px at most, and 96 px of page left between it and the dock for a thumb to scroll by. Written in dome.css (`--dm-h`); a test holds the two together. */
-  share: 56,
-  mostPx: 440,
-  pageLeft: 96,
+// ---------- the oculus ----------
+export const OCULUS = {
+  /** The window's diameter, in oculus units. On a 390 pt phone a unit is a point: a to-do's Orb is 22 pt across. */
+  d: 280,
+  /** Its diameter on the page: this many px at most, and the card's width less this much room at its sides. Written in dome.css (`--dm-d`); a test holds the two together. */
+  mostPx: 280,
+  sidePx: 40,
   /** The canvas is drawn at the screen's own pixel ratio, up to this. */
   dprCap: 3,
 } as const;
@@ -29,48 +27,60 @@ export const TIME = {
   /** The most simulated time one frame may ask for, in seconds: a stalled frame slows the pile, it never throws it. */
   maxFrame: 1 / 20,
 } as const;
-/** Gravity, in units per second squared: a sphere falls the glass in about half a second. */
+/** Gravity, in units per second squared: an Orb falls the height of the window in about half a second. */
 export const GRAVITY = 2400;
-/** Nothing moves faster than this, in units per second: under one small radius per step, so no sphere passes through another. */
+/** Nothing moves faster than this, in units per second: under one small radius per step, so no Orb passes through another. */
 export const MAX_SPEED = 3000;
-/** The share of its speed a sphere loses to the air each second. */
+/** The share of its speed an Orb loses to the air each second. */
 export const AIR = 0.35;
 
 // ---------- the clack ----------
 export const BOUNCE = {
-  /** How much of its closing speed a sphere keeps off another sphere (glass on glass). */
-  sphere: 0.36,
-  /** The same off the glass and the floor. */
-  glass: 0.32,
+  /** How much of its closing speed an Orb keeps off another Orb. */
+  orb: 0.36,
+  /** The same off the rim. */
+  rim: 0.32,
   /** Below this closing speed nothing bounces, in units per second: a pile that is nearly still goes still. */
   floor: 70,
   /** While floating, bumps are softer and lose less. */
   floating: 0.55,
-  /** Off a sphere a finger is holding: almost none, so dragging one through a pile pushes it aside instead of scattering it. */
+  /** Off an Orb a finger is holding: almost none, so dragging one through a pile pushes it aside instead of scattering it. */
   held: 0.08,
 } as const;
 
 // ---------- the roll ----------
 export const FRICTION = {
-  /** Sphere against sphere: low, so a heap levels the way marbles do. */
-  sphere: 0.1,
-  /** Against the glass's walls and round top. */
-  glass: 0.12,
-  /** Along the floor: what stops a rolling sphere (about 0.4 s from a brisk roll). */
-  floor: 0.22,
+  /** Orb against Orb: low, so a heap levels the way marbles do. */
+  orb: 0.1,
+  /** Against the rim: only what brings the last of a roll to a stop. An Orb on the curve rolls; it does not stick to the slope. */
+  rim: 0.006,
+} as const;
+export const ROLL = {
+  /** The share of its speed along the rim an Orb loses each second while it rolls on it: one Orb let go on the slope swings past the lowest point once or twice and is still there inside two seconds. */
+  drag: 4,
+  /** How fast an Orb's turning takes up the rolling its contacts ask for, per second. Its angle is read from its motion against what it touches; nothing is pushed by it. */
+  grip: 40,
+  /** The share of its turning an Orb in the air loses each second. */
+  air: 0.6,
+  /** A held Orb stops turning: the finger has it. Per second. */
+  held: 12,
+  /** Nothing turns faster than this, in radians per second. */
+  max: 60,
+  /** How far an Orb lying in the pile when the page opens has turned from upright, at most, as a share of a full turn either way. */
+  lying: 0.3,
 } as const;
 
 // ---------- coming to rest ----------
 export const REST = {
-  /** A sphere that has stayed inside a circle of this radius, in units, among neighbors that have too, is on its way to sleep. */
+  /** An Orb that has stayed inside a circle of this radius, in units, among neighbors that have too, is on its way to sleep. */
   drift: 0.7,
   /** For this long, in seconds. */
   after: 0.3,
-  /** A sleeping sphere wakes when something closes on it faster than this, in units per second. */
+  /** A sleeping Orb wakes when something closes on it faster than this, in units per second. */
   wake: 14,
   /** And only something that left its own small circle within this many seconds: something really moving. */
   moving: 0.06,
-  /** The most a step may push two overlapping spheres apart, in units: more than the fastest sphere closes in a step, so motion alone never leaves an overlap, and a deep one (a full glass) eases out over a few steps. */
+  /** The most a step may push two overlapping Orbs apart, in units: more than the fastest Orb closes in a step, so motion alone never leaves an overlap, and a deep one (a full window) eases out over a few steps. */
   push: 8,
   /** The longest the pile is simulated before the first paint, in seconds. */
   settle: 6,
@@ -78,15 +88,15 @@ export const REST = {
 
 // ---------- the finger ----------
 export const HOLD = {
-  /** How far outside a sphere a touch still takes it, in px. */
+  /** How far outside an Orb a touch still takes it, in px. */
   slop: 14,
-  /** A held sphere closes this share of its distance to the finger each second (higher is tighter). */
+  /** A held Orb closes this share of its distance to the finger each second (higher is tighter). */
   stiffness: 40,
-  /** The fastest the finger can move a held sphere, in units per second. */
+  /** The fastest the finger can move a held Orb, in units per second. */
   speed: 2600,
-  /** The finger's strength: the most it can change a held sphere's speed, in units per second squared. Against a pile it leans, it does not hammer. */
+  /** The finger's strength: the most it can change a held Orb's speed, in units per second squared. Against a pile it leans, it does not hammer. */
   force: 90000,
-  /** A held sphere pushes like one this many times its weight, so a pile gives way without being thrown. */
+  /** A held Orb pushes like one this many times its weight, so a pile gives way without being thrown. */
   weight: 5,
   /** A touch that moved less than this, in px, and lifted within `tapMs`, is a tap: it shows the caption. */
   tapPx: 8,
@@ -97,30 +107,32 @@ export const HOLD = {
 export const FLING = {
   /** The finger's speed is read over its last samples inside this window, in ms. */
   windowMs: 90,
-  /** The share of the finger's speed the sphere leaves with. */
+  /** The share of the finger's speed the Orb leaves with. */
   gain: 1,
   /** The fastest a flick throws, in units per second. */
   max: 2600,
 } as const;
 
-// ---------- the keys ----------
+// ---------- the pills ----------
 export const STIR = {
-  /** The lift each sphere is given, in units per second: about two thirds of the glass. */
-  lift: 1050,
+  /** The lift each Orb is given, in units per second: about half the window. */
+  lift: 820,
   /** The turn about the middle of the pile, in radians per second. */
   turn: 5.2,
-  /** Each sphere's own share of the lift, from this to 1. */
+  /** Each Orb's own share of the lift, from this to 1. */
   spread: 0.55,
 } as const;
 export const FLOAT = {
-  /** The drift's top speed, in units per second. */
-  speed: 34,
-  /** How fast a sphere takes up the drift, per second. */
-  pull: 1.4,
-  /** How hard a sphere is drawn to its own height, per second squared. */
+  /** How hard an Orb is drawn to its own place in the window, per second squared. */
   lift: 2.6,
   /** The air is thicker while floating. */
   air: 1.1,
+  /** Each Orb's place goes round the middle of the window, this many radians a second at most (some one way, some the other). */
+  turn: 0.07,
+  /** And rides up and down by this much, in units. */
+  bob: 10,
+  /** The fastest a floating Orb turns, in radians per second: a slow drift, never a spin. */
+  spin: 0.3,
 } as const;
 export const TILT = {
   /** The share of the phone's lean at which gravity is whole: about a 30 degree lean. Flatter than that it fades to nothing. */
@@ -129,16 +141,16 @@ export const TILT = {
   follow: 10,
   /** A resting pile wakes when gravity has turned by more than this share of itself. */
   wake: 0.08,
-  /** No reading for this long after the key, in ms, and Tilt is off. */
+  /** No reading for this long after the pill, in ms, and Tilt is off. */
   waitMs: 1500,
 } as const;
 
 // ---------- what is felt ----------
 export const FELT = {
-  /** Two spheres closing faster than this, in units per second, are a `tick`. */
+  /** Two Orbs closing faster than this, in units per second, or one landing on the rim, are a `tick`. */
   clack: 260,
-  /** A sphere meeting the glass faster than this is a `select`. */
-  glass: 900,
+  /** An Orb meeting the rim faster than this is a `select`. */
+  rim: 900,
   /** The least time between two of these, in ms (the `tick` itself allows one per 100 ms). */
   gapMs: 100,
   /** Today's Orbs landing on open: this many get an `orb`, the rest a `tick`. */
@@ -151,21 +163,22 @@ export const DROP = {
   everyMs: 90,
   /** The first one waits this long after the first paint, in ms. */
   afterMs: 260,
-  /** Each starts this far to one side of the middle at most, in units. */
-  spread: 46,
+  /** Each starts this far to one side of the middle at most, in units, and this far under the top of the window. */
+  spread: 22,
+  under: 12,
 } as const;
 
-// ---------- what the glass may hold ----------
+// ---------- what the window may hold ----------
 export const FILL = {
-  /** The share of the glass the spheres may cover: past it, older Orbs fuse further. */
+  /** The share of the circle's area the Orbs may cover: past it, older Orbs fuse further. */
   limit: 0.6,
-  /** Earlier weeks kept as one sphere each before they join their chapter. */
+  /** Earlier weeks kept as one Orb each before they join their chapter. */
   weeks: 4,
   /** A chapter is four weeks; a year is this many chapters (364 days). */
   yearChapters: 13,
 } as const;
 
-// ---------- how big each Orb is, in dome units ----------
+// ---------- how big each Orb is: its radius, in oculus units ----------
 export const RADIUS = {
   todo: 11,
   habit: 11,
@@ -180,16 +193,16 @@ export const RADIUS = {
   back: 15,
   /** A week that counts and a challenge: from 5 Orbs to 20. */
   bonus: [17, 22] as readonly [number, number],
-  /** A fused week, by its total (the second number is the total at which it is largest). */
-  week: [18, 26] as readonly [number, number],
+  /** An earlier week as one Orb, by its total (the second number is the total at which it is largest). */
+  week: [15, 22] as readonly [number, number],
   weekTop: 150,
-  chapter: [28, 34] as readonly [number, number],
+  chapter: [23, 29] as readonly [number, number],
   chapterTop: 600,
-  year: 40,
+  year: 34,
 } as const;
 
 /**
  * How long Float stays on by itself (ms). A floating pile draws every frame; left on with the phone on a desk it lets
- * go again after this, quietly. A touch in the glass or on a key starts the time again.
+ * go again after this, quietly.
  */
 export const FLOAT_LASTS_MS = 90_000;

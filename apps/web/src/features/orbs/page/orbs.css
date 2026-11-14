@@ -1,12 +1,12 @@
 /*
  * The Orbs page and "How Orbs work" (layout standard 2.13). Every value is a brand token or a size of a drawing. Nothing
- * here animates: the dome has its own sheet (features/orbs/dome/dome.css), and a press is the app's one press.
+ * here animates: the poster's oculus has its own sheet (features/orbs/dome/dome.css), and a press is the app's one press.
  *
- * The page, top to bottom: the dome (the glass, then the total and the level on its console), the week on Paper under
- * it, one inset group while it has rows, the keepsakes, then "How Orbs work" and the switches.
+ * The page, top to bottom: the poster (the total, the oculus, the level on its band), the week on Paper under the band,
+ * the pills, one inset group while it has rows, the keepsakes, then "How Orbs work" and the switches.
  */
 
-/* ---------- the week, on Paper under the dome's console ----------
+/* ---------- the week, on Paper under the band ----------
    Seven 12 pt marks over their letters, from the card's own left edge. A counted day is a Deep Sky disc with a check; any
    other day is an open ring. Today's ring and letter are Night Ink until it counts. */
 .orp-count {

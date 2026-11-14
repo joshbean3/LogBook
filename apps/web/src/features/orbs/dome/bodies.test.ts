@@ -1,8 +1,9 @@
 import { addKeepsakes, daysBetween, emptyRewards, keepsakesDue, mondayOf, reconcile, RULES, shiftDays, totalOf, type Aim, type DayFacts, type Rewards } from '@logbook/shared';
 import { describe, expect, it } from 'vitest';
-import { areaOf, domeBodies, domeBodiesUnder, domeSaid, FILL_AREA, GLASS_AREA, PLANS, type DomeBody } from './bodies';
+import { gemFor } from '../gems';
+import { areaOf, domeBodies, domeBodiesUnder, domeSaid, FILL_AREA, OCULUS_AREA, PLANS, type DomeBody } from './bodies';
 import { createWorld, pour, resting, settle } from './physics';
-import { FILL, GLASS, RADIUS } from './rules';
+import { FILL, OCULUS, RADIUS } from './rules';
 
 const U = 'u_owner';
 const START = RULES.startsOn; // a Monday
@@ -46,7 +47,7 @@ const stores = {
   mostYear: live(at(52, 6), most, monthGoals),
 };
 
-describe('the sum of every sphere is the total', () => {
+describe('the worth of every body adds up to the total', () => {
   it('for every store, on every day of a week, with Fitness on or off', () => {
     for (const [name, s] of Object.entries(stores)) {
       for (let k = 0; k < 9; k++) {
@@ -70,7 +71,7 @@ describe('the sum of every sphere is the total', () => {
         expect(areaOf(bodies)).toBeLessThanOrEqual(room + 1e-6);
         room = areaOf(bodies);
       }
-      // the last plan is today's awards, what was paid once this week, and at most two spheres for everything before
+      // the last plan is today's awards, what was paid once this week, and at most two bodies for everything before
       const last = domeBodiesUnder(s, s.clock, PLANS.length - 1);
       expect(last.filter((b) => b.tier !== 'award').length).toBeLessThanOrEqual(2);
       expect(last.filter((b) => b.tier === 'award').every((b) => b.date === s.clock || b.id.startsWith('o:'))).toBe(true);
@@ -92,21 +93,21 @@ describe('the sum of every sphere is the total', () => {
     const bodies = domeBodies(s, today);
     expect(sum(bodies)).toBe(totalOf(s));
     expect(sum(bodies)).toBe(12 + 9 + 7 + 7 + 5 + 30);
-    // yesterday's 9 are 2 to-dos, 3 habits and one sphere for the 4 its kinds do not account for
+    // yesterday's 9 are 2 to-dos, 3 habits and one body for the 4 its kinds do not account for
     expect(bodies.filter((b) => b.date === shiftDays(today, -1)).map((b) => [b.key, b.worth])).toEqual([['todo', 1], ['todo', 1], ['habit', 1], ['habit', 1], ['habit', 1], ['fused:week', 4], [`week:${START}`, 5]]);
     // the first week holds its day and the month goal paid in it
     expect(of(bodies, 'week').map((b) => b.worth)).toEqual([42]);
   });
-  it('an empty store is an empty glass', () => {
+  it('an empty store is an empty window', () => {
     expect(domeBodies(emptyRewards(U, START), START)).toEqual([]);
     expect(domeBodies(emptyRewards(U, START), shiftDays(START, -4))).toEqual([]);
   });
 });
 
-describe('this week is one sphere per award', () => {
+describe('this week is one body per award', () => {
   const s = stores.oneDay;
   const bodies = domeBodies(s, START);
-  it('a to-do and a habit are 1 each, today’s goal one sphere worth 3, a full day one worth 5', () => {
+  it('a to-do and a habit are 1 each, today’s goal one worth 3, a full day one worth 5', () => {
     expect(bodies.map((b) => [b.key, b.worth, b.r])).toEqual([
       ['todo', 1, RADIUS.todo],
       ['todo', 1, RADIUS.todo],
@@ -118,7 +119,7 @@ describe('this week is one sphere per award', () => {
     ]);
     expect(bodies.every((b) => b.tier === 'award' && b.fresh)).toBe(true);
   });
-  it('a session is one sphere worth 3, or 2 and smaller at its floor', () => {
+  it('a session is one worth 3, or 2 and smaller at its floor', () => {
     const run = live(START, () => ({ train: { run: 'done', lift: 'floor' } }));
     expect(domeBodies(run, START).map((b) => [b.key, b.worth, b.r])).toEqual([
       ['train:run', 3, RADIUS.train],
@@ -131,7 +132,7 @@ describe('this week is one sphere per award', () => {
     expect(next.map((b) => b.caption).slice(-2)).toEqual(['A day’s goal · Mon, Nov 16', 'A full day · Mon, Nov 16']);
     expect(next.every((b) => !b.fresh)).toBe(true);
   });
-  it('a sphere keeps its id when another is earned, and only today’s drop in', () => {
+  it('a body keeps its id when another is earned, and only today’s drop in', () => {
     const before = domeBodies(stores.sixWeeks, stores.sixWeeks.clock);
     const more = reconcile(stores.sixWeeks, [{ ...base(stores.sixWeeks.clock), ...usual('', daysBetween(START, stores.sixWeeks.clock)), todosDone: 5, habitsDone: 4, habitsLiveDone: 4 }], new Date(`${stores.sixWeeks.clock}T15:00:00`)).store;
     const after = domeBodies(more, more.clock);
@@ -143,15 +144,15 @@ describe('this week is one sphere per award', () => {
     expect(fresh.every((b) => b.date === more.clock)).toBe(true);
     expect(after.filter((b) => !b.fresh).every((b) => b.date < more.clock)).toBe(true);
   });
-  it('each Orb’s own shift is one of five steps, the same for the same sphere every time', () => {
+  it('each Orb’s drawing is its kind’s own, the same for the same body every time (what it looks like is the family’s business)', () => {
     const all = domeBodies(stores.sixWeeks, stores.sixWeeks.clock);
-    expect(all.every((b) => [-1, -0.5, 0, 0.5, 1].includes(b.gem.shift))).toBe(true);
     expect(domeBodies({ ...stores.sixWeeks }, stores.sixWeeks.clock).map((b) => b.gem)).toEqual(all.map((b) => b.gem));
+    for (const b of all) expect(b.gem).toEqual(gemFor(b.key, b.id, b.gem.stars === undefined ? undefined : { stars: b.gem.stars }));
   });
 });
 
 describe('the past fuses', () => {
-  it('six weeks in: this week’s awards, then one sphere for each earlier week, with a star per day that counted', () => {
+  it('six weeks in: this week’s awards, then one body for each earlier week', () => {
     const s = stores.sixWeeks;
     const bodies = domeBodies(s, s.clock);
     const weeks = of(bodies, 'week');
@@ -159,18 +160,18 @@ describe('the past fuses', () => {
     expect(of(bodies, 'chapter')).toHaveLength(0);
     expect(weeks.map((b) => b.date)).toEqual([0, 1, 2, 3, 4, 5].map((w) => shiftDays(START, w * 7)));
     expect(weeks[0]!.caption).toMatch(/^Week of Nov 16 · \d+ Orbs · \d days$/);
-    expect(weeks.every((b) => b.key === 'fused:week' && b.r >= RADIUS.week[0] && b.r <= RADIUS.week[1] && (b.gem.stars ?? 0) >= 1 && (b.gem.stars ?? 0) <= 7)).toBe(true);
-    // the oldest are poured first and lie at the bottom; this week's are on top, today's last
+    expect(weeks.every((b) => b.key === 'fused:week' && b.r >= RADIUS.week[0] && b.r <= RADIUS.week[1])).toBe(true);
+    // the oldest are poured first and lie lowest; this week's are on top, today's last
     expect(bodies.findIndex((b) => b.tier === 'award')).toBe(weeks.length);
     expect(bodies.slice(bodies.findIndex((b) => b.fresh)).every((b) => b.fresh)).toBe(true);
-    // a week's sphere holds its days and what was paid once in it
+    // a week's body holds its days and what was paid once in it
     const first = shiftDays(START, 0);
     let held = 0;
     for (let i = 0; i < 7; i++) held += s.days[shiftDays(first, i)]?.n ?? 0;
     for (const k in s.once) if (mondayOf(s.once[k]!.on) === first) held += s.once[k]!.n;
     expect(weeks[0]!.worth).toBe(held);
   });
-  it('past the last four weeks a chapter is one sphere, named as its keepsake is', () => {
+  it('past the last four weeks a chapter is one body, named as its keepsake is', () => {
     const today = at(9);
     const s = live(today, usual);
     const bodies = domeBodies(s, today);
@@ -180,15 +181,18 @@ describe('the past fuses', () => {
     expect(of(bodies, 'chapter')[0]!.date).toBe(START);
     expect(bodies[0]!.tier).toBe('chapter');
   });
-  it('a year in: chapters for the year, weeks for the last few, awards for this one', () => {
+  it('a year in: the newest chapters apart, what is older as one, weeks for the last few, awards for this one', () => {
     const s = stores.lightYear;
     const bodies = domeBodies(s, s.clock);
-    expect(of(bodies, 'year')).toHaveLength(0);
-    expect(of(bodies, 'chapter').length).toBeGreaterThanOrEqual(11);
+    expect(of(bodies, 'chapter').length).toBeGreaterThanOrEqual(4);
+    expect(of(bodies, 'year')).toHaveLength(1);
     expect(of(bodies, 'week').length).toBeGreaterThanOrEqual(FILL.weeks);
     expect(of(bodies, 'week').length).toBeLessThanOrEqual(FILL.weeks + 3);
+    expect(of(bodies, 'award').length).toBeGreaterThan(15);
+    // in the order they are poured: the oldest stretch, the chapters oldest first, the weeks, this week
+    expect(bodies.map((b) => b.tier).filter((t, i, all) => t !== all[i - 1])).toEqual(['year', 'chapter', 'week', 'award']);
   });
-  it('two years in: what is older than a year is one sphere, and it says the months it holds', () => {
+  it('two years in: what is older than a year is one body a year, and each says the months it holds', () => {
     const s = stores.twoYears;
     const bodies = domeBodies(s, s.clock);
     const years = of(bodies, 'year');
@@ -200,7 +204,7 @@ describe('the past fuses', () => {
   });
 });
 
-describe('the glass is never more than about 60 percent full', () => {
+describe('the circle is never more than 60 percent covered', () => {
   it('for a year and for two, light, usual and with everything the rules pay', () => {
     for (const [name, s] of Object.entries(stores)) {
       for (let k = 0; k < 8; k++) {
@@ -208,18 +212,34 @@ describe('the glass is never more than about 60 percent full', () => {
         expect(areaOf(domeBodies(s, today)), `${name} +${k}`).toBeLessThanOrEqual(FILL_AREA);
       }
     }
-    expect(FILL_AREA / GLASS_AREA).toBeCloseTo(FILL.limit, 6);
+    expect(FILL_AREA / OCULUS_AREA).toBeCloseTo(FILL.limit, 6);
   });
-  it('at the limit the past gives way first: this week stays one sphere per award', () => {
+  it('at the limit the past gives way first: this week stays one body per award', () => {
+    for (const s of [stores.year, stores.twoYears]) {
+      const bodies = domeBodies(s, s.clock);
+      const whole = domeBodiesUnder(s, s.clock, 0);
+      expect(areaOf(whole)).toBeGreaterThan(FILL_AREA);
+      expect(of(bodies, 'award')).toEqual(of(whole, 'award'));
+      expect(of(bodies, 'day')).toHaveLength(0);
+      expect(of(bodies, 'week')).toEqual(of(whole, 'week'));
+      expect(of(bodies, 'chapter').length).toBeLessThan(of(whole, 'chapter').length);
+      expect(of(bodies, 'chapter').length).toBeGreaterThanOrEqual(2);
+    }
+    // with less to hold, more of the past is kept apart
+    const count = (s: Rewards) => of(domeBodies(s, s.clock), 'chapter').length;
+    expect(count(stores.lightYear)).toBeGreaterThan(count(stores.twoYears));
+  });
+  it('a week of everything the rules pay is more than the window holds: today stays one per award, each earlier day of the week is one', () => {
     const s = stores.mostYear;
     const bodies = domeBodies(s, s.clock);
-    // a week of everything is most of the glass by itself
-    expect(of(bodies, 'award').length).toBeGreaterThan(100);
-    expect(of(bodies, 'chapter').length + of(bodies, 'year').length + of(bodies, 'week').length).toBeLessThan(12);
+    expect(areaOf(of(domeBodiesUnder(s, s.clock, 0), 'award'))).toBeGreaterThan(FILL_AREA);
+    expect(of(bodies, 'award').length).toBeGreaterThan(12);
+    expect(of(bodies, 'award').every((b) => b.date === s.clock || b.id.startsWith('o:'))).toBe(true);
+    expect(of(bodies, 'day')).toHaveLength(6);
+    expect(of(bodies, 'day').map((b) => b.caption)).toEqual(expect.arrayContaining([expect.stringMatching(/^Mon, \w{3} \d+ · \d+ Orbs$/)]));
+    expect(of(bodies, 'chapter').length + of(bodies, 'week').length).toBe(0);
+    expect(of(bodies, 'year')).toHaveLength(1);
     expect(sum(bodies)).toBe(totalOf(s));
-    // with less to hold, more of the past is kept apart
-    const lightly = domeBodies(stores.lightYear, stores.lightYear.clock);
-    expect(of(lightly, 'chapter').length).toBeGreaterThan(of(bodies, 'chapter').length);
   });
   it('ten years of everything still fits, and still adds up', () => {
     // not lived a day at a time (that is 3,650 passes): a store of the same shape, written out
@@ -232,34 +252,36 @@ describe('the glass is never more than about 60 percent full', () => {
     expect(areaOf(bodies)).toBeLessThanOrEqual(FILL_AREA);
     expect(bodies.length).toBeLessThan(160);
   });
-  it('what fits by area also settles inside the smallest glass, with room over it', () => {
+  it('what fits by area also settles inside the circle, with room over it', () => {
     for (const s of [stores.mostYear, stores.twoYears]) {
       const bodies = domeBodies(s, s.clock);
-      const W = createWorld(GLASS.w, GLASS.minH);
+      const W = createWorld(OCULUS.d);
       pour(W, bodies.map((b) => b.r));
       settle(W);
       expect(resting(W)).toBe(true);
-      let top = W.h;
+      let top = W.d;
       for (let i = 0; i < W.n; i++) top = Math.min(top, W.y[i]! - W.r[i]!);
-      // the pile's top is below the top fifth of the glass: today's Orbs have somewhere to fall from
-      expect(top).toBeGreaterThan(W.h * 0.12);
+      // the pile's top is below the top of the circle: today's Orbs have somewhere to fall from
+      expect(top).toBeGreaterThan(W.d * 0.12);
     }
   });
 });
 
 describe('which plan each store gets', () => {
-  it('a light year and two usual years keep their chapters; a year of everything gives up the past', () => {
+  it('six weeks keep everything apart; a year and two keep some chapters; a year of everything gives up the past and the week’s own days', () => {
     const planOf = (s: Rewards) => PLANS.findIndex((_p, i) => areaOf(domeBodiesUnder(s, s.clock, i)) <= FILL_AREA);
+    const chapters = (s: Rewards) => PLANS[planOf(s)]!.chapters;
     expect(planOf(stores.oneDay)).toBe(0);
     expect(planOf(stores.sixWeeks)).toBe(0);
-    expect(planOf(stores.lightYear)).toBe(0);
-    expect(planOf(stores.year)).toBeLessThanOrEqual(3);
-    expect(planOf(stores.mostYear)).toBeGreaterThan(3);
+    expect(chapters(stores.lightYear)).toBeGreaterThanOrEqual(4);
+    expect(chapters(stores.year)).toBeGreaterThanOrEqual(2);
+    expect(chapters(stores.twoYears)).toBeGreaterThanOrEqual(2);
+    expect(PLANS[planOf(stores.mostYear)]).toEqual({ chapters: 0, merge: true, weeks: 0, days: 'day' });
   });
 });
 
 describe('the same every time', () => {
-  it('the same store and day give the same spheres, whatever order its keys were written in', () => {
+  it('the same store and day give the same bodies, whatever order its keys were written in', () => {
     const s = stores.year;
     const shuffled: Rewards = { ...s, days: Object.fromEntries(Object.entries(s.days).reverse()), once: Object.fromEntries(Object.entries(s.once).reverse()) };
     expect(domeBodies(shuffled, s.clock)).toEqual(domeBodies(s, s.clock));
@@ -275,7 +297,7 @@ describe('in words', () => {
     expect(six.summary).toMatch(/^[\d,]+ Orbs\. This week: \d+ habits, \d+ to-dos, \d runs?, \d days’ goals, \d full days?(, 1 week that counts)?\. 6 earlier weeks\.$/);
     expect(six.items).toHaveLength(6);
     expect(six.items[0]).toMatch(/^Week of Dec 21 · /);
-    expect(domeSaid(stores.twoYears, stores.twoYears.clock).summary).toMatch(/\d+ earlier weeks, \d+ chapters, 1 longer stretch\.$/);
+    expect(domeSaid(stores.twoYears, stores.twoYears.clock).summary).toMatch(/\d+ earlier weeks, \d+ chapters, 2 longer stretches\.$/);
   });
   it('with Fitness off nothing names training', () => {
     const s = stores.sixWeeks;

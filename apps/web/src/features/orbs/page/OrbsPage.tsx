@@ -57,14 +57,15 @@ const GoalSheet = ({ n }: { n: number }): React.JSX.Element => (
  * The Orbs page (`/orbs`, pushed over Today): what has been earned, in the order the eye should take it.
  *
  *   1. The bar: Back, "Orbs".
- *   2. The dome (features/orbs/dome): every Orb earned as a sphere in a glass a finger can play with; under it the
- *      console with the total, the level on a dial and the keys Tilt, Stir and Float; then, on Paper in the same card,
- *      this week's seven marks and one line of fact.
+ *   2. The poster (features/orbs/dome): the total where a poster's title stands; in its scene the oculus, a round
+ *      window holding every Orb earned as a flat form a finger can play with, the level as a thin arc on its edge;
+ *      the band "LEVEL 5" over "216 to level 6"; then, on Paper in the same card, this week's seven marks and one
+ *      line of fact. Under the card, on the ground, the pills Tilt, Stir and Float.
  *   3. One inset group, only while it has rows: today's Orbs, anything new that is not a keepsake, the challenges.
  *   4. Keepsakes: earned ones only, and one dashed ring for what comes next.
  *   5. "How Orbs work" and the switches.
  *
- * Before the first Orb it is the empty glass with one sentence, the rule, and the last group: no grid, no zero.
+ * Before the first Orb it is the empty window with one sentence, the rule, and the last group: no grid, no zero.
  * With Orbs off it is not a place: it leaves for Today.
  */
 export default function OrbsPage(): React.JSX.Element {
@@ -185,9 +186,9 @@ export default function OrbsPage(): React.JSX.Element {
   return (
     <div className="page orp-page">
       <PushedBar title="Orbs" />
-      {/* the dome draws on a canvas: if it ever fails, the page keeps the week's numbers below it and everything else */}
+      {/* the oculus draws on a canvas: if it ever fails, the page keeps everything under it */}
       <SectionBoundary name="orbs.dome" resetKey={today}>
-        <Dome store={store} today={today} total={total} level={level} fitness={fitness} empty={empty ? { line: waiting ? `Orbs start ${starts}` : 'Finish one thing and it lands here.', note: waiting ? longDate(store.startedOn, today) : undefined, rule: ruleLine(target) } : null}>
+        <Dome store={store} today={today} total={total} level={level} fitness={fitness} empty={empty ? { title: waiting ? `Orbs start ${starts}` : 'Your first Orb', line: waiting ? longDate(store.startedOn, today) : 'Finish one thing and it lands here.', rule: ruleLine(target) } : null}>
           {week}
         </Dome>
       </SectionBoundary>

@@ -4,15 +4,24 @@ import type * as React from 'react';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { haptics } from '@/lib/haptics';
 import { useReduced } from '@/lib/motion';
-import { Pressable } from '@/ui/Pressable';
+import { Poster, PosterScene } from '@/ui/poster';
+import { StatusPill } from '@/ui/primitives';
 import { useToast } from '@/ui/Toast';
+import { levelBand, levelProgress } from '../page/model';
 import { domeBodies, domeSaid } from './bodies';
-import { Gauge } from './Gauge';
-import { FLOAT_LASTS_MS } from './rules';
+import { FLOAT_LASTS_MS, OCULUS } from './rules';
 import { createStage, type Stage } from './stage';
 import './dome.css';
 
 const num = (n: number): string => n.toLocaleString('en-US');
+const orbs = (n: number): string => `${num(n)} ${n === 1 ? 'Orb' : 'Orbs'}`;
+
+/** The drawing over the window, in the window's own units: its edge, and the level's arc on that edge. */
+const D = OCULUS.d;
+const EDGE = 1.5;
+const ARC = 3;
+/** The rings round the window, as shares of its radius, nearest first. */
+const RINGS = [1.14, 1.34, 1.56] as const;
 
 export interface DomeProps {
   store: Rewards;
@@ -20,28 +29,33 @@ export interface DomeProps {
   /** Every Orb ever earned, and the level it makes. */
   total: number;
   level: Level;
-  /** Is Fitness on (default yes)? Off: nothing in the glass names training. */
+  /** Is Fitness on (default yes)? Off: nothing in the window names training. */
   fitness?: boolean;
-  /** Before the first Orb: the one line under the empty glass, a quieter line after it, and the rule. */
-  empty?: { line: string; note?: string; rule: string } | null;
-  /** What stands on Paper under the console, in the same card: the week. */
+  /** Before the first Orb: the poster's title, the line under it, and the rule for the band. */
+  empty?: { title: string; line: string; rule: string } | null;
+  /** What stands on Paper under the band, in the same card: the week. */
   children?: ReactNode;
 }
 
 /**
- * The dome: a glass on a console, holding every Orb the person has earned as a sphere with weight (bodies.ts says which
- * spheres; stage.ts makes them fall, roll and be taken by a finger). Under the glass the console reads the total and the
- * level on a dial, and carries three keys: Tilt (gravity follows the phone, asked for on that tap and never before),
- * Stir (one upward swirl) and Float (gravity lets go).
+ * The Orbs page's poster, with a round window in it (the oculus). The poster kit's own card: the total where a poster's
+ * title stands, the pale sky running down to the horizon and the hills, and the band with the level's words. In the
+ * scene, clear of the hills, the oculus: one circle with thin white rings round it, holding every Orb the person has
+ * earned as a flat form with weight (bodies.ts says which; stage.ts makes them fall, roll along the curve and be taken
+ * by a finger). On the window's edge a thin Apricot arc from twelve o'clock is the way to the next level.
  *
- * The glass is a picture: hidden from VoiceOver, which hears the same in words (the total, this week by kind, how much
- * of the past) and reaches the keys as buttons. With Reduce Motion the pile is drawn at rest and the keys are not
- * drawn; a tap still names a sphere. Before the first Orb the glass is empty and one line says what will fill it.
+ * Under the poster, on the ground, three glass pills: Tilt (gravity follows the phone, asked for on that tap and never
+ * before), Stir (one upward swirl) and Float (gravity lets go).
+ *
+ * The window is a picture: hidden from VoiceOver, which hears the same in words (the total, this week by kind, how much
+ * of the past) and reaches the pills as buttons. With Reduce Motion the pile is drawn at rest, every form upright, and
+ * the pills are not drawn; a tap still names an Orb. Before the first Orb the window is empty and one line says what
+ * will fill it.
  */
 export const Dome = ({ store, today, total, level, fitness = true, empty, children }: DomeProps): React.JSX.Element => {
   const reduce = useReduced();
   const toast = useToast();
-  const glass = useRef<HTMLDivElement>(null);
+  const oculus = useRef<HTMLDivElement>(null);
   const canvas = useRef<HTMLCanvasElement>(null);
   const caption = useRef<HTMLDivElement>(null);
   const stage = useRef<Stage | null>(null);
@@ -55,8 +69,8 @@ export const Dome = ({ store, today, total, level, fitness = true, empty, childr
   const told = useRef(false);
 
   useEffect(() => {
-    if (!glass.current || !canvas.current || !caption.current) return;
-    const s = createStage({ glass: glass.current, canvas: canvas.current, caption: caption.current }, { reduce });
+    if (!oculus.current || !canvas.current || !caption.current) return;
+    const s = createStage({ oculus: oculus.current, canvas: canvas.current, caption: caption.current }, { reduce });
     stage.current = s;
     s.setBodies(latest.current);
     return () => {
@@ -107,26 +121,27 @@ export const Dome = ({ store, today, total, level, fitness = true, empty, childr
     return () => window.clearTimeout(t);
   }, [float]);
 
-  return (
-    <section className={`dm${empty ? ' is-empty' : ''}`}>
-      <div className="dm-stage">
-        <div className="dm-dome">
-          <div ref={glass} className="dm-glass" aria-hidden="true" data-still={reduce || undefined}>
-            <span className="dm-sky" />
-            <svg className="dm-orbits" viewBox="0 0 334 334" focusable="false">
-              <ellipse cx="236" cy="118" rx="74" ry="24" transform="rotate(-24 236 118)" />
-              <circle cx="302.5" cy="85" r="4" />
-              <ellipse cx="86" cy="214" rx="52" ry="17" transform="rotate(18 86 214)" />
-              <circle cx="37.5" cy="196.5" r="3" />
-            </svg>
-            <canvas ref={canvas} className="dm-canvas" />
-            <svg className="dm-shine" viewBox="0 0 334 334" focusable="false">
-              <path d="M 27 129.5 A 145 145 0 0 1 83.8 48.2" />
-              <path d="M 99.5 37.5 A 145 145 0 0 1 104 35.2" />
-            </svg>
-          </div>
-          <div ref={caption} className="dm-caption" aria-hidden="true" />
+  const progress = empty ? 0 : levelProgress(level);
+  const band = levelBand(level);
+  const r = D / 2 - EDGE / 2;
+  const scene = (
+    <div className="dm-scene">
+      {/* behind the window and the hills: only the sky shows them */}
+      <svg className="dm-rings" viewBox={`${-D / 2} ${-D / 2} ${D} ${D}`} aria-hidden="true" focusable="false">
+        {RINGS.map((k) => (
+          <circle key={k} r={(D / 2) * k} />
+        ))}
+      </svg>
+      <div className="dm-window">
+        <div ref={oculus} className="dm-oculus" aria-hidden="true" data-still={reduce || undefined}>
+          <canvas ref={canvas} className="dm-canvas" />
         </div>
+        <svg className="dm-edge" viewBox={`0 0 ${D} ${D}`} aria-hidden="true" focusable="false">
+          <circle className="dm-edge-ring" cx={D / 2} cy={D / 2} r={r} strokeWidth={EDGE} />
+          {/* from twelve o'clock, clockwise, as far as the level has been earned: a dot at the very start */}
+          {empty ? null : <circle className="dm-edge-arc" cx={D / 2} cy={D / 2} r={r} strokeWidth={ARC} pathLength={1} strokeDasharray={`${Math.max(0.0005, progress).toFixed(4)} 2`} transform={`rotate(-90 ${D / 2} ${D / 2})`} />}
+        </svg>
+        <div ref={caption} className="dm-caption" aria-hidden="true" />
       </div>
       {empty ? null : (
         <div className="sr-only">
@@ -140,55 +155,40 @@ export const Dome = ({ store, today, total, level, fitness = true, empty, childr
           ) : null}
         </div>
       )}
+      <PosterScene size="slim" progress={progress} />
+    </div>
+  );
+
+  return (
+    <>
       {empty ? (
-        <div className="dm-console is-empty">
-          <p className="dm-line">{empty.line}</p>
-          {empty.note ? <p className="dm-note">{empty.note}</p> : null}
-          <p className="dm-words">
-            <span className="dm-cap">The rule</span>
-            <span className="dm-left">{empty.rule}</span>
-          </p>
-        </div>
+        <Poster className="dm is-empty" label={empty.title} title={empty.title} meta={empty.line} scene={scene} band={{ label: 'The rule', words: empty.rule }}>
+          {children}
+        </Poster>
       ) : (
-        <div className="dm-console">
-          <div className="dm-read">
-            <div className="dm-facts">
-              {/* said first in the summary above: here it is the picture of the number */}
-              <p className="dm-total" aria-hidden="true">
-                <span className="dm-num">{num(total)}</span> <span className="dm-unit">{total === 1 ? 'Orb' : 'Orbs'}</span>
-              </p>
-              <p className="dm-words">
-                <span className="dm-cap">{`Level ${num(level.level)}`}</span>
-                <span className="dm-left">{`${num(level.left)} to level ${num(level.level + 1)}`}</span>
-              </p>
-            </div>
-            <Gauge progress={level.span > 0 ? level.into / level.span : 0} />
-          </div>
-          {reduce ? null : (
-            <div className="dm-keys">
-              <Pressable className="dm-key" label="Tilt. Gravity follows the phone" aria-pressed={tilt} onPress={onTilt}>
-                <span className="dm-key-disc">
-                  <Smartphone className="dm-key-tilt" size={18} strokeWidth={1.75} aria-hidden="true" />
-                </span>
-                <span className="dm-key-label">Tilt</span>
-              </Pressable>
-              <Pressable className="dm-key" label="Stir. One swirl" onPress={onStir}>
-                <span className="dm-key-disc">
-                  <RefreshCw size={18} strokeWidth={1.75} aria-hidden="true" />
-                </span>
-                <span className="dm-key-label">Stir</span>
-              </Pressable>
-              <Pressable className="dm-key" label="Float. Gravity lets go" aria-pressed={float} onPress={onFloat}>
-                <span className="dm-key-disc">
-                  <Bubbles size={18} strokeWidth={1.75} aria-hidden="true" />
-                </span>
-                <span className="dm-key-label">Float</span>
-              </Pressable>
-            </div>
-          )}
+        <Poster
+          className="dm is-count"
+          label={`${orbs(total)}. Level ${num(level.level)}.`}
+          titleAs="p"
+          title={
+            // said first in the summary under it: here it is the picture of the number
+            <span className="dm-total" aria-hidden="true">
+              <span className="dm-num">{num(total)}</span> <span className="dm-unit">{total === 1 ? 'Orb' : 'Orbs'}</span>
+            </span>
+          }
+          scene={scene}
+          band={{ label: band.label, words: band.words }}
+        >
+          {children}
+        </Poster>
+      )}
+      {empty || reduce ? null : (
+        <div className="status-row dm-pills">
+          <StatusPill className="dm-pill is-tilt" glyph={<Smartphone size={16} strokeWidth={1.75} />} label="Tilt" voiceLabel="Tilt. Gravity follows the phone" pressed={tilt} onPress={onTilt} />
+          <StatusPill className="dm-pill" glyph={<RefreshCw size={16} strokeWidth={1.75} />} label="Stir" voiceLabel="Stir. One swirl" onPress={onStir} />
+          <StatusPill className="dm-pill" glyph={<Bubbles size={16} strokeWidth={1.75} />} label="Float" voiceLabel="Float. Gravity lets go" pressed={float} onPress={onFloat} />
         </div>
       )}
-      {children ? <div className="dm-foot">{children}</div> : null}
-    </section>
+    </>
   );
 };
