@@ -50,7 +50,7 @@ export const BOUNCE = {
 
 // ---------- the roll ----------
 export const FRICTION = {
-  /** Orb against Orb: low, so a heap levels the way marbles do. */
+  /** Orb against Orb: low, so a heap levels itself. */
   orb: 0.1,
   /** Against the rim: only what brings the last of a roll to a stop. An Orb on the curve rolls; it does not stick to the slope. */
   rim: 0.006,

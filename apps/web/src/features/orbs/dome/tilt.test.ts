@@ -10,7 +10,7 @@ const near = (got: { x: number; y: number }, x: number, y: number) => {
 describe('gravity from the phone’s lean', () => {
   it('upright: straight down, whole', () => near(gravityFrom(90, 0, 0), 0, 1));
   it('upside down: straight up the screen, so the pile falls into the round top', () => near(gravityFrom(-90, 0, 0), 0, -1));
-  it('flat on a table, face up or face down: nothing pulls, the spheres stay where they are', () => {
+  it('flat on a table, face up or face down: nothing pulls, the Orbs stay where they are', () => {
     near(gravityFrom(0, 0, 0), 0, 0);
     near(gravityFrom(180, 0, 0), 0, 0);
     near(gravityFrom(-180, 0, 0), 0, 0);
@@ -26,7 +26,7 @@ describe('gravity from the phone’s lean', () => {
     expect(gravityFrom(5, 0, 0).y).toBeLessThan(g.y);
     expect(gravityFrom(5, 0, 0).y).toBeGreaterThan(0);
   });
-  it('flat and leaned to the right: the spheres roll right; to the left, left', () => {
+  it('flat and leaned to the right: the Orbs roll right; to the left, left', () => {
     near(gravityFrom(0, 40, 0), 1, 0);
     near(gravityFrom(0, -40, 0), -1, 0);
     expect(gravityFrom(0, 10, 0).x).toBeGreaterThan(0);

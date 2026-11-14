@@ -345,7 +345,7 @@ describe('before this phone has a store (a new sign-in, the error screen’s Res
 
 describe('one broken part never blanks the page', () => {
   // what the boundary does when a section throws is covered where it lives (app/SectionBoundary.test.tsx)
-  it('the challenge rows, the keepsakes and the dome each sit in their own boundary', () => {
+  it('the challenge rows, the keepsakes and the poster with its oculus each sit in their own boundary', () => {
     const src = readFileSync(join(__dirname, 'OrbsPage.tsx'), 'utf8');
     expect(src).toMatch(/<SectionBoundary name="orbs\.challenge"[^>]*>\s*<ChallengeRows scope="page" \/>\s*<\/SectionBoundary>/);
     expect(src).toMatch(/<SectionBoundary name="orbs\.keepsakes"[^>]*>\s*<Keepsakes [^>]*\/>\s*<\/SectionBoundary>/);
