@@ -368,6 +368,8 @@ export const createStage = ({ glass, canvas, caption }: StageParts, { reduce }: 
       if (changed) wake(world);
     }
     queue = next.filter((b) => !at.has(b.id));
+    // Orbs earned while the glass is open are felt as the first ones were
+    if (queue.length) felt = 0;
     dress();
     if (said && !ids.has(said)) hush();
     nextDrop = Math.max(nextDrop, performance.now());

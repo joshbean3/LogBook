@@ -16,7 +16,7 @@ const LENGTH = (SWEEP / 360) * 2 * Math.PI * R;
 export const Gauge = ({ progress }: { progress: number }): React.JSX.Element => {
   const p = Math.max(0, Math.min(1, progress || 0));
   return (
-    <svg className="dm-gauge" viewBox="0 0 48 48" width="48" height="48" aria-hidden="true" focusable="false">
+    <svg className="dm-gauge" viewBox="0 0 48 48" width="56" height="56" aria-hidden="true" focusable="false">
       <path className="dm-gauge-track" d={arc(FROM, FROM + SWEEP)} />
       {[0, 0.25, 0.5, 0.75, 1].map((t) => (
         <path key={t} className="dm-gauge-tick" d={`M ${at(FROM + SWEEP * t, R + 3.2)} L ${at(FROM + SWEEP * t, R + 5)}`} />

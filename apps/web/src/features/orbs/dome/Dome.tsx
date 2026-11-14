@@ -142,17 +142,17 @@ export const Dome = ({ store, today, total, level, fitness = true, empty, childr
       ) : (
         <div className="dm-console">
           <div className="dm-read">
-            {/* said first in the summary above: here it is the picture of the number */}
-            <p className="dm-total" aria-hidden="true">
-              <span className="dm-num">{num(total)}</span> <span className="dm-unit">{total === 1 ? 'Orb' : 'Orbs'}</span>
-            </p>
-            <div className="dm-level">
-              <Gauge progress={level.span > 0 ? level.into / level.span : 0} />
+            <div className="dm-facts">
+              {/* said first in the summary above: here it is the picture of the number */}
+              <p className="dm-total" aria-hidden="true">
+                <span className="dm-num">{num(total)}</span> <span className="dm-unit">{total === 1 ? 'Orb' : 'Orbs'}</span>
+              </p>
               <p className="dm-words">
                 <span className="dm-cap">{`Level ${num(level.level)}`}</span>
                 <span className="dm-left">{`${num(level.left)} to level ${num(level.level + 1)}`}</span>
               </p>
             </div>
+            <Gauge progress={level.span > 0 ? level.into / level.span : 0} />
           </div>
           {reduce ? null : (
             <div className="dm-keys">

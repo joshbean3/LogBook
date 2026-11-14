@@ -304,7 +304,7 @@ describe('the same every time, and fast', () => {
     expect(advance(W, 5)).toBeLessThanOrEqual(Math.ceil(TIME.maxFrame / TIME.step) + 1);
   });
   it('200 spheres in the air step a whole frame in under 4 ms', () => {
-    const W = createWorld(GLASS.w, GLASS.maxH);
+    const W = createWorld(GLASS.w, 470);
     pour(W, Array.from({ length: 200 }, (_, i) => (unit(i) < 0.2 ? RADIUS.train : RADIUS.habit)));
     settle(W);
     const times: number[] = [];

@@ -14,12 +14,10 @@ export const GLASS = {
   w: 334,
   /** The least height the glass is ever given, in dome units: the fill limit is worked out against this one. */
   minH: 388,
-  /** The most height, in dome units (a narrow, tall stage gets no taller a glass than this). */
-  maxH: 470,
-  /** The stage's height on the page, as CSS: 56 percent of the screen, 440 px at most. The style sheet reads the same. */
-  stage: 'min(56svh, 440px)',
-  /** The page kept below the bar whatever the screen, in px: room for a thumb to scroll outside the glass. */
-  pageLeft: 140,
+  /** The glass's height on the page: 56 percent of the screen, 440 px at most, and 96 px of page left between it and the dock for a thumb to scroll by. Written in dome.css (`--dm-h`); a test holds the two together. */
+  share: 56,
+  mostPx: 440,
+  pageLeft: 96,
   /** The canvas is drawn at the screen's own pixel ratio, up to this. */
   dprCap: 3,
 } as const;

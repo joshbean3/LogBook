@@ -15,11 +15,12 @@
 }
 
 /* ---------- the stage: the glass stands on the console, a little narrower than it ----------
-   Its height is 56 percent of the screen and 440 px at most, and never so tall that less than 140 px of page is left
-   under the bar for a thumb to scroll by (the glass itself takes every touch). Its width follows from the height when
-   the screen is short, so the glass is never squatter than the smallest the fill limit was worked out for (334 by 388). */
+   Its height is 56 percent of the screen and 440 px at most, and never so tall that less than 96 px of page shows
+   between it and the dock for a thumb to scroll by (the glass itself takes every touch): the bar, the card's own top
+   and the dock are taken off the screen first. Its width follows from the height when the screen is short, so the
+   glass is never squatter than the smallest the fill limit was worked out for (334 by 388). */
 .dm-stage {
-  --dm-h: min(56svh, 440px, calc(100svh - var(--safe-t) - 44px - var(--sp-4) - 140px));
+  --dm-h: min(56svh, 440px, calc(100svh - var(--safe-t) - 44px - var(--sp-4) - var(--chrome-h) - 96px));
   padding: var(--sp-4) var(--sp-3) 0;
   background: linear-gradient(180deg, var(--haze) 0, var(--cloud) 46%, var(--paper) 100%);
 }
@@ -137,7 +138,7 @@
   position: relative;
   display: grid;
   gap: var(--sp-3);
-  padding: var(--sp-4) var(--pad-hero);
+  padding: var(--sp-4) var(--pad-hero) var(--sp-3);
   background: var(--night-ink);
   color: var(--paper);
 }
@@ -149,16 +150,24 @@
   height: 2px;
   background: var(--apricot);
 }
+/* the readout: the total over the level's words, from the card's left edge; the dial at the other end. At a very large
+   text size the dial drops under the words before anything is cut */
 .dm-read {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: var(--sp-2) var(--sp-4);
+  gap: var(--sp-2) var(--sp-3);
+}
+.dm-facts {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
 }
 /* the total: the page's one big number, Inter 650 with even figures, held between 44 and 64 px */
 .dm-total {
   display: flex;
+  flex-wrap: wrap;
   align-items: baseline;
   column-gap: var(--sp-1);
   margin: 0;
@@ -174,21 +183,18 @@
   font: 500 var(--fs-sub) / var(--lh-sub) var(--sans);
   color: var(--haze);
 }
-.dm-level {
-  display: flex;
-  align-items: center;
-  gap: var(--sp-2);
-  min-width: 0;
-}
 .dm-words {
-  display: grid;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  column-gap: var(--sp-2);
   margin: 0;
   min-width: 0;
   background-color: var(--night-ink);
 }
 /* the console's one caption: the level */
 .dm-cap {
-  font: 600 var(--fs-caps) / var(--lh-caps) var(--stamp);
+  font: 600 var(--fs-caps) / var(--lh-sub) var(--stamp);
   letter-spacing: var(--tr-caps);
   text-transform: uppercase;
   font-variant-numeric: tabular-nums;
@@ -204,8 +210,8 @@
 /* the dial */
 .dm-gauge {
   flex: none;
-  width: 48px;
-  height: 48px;
+  width: 56px;
+  height: 56px;
   fill: none;
   stroke-linecap: round;
 }
@@ -276,7 +282,13 @@
   background-color: var(--night-ink);
 }
 
-/* before the first Orb: one line under the empty glass, then the rule */
+/* before the first Orb: one line under the empty glass, then the rule (its caption over its words) */
+.dm-console.is-empty {
+  padding-bottom: var(--sp-4);
+}
+.dm-console.is-empty .dm-words {
+  display: grid;
+}
 .dm-line {
   margin: 0;
   font: 600 var(--fs-row) / var(--lh-row) var(--sans);
@@ -305,17 +317,11 @@
     transition: none;
   }
 }
-/* Increase Contrast: the glass's edge and the console's marks take the stronger tokens */
+/* Increase Contrast: the glass's edge and the console's marks take the stronger tokens (the orbits are ornament and stay quiet) */
 @media (prefers-contrast: more) {
   .dm-glass::after {
     border-width: 2px;
     border-color: var(--night-ink);
-  }
-  .dm-orbits {
-    stroke: var(--deep-sky);
-  }
-  .dm-orbits circle {
-    fill: var(--deep-sky);
   }
   .dm-gauge-track {
     stroke: color-mix(in srgb, var(--haze) 55%, transparent);
