@@ -1,35 +1,13 @@
 /*
  * The Orbs page and "How Orbs work" (layout standard 2.13). Every value is a brand token or a size of a drawing. Nothing
- * here animates: the poster's sun moves by the poster kit's own transition, and a press is the app's one press.
+ * here animates: the dome has its own sheet (features/orbs/dome/dome.css), and a press is the app's one press.
  *
- * The page, top to bottom: the poster (the total, the level), the week on Paper under its band, one inset group while it
- * has rows, the keepsakes, then "How Orbs work" and the switches.
+ * The page, top to bottom: the dome (the glass, then the total and the level on its console), the week on Paper under
+ * it, one inset group while it has rows, the keepsakes, then "How Orbs work" and the switches.
  */
 
-/* ---------- the poster: the total is the hero stat that changes (guide 4.2) ----------
-   Inter 650 at --fs-stat-live with even figures, held between 44 and 64 px so a very large text size cannot push the
-   picture off the first screen; its unit Inter 500 Dusk, 4 after it. */
-.orp-poster.is-count .po-title {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  column-gap: var(--sp-1);
-  font: 650 clamp(44px, var(--fs-stat-live), 64px) / 1 var(--sans);
-  letter-spacing: var(--tr-hero);
-  font-variant-numeric: tabular-nums;
-}
-/* the band's caption holds the level, a number that changes: even figures */
-.orp-poster .po-label {
-  font-variant-numeric: tabular-nums;
-}
-.orp-unit {
-  font: 500 var(--fs-sub) / var(--lh-sub) var(--sans);
-  letter-spacing: 0;
-  color: var(--ink-2);
-}
-
-/* ---------- the week, on Paper under the band ----------
-   Seven 12 pt marks over their letters, from the poster's own left edge. A counted day is a Deep Sky disc with a check; any
+/* ---------- the week, on Paper under the dome's console ----------
+   Seven 12 pt marks over their letters, from the card's own left edge. A counted day is a Deep Sky disc with a check; any
    other day is an open ring. Today's ring and letter are Night Ink until it counts. */
 .orp-count {
   display: grid;

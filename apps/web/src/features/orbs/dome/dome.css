@@ -1,0 +1,341 @@
+/*
+ * The dome (features/orbs/dome): a glass on a console, at the head of the Orbs page. Every value is a brand token or a
+ * size of the drawing. The spheres are painted on one canvas (stage.ts); nothing here moves them. What this sheet
+ * animates: the canvas and the caption fade (opacity), and the dial's needle turns (transform).
+ *
+ * The card, top to bottom: the glass on the page's sky, the console (Night Ink, an Apricot rim light), the week on Paper.
+ */
+.dm {
+  display: block;
+  border: 1px solid var(--paper);
+  border-radius: var(--r-card);
+  background: var(--paper);
+  box-shadow: var(--shadow-1);
+  overflow: hidden;
+}
+
+/* ---------- the stage: the glass stands on the console, a little narrower than it ----------
+   Its height is 56 percent of the screen and 440 px at most, and never so tall that less than 96 px of page shows
+   between it and the dock for a thumb to scroll by (the glass itself takes every touch): the bar, the card's own top
+   and the dock are taken off the screen first. Its width follows from the height when the screen is short, so the
+   glass is never squatter than the smallest the fill limit was worked out for (334 by 388). */
+.dm-stage {
+  --dm-h: min(56svh, 440px, calc(100svh - var(--safe-t) - 44px - var(--sp-4) - var(--chrome-h) - 96px));
+  padding: var(--sp-4) var(--sp-3) 0;
+  background: linear-gradient(180deg, var(--haze) 0, var(--cloud) 46%, var(--paper) 100%);
+}
+.dm-dome {
+  position: relative;
+  width: min(100%, calc(var(--dm-h) * 334 / 388));
+  height: var(--dm-h);
+  margin: 0 auto;
+}
+.dm-glass {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  /* a half circle on straight walls: the radii are cut down to half the width, whatever it is */
+  border-radius: 999px 999px 0 0; /* brand-ok: geometry, the dome's round top */
+  isolation: isolate;
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+}
+/* with Reduce Motion nothing is dragged: the page scrolls over the glass, and a tap names a sphere */
+.dm-glass[data-still] {
+  touch-action: manipulation;
+}
+/* inside: a pale sky down to a warm horizon (the poster kit's colors), and the rim light coming up from the console */
+.dm-sky {
+  position: absolute;
+  inset: 0;
+  z-index: -2;
+  background:
+    radial-gradient(64% 12% at 50% 100%, var(--horizon-2), transparent),
+    linear-gradient(180deg, var(--poster-sky-2) 0, var(--poster-sky-3) 42%, var(--horizon-1) 88%);
+}
+/* two orbits behind the spheres, in Haze: ornament, never moving */
+.dm-orbits {
+  position: absolute;
+  inset: 0 0 auto;
+  z-index: -1;
+  width: 100%;
+  aspect-ratio: 1;
+  fill: none;
+  stroke: var(--haze);
+  stroke-width: 1.5;
+}
+.dm-orbits circle {
+  fill: var(--haze);
+  stroke: none;
+}
+.dm-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  transition: opacity var(--dur-in) var(--ease-out);
+}
+.dm-glass[data-ready] .dm-canvas {
+  opacity: 1;
+}
+/* the glass itself: a thin Deep Sky edge with a pale line inside it, and one clean streak of light */
+.dm-glass::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border: 1.5px solid var(--deep-sky);
+  border-bottom: 0;
+  border-radius: inherit;
+  box-shadow:
+    inset 0 0 0 1.5px color-mix(in srgb, var(--paper) 72%, transparent),
+    inset 0 14px 22px -16px color-mix(in srgb, var(--paper) 82%, transparent);
+  pointer-events: none;
+}
+.dm-shine {
+  position: absolute;
+  inset: 0 0 auto;
+  width: 100%;
+  aspect-ratio: 1;
+  fill: none;
+  stroke: var(--white);
+  stroke-width: 6;
+  stroke-linecap: round;
+  opacity: 0.78;
+  pointer-events: none;
+}
+
+/* ---------- what a tap says: a small Night Ink label by the sphere, placed by the stage ---------- */
+.dm-caption {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 2;
+  max-width: calc(100% - var(--sp-2));
+  padding: var(--sp-1) var(--sp-3);
+  border-radius: var(--r-control);
+  background: var(--night-ink);
+  box-shadow: var(--shadow-float);
+  font: 600 var(--fs-foot) / var(--lh-foot) var(--sans);
+  font-variant-numeric: tabular-nums;
+  color: var(--white);
+  text-align: center;
+  text-wrap: balance;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity var(--dur-out) var(--ease-out);
+}
+.dm-caption[data-on] {
+  opacity: 1;
+  transition-duration: var(--dur-in);
+}
+
+/* ---------- the console: Night Ink, an Apricot rim light, the readout and three keys ---------- */
+.dm-console {
+  position: relative;
+  display: grid;
+  gap: var(--sp-3);
+  padding: var(--sp-4) var(--pad-hero) var(--sp-3);
+  background: var(--night-ink);
+  color: var(--paper);
+}
+/* the rim light: one Apricot line where the glass stands */
+.dm-console::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto;
+  height: 2px;
+  background: var(--apricot);
+}
+/* the readout: the total over the level's words, from the card's left edge; the dial at the other end. At a very large
+   text size the dial drops under the words before anything is cut */
+.dm-read {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-2) var(--sp-3);
+}
+.dm-facts {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+/* the total: the page's one big number, Inter 650 with even figures, held between 44 and 64 px */
+.dm-total {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  column-gap: var(--sp-1);
+  margin: 0;
+  background-color: var(--night-ink);
+}
+.dm-num {
+  font: 650 clamp(44px, var(--fs-stat-live), 64px) / 1 var(--sans);
+  letter-spacing: var(--tr-hero);
+  font-variant-numeric: tabular-nums;
+  color: var(--paper);
+}
+.dm-unit {
+  font: 500 var(--fs-sub) / var(--lh-sub) var(--sans);
+  color: var(--haze);
+}
+.dm-words {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  column-gap: var(--sp-2);
+  margin: 0;
+  min-width: 0;
+  background-color: var(--night-ink);
+}
+/* the console's one caption: the level */
+.dm-cap {
+  font: 600 var(--fs-caps) / var(--lh-sub) var(--stamp);
+  letter-spacing: var(--tr-caps);
+  text-transform: uppercase;
+  font-variant-numeric: tabular-nums;
+  color: var(--haze);
+}
+.dm-left {
+  font: 600 var(--fs-sub) / var(--lh-sub) var(--sans);
+  font-variant-numeric: tabular-nums;
+  color: var(--paper);
+  text-wrap: pretty;
+}
+
+/* the dial */
+.dm-gauge {
+  flex: none;
+  width: 56px;
+  height: 56px;
+  fill: none;
+  stroke-linecap: round;
+}
+.dm-gauge-track {
+  stroke: color-mix(in srgb, var(--haze) 26%, transparent);
+  stroke-width: 4;
+}
+.dm-gauge-tick {
+  stroke: color-mix(in srgb, var(--haze) 60%, transparent);
+  stroke-width: 1;
+}
+.dm-gauge-lit {
+  stroke: var(--apricot);
+  stroke-width: 4;
+}
+.dm-gauge-needle {
+  stroke: var(--paper);
+  stroke-width: 1.75;
+  transform-box: view-box;
+  transform-origin: 50% 50%;
+  transition: transform var(--dur-needle) var(--ease-out);
+}
+.dm-gauge-hub {
+  fill: var(--paper);
+}
+
+/* the keys: three round glass keys, each over its caption */
+.dm-keys {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  justify-items: center;
+}
+.dm-key {
+  display: grid;
+  justify-items: center;
+  align-content: start;
+  gap: var(--sp-1);
+  min-width: 64px;
+  min-height: var(--hit);
+  padding: 0;
+  border-radius: var(--r-control);
+  background: none;
+  color: var(--paper);
+}
+.dm-key-disc {
+  display: grid;
+  place-items: center;
+  width: var(--hit);
+  height: var(--hit);
+  border-radius: 50%;
+  background: radial-gradient(120% 120% at 30% 22%, color-mix(in srgb, var(--haze) 36%, transparent), color-mix(in srgb, var(--haze) 12%, transparent) 58%, color-mix(in srgb, var(--haze) 5%, transparent));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--haze) 42%, transparent);
+}
+/* a key that is on is lit from inside, in the Orb's own warm light, with Night Ink on it */
+.dm-key[aria-pressed='true'] .dm-key-disc {
+  background: var(--g-sun);
+  box-shadow: 0 0 0 1px var(--apricot);
+  color: var(--night-ink);
+}
+.dm-key-tilt {
+  transform: rotate(-18deg);
+}
+.dm-key-label {
+  font: 600 var(--fs-caps) / var(--lh-caps) var(--stamp);
+  letter-spacing: var(--tr-caps);
+  text-transform: uppercase;
+  color: var(--haze);
+  background-color: var(--night-ink);
+}
+
+/* before the first Orb: one line under the empty glass, then the rule (its caption over its words) */
+.dm-console.is-empty {
+  padding-bottom: var(--sp-4);
+}
+.dm-console.is-empty .dm-words {
+  display: grid;
+}
+.dm-line {
+  margin: 0;
+  font: 600 var(--fs-row) / var(--lh-row) var(--sans);
+  color: var(--paper);
+  background-color: var(--night-ink);
+  text-wrap: pretty;
+}
+.dm-note {
+  margin: calc(var(--sp-1) - var(--sp-3)) 0 0;
+  font: 500 var(--fs-sub) / var(--lh-sub) var(--sans);
+  font-variant-numeric: tabular-nums;
+  color: var(--haze);
+  background-color: var(--night-ink);
+}
+
+/* ---------- the week, on Paper under the console ---------- */
+.dm-foot {
+  padding: var(--sp-4) var(--pad-hero);
+}
+
+/* Reduce Motion: the needle stands where it is */
+@media (prefers-reduced-motion: reduce) {
+  .dm-gauge-needle,
+  .dm-canvas,
+  .dm-caption {
+    transition: none;
+  }
+}
+/* Increase Contrast: the glass's edge and the console's marks take the stronger tokens (the orbits are ornament and stay quiet) */
+@media (prefers-contrast: more) {
+  .dm-glass::after {
+    border-width: 2px;
+    border-color: var(--night-ink);
+  }
+  .dm-gauge-track {
+    stroke: color-mix(in srgb, var(--haze) 55%, transparent);
+  }
+  .dm-gauge-tick {
+    stroke: var(--haze);
+  }
+  .dm-key-disc {
+    box-shadow: inset 0 0 0 1.5px var(--haze);
+  }
+  .dm-unit,
+  .dm-cap,
+  .dm-key-label,
+  .dm-note {
+    color: var(--paper);
+  }
+}
