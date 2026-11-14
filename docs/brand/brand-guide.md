@@ -1,6 +1,6 @@
 # Orby brand guide
 
-**Direction:** Sunrise optimism. **Version:** 1.4, November 13, 2026 (the Orb family and the dome: change C35; Orbs, the earned reward: change C34; layout and hierarchy, every change listed at the top of `docs/brand/layout-and-hierarchy.md`). **Status:** the source of truth for every visible part of Orby.
+**Direction:** Sunrise optimism. **Version:** 1.5, November 14, 2026 (earned Orbs are flat circle forms, in an oculus on a poster: change C36; the Orb family and the dome, both replaced by C36: change C35; Orbs, the earned reward: change C34; layout and hierarchy, every change listed at the top of `docs/brand/layout-and-hierarchy.md`). **Status:** the source of truth for every visible part of Orby.
 
 This guide is for builders, people and AI agents, who change the app. Every rule is meant to be checked: a hex value, a size, a radius, a duration, or a do and don't pair. When this guide and the code disagree, the guide wins and the code gets fixed. When this guide is silent, ask before inventing.
 
@@ -59,7 +59,7 @@ A sphere rising over a horizon, lit warm from below. Everything follows from it:
 
 The logo has two parts: the **Orb** (the mark) and the **wordmark** "Orby". The name and the mark are one idea: Orby is the orb.
 
-**One assistant Orb per screen. The Orb is the assistant's glossy Sky sphere, and the mark. Earned Orbs are a family: the logo's own form (the gloss, the light at the top, the warm underlight, the thin edge) in the family's other hues and styles, never Sky. They live only in the reward layer, the dome, the legend and today's lines.** 2.1 specifies the sphere, and "The family" at the end of 2.1 specifies the earned Orbs.
+**One assistant Orb per screen. The Orb is the assistant's glossy Sky sphere, and the mark. It is the only glossy thing in Orby: never recolored, never doubled. Earned Orbs are flat circle forms: one flat color and one bold silhouette built on a circle, in Orby's own circle vocabulary (8.5). They live only in the reward layer, the oculus, the legend and today's lines.** 2.1 specifies the sphere, and "The earned forms" at the end of 2.1 specifies the earned Orbs.
 
 ### 2.1 The Orb, the mark
 
@@ -111,52 +111,51 @@ It is still light on a blue sphere: the upper two thirds stay Sky, the highlight
 | 28 to 47 px | Gloss, no glow, still. The thinking arc is fixed at 6 px out with a 1.5 px Paper keyline. The ask bar (28 px), the plan builder's pill (28 px, 6.16) and the Orb inside the 48 px fold button (28 px, `--orb-fold`) are this tier. |
 | Under 28 px (27 and under) | Flat Sky `#38B6F2` disc. No gloss, no glow. |
 
-These tiers are the assistant's. An earned Orb has art of its own, drawn to hold from 12 pt up (the family, below).
+These tiers are the assistant's. An earned Orb is never the sphere, at any size: it is a flat form, the Orb's flat tier taken further (the earned forms, below).
 
 **On dark grounds** (Twilight, Night Ink) the sphere is unchanged and the glow drops to 22% with a screen blend (at 50% Apricot turns grey-brown on navy). **In one color** (print, embossing, a single-ink job) the mark is a flat disc in Sky, Night Ink or Paper.
 
 | Do | Don't |
 |---|---|
 | One assistant Orb per screen. | Two of the assistant's Orb on one screen, or the assistant's Orb as a habit coin, a bullet, a reward or a decoration. |
-| An earned Orb from the family (below), only where the family lives: the reward layer, the dome, the legend, today's lines. | An earned Orb in Sky; a hue or a style the family's table does not hold; an earned Orb as a bullet, a tab badge or a decoration. |
+| An earned Orb as one of the flat forms (below), only where they live: the reward layer, the oculus, the legend, today's lines. | The sphere in another color; gloss, a gradient, a shadow or a glow on an earned Orb; a form or a color the table does not hold; an earned Orb as a bullet, a tab badge or a decoration. |
 | Blue first, warm light at the bottom only, soft (the splash's sunrise state reaches the lower third and no higher). | Orange in the body, a half-orange ball, a hard peach band. |
 | Use the 28 px gloss in the ask bar. | The assistant's gloss at 22 px (its art turns to mush). |
-| Flat disc under 28 px for the assistant's Orb. | Shrinking the assistant's gloss art below 28 px. Under 28 px the only gloss is an earned Orb's. |
+| Flat disc under 28 px for the assistant's Orb. | Shrinking the assistant's gloss art below 28 px. Nothing under 28 px is glossy. |
 
-**The family** (the earned Orbs; `apps/web/src/features/orbs/gems`: `gemFor`, `gemSvg`, `gemName` and the one component `OrbGem`; never a variant of the assistant's `Orb`). People earn Orbs for what they finish. An earned Orb is the logo's sibling: the same sphere under the same light, in another hue, with the mark of its kind. What was finished decides which.
+**The earned forms** (the earned Orbs; `apps/web/src/features/orbs/gems`: `gemFor`, `gemSvg`, `gemName` and the one component `OrbGem`; never a variant of the assistant's `Orb`). People earn Orbs for what they finish. An earned Orb is the Orb's flat tier taken further, the way one disc becomes a family: one flat color and one bold silhouette built on a circle. What was finished decides which.
 
-| What earned it | Hue (token) | Style | Worth |
+| What earned it (key) | Form | Color (token) | Worth |
 |---|---|---|---|
-| A to-do | Lagoon (`--t-easy`) | plain | 1 |
-| A habit | Apricot (`--apricot`) | plain | 1 |
-| A run | Deep Sky (`--deep-sky`) | plain | 3, or 2 at its floor |
-| A lift | Indigo (`--t-lift`) | plain | 3 or 2 |
-| Cross-training | Ochre (`--t-cross`) | plain | 3 or 2 |
-| Today's goal | Gold (Marigold, `--warn`) | one ring | 3 |
-| A week goal | Gold | one ring | 9 |
-| A month goal | Gold | two rings | 30 |
-| A year goal | Gold | three rings | 90 |
-| A full day | Pearl (`--paper` to `--haze`, an opal: Rose on one limb, Lagoon on the other) | plain, with a soft Apricot halo | 5 |
-| A week that counts | Dusk (a `--twilight` body; the hue's name here, not the text color) | banded: three Apricot bands | 5 to 20 |
-| A challenge | Plum (`--t-hard`) | half-lit: a terminator, like a moon | 5 to 20 |
-| A return | Rose (`--t-fast`) | plain | 3 |
-| An earlier week, fused (the dome, 9.2) | Night (`--twilight` to `--night-ink`) | starred: up to 7 star points, one per day that counted | the week's total |
-| An earlier chapter, fused | Night | starred, with one Apricot ring | its total |
-| An earlier year, fused | Night | starred, with two Apricot rings | its total |
+| A to-do (`todo`) | Disc: a solid circle | Deep Sky (`--deep-sky`) | 1 |
+| A habit (`habit`) | Lit disc: a solid circle inside one ring of its own color, a gap between | Apricot (`--apricot`) | 1 |
+| A run (`train:run`) | Orbit: a solid circle, one orbit line round it, and a small moon on the line at the upper right | Lagoon (`--t-easy`) | 3, or 2 at its floor |
+| A lift (`train:lift`) | Orbit | Indigo (`--t-lift`) | 3 or 2 |
+| Cross-training (`train:cross`) | Orbit | Ochre (`--t-cross`) | 3 or 2 |
+| Today's goal (`goal:day`) | Target: a center dot and one ring | Sky (`--sky`) | 3 |
+| A week goal (`goal:week`) | Target with two rings | Sky | 9 |
+| A month goal (`goal:month`) | Target with three rings | Sky | 30 |
+| A year goal (`goal:year`) | Target with four rings | Sky | 90 |
+| A full day (`full`) | Sunrise: a half-disc on a short horizon line with one arc over it (the deck's section-divider picture) | Apricot, the horizon in Deep Sky | 5 |
+| A week that counts (`week:*`) | Seven dots in a ring, one per day of a week | Deep Sky | 5 to 20 |
+| A challenge (`challenge:*`) | Crescent | Plum (`--t-hard`) | 5 to 20 |
+| A return (`back`) | Open ring: a thick ring with a gap at the upper right | Rose (`--t-fast`) | 3 |
+| An earlier week, fused (`fused:week`; the oculus, 9.2) | Pale disc with a thin edge | Haze (`--haze`), the edge in Deep Sky | the week's total |
+| An earlier chapter, fused (`fused:chapter`) | Pale disc with a thin edge and one thin ring outside it | The first hill's blue (`--hill-1` `#8FCDEE`), edge and ring in Deep Sky | its total |
+| An earlier year, fused (`fused:year`) | Solid disc with two thin rings outside it | Deep Sky | its total |
 
 | Part | Spec |
 |---|---|
-| Form | The logo's recipe in the logo's box (100 units, sphere radius 48): the body's radial gradient lit from the top, the pale bounce and the warm underlight from below, the blurred glow along the lower limb, the soft specular at (50, 22), the 0.8-unit edge. The same centers, radii, blurs and opacities as the recipe above. That shared light is what makes them a family. |
-| Color | One function (`sphereOf` in `gems/svg.ts`) derives every stop from the hue's token, in OKLab: three tints toward the light that keep their hue (a mix with white goes milky), the body's color at 60 percent, two deeper stops, the edge. A deep text token is lifted 3 to 10 percent toward white so it reads as glass. No stop is typed as a hex in a component: the token values are written once in `gems/table.ts`, and a test holds them to `tokens.css`. |
-| Underlight | Apricot, as on the logo. On a warm body (Apricot, Gold, Ochre, Pearl, Rose) it moves toward Paper, so it still shows. |
-| Never Sky | No earned Orb has the logo's Sky body: that sphere is the assistant and the mark. A run's Deep Sky is visibly darker than Sky. |
-| Its own shift | An Orb may carry a small shift from its own seed (kind, date, index): one of five steps, at most 7 degrees of hue and 3 percent of lightness, so a pile of forty habits is not one disc forty times. Small enough that a habit never reads as a goal. |
-| Marks | Rings are tilted 18 degrees, behind the sphere at the top and across it at the bottom, and reach outside it. Bands, the terminator and the star points lie on the sphere, under the gloss. Pearl's halo reaches 1.46 times the sphere's diameter. |
-| Hue is never alone | A style, a size, a caption on tap, the legend on How Orbs work and VoiceOver's words always say the kind too (3.3, 11). The plain kinds differ by hue, and always stand with words or with their size in the dome. |
-| Sizes | The size is the sphere's diameter; rings and the halo are drawn outside it and take no room. 20 pt at birth, 12 pt as it lands; three at once are 18 pt each (9.2). 22 pt in the legend and today's lines (a session's three kinds 14 pt). 16 pt on the "Full day +5" chip. In the dome, by worth. |
-| Where | The reward layer (at the control that earned it, on its way to the counter, on the "Full day +5" chip, which carries the Pearl, and beside the paid line of a big moment: 9.2); the dome on the Orbs page (8.5, 9.2); the legend on How Orbs work; today's lines. Nowhere else: never a bullet, a badge on a tab, a list marker or a decoration. |
-| Rendering | One SVG document per Orb, under 4 KB, with no script, no font and nothing fetched. It is drawn as an image, or rasterized once per size as a sprite for the dome's canvas (9.1). Never repainted per frame. |
-| Color rule | The family's hues are not Sunrise and do not count toward its budget (3.5). This is the one place a data tone is a surface (3.1). Marigold here is a goal's gold, not a warning: a warning is always a glyph and words (3.3). |
+| Flat | No gradient, no gloss, no specular, no shadow, no glow, no stars, no rays, no bands, no faces. One color per form, and two only where the table says: the sunrise's horizon and a pale disc's edge and ring, both Deep Sky. A gap is see-through, never Paper, so a form needs no ground of its own. |
+| Silhouette, not hue | The silhouette says the kind. Printed in one color (Night Ink, where a pale disc prints as its edge) every form is told from every other: a test prints each one and holds every silhouette to be its own (`gemInk`). A session's three kinds are one silhouette in the three training tones and always stand with words or a caption. Hue never carries meaning alone (3.3, 11). |
+| Geometry | The logo's 100-unit box: the form's circle is radius 48 at (50, 50), and nothing is drawn outside it. Three measures, each a share of the diameter D, are used by every form: the **stroke** 3/32 D (2 px at 22 pt), the **gap** 1/16 D, the **hairline** 3/64 D (half a stroke). **Lit disc:** a ring one stroke wide at the edge, a gap, the disc. **Orbit:** a body of radius 3/16 D; the orbit line one stroke wide, its center line 1/12 D inside the edge; a moon of radius 1/12 D on the line at 45 degrees up and to the right, touching the edge, with a gap each side. **Target:** the radius cut into 2n + 1 equal bands for n rings (the dot, then gap and ring by turns), so dot, gaps and rings are one width; it is the one form that cannot keep the stroke, because four rings do not fit at it. **Sunrise:** a half-disc of radius 9/32 D, a gap, an arc one stroke wide, on a horizon one stroke thick and 11/12 D long whose top edge is one stroke below the center. **Seven dots:** radius 1/8 D, centers 3/8 D from the center, the first at twelve o'clock. **Crescent:** the circle less the same circle moved 5/16 D up and to the left. **Open ring:** two strokes thick, round ends, open for 72 degrees about the upper right. **Earlier week:** a disc with a hairline edge. **Earlier chapter:** a hairline ring, a hairline of air, a disc with a hairline edge. **Earlier year:** two hairline rings a hairline apart, a hairline of air, the disc. |
+| Tints | A form's own small variety is a tint, never a hue turn: the token, one step lighter, one step deeper, chosen from the Orb's own seed (kind, date, index). One function (`toneOf` in `gems/color.ts`): a step is 0.07 of OKLab lightness with the hue held; a deeper shade is also richer by 0.2 times the square of the token's lightness, so a pale color deepens toward itself and not toward grey. A lighter tint stops where it would measure under 1.5:1 on Paper (Apricot's stops at 1.53); the two pale discs are held by their Deep Sky edge instead. Tints are for the pile in the oculus: in the reward layer, the legend and today's lines a form is its token. No color is typed as a hex in a component: the token values are written once in `gems/table.ts`, and a test holds them to `tokens.css`. |
+| Upright | The sunrise, the orbit and the crescent have an up. A form is upright in the reward layer, the legend and today's lines. In the oculus it rolls, so it turns. |
+| Sizes | The size is the diameter of the form's circle. 20 pt at birth, 12 pt as it lands; three at once are 18 pt each (9.2). 22 pt in the legend and today's lines (a session's three kinds 16 pt each, one over two). 16 pt on the "Full day +5" chip. In the oculus, by worth. No line is under 2 px at 22 pt, with two named exceptions: a month's and a year's target (bands of 1.6 and 1.2 px at 22 pt; they are the largest goals in the oculus), and the hairlines of the three earlier forms, which the app never draws under 30 pt. |
+| In the air | In the reward layer only, a form rides on a flat disc of Paper 2 px wider than itself all round. A session's form is born over the training card's Deep Sky band, where Lagoon measures 1.09:1, Indigo 1.22 and Ochre 1.02, and a to-do's Deep Sky is the band's own color; at dusk the card is Twilight (Deep Sky on it 1.68). On Paper the disc is not seen. No shadow, no edge, no glow on it. |
+| Where | The reward layer (at the control that earned it, on its way to the counter, on the "Full day +5" chip, which carries the sunrise, and beside the paid line of a big moment: 9.2); the oculus on the Orbs page (8.5, 9.2), whose ground is Paper; the legend on How Orbs work; today's lines. Nowhere else: never a bullet, a badge on a tab, a list marker or a decoration, and never on Twilight or the Deep Sky band without the Paper disc. |
+| Rendering | One SVG document per form and tint, under 1 KB: circles and paths, with no gradient, filter, mask or opacity, no script, no font and nothing fetched. It is drawn as an image, or rasterized once per size as a sprite for the oculus's canvas (9.1). Never repainted per frame. |
+| Color rule | No form is Sunrise and none counts toward its budget (3.5). This is the one place a data tone is a surface (3.1). A target's Sky is flat Sky, as a lit habit coin's is (6.6): flat Sky is not the Orb, and no target is ever glossy. The three earlier forms are pale on purpose: a year in, the pile reads as a calm blue mass with this week's color on top (3.4: the Sky family leads, warm 5 percent or less). |
 | VoiceOver | Hidden where words beside it name the kind. Named where it stands alone: "A habit", "Today's goal" (10.2). |
 
 **The keepsake's light** (`apps/web/src/ui/OrbLight.tsx`). The Apricot light the first Orbs were drawn as keeps one job: the glow behind the newest keepsake (8.5). An `--apricot` core lit from its own center, a soft halo 1.8 times the core (26 percent at the core's edge, fading to nothing), a 1 px Ember edge at 30 percent, 48 pt. It is light behind a disc: never an earned Orb, never a mark of its own.
@@ -239,7 +238,7 @@ The product is **Orby**. The Orb is the mark, so the name and the mark are one i
 
 ### 2.7 What never to do
 
-Sheet: `assets/logo-donts.png`. Never: stretch or squash; retype the name in another face; swap the O for the Orb; set the name in caps; recolor the Orb; make a two-tone ball (the splash's sunrise state, 2.1, is the one warmer drawing, and it stays blue first); show two of the assistant's Orb on one screen; use the assistant's Orb as a reward; draw an earned Orb in Sky, or in a hue or a style the family does not hold (2.1); put the logo on a busy or clashing ground; give the Orb a face; add drop shadows or bevels; grey or tint the wordmark; change the spacing; rotate or tilt; say "the Orby" or "Orby app"; box the logo or add rules around it.
+Sheet: `assets/logo-donts.png`. Never: stretch or squash; retype the name in another face; swap the O for the Orb; set the name in caps; recolor the Orb; make a two-tone ball (the splash's sunrise state, 2.1, is the one warmer drawing, and it stays blue first); show two of the assistant's Orb on one screen; use the assistant's Orb as a reward; draw the sphere in any other color, or give an earned Orb gloss, a gradient, a shadow or a glow (2.1: an earned Orb is a flat form from the table, never a sphere); put the logo on a busy or clashing ground; give the Orb a face; add drop shadows or bevels; grey or tint the wordmark; change the spacing; rotate or tilt; say "the Orby" or "Orby app"; box the logo or add rules around it.
 
 ---
 
@@ -271,10 +270,10 @@ Support colors (refinements, each added for a contrast or role need):
 | Graphite | `#33475B` | Dusk under Increase Contrast (9.42 on Paper). |
 | Deep Sky IC | `#085A8C` | Deep Sky under Increase Contrast (7.24 on Paper) and for body text on Haze (5.76), where Deep Sky is 4.43. |
 | Pencil | `#7A8794` | Non-text marks (ticks, faint dots): 3.61 on Paper, 2.87 on Haze (never a meaningful mark on Haze). Never text. IC step `#5F6D7B` (5.22 on Paper, 4.15 on Haze): use it for the rest glyph in a Haze session tile. |
-| Marigold / Warn text | `#E0A21B` / `#7A5A00` | Warning mark and its words (6.28 on Paper). The Marigold mark is 2.21 on Paper, so a warning always pairs it with a glyph and words. Marigold is also the gold of a goal's Orb (2.1), which is never a warning. |
+| Marigold / Warn text | `#E0A21B` / `#7A5A00` | Warning mark and its words (6.28 on Paper). The Marigold mark is 2.21 on Paper, so a warning always pairs it with a glyph and words. |
 | Signal | `#B42340` | Errors and destructive words (6.35 on Paper). |
-| Data tones | Lagoon `#117A74`, Deep Sky `#0A6CA6`, Plum `#7E3F8F`, Rose `#B23A5B`, Indigo `#4A4FB0`, Ochre `#7D6210`, Pencil `#7A8794` | Session kinds (easy, long, hard, fast, lift, cross, rest). Glyphs, lines and 3 px markers only; never a surface or a tinted card (the one exception: the body of an earned Orb, 2.1). Each is 5.0:1 or better on Paper except Pencil (marks only). Hard moved off orange so orange keeps one meaning. |
-| Brand art | Poster sky `#8DD0F5`, `#AEDDF8`, `#CFEBFA`; horizon `#F4E6D2`, `#FFD2AE`; hills `#8FCDEE`, `#4FA9DB`, `#0A6CA6` | Posters, heroes, the icon. Not app chrome. |
+| Data tones | Lagoon `#117A74`, Deep Sky `#0A6CA6`, Plum `#7E3F8F`, Rose `#B23A5B`, Indigo `#4A4FB0`, Ochre `#7D6210`, Pencil `#7A8794` | Session kinds (easy, long, hard, fast, lift, cross, rest). Glyphs, lines and 3 px markers only; never a surface or a tinted card (the one exception: the flat color of an earned Orb's form, 2.1: Lagoon, Indigo and Ochre a session's, Plum a challenge's, Rose a return's). Each is 5.0:1 or better on Paper except Pencil (marks only). Hard moved off orange so orange keeps one meaning. |
+| Brand art | Poster sky `#8DD0F5`, `#AEDDF8`, `#CFEBFA`; horizon `#F4E6D2`, `#FFD2AE`; hills `#8FCDEE`, `#4FA9DB`, `#0A6CA6` | Posters, heroes, the icon. Not app chrome. One use in the app besides the poster kit: the first hill's `#8FCDEE` fills an earlier chapter's form in the oculus (2.1). |
 | App washes | `--wash-bar` `#D0EAF8`, `--wash-strip` `#DAEEFA`, `--wash-strip-end` `#E2F2FB`, `--welcome-warm` `#FFF1E4`, `--entry-2` `#7FCBF3`, `--orb-arc` `#FF9F5A` | Sticky bars and strip, the splash ground (the welcome screens stand on the dawn wash, as the tabs do), journal two-entry disc, the thinking arc. Tokens only. |
 | Splash lights | `--splash-day`, `--splash-glow`, `--splash-halo`, `--splash-bloom`, `--splash-ring` | The sunrise splash (9.2). `--splash-day` is the day's colors as one layer: poster sky `#8DD0F5` to `#AEDDF8` over the top 28 percent, and the horizon band `#F4E6D2` to `#FFD2AE` from 48 to 88 percent, with nothing between them. The other three are its soft lights: Apricot `#FFB680` radial falloffs (the bloom starts from `#FFF1E4`). `--splash-ring` is the soft Apricot band just inside each sun ring's white line (8.3). Each is drawn once and only faded or scaled. Brand art, not app chrome. |
 
@@ -332,7 +331,7 @@ Only these. A pairing not in this table is not allowed.
 
 **Non-text checks:** Sky on Paper is 2.26, so a Sky shape that carries meaning on its own (a done state, a selected tab) must also change shape or carry a Night Ink glyph or label. Deep Sky on Haze 4.43 and on Paper 5.57, Sunrise on Paper 3.20 and Pencil on Paper 3.61 all pass 3:1. Sunrise on Haze is 2.55: a Sunrise mark on Haze needs its Paper keyline.
 
-**Decorative marks** (under 3:1 by design; the meaning is carried elsewhere, so each must stay decorative): the way's dots and the sun's place on Today's hero `--tick-major` (the band carries the value), the dusk scene's stars and rim, the dot for an empty day ahead on the Progress chart (`--tick`, 1.57; the headline says "Nothing planned" when it is read), the off habit coin ring `--coin-ring` (1.80; the name and the check carry the state), the off filter chip edge `--line-strong` (1.44; the label carries the state), the thinking arc and its ring (the status line carries it), an earned Orb's hue and the keepsake's light (Apricot on Paper is about 1.7:1 and Pearl is less; the Orb's style, the words or the numeral beside it, its caption in the dome, or the keepsake's own numeral or glyph carries the meaning). **Meaningful marks under 3:1 are not allowed:** the rest glyph in a Haze tile uses `#5F6D7B` (4.15), not Pencil (2.87); journal entry discs carry the count as a numeral inside the disc (1, 2, 3+), not by lightness alone; a warning pairs the Marigold mark with a glyph and words.
+**Decorative marks** (under 3:1 by design; the meaning is carried elsewhere, so each must stay decorative): the way's dots and the sun's place on Today's hero `--tick-major` (the band carries the value), the dusk scene's stars and rim, the dot for an empty day ahead on the Progress chart (`--tick`, 1.57; the headline says "Nothing planned" when it is read), the off habit coin ring `--coin-ring` (1.80; the name and the check carry the state), the off filter chip edge `--line-strong` (1.44; the label carries the state), the thinking arc and its ring (the status line carries it), an earned Orb's color and the keepsake's light (on Paper Apricot is 1.69:1, a target's Sky 2.26 and an earlier week's Haze 1.26 inside its Deep Sky edge; the form's silhouette, the words or the numeral beside it, its caption in the oculus, or the keepsake's own numeral or glyph carries the meaning). **Meaningful marks under 3:1 are not allowed:** the rest glyph in a Haze tile uses `#5F6D7B` (4.15), not Pencil (2.87); journal entry discs carry the count as a numeral inside the disc (1, 2, 3+), not by lightness alone; a warning pairs the Marigold mark with a glyph and words.
 
 ### 3.4 Proportions
 
@@ -358,7 +357,7 @@ Sunrise means **now**. It has these jobs and no others:
 5. **The live node** on a timeline (the current step), 12 px with a Paper keyline.
 6. **Now on a chart:** the now dot (8 px): on the latest point of a line, on the bucket holding today in the Progress bars.
 
-**Budget:** at most 3 Sunrise elements visible on one screen. Ember carries orange words (a Today tag, the "Next" tag) and does not count. Apricot is light (glows, the Orb's underlight, a habit's Orb and the keepsake's light of 2.1) and does not count, and no hue of the Orb family is Sunrise; nor does the thinking arc `#FF9F5A`, which is Orb light. Orange never fills a button, a card, a selected state, a done state, a session kind or a chart series.
+**Budget:** at most 3 Sunrise elements visible on one screen. Ember carries orange words (a Today tag, the "Next" tag) and does not count. Apricot is light (glows, the Orb's underlight, the keepsake's light of 2.1) or the flat color of an earned form (a habit's lit disc, a full day's sunrise: 2.1) and does not count, and no earned form is Sunrise; nor does the thinking arc `#FF9F5A`, which is Orb light. Orange never fills a button, a card, a selected state, a done state, a session kind or a chart series.
 
 **Priority when more than 3 would show** (highest first; what is past the third yields):
 
@@ -581,7 +580,7 @@ Replaces the U-arc gauge. Built in `features/day/HeroHorizon.tsx` (the drawing) 
 |---|---|
 | Grid | Two columns, gap 12 (`--gap-tile`), tiles Paper r 18, `--shadow-1`, min height 60, padding 12. |
 | Coin (off) | 42 px circle, 1.5 px inset ring `--coin-ring` (decorative), the habit's initial in Inter 600 `--fs-row` Night Ink (or a numeral in Inter 600). Never Fraunces. |
-| Coin (lit) | A flat Sky disc with a Night Ink check (7.03). Not a glossy Orb: gloss belongs to the assistant's Orb and to earned Orbs (2.1), never to a control. Lights with one overshoot to 1.12 on `springs.complete` and the `orb` haptic on the peak. |
+| Coin (lit) | A flat Sky disc with a Night Ink check (7.03). Not a glossy Orb: gloss belongs to the assistant's Orb alone (2.1, 8.1), never to a control or a reward. Lights with one overshoot to 1.12 on `springs.complete` and the `orb` haptic on the peak. |
 | Name | Inter 600 `--fs-tile` (0.9375 / 1.125 rem), Night Ink, sentence case ("Read 15 min"), up to 2 lines, never truncated to an icon. |
 | Week dots | Seven 6 px dots, gap `--gap-dot` 3: done Deep Sky; missed a 1.25 px Pencil ring (3.61); ahead `--dot-ahead`; the shown day a 1.5 px Night Ink outline offset 1.5 px. No orange. |
 | Add tile | Paper tile, a 42 px circle with a 1.5 px `--line` ring and a + glyph, "Add" in Inter 600. |
@@ -750,7 +749,7 @@ Never: emoji, stars or starbursts, rockets, atoms, filled glyph sets, two icon s
 
 ### 8.1 One render
 
-The Orb and its family are the only glossy, 3D objects in the system. Everything else is flat color, with soft gradients only on the sky. The logo's own Sky Orb is rendered glossy in exactly three places: the assistant, the splash, the app icon (and marketing art that shows them). An earned Orb (2.1) is glossy only where 2.1 lets one appear: the reward layer, the dome, the legend and today's lines. No control, chart or icon is ever glossy.
+The Orb is the only glossy, 3D object in the system: one sphere, never recolored, never doubled. Everything else is flat color, with soft gradients only on the sky. The Orb is rendered glossy in exactly three places: the assistant, the splash, the app icon (and marketing art that shows them). An earned Orb (2.1) is a flat form: one color, one silhouette built on a circle, no gradient, no gloss, no shadow, no glow. No control, chart, icon or reward is ever glossy. One sphere is a symbol; a second is wallpaper.
 
 ### 8.2 How it is lit
 
@@ -896,9 +895,9 @@ From `lib/haptics.ts`: named events, at most one per action, fired on the visual
 | session | workout (in UI labels) | "Today's lift", "Easy 5". One exception: the Runs / Workouts choice (6.5) and the counts it leads to on the card's band and the Progress chart say "workouts" ("13 workouts in 3 months"), so the word under the pill is the pill's own. A single planned or logged thing is still a session. |
 | habit | streak item, task | |
 | Orbs (plural, or with a number: "9 Orbs", "1 Orb") | "the Orb" for a reward, points, coins, XP | "The Orb" is the assistant's mark (2.6). |
-| Orbs; "the dome" only where the page's hero needs a name (the page is "Orbs") | jar, marbles, coins, a name for the page | The collection on the Orbs page (8.5). |
-| A to-do, A habit, A run, A lift, Cross-training, Today's goal, A week goal, A month goal, A year goal, A full day, A week that counts, A challenge, Good to see you, An earlier week, An earlier chapter, An earlier year | a hue as a label ("the gold one", "a Lagoon Orb"), gem, jewel | An Orb is named for what earned it (`gemName`), never for its color. |
-| Tilt, Stir, Float | Shake, Gravity, Zero-G | The dome's three keys. "Tilt is off for Orby" when motion access is refused or missing. |
+| Orbs; "the oculus" only where the page's hero needs a name (the page is "Orbs") | jar, marbles, coins, dome, a name for the page | The collection on the Orbs page (8.5). |
+| A to-do, A habit, A run, A lift, Cross-training, Today's goal, A week goal, A month goal, A year goal, A full day, A week that counts, A challenge, Good to see you, An earlier week, An earlier chapter, An earlier year | a color or a shape as a label ("the blue one", "a Lagoon Orb", "a target", "a crescent"), form, gem, jewel | An Orb is named for what earned it (`gemName`), never for its color or its shape. "Form" is this guide's word for the drawing; copy says "Orb". |
+| Tilt, Stir, Float | Shake, Gravity, Zero-G | The three pills under the oculus, sentence case. "Tilt is off for Orby" when motion access is refused or missing. |
 | × ("month goal × 10") | x, * | The multiplication sign. |
 | days off | rest days | A rest day is a training state here. |
 | "5 days this week", "128 days in all" | kept (as a noun), streak | The count of days. A day counts; it is never "kept". |
@@ -1010,8 +1009,8 @@ Run all of it. A change is not done until every line is true. Lines marked (runt
 - [ ] Every text and ground pairing is in 3.2. `pnpm test` passes (contrast and px-font checks). (runtime: the audit checks each text element against its effective ground)
 - [ ] No Sky text on light grounds, no white on Sky, no Sunrise text.
 - [ ] At most 3 Sunrise elements on the screen (3.5 priority), each with a Paper keyline of at least 2 px (the week's sun 3.5); no orange button, fill, selected state, series or session kind. (runtime)
-- [ ] One assistant Orb at most (or the splash); its size follows the tiers (48+ full, 28 to 47 gloss, under 28 flat). (runtime) An earned Orb is one of the family (`features/orbs/gems`, 2.1): the logo's form in the table's hue and style, never Sky, every stop derived from its token by the one function, and only in the reward layer, the dome, the legend and today's lines. Its hue never says the kind alone.
-- [ ] Rewards are in the brand's own light: no confetti, no mascots, no chance imagery (the dome holds what was earned and pays nothing out), no loss framing. In Orbs copy: no zero, no "best", no days in a row, nothing that ended, no bonus or challenge shown as nearly earned, no worth on a goal. The words are the glossary's (10.2).
+- [ ] One assistant Orb at most (or the splash); its size follows the tiers (48+ full, 28 to 47 gloss, under 28 flat). (runtime) It is the only glossy thing on the screen. An earned Orb is one of the flat forms (`features/orbs/gems`, 2.1): the table's silhouette in the table's color, with no gradient, gloss, shadow, glow or filter, its tint from the one function, nothing drawn outside its circle, and only in the reward layer (on its Paper disc), the oculus, the legend and today's lines. Its silhouette says the kind; its color never does alone.
+- [ ] Rewards are in the brand's own light: no confetti, no mascots, no chance imagery (the oculus holds what was earned and pays nothing out), no loss framing. In Orbs copy: no zero, no "best", no days in a row, nothing that ended, no bonus or challenge shown as nearly earned, no worth on a goal. The words are the glossary's (10.2).
 - [ ] One hero card and one sunrise glow at most. (runtime)
 - [ ] Fraunces only in titles, card titles, sentences and one static hero stat; never in buttons, tabs, chips, inputs, coins or live numbers. Weights 600 to 700 roman, 420 italic. No `font-variation-settings` outside the `html` rule. At most 4 Fraunces and 5 Inter sizes. (runtime)
 - [ ] Live numbers are Inter with `tabular-nums` ("1111" and "0000" match widths). Today's hero prints its count on the band. (runtime)
@@ -1020,7 +1019,7 @@ Run all of it. A change is not done until every line is true. Lines marked (runt
 - [ ] Icons: 1.75 stroke, round caps, from the set or rule-abiding Lucide; no emoji; the Progress glyph is the set's.
 - [ ] Copy: Orby (capital O, no "the", no "app"), "the assistant", American spelling, no em dashes, no model names outside required disclosures, at most one exclamation mark, sentence case.
 - [ ] Tested at 200 percent text, with Reduce Motion and Increase Contrast on; targets 44 pt. (runtime)
-- [ ] Only transform and opacity animate, plus the named cases in 9.1 (the dome's canvas is one: sprites drawn from a simulation, and a loop that stops at rest); durations match section 9; haptics fire on the peak frame, at most one per action (the three exceptions, 9.5: the splash's timed phrase, the one full-day beat, and the dome under the hand).
+- [ ] Only transform and opacity animate, plus the named cases in 9.1 (the oculus's canvas is one: sprites drawn from a simulation, and a loop that stops at rest); durations match section 9; haptics fire on the peak frame, at most one per action (the three exceptions, 9.5: the splash's timed phrase, the one full-day beat, and the oculus under the hand).
 - [ ] Third-party marks (6.15) are unmodified and marked `brand-ok: third-party`.
 - [ ] The checks in section 8 of `docs/brand/layout-and-hierarchy.md` pass (squint test, 3-second test, focal point high, proximity, type counts, containers, say it once, targets).
 - [ ] Internal identifiers unchanged (repo, `@logbook/*`, `com.joshbean.logbook`, storage keys, `LogbookAPIHost`).

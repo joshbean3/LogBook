@@ -1,7 +1,7 @@
 /**
- * Color for the Orb family, with no DOM in it: a token's hex in, derived hexes out. Everything a sphere needs besides
- * its token (the lighter stops toward its light, the deeper ones toward its edge, its small shift) is worked out here in
- * OKLab, where equal steps look equal, so no component types a color.
+ * Color for the earned Orbs, with no DOM in it: a token's hex in, its tint out. A form is one flat color, so all that
+ * is worked out here is the lighter tint and the deeper shade of a token, in OKLab, where equal steps look equal, and
+ * how a color measures against a ground. No component types a color.
  */
 export interface Lab {
   l: number;
@@ -52,27 +52,38 @@ export const mix = (x: string, y: string, t: number): string => {
   const q = toLab(y);
   return toHex({ l: p.l + (q.l - p.l) * t, a: p.a + (q.a - p.a) * t, b: p.b + (q.b - p.b) * t });
 };
-/** The same hue, its lightness times `l` and its chroma times `c`. */
-export const scale = (hex: string, l: number, c = 1): string => {
-  const p = toLab(hex);
-  return toHex({ l: p.l * l, a: p.a * c, b: p.b * c });
-};
-/** Toward the light: `t` of the way up to full lightness, keeping `keep` of the chroma (a tint that stays in its hue, where a mix with white would go milky). */
-export const tint = (hex: string, t: number, keep: number): string => {
-  const p = toLab(hex);
-  return toHex({ l: p.l + (1 - p.l) * t, a: p.a * keep, b: p.b * keep });
-};
-/** Turn the hue by `deg` degrees and move the lightness by `dl` (0 to 1): an Orb's own small shift. */
-export const shifted = (hex: string, deg: number, dl: number): string => {
-  const p = toLab(hex);
-  const r = (deg * Math.PI) / 180;
-  return toHex({ l: p.l + dl, a: p.a * Math.cos(r) - p.b * Math.sin(r), b: p.a * Math.sin(r) + p.b * Math.cos(r) });
-};
-/** The hue angle in degrees (0 to 360) and the lightness (0 to 1). */
-export const hueOf = (hex: string): number => {
-  const p = toLab(hex);
-  return ((Math.atan2(p.b, p.a) * 180) / Math.PI + 360) % 360;
-};
 export const lightnessOf = (hex: string): number => toLab(hex).l;
 /** Pure light: the top of the scale, derived rather than typed. */
 export const WHITE = toHex({ l: 1, a: 0, b: 0 });
+
+/** WCAG 2 contrast of two colors, 1 to 21. */
+export const contrast = (x: string, y: string): number => {
+  const lum = (hex: string) => {
+    const n = parseInt(hex.slice(1), 16);
+    return 0.2126 * lin(((n >> 16) & 255) / 255) + 0.7152 * lin(((n >> 8) & 255) / 255) + 0.0722 * lin((n & 255) / 255);
+  };
+  const [hi, lo] = [lum(x), lum(y)].sort((p, q) => q - p) as [number, number];
+  return (hi + 0.05) / (lo + 0.05);
+};
+
+/**
+ * A form's three tints, by one rule: the token (0), the same color one step lighter (1) and one step deeper (-1). A
+ * step is `TONE.step` of OKLab lightness with the hue held. A deeper shade is also richer, by `TONE.rich` times the
+ * square of the token's lightness, so a pale color (Apricot, Haze) deepens toward itself and not toward grey while a
+ * deep one hardly moves. A color past sRGB gives up chroma until it fits. A tint is never a hue turn.
+ *
+ * The lighter tint of a color that is already pale stops where it would measure under `TONE.floor` on `ground` (Paper):
+ * a form with no edge of its own must still be seen there.
+ */
+export const TONE = { step: 0.07, rich: 0.2, floor: 1.5 } as const;
+export const toneOf = (hex: string, shift: number, ground?: string): string => {
+  const p = toLab(hex);
+  const at = (d: number) => {
+    const k = d < 0 ? 1 + TONE.rich * p.l * p.l : 1;
+    return d ? toHex({ l: p.l + d, a: p.a * k, b: p.b * k }) : hex.toLowerCase();
+  };
+  let d = Math.sign(shift) * TONE.step;
+  // lighter only: back toward the token, a tenth of a step at a time, until the tint holds on the ground
+  for (let i = 0; i < 10 && d > 0 && ground && contrast(at(d), ground) < TONE.floor; i++) d = Math.max(0, d - TONE.step / 10);
+  return at(d);
+};

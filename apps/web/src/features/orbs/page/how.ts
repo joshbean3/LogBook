@@ -6,7 +6,8 @@ import { num } from './model';
  * lines (`ruleLine`), so the page cannot say one thing while the rules do another. A number in a sentence here is always
  * read from `rules`; the test changes the rules and expects the page to follow.
  *
- * A row that earns an Orb names which (`gems`): the page is the family's legend, so no hue has to be learned by heart.
+ * A row that earns an Orb names which form (`gems`): the page is the legend of the earned Orbs, so no shape has to be
+ * learned by heart.
  *
  * With Fitness off nothing names training: the session row, the training condition of a full day and Pause (the app's
  * statuses belong to training) are left out, and the day's ceiling is the sum without sessions.

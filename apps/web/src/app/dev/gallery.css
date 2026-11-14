@@ -404,7 +404,8 @@
   overflow: hidden;
 }
 
-/* the Orb family (features/orbs/gems): every kind at 30 with its name on Paper, then all of them at 22 on Cloud and dusk */
+/* the earned Orbs (features/orbs/gems): every kind at 30 with its name on Paper; all of them at 22 on Cloud, the
+   poster's sky and dusk; then each color at its three tints (deeper, the token, lighter) */
 .gal-gems {
   display: grid;
   gap: var(--sp-2);
@@ -428,6 +429,14 @@
   flex-wrap: wrap;
   gap: var(--sp-4) var(--sp-5);
 }
+.gal-gems > .gal-gem-tints {
+  flex-wrap: wrap;
+  gap: var(--sp-4) var(--sp-6);
+}
+.gal-gem-tint {
+  display: inline-flex;
+  gap: var(--sp-1);
+}
 
 /* the keepsake's light (ui/OrbLight) on the four grounds, at 12, 20 and 48, with a numeral beside it */
 .gal-lights {
@@ -446,6 +455,9 @@
 }
 .gal-light.is-cloud {
   background: var(--cloud);
+}
+.gal-light.is-sky {
+  background: linear-gradient(180deg, var(--poster-sky-1), var(--poster-sky-2) 50%, var(--poster-sky-3));
 }
 .gal-light.is-deep {
   background: var(--deep-sky);

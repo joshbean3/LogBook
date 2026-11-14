@@ -36,13 +36,27 @@
 .om-pop {
   opacity: 0;
 }
-/* the Orb (its kind's own, features/orbs/gems) is centered on the point */
+/* the Orb (its kind's own flat form, features/orbs/gems) is centered on the point, upright */
 .om-pop > .orb-gem {
   position: absolute;
   left: calc(var(--og) / -2);
   top: calc(var(--og) / -2);
   width: var(--og);
   height: var(--og);
+}
+/* In the air a form rides on a disc of Paper, 2 px wider than itself all round. A form is one flat color with
+   see-through gaps: over a card that is all it needs, but a session's is born over the training card's Deep Sky band
+   (Lagoon on Deep Sky measures 1.1:1) and a to-do's own color is the band's. On Paper the disc is not seen. Flat: no
+   shadow, no glow, no blur */
+.om-pop > .orb-gem::before {
+  content: '';
+  position: absolute;
+  inset: -2px;
+  border-radius: var(--r-pill);
+  background: var(--paper);
+}
+.om-pop > .orb-gem > img {
+  position: relative;
 }
 
 /* ---------- the rise: 420 ms, from the control's center ---------- */

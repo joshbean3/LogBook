@@ -32,6 +32,8 @@ import './gallery.css';
  * bar. The pill at the bottom names the last haptic that fired, so haptics can be checked on a desktop or in Safari.
  */
 
+/** One kind per color of the earned Orbs: each is shown at its three tints. */
+const GEM_TINT_KEYS = ['todo', 'habit', 'train:run', 'train:lift', 'train:cross', 'goal:day', 'challenge', 'back', 'fused:week', 'fused:chapter'] as const;
 const HAPTICS: HapticEvent[] = ['select', 'toggle', 'orb', 'lift', 'drop', 'threshold', 'success', 'celebrate', 'delete', 'warning', 'error'];
 
 const HapticLog = () => {
@@ -587,7 +589,7 @@ function Gallery({ onLab }: { onLab: () => void }) {
         <OrbDemo />
       </Section>
 
-      <Section title="The Orb family" meta="Earned Orbs: each kind with its name at 30, then all at 22 on Cloud and dusk">
+      <Section title="Earned Orbs" meta="Flat forms: each kind with its name at 30; all at 22 on Cloud, the poster's sky and dusk; the three tints">
         <div className="gal-gems" data-testid="orb-gems">
           <div className="gal-light gal-gem-ground is-paper">
             {GEM_KEYS.map((k) => (
@@ -597,13 +599,22 @@ function Gallery({ onLab }: { onLab: () => void }) {
               </span>
             ))}
           </div>
-          {(['cloud', 'dusk'] as const).map((g) => (
+          {(['cloud', 'sky', 'dusk'] as const).map((g) => (
             <div key={g} className={`gal-light gal-gem-line is-${g}`}>
               {GEM_KEYS.map((k) => (
                 <OrbGem key={k} gem={gemFor(k)} size={22} />
               ))}
             </div>
           ))}
+          <div className="gal-light gal-gem-tints is-paper">
+            {GEM_TINT_KEYS.map((k) => (
+              <span key={k} className="gal-gem-tint">
+                {[-1, 0, 1].map((shift) => (
+                  <OrbGem key={shift} gem={{ ...gemFor(k), shift }} size={22} />
+                ))}
+              </span>
+            ))}
+          </div>
         </div>
       </Section>
 

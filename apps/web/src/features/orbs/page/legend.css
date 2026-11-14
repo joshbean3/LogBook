@@ -1,7 +1,7 @@
 /*
- * The family's legend (features/orbs/gems): the Orb a row earns, at the row's leading edge, on How Orbs work and in the
- * sheet of today's lines. The place is 28 pt wide whether or not the row has an Orb, so the titles of a group line up;
- * a goal's rings reach a little past it into the gap, and take no room.
+ * The legend of the earned Orbs (features/orbs/gems): the form a row earns, at the row's leading edge, on How Orbs
+ * work and in the sheet of today's lines. The place is 28 pt wide whether or not the row has a form, so the titles of a
+ * group line up. A form is 22 pt and upright.
  */
 .orl-gem {
   flex: none;
@@ -11,24 +11,25 @@
   width: 28px;
   height: 28px;
 }
-/* a session: a run's, a lift's and cross-training's, small, one over two */
+/* a session: a run's, a lift's and cross-training's, 16 pt each, one over two. The cluster is 32 pt across: 2 pt past
+   the place on each side, into the row's gap */
 .orl-gem.is-trio {
   position: relative;
 }
 .orl-gem.is-trio > .orb-gem {
   position: absolute;
-  left: 7px;
-  top: 0;
+  left: 6px;
+  top: -2px;
 }
 .orl-gem.is-trio > .orb-gem:nth-child(2) {
-  left: 0;
-  top: 13px;
+  left: -2px;
+  top: 14px;
 }
 .orl-gem.is-trio > .orb-gem:nth-child(3) {
   left: 14px;
-  top: 13px;
+  top: 14px;
 }
-/* a line of today's Orbs: its Orb, then its name */
+/* a line of today's Orbs: its form, then its name */
 .orp-fact > dt.orl-line {
   display: flex;
   align-items: center;

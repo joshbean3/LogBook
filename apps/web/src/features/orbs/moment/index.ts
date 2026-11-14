@@ -279,7 +279,7 @@ export const popOrbs = (o: PopOrbs): number => {
     const x = rect.left + rect.width / 2;
     const y = rect.top + rect.height / 2;
     const lights = mode === 'still' ? stillLights(first.n, rect.height / 2) : lightsOf(first.n, dir);
-    // what was finished decides which Orb is born: a habit's, a to-do's, a run's; three of it for a session or today's goal
+    // what was finished decides which form is born: a habit's lit disc, a to-do's disc, a run's orbit; three of it for a session or today's goal
     const gem = gemFor(o.key);
     let longest = 0;
     for (const light of lights) {
