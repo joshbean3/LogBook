@@ -8,14 +8,14 @@ import { useFitness } from '@/lib/prefs';
 import { useToday } from '@/lib/useToday';
 import { PushedBar } from '@/ui/NavBar';
 import { PageSection } from '@/ui/layout';
-import { Poster, PosterScene } from '@/ui/poster';
 import { usePop } from '@/ui/PushedLayer';
 import { useSheet } from '@/ui/Sheet';
 import { useToast } from '@/ui/Toast';
 import { ChallengeRows } from '../challenge/ChallengeRows';
+import { Dome } from '../dome';
 import { markSeen, newKeys, setSwitches, useCount, useLevelInfo, useNewCount, useOrbsStore, useOrbsToday, useOrbsTotal, useWeekTarget } from '../store';
 import { Keepsakes } from './Keepsakes';
-import { isEmpty, keepsakesOf, levelBand, levelProgress, linesOf, longDate, newRows, nextKeepsake, notStarted, num, orbs, paidOn, type Line } from './model';
+import { isEmpty, keepsakesOf, linesOf, longDate, newRows, nextKeepsake, notStarted, num, orbs, paidOn, type Line } from './model';
 import { OrbsSwitchRows } from './Switches';
 import { useLeaveWhenOff } from './useLeaveWhenOff';
 import { WeekMarks } from './WeekMarks';
@@ -66,13 +66,14 @@ const GoalSheet = ({ n }: { n: number }): React.JSX.Element => (
  * The Orbs page (`/orbs`, pushed over Today): what has been earned, in the order the eye should take it.
  *
  *   1. The bar: Back, "Orbs".
- *   2. The poster: the total with its unit, an Apricot sun standing at the progress to the next level on the dotted way,
- *      the band "LEVEL 5" over "216 to level 6"; then, on Paper, this week's seven marks and one line of fact.
+ *   2. The dome (features/orbs/dome): every Orb earned as a sphere in a glass a finger can play with; under it the
+ *      console with the total, the level on a dial and the keys Tilt, Stir and Float; then, on Paper in the same card,
+ *      this week's seven marks and one line of fact.
  *   3. One inset group, only while it has rows: today's Orbs, anything new that is not a keepsake, the challenges.
  *   4. Keepsakes: earned ones only, and one dashed ring for what comes next.
  *   5. "How Orbs work" and the switches.
  *
- * Before the first Orb it is the poster at rest with one sentence, the rule, and the last group: no grid, no zero.
+ * Before the first Orb it is the empty glass with one sentence, the rule, and the last group: no grid, no zero.
  * With Orbs off it is not a place: it leaves for Today.
  */
 export default function OrbsPage(): React.JSX.Element {
@@ -167,7 +168,6 @@ export default function OrbsPage(): React.JSX.Element {
 
   const empty = isEmpty(total);
   const waiting = notStarted(store, today);
-  const band = levelBand(level);
   const line = countLine(count);
   const monday = count.today === 0 && count.days > 0 ? mondayLine(target) : null;
   const keeps = empty ? [] : keepsakesOf(store, fitness);
@@ -194,26 +194,12 @@ export default function OrbsPage(): React.JSX.Element {
   return (
     <div className="page orp-page">
       <PushedBar title="Orbs" />
-      {empty ? (
-        <Poster className="orp-poster" label={waiting ? `Orbs start ${starts}` : 'Your first Orb is one thing away'} title={waiting ? `Orbs start ${starts}` : 'Your first Orb is one thing away'} meta={waiting ? longDate(store.startedOn, today) : undefined} scene={<PosterScene progress={0} />} band={{ label: 'The rule', words: ruleLine(target) }}>
+      {/* the dome draws on a canvas: if it ever fails, the page keeps the week's numbers below it and everything else */}
+      <SectionBoundary name="orbs.dome" resetKey={today}>
+        <Dome store={store} today={today} total={total} level={level} fitness={fitness} empty={empty ? { line: waiting ? `Orbs start ${starts}` : 'Finish one thing and it lands here.', note: waiting ? longDate(store.startedOn, today) : undefined, rule: ruleLine(target) } : null}>
           {week}
-        </Poster>
-      ) : (
-        <Poster
-          className="orp-poster is-count"
-          label={`${orbs(total)}. Level ${num(level.level)}.`}
-          titleAs="p"
-          title={
-            <>
-              <span className="orp-total">{num(total)}</span> <span className="orp-unit">{total === 1 ? 'Orb' : 'Orbs'}</span>
-            </>
-          }
-          scene={<PosterScene progress={levelProgress(level)} />}
-          band={{ label: band.label, words: band.words }}
-        >
-          {week}
-        </Poster>
-      )}
+        </Dome>
+      </SectionBoundary>
 
       {empty ? null : (
         <div className="group s-group orp-now">
