@@ -161,7 +161,7 @@
 }
 .dm-facts {
   display: grid;
-  gap: 2px;
+  gap: var(--sp-1);
   min-width: 0;
 }
 /* the total: the page's one big number, Inter 650 with even figures, held between 44 and 64 px */

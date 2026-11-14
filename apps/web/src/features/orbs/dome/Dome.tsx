@@ -8,6 +8,7 @@ import { Pressable } from '@/ui/Pressable';
 import { useToast } from '@/ui/Toast';
 import { domeBodies, domeSaid } from './bodies';
 import { Gauge } from './Gauge';
+import { FLOAT_LASTS_MS } from './rules';
 import { createStage, type Stage } from './stage';
 import './dome.css';
 
@@ -96,6 +97,15 @@ export const Dome = ({ store, today, total, level, fitness = true, empty, childr
     setFloat(!float);
     stage.current?.setFloat(!float);
   };
+  // Float lets go by itself after a while (it draws every frame): no haptic, nobody pressed anything
+  useEffect(() => {
+    if (!float) return;
+    const t = window.setTimeout(() => {
+      setFloat(false);
+      stage.current?.setFloat(false);
+    }, FLOAT_LASTS_MS);
+    return () => window.clearTimeout(t);
+  }, [float]);
 
   return (
     <section className={`dm${empty ? ' is-empty' : ''}`}>
@@ -156,19 +166,19 @@ export const Dome = ({ store, today, total, level, fitness = true, empty, childr
           </div>
           {reduce ? null : (
             <div className="dm-keys">
-              <Pressable className="dm-key" aria-pressed={tilt} onPress={onTilt}>
+              <Pressable className="dm-key" label="Tilt. Gravity follows the phone" aria-pressed={tilt} onPress={onTilt}>
                 <span className="dm-key-disc">
                   <Smartphone className="dm-key-tilt" size={18} strokeWidth={1.75} aria-hidden="true" />
                 </span>
                 <span className="dm-key-label">Tilt</span>
               </Pressable>
-              <Pressable className="dm-key" onPress={onStir}>
+              <Pressable className="dm-key" label="Stir. One swirl" onPress={onStir}>
                 <span className="dm-key-disc">
                   <RefreshCw size={18} strokeWidth={1.75} aria-hidden="true" />
                 </span>
                 <span className="dm-key-label">Stir</span>
               </Pressable>
-              <Pressable className="dm-key" aria-pressed={float} onPress={onFloat}>
+              <Pressable className="dm-key" label="Float. Gravity lets go" aria-pressed={float} onPress={onFloat}>
                 <span className="dm-key-disc">
                   <Bubbles size={18} strokeWidth={1.75} aria-hidden="true" />
                 </span>

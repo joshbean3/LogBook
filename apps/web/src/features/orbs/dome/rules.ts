@@ -187,3 +187,9 @@ export const RADIUS = {
   chapterTop: 600,
   year: 40,
 } as const;
+
+/**
+ * How long Float stays on by itself (ms). A floating pile draws every frame; left on with the phone on a desk it lets
+ * go again after this, quietly. A touch in the glass or on a key starts the time again.
+ */
+export const FLOAT_LASTS_MS = 90_000;
