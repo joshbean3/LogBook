@@ -1,6 +1,7 @@
-import { createPool, FULL_DAY_CHIP, LAND, POOL_SIZE, POP, STILL, type Light, type PopMode } from './rules';
+import { gemBox, gemFor, gemUrl, type Gem } from '../gems';
+import '../gems/gem.css';
+import { CHIP_GEM, createPool, FULL_DAY_CHIP, LAND, POOL_SIZE, POP, STILL, type Light, type PopMode } from './rules';
 import './moment.css';
-import '@/ui/orbLight.css';
 
 /**
  * The layer the Orbs are drawn on: one fixed element on `body` with six pooled nodes and one chip. It is made the
@@ -13,7 +14,9 @@ import '@/ui/orbLight.css';
  */
 interface Node {
   el: HTMLElement;
-  light: HTMLElement;
+  /** The Orb's box and its art (`features/orbs/gems`): which Orb it is, is written at each birth. */
+  gem: HTMLElement;
+  art: HTMLImageElement;
   timer: ReturnType<typeof setTimeout> | undefined;
   live: boolean;
   /** Tells the Orb's caller it is over (once). */
@@ -34,16 +37,26 @@ const span = (cls: string, parent: HTMLElement) => {
   parent.appendChild(el);
   return el;
 };
-/** The same two layers `ui/OrbLight.tsx` draws (kept in step with it: a pooled node is not a React element). */
-const lightIn = (parent: HTMLElement, size: number) => {
-  const el = span('orb-light', parent);
-  el.style.setProperty('--ol', `${size}px`);
-  const glow = document.createElement('i');
-  glow.className = 'ol-glow';
-  const core = document.createElement('i');
-  core.className = 'ol-core';
-  el.append(glow, core);
-  return el;
+/**
+ * The same two elements `gems/OrbGem.tsx` draws (kept in step with it: a pooled node is not a React element). The art
+ * is decoded with the frame that shows it, so an Orb is never born as an empty box.
+ */
+const gemIn = (parent: HTMLElement, size: number) => {
+  const el = span('orb-gem', parent);
+  el.style.setProperty('--og', `${size}px`);
+  const art = document.createElement('img');
+  art.alt = '';
+  art.decoding = 'sync';
+  art.draggable = false;
+  el.appendChild(art);
+  return { el, art };
+};
+/** Which Orb a box shows. The art's address is written only when it changes. */
+const dress = (box: { el: HTMLElement; art: HTMLImageElement }, gem: Gem, size: number) => {
+  box.el.style.setProperty('--og', `${size}px`);
+  box.el.style.setProperty('--ob', String(gemBox(gem)));
+  const url = gemUrl(gem);
+  if (box.art.getAttribute('src') !== url) box.art.setAttribute('src', url);
 };
 const ensure = (): HTMLElement | null => {
   if (layer?.isConnected) return layer;
@@ -65,11 +78,13 @@ const ensure = (): HTMLElement | null => {
   for (let i = 0; i < POOL_SIZE; i++) {
     const el = span('om-node', layer);
     const pop = span('om-pop', span('om-land', span('om-rise', span('om-fy', span('om-fx', el)))));
-    nodes.push({ el, light: lightIn(pop, POP.size), timer: undefined, live: false });
+    const box = gemIn(pop, POP.size);
+    nodes.push({ el, gem: box.el, art: box.art, timer: undefined, live: false });
   }
   chip = span('om-chip', layer);
   const inner = span('om-chip-in', chip);
-  lightIn(inner, POP.restSize);
+  // the full day's own Orb, the Pearl, beside its words
+  dress(gemIn(inner, CHIP_GEM), gemFor('full'), CHIP_GEM);
   inner.appendChild(document.createTextNode(FULL_DAY_CHIP));
   document.body.appendChild(layer);
   return layer;
@@ -80,6 +95,8 @@ export interface Spawn {
   x: number;
   y: number;
   light: Light;
+  /** Which Orb it is: its kind's (`gemFor(key)`). */
+  gem: Gem;
   mode: PopMode;
   /** A flight: where the counter's sun is from the end of the rise, and how long the flight takes. */
   fly?: { dx: number; dy: number; ms: number };
@@ -109,7 +126,7 @@ export const spawn = (s: Spawn): boolean => {
   st.setProperty('--om-dx', `${s.light.dx}px`);
   st.setProperty('--om-dy', `${s.light.dy}px`);
   st.setProperty('--om-delay', `${s.light.delay}ms`);
-  node.light.style.setProperty('--ol', `${s.light.size}px`);
+  dress({ el: node.gem, art: node.art }, s.gem, s.light.size);
   if (s.mode === 'fly' && s.fly) {
     st.setProperty('--om-fx', `${s.fly.dx}px`);
     st.setProperty('--om-fy', `${s.fly.dy}px`);

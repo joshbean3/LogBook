@@ -1,5 +1,6 @@
 import { PAUSE_KINDS, RULES, ruleLine } from '@logbook/shared';
 import { describe, expect, it } from 'vitest';
+import { gemName } from '../gems';
 import { dayCeiling, goalRows, howSections, levelsLine, weekSteps, type HowSection, type Rules } from './how';
 
 /**
@@ -34,6 +35,25 @@ describe('what earns Orbs, against RULES', () => {
     expect(dayCeiling(RULES, true)).toBe(RULES.dailyCeiling);
     expect(sec(on, 'earn').foot).toBe(`A day pays ${RULES.dailyCeiling} at most.`);
     expect(dayCeiling(RULES, false)).toBe(RULES.dailyCeiling - RULES.train.done * RULES.train.kinds);
+  });
+});
+
+describe('the legend: each row that earns an Orb names which', () => {
+  const gems = (all: HowSection[], s: string) => Object.fromEntries(sec(all, s).rows.map((r) => [r.key, r.gems]));
+  it('a to-do, a habit, a session (one per kind), today’s goal and a full day; tonight’s line has none', () => {
+    expect(gems(on, 'earn')).toEqual({ todo: ['todo'], habit: ['habit'], train: ['train:run', 'train:lift', 'train:cross'], 'goal:day': ['goal:day'], full: ['full'], line: undefined });
+  });
+  it('the four goals, a week that counts and the two challenges', () => {
+    expect(gems(on, 'goals')).toEqual({ 'goal:day': ['goal:day'], 'goal:week': ['goal:week'], 'goal:month': ['goal:month'], 'goal:year': ['goal:year'] });
+    expect(gems(on, 'weeks')).toEqual({ week: ['week'] });
+    expect(gems(on, 'challenges')).toMatchObject({ day: ['challenge:d'], week: ['challenge:w'], offer: undefined, size: undefined });
+  });
+  it('every key is one the family knows, and the sections about the count and the rules show none', () => {
+    for (const all of [on, off]) for (const s of all) for (const r of s.rows) for (const k of r.gems ?? []) expect(gemName(k), k).not.toBe('An Orb');
+    for (const key of ['count', 'for', 'never']) expect(sec(on, key).rows.every((r) => !r.gems)).toBe(true);
+  });
+  it('with Fitness off no row shows a session’s Orb', () => {
+    expect(off.flatMap((s) => s.rows.flatMap((r) => r.gems ?? [])).some((k) => k.startsWith('train:'))).toBe(false);
   });
 });
 
