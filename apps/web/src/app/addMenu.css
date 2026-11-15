@@ -74,9 +74,13 @@
 .cm-layer .cm-item.add-item + .add-item::before {
   left: calc(var(--sp-3) + var(--tile-ic) + var(--sp-3));
 }
-/* the row under the finger is lit, as a pressed row is */
+/* the row under the finger is lit, as a pressed row is. Only that row: the press's own mark (which lingers a few px past
+   a row's edge) lights nothing here, so a slide never shows two */
 .cm-layer .cm-item.add-item[data-lit] {
   background: var(--surface-2);
+}
+.cm-layer .cm-item.add-item[data-pressed]:not([data-lit]) {
+  background: none;
 }
 /* focus moved here by the menu itself after a touch is not a lit row: only the keyboard's focus shows */
 .cm-layer .cm-item.add-item[data-quiet-focus]:focus-visible:not([data-lit], [data-pressed]) {

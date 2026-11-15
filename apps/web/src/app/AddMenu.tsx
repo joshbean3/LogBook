@@ -17,7 +17,7 @@ import { useReduced } from '@/lib/motion';
 import { usePrefs } from '@/lib/prefs';
 import { useLiveToday } from '@/lib/useToday';
 import { restoreFocus } from '@/ui/focus';
-import { NAV_EVENT, type NavEventDetail, type TabId } from '@/ui/nav';
+import { NAV_EVENT, type TabId } from '@/ui/nav';
 import { useSheet } from '@/ui/Sheet';
 import { usePress } from '@/ui/usePress';
 import { addMotion, addOrder, addPlace, createAddMenu, keyStep, runAdd, type AddFlows, type Over } from './addRules';
@@ -114,8 +114,9 @@ export const AddMenu = ({ active, todayPath, planPath }: { active: TabId; todayP
   // where the button stands, read as it opens: the card and the veil's cut-out are placed from it
   const [at, setAt] = useState<DOMRect | null>(null);
   const press = usePress();
-  /** The click that follows a press on the button is that press's own: only a click with no pointer behind it toggles. */
+  /** The click that follows a press on the button is that press's own (it comes within a moment of the finger lifting): any other click toggles. */
   const pressed = useRef(false);
+  const liftedAt = useRef(0);
   const show = (el: HTMLElement) => {
     setAt(el.getBoundingClientRect());
     setShown(true);
@@ -179,10 +180,12 @@ export const AddMenu = ({ active, todayPath, planPath }: { active: TabId; todayP
     const els = [...document.querySelectorAll<HTMLElement>('.tabs-host, .dock-ask, .dock-row')];
     for (const el of els) el.setAttribute('inert', '');
     let back = false;
+    own.current = true;
     const release = nav.openOverlay(() => {
       back = true;
       machine.dismiss();
     });
+    own.current = false;
     free.current = () => {
       free.current = () => undefined;
       held.current = false;
@@ -191,6 +194,8 @@ export const AddMenu = ({ active, todayPath, planPath }: { active: TabId; todayP
     };
   };
   const held = useRef(false);
+  /** The menu's own entry is being written to history right now: the one nav event that does not close it. */
+  const own = useRef(false);
   useEffect(() => () => free.current(), []);
   /** The close has played (or its rest never came: a hidden page runs no animation): the layer goes and the page comes back. */
   const gone = () => {
@@ -203,10 +208,10 @@ export const AddMenu = ({ active, todayPath, planPath }: { active: TabId; todayP
     const t = setTimeout(gone, 400);
     return () => clearTimeout(t);
   }, [open, shown]); // eslint-disable-line react-hooks/exhaustive-deps
-  // a change of page under the menu closes it (once its entry is in history the controller does this itself)
+  // anything else that moves under the menu closes it: a change of page, a sheet rising by itself
   useEffect(() => {
-    const away = (e: Event) => {
-      if ((e as CustomEvent<NavEventDetail>).detail?.type !== 'overlay') machine.dismiss();
+    const away = () => {
+      if (!own.current) machine.dismiss();
     };
     window.addEventListener(NAV_EVENT, away);
     return () => window.removeEventListener(NAV_EVENT, away);
@@ -301,6 +306,10 @@ export const AddMenu = ({ active, todayPath, planPath }: { active: TabId; todayP
         m={m.glyph}
         menuId={menuId}
         {...press.handlers}
+        onPointerUp={(e) => {
+          press.handlers.onPointerUp?.(e);
+          liftedAt.current = performance.now();
+        }}
         onPointerDown={(e) => {
           press.handlers.onPointerDown?.(e);
           if (!e.isPrimary || (e.pointerType === 'mouse' && e.button !== 0)) return;
@@ -312,9 +321,10 @@ export const AddMenu = ({ active, todayPath, planPath }: { active: TabId; todayP
           if (machine.get().open) follow(e.pointerId);
         }}
         onClick={(e) => {
-          // the keyboard and VoiceOver click with no pointer behind them (`detail` 0)
-          if (pressed.current && e.detail !== 0) return void (pressed.current = false);
+          // the keyboard and VoiceOver click with no pointer behind them
+          const own = pressed.current && e.detail !== 0 && performance.now() - liftedAt.current < 700;
           pressed.current = false;
+          if (own) return;
           show(e.currentTarget);
           machine.toggle();
         }}
