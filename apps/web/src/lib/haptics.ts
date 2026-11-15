@@ -9,7 +9,8 @@ import { isNative } from './native';
  * Call the event, not the motor: `haptics.toggle()` when a to-do is checked, `haptics.lift()` when a long-press lifts
  * something. At most one per action, fired on the frame of the visual peak, never for a tap that only navigates or opens a
  * sheet. The one exception is the opening sunrise's timed phrase (`playHaptics`, guide 9.5): a tap on each sun ring and one
- * beat as the sun clears the horizon, tied to what is on screen. Inside the iOS app these map to @capacitor/haptics; on
+ * beat as the sun clears the horizon, tied to what is on screen. (The guide names three more, each under the hand: the
+ * full-day beat, the oculus, and the ticks of a slide over the dock's Add menu.) Inside the iOS app these map to @capacitor/haptics; on
  * Android browsers to `navigator.vibrate`; iOS Safari has no vibration API, so every meaning must also be carried visually.
  */
 
@@ -136,22 +137,22 @@ const fire = (name: HapticEvent, fn: () => void | false) => () => {
 
 let lastTick = 0;
 export const haptics: Record<HapticEvent, () => void> = {
-  /** The assistant's words landing as it writes: the lightest selection tick, at most one every 100 ms. */
+  /** The assistant's words landing as it writes, and each row a held finger crosses onto in the dock's Add menu: the lightest selection tick, at most one every 100 ms. */
   tick: fire('tick', () => {
     const now = performance.now();
     if (now - lastTick < 100) return false;
     lastTick = now;
     return selection();
   }),
-  /** The strip disc crossing a cell (a strip-origin drag), an alarm step, a reorder or Plan drag crossing a slot, a stepper step, the Progress scrub. Never a tab, a page commit or a segmented change. Throttled (SELECT_THROTTLE_MS). */
+  /** The strip disc crossing a cell (a strip-origin drag), an alarm step, a reorder or Plan drag crossing a slot, a stepper step, the Progress scrub. A row chosen in the dock's Add menu. Never a tab, a page commit or a segmented change. Throttled (SELECT_THROTTLE_MS). */
   select: fire('select', selection),
   /** A to-do's mark, a Favorite's star: only through `hapticAtPeak`, on the check's peak frame. */
   toggle: fire('toggle', () => impact('Light', 8)),
   /** A habit orb lit: only through `hapticAtPeak`, on the pop's peak frame. */
   orb: fire('orb', () => impact('Light', 8)),
-  /** A long-press lifts an object (ContextMenu, drag pick-up). */
+  /** A long-press lifts an object (ContextMenu, drag pick-up). The dock's Add menu leaving its button, on the press. */
   lift: fire('lift', () => impact('Medium', 14)),
-  /** A drop into a slot. (Rigid when available; Light today.) */
+  /** A drop into a slot. The dock's Add menu put away by its own button. (Rigid when available; Light today.) */
   drop: fire('drop', () => impact('Light', 8)),
   /** A swipe row arming, pull to refresh arming: once, never on disarming. */
   threshold: fire('threshold', () => impact('Light', 8)),

@@ -413,6 +413,12 @@ const AddHabitSheet = ({ existing }: { existing: string[] }) => {
   );
 };
 
+/** Open the Add a habit sheet: Today's "+" tile, and the dock's Add menu from any tab. `existing`: the names in use. */
+export const useOpenAddHabit = () => {
+  const sheet = useSheet();
+  return (existing: string[]) => sheet.open({ title: 'Add a habit', body: <AddHabitSheet existing={existing} /> });
+};
+
 /** `ids` moved: the one at `from` now sits at `to`. */
 const moved = (ids: string[], from: number, to: number) => {
   const o = [...ids];
@@ -433,6 +439,7 @@ export const OrbRow = ({ date, log, editable = true }: { date: ISODate; log: Log
   const toast = useToast();
   const sheet = useSheet();
   const openHabit = useOpenHabit();
+  const addHabit = useOpenAddHabit();
   const archive = useArchiveHabit();
   const ghost = date > log.today;
   // the Add tile belongs to today alone (a habit added from another day starts today, so it could never show there)
@@ -696,7 +703,7 @@ export const OrbRow = ({ date, log, editable = true }: { date: ISODate; log: Log
             );
           })}
           {canAdd ? (
-            <Pressable className="orb orb-plus" label="Add a habit" onPress={() => sheet.open({ title: 'Add a habit', body: <AddHabitSheet existing={log.habits.map((h) => h.name)} /> })}>
+            <Pressable className="orb orb-plus" label="Add a habit" onPress={() => addHabit(log.habits.map((h) => h.name))}>
               <span className="orb-ring">
                 <Plus size={22} strokeWidth={2.25} aria-hidden="true" />
               </span>

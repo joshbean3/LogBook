@@ -315,7 +315,11 @@ const ByList = ({ date }: { date: ISODate }) => {
   );
 };
 
-export const TodoListSheet = ({ date, open: initial }: { date: ISODate; open?: 'later' | 'someday' }) => {
+/**
+ * `add`: opened to add (the dock's Add menu): the caret starts in the quick-add field. `due`: the day ahead that Today is
+ * showing; a to-do typed with no day of its own is for that day (it waits under Later until then), and the field says so.
+ */
+export const TodoListSheet = ({ date, open: initial, add, due }: { date: ISODate; open?: 'later' | 'someday'; add?: boolean; due?: ISODate }) => {
   const todos = useTodos();
   const sheet = useSheet();
   const [view, setView] = useState<'day' | 'list'>(readView);
@@ -362,7 +366,7 @@ export const TodoListSheet = ({ date, open: initial }: { date: ISODate; open?: '
       {todos.isPending && !todos.data ? <SkeletonRows rows={3} label="Loading to-dos" /> : null}
       {today.items.length ? <SheetGroup g={today} date={date} onEdit={edit} /> : todos.data ? <p className="tlist-clear">{done.items.length ? 'All clear for today.' : 'Nothing for today yet.'}</p> : null}
       <div className="tlist-add">
-        <QuickAddField date={date} />
+        <QuickAddField date={date} due={due} autoFocus={add} placeholder={due ? `Add a to-do for ${fmtDate('short', due)}` : undefined} />
       </div>
       {later.items.length ? <Fold label="Later" count={later.items.length} meta={nextDues || undefined} open={showLater} onToggle={() => setShowLater((s) => !s)} /> : null}
       {showLater && later.items.length ? <SheetGroup g={later} date={date} onEdit={edit} /> : null}

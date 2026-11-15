@@ -182,7 +182,21 @@ body {
 html.kb-open .dock {
   visibility: hidden;
 }
+/* the ask bar's row: the bar, then the Add button at its trailing end, the dock's own 8 px apart (guide 6.1). The row itself
+   takes no touches, so the slot a folded bar leaves behind passes them to the page */
+.dock > .dock-top {
+  display: flex;
+  align-items: center;
+  gap: var(--dock-gap);
+  min-width: 0;
+  pointer-events: none;
+}
+.dock-top > * {
+  pointer-events: auto;
+}
 .dock-ask.pressable {
+  flex: 1;
+  min-width: 0;
   display: flex;
   align-items: center;
   /* guide 6.1: the 28 px Orb 12 px from the left, then the words 12 px after it */
@@ -204,6 +218,7 @@ html.kb-open .dock {
 }
 /* the dock is fixed chrome, like the system tab bar: its text follows Larger Text only as far as its fixed height allows */
 .dock-ask-text {
+  position: relative;
   flex: 1;
   min-width: 0;
   font-size: min(var(--fs-row), 20px);
@@ -211,6 +226,14 @@ html.kb-open .dock {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+/* the full line, never seen: the measure of whether it fits beside the Add button (Dock.tsx AskWords) */
+.dock-ask-full {
+  position: absolute;
+  top: 0;
+  left: 0;
+  visibility: hidden;
+  pointer-events: none;
 }
 .dock-dot {
   flex: none;
@@ -373,15 +396,20 @@ html[data-text-xl] .tab-ic {
   .dock[data-compact] .tab-label {
     display: none;
   }
-  /* a 320 px screen has 47 px a tab and 230 px for the ask line: both stay at their default size, so no word is cut */
+  /* a 320 px screen has 47 px a tab: the labels stay at their default size, so no word is cut */
   .tab-label {
     font-size: min(0.6875rem, 11px);
     line-height: min(0.8125rem, 13px);
     letter-spacing: -0.01em;
   }
+  /* with the Add button at its end the bar is 240 wide at 320: its words stop at 16 px and its trailing padding is 12,
+     so "Ask or change anything" (171 px) fits whole in the 174 px it has, and never ends in an ellipsis */
   .dock-ask-text {
-    font-size: min(var(--fs-row), 17px);
+    font-size: min(var(--fs-row), 16px);
     line-height: min(var(--lh-row), 22px);
+  }
+  .dock-ask.pressable {
+    padding-right: var(--sp-3);
   }
 }
 
