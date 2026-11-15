@@ -1,0 +1,83 @@
+/* ---------- the Add button: one round Paper button at the trailing end of the ask bar's row (guide 6.1) ---------- */
+/* floating chrome's own look (the avatar, a pushed page's Back): Paper, the float shadow, no edge. 48 across, the ask
+   bar's height, so it is its own 44 pt target and more. The plus is Deep Sky (5.57 on Paper): never a Sky fill, since a
+   screen has one Sky button and often has it already, and never Sunrise */
+.dock-add.pressable {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: var(--ask-h);
+  height: var(--ask-h);
+  min-height: 0;
+  padding: 0;
+  border-radius: 50%;
+  background: var(--surface);
+  /* transparent; the card edge under Increase Contrast (tokens.css) */
+  border: var(--card-border);
+  box-shadow: var(--shadow-float);
+  color: var(--deep-sky);
+  /* the finger may stay down and slide up over the rows: the touch is the menu's, never a scroll or a callout */
+  touch-action: none;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.dock-add-ic {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+}
+/* Reduce Motion: the plus and the close mark share the place and cross-fade */
+.dock-add-face {
+  grid-area: 1 / 1;
+  display: grid;
+}
+
+/* ---------- its menu: the context menu's own card and cut-out veil (foundation.css, shape.css), placed by the button ---------- */
+/* it stays mounted, and is not drawn until the button is pressed */
+.add-layer[hidden] {
+  display: none;
+}
+/* over the page, the dock and the status pill; under sheets, toasts and the earned-Orb layer */
+.cm-layer.add-layer {
+  z-index: 45;
+}
+/* the cut-out is the button's own circle */
+.add-layer .add-hole {
+  border-radius: 50%;
+}
+.cm-layer .cm-menu.add-menu {
+  min-width: 12.5rem;
+  max-width: calc(100vw - 2 * var(--dock-inset));
+  /* never taller than the room above the button; then it scrolls */
+  max-height: calc(100dvh - var(--chrome-h) - var(--safe-b) - var(--safe-t) - var(--sp-3));
+  overflow-x: hidden;
+  overflow-y: auto;
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+.cm-layer .cm-menu.add-menu[data-scrolls] {
+  touch-action: pan-y;
+}
+/* a row: a 32 px Haze icon tile, 12 px, then a word or two. 8 + 32 + 8 = 48 tall */
+.cm-layer .cm-item.add-item {
+  width: 100%;
+  min-height: 48px;
+  padding: var(--sp-2) var(--sp-4) var(--sp-2) var(--sp-3);
+  -webkit-touch-callout: none;
+}
+/* the hairline starts where the words do, after the tile */
+.cm-layer .cm-item.add-item + .add-item::before {
+  left: calc(var(--sp-3) + var(--tile-ic) + var(--sp-3));
+}
+/* the row under the finger is lit, as a pressed row is */
+.cm-layer .cm-item.add-item[data-lit] {
+  background: var(--surface-2);
+}
+/* focus moved here by the menu itself after a touch is not a lit row: only the keyboard's focus shows */
+.cm-layer .cm-item.add-item[data-quiet-focus]:focus-visible:not([data-lit], [data-pressed]) {
+  background: none;
+}

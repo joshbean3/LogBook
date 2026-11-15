@@ -94,7 +94,7 @@ export const Shell = ({ pages, pushed }: { pages: Record<TabId, ReactNode>; push
           <TabSection key={t.id} ctl={ctl} tab={t.id} state={st.tabs[t.id]} active={active === t.id} leaving={leaving === t.id && active !== t.id} mounted={mounted.current.has(t.id)} page={pages[t.id]} pushed={pushed} />
         ))}
       </div>
-      <Dock today={st.tabs.today.path}>
+      <Dock today={st.tabs.today.path} plan={st.tabs.plan.path} active={active}>
         <TabBar ctl={ctl} active={active} tabs={tabs} />
       </Dock>
       <StatusPill />
