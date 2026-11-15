@@ -49,7 +49,8 @@
   border-radius: 50%;
 }
 .cm-layer .cm-menu.add-menu {
-  min-width: 12.5rem;
+  /* 200 wide at the default text size, wider with larger text, never wider than the dock */
+  min-width: min(12.5rem, 100vw - 2 * var(--dock-inset));
   max-width: calc(100vw - 2 * var(--dock-inset));
   /* never taller than the room above the button; then it scrolls */
   max-height: calc(100dvh - var(--chrome-h) - var(--safe-b) - var(--safe-t) - var(--sp-3));
