@@ -69,11 +69,11 @@ const useCompactOnScroll = () => {
 };
 
 /**
- * The ask bar's words. The Add button shares the bar's row, so on a narrow phone or at a large text size the full line
- * may not fit: it then gives way to the short one, whole, instead of being cut with an ellipsis. The full line is always
+ * The ask bar's words. The Add button shares the bar's row, so on a narrow phone or at a large text size a long line
+ * may not fit: it then gives way to its short form, whole, instead of being cut with an ellipsis. The full line is always
  * in the DOM (hidden, and the measure of what fits); the button's accessible name is the full line either way.
  */
-const AskWords = ({ words, short }: { words: string; short: string }): React.JSX.Element => {
+const AskWords = ({ words, short }: { words: string; short?: string }): React.JSX.Element => {
   const box = useRef<HTMLSpanElement>(null);
   const full = useRef<HTMLSpanElement>(null);
   const [fits, setFits] = useState(true);
@@ -94,7 +94,7 @@ const AskWords = ({ words, short }: { words: string; short: string }): React.JSX
       <span ref={full} className="dock-ask-full" aria-hidden="true">
         {words}
       </span>
-      {fits ? words : short}
+      {fits || !short ? words : short}
     </span>
   );
 };
@@ -116,8 +116,10 @@ export const Dock = ({ today: todayPath, plan: planPath, active, children }: { t
   const date = (DAY.exec(todayPath)?.[1] ?? live) as ISODate;
   const going = turns.length > 0;
   const words = going ? 'Continue with the assistant' : 'Ask or change anything';
-  // the same thing in fewer words, for a bar too narrow for the line (a 320 pt phone, very large text)
-  const short = going ? 'Continue' : 'Ask anything';
+  // the longer line in fewer words, for a bar too narrow for it (a 320 pt phone, very large text). The short line is the
+  // start of the full one, so the button's name still holds the words on screen (WCAG 2.5.3). "Ask or change anything"
+  // has no short form: the bar is laid out so it always fits (shell.css)
+  const short = going ? 'Continue' : undefined;
   // the badge is one Sunrise element (two nodes, one shown at a time): it yields to Night Ink past the budget (guide 3.5)
   const now = useNowMark('badge', going);
   const dotNow = now === 'ink' ? 'ink' : undefined;

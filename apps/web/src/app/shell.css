@@ -396,15 +396,20 @@ html[data-text-xl] .tab-ic {
   .dock[data-compact] .tab-label {
     display: none;
   }
-  /* a 320 px screen has 47 px a tab and 230 px for the ask line: both stay at their default size, so no word is cut */
+  /* a 320 px screen has 47 px a tab: the labels stay at their default size, so no word is cut */
   .tab-label {
     font-size: min(0.6875rem, 11px);
     line-height: min(0.8125rem, 13px);
     letter-spacing: -0.01em;
   }
+  /* with the Add button at its end the bar is 240 wide at 320: its words stop at 16 px and its trailing padding is 12,
+     so "Ask or change anything" (171 px) fits whole in the 174 px it has, and never ends in an ellipsis */
   .dock-ask-text {
-    font-size: min(var(--fs-row), 17px);
+    font-size: min(var(--fs-row), 16px);
     line-height: min(var(--lh-row), 22px);
+  }
+  .dock-ask.pressable {
+    padding-right: var(--sp-3);
   }
 }
 
