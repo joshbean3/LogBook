@@ -7,6 +7,7 @@ import { sized, spriteKey } from './sprites';
 
 const css = readFileSync(join(__dirname, 'dome.css'), 'utf8');
 const stage = readFileSync(join(__dirname, 'stage.ts'), 'utf8');
+const sprites = readFileSync(join(__dirname, 'sprites.ts'), 'utf8');
 const dome = readFileSync(join(__dirname, 'Dome.tsx'), 'utf8');
 
 describe('the oculus on the page', () => {
@@ -98,19 +99,30 @@ describe('sprites', () => {
     expect(sized('<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96" viewBox="2 2 96 96"><circle r="4"/></svg>', 66)).toBe('<svg xmlns="http://www.w3.org/2000/svg" viewBox="2 2 96 96" width="66" height="66"><circle r="4"/></svg>');
     expect(sized('<svg viewBox="0 0 100 100"><path stroke-width="2" d="M0 0"/></svg>', 44)).toBe('<svg viewBox="0 0 100 100" width="44" height="44"><path stroke-width="2" d="M0 0"/></svg>');
   });
-  it('one picture per gem, shift step, count and size (whatever the family calls its hues and styles)', () => {
+  it('one picture per rung and size', () => {
     const g = gemFor('habit', 'd:2026-11-16:habit:0');
     expect(spriteKey(g, 44)).toBe(spriteKey({ ...g }, 44));
+    expect(spriteKey(g, 44)).toBe(spriteKey(gemFor('todo', 'd:2026-11-17:todo:3'), 44));
     expect(spriteKey(g, 44)).not.toBe(spriteKey(g, 60));
-    expect(spriteKey(g, 44)).not.toBe(spriteKey({ ...g, shift: g.shift + 0.25 }, 44));
-    expect(spriteKey({ ...g, stars: 3 }, 44)).not.toBe(spriteKey({ ...g, stars: 4 }, 44));
-    expect(spriteKey(g, 44)).not.toBe(spriteKey(gemFor('fused:year', 'y:0'), 44));
+    expect(spriteKey(g, 44)).not.toBe(spriteKey(gemFor('goal:day'), 44));
+    expect(spriteKey(gemFor('fused:year', 'y:0'), 44)).toBe(spriteKey(g, 44));
+    expect(spriteKey(gemFor('fused:year', 'y:0', { counted: true }), 44)).toBe(spriteKey(gemFor('full'), 44));
   });
-  it('are drawn turned by their Orb’s own angle, and upright with Reduce Motion', () => {
-    expect(stage).toContain('const a = reduce ? 0 : W.rot[i]!;');
-    expect(stage).toMatch(/ctx\.setTransform\(c, d, -d, c, cx, cy\);\s*ctx\.drawImage\(s\.img, -s\.side \/ 2, -s\.side \/ 2\);/);
-    // a remembered pile keeps its angles, and an Orb that stays through a change of the store keeps its own
+  it('are cut with the sphere at its exact size in the middle of the art box, and a ring one px of the screen wide', () => {
+    expect(sprites).toContain('const art = px * gemBox(g);');
+    expect(sprites).toContain('ctx.drawImage(img, off, off, art, art);');
+    expect(sprites).toContain('gemSvg(g, px / dpr)');
+  });
+  it('are always drawn upright: a sphere is lit from above, so nothing turns the picture', () => {
+    expect(stage).not.toMatch(/Math\.cos|Math\.sin|ctx\.rotate|setTransform\(c, d/);
+    expect(stage).not.toMatch(/W\.rot\[i\]/);
+    // the physics still rolls: a remembered pile keeps its angles, and an Orb that stays through a change of the store keeps its own
     expect(stage).toContain('world.rot.set(hit.rot);');
     expect(stage).toContain('rot: world.rot[i]!');
+  });
+  it('draws the plain Orbs first and the glowing ones over them, the rarest last, so a glow is never hidden', () => {
+    expect(stage).toContain('const glows = (i: number): number => (list[i] && list[i]!.gem.rung >= 3 ? list[i]!.gem.rung : 0);');
+    expect(stage).toContain('order = list.map((_b, i) => i).sort((a, b) => glows(a) - glows(b) || a - b);');
+    expect(stage).toContain('for (const i of order) {');
   });
 });

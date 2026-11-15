@@ -1,9 +1,12 @@
 /*
- * An earned Orb (features/orbs/gems/OrbGem.tsx): a flat form as one image. The box is the form's circle (`--og`
- * square) and the art fills it: nothing is drawn outside. Nothing here animates: what moves an Orb moves the box.
+ * An earned Orb (features/orbs/gems/OrbGem.tsx): the logo's Orb as one image. The box is the sphere (`--og` square).
+ * The picture is `--og-box` times the box and centered on it: a glow and its rings reach past the sphere and take no
+ * room. Nothing here animates: what moves an Orb moves the box.
  */
 .orb-gem {
-  --og: 20px; /* brand-ok: geometry, the form's diameter, set by the component's `size` */
+  --og: 20px; /* brand-ok: geometry, the sphere's diameter, set by the component's `size` */
+  --og-box: 1;
+  position: relative;
   display: inline-block;
   flex: none;
   width: var(--og);
@@ -12,10 +15,14 @@
   pointer-events: none;
 }
 .orb-gem > img {
+  position: absolute;
+  top: 50%;
+  left: 50%;
   display: block;
-  width: 100%;
-  height: 100%;
+  width: calc(var(--og) * var(--og-box));
+  height: calc(var(--og) * var(--og-box));
   max-width: none;
+  transform: translate(-50%, -50%);
   user-select: none;
   -webkit-user-drag: none;
 }

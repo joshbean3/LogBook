@@ -1,169 +1,106 @@
-import { toneOf } from './color';
-import { HUES, LINE, TOKEN, type FormHue, type FormStyle, type Gem } from './table';
+import { recipeOf, type Dome, type Recipe, type Rung, type Stop } from './recipe';
+import type { Gem } from './table';
 
 /**
- * The art of an earned Orb, as one SVG document: a flat form built on a circle (brand guide 2.1). One color, one
- * silhouette, see-through gaps, so it sits on Paper, Cloud, the poster's sky and Twilight alike. No gradient, no gloss,
- * no shadow, no glow, no filter: the assistant's Orb is the only glossy thing in Orby.
+ * The art of an earned Orb, as one SVG document: the logo's Orb at one of five rungs (brand guide 2.1). The
+ * construction is the logo's, layer for layer (the deck's page 7): the body, the sky's bounce, the light under it, the
+ * light that wraps its lower edge, the specular, the edge. A rung only moves numbers (`recipe.ts`); from rung 3 a glow
+ * is drawn behind the sphere, and on rungs 4 and 5 thin rings stand round it.
  *
- * The geometry is the logo's own 100-unit square: the form's circle is r 48 at (50, 50), and nothing is drawn outside
- * it. Three measures, each a share of the diameter (96), are used by every form and nowhere changed:
- *   stroke  3/32   a line: a lit disc's ring, the orbit, the arc over the sunrise, the horizon (2 px at 22 px)
- *   gap     1/16   the air between two parts of one form
- *   hair    3/64   half a stroke: a pale disc's edge and the thin rings round an earlier chapter and year, which are
- *                  never drawn small
- * A target is the one form that cannot keep the stroke (four rings do not fit at it): its radius is cut into equal
- * bands instead, one per dot, gap and ring.
+ * The geometry is the logo file's own: the sphere is r 48 at (50, 50). A plain Orb is drawn in the logo's 100-unit box;
+ * one with a glow in the brand's 150-unit box (25 more on each side), which holds every glow and ring.
  *
  * It is drawn as an image (an `<img>`, or once onto a canvas as a sprite). No script, no font, nothing fetched.
  */
-const R = 48;
-const C = 50;
-export const FORM = { stroke: 9, gap: 6, hair: 4.5 } as const;
-const { stroke: W, gap: G, hair: H } = FORM;
-/** Two decimals at most, no trailing zeros. */
-const f = (n: number): string => String(Math.round(n * 100) / 100);
+const f = (n: number): string => String(Math.round(n * 1000) / 1000);
+const stops = (list: readonly Stop[]): string => list.map(([off, c, a]) => `<stop offset="${f(off)}" stop-color="${c}"${a === undefined ? '' : ` stop-opacity="${f(a)}"`}/>`).join('');
+/** A light from under the sphere, as a gradient: a circle about (50, cy), stretched `sx` wide. */
+const dome = (id: string, d: Dome): string =>
+  `<radialGradient id="${id}" gradientUnits="userSpaceOnUse" cx="50" cy="${f(d.cy)}" r="${f(d.r)}" gradientTransform="translate(50 ${f(d.cy)}) scale(${f(d.sx)} 1) translate(-50 -${f(d.cy)})">${stops(d.stops)}</radialGradient>`;
+const FULL = '<rect x="0" y="0" width="100" height="100"';
 
-/** A filled circle and a ring whose outer edge is at `outer`. */
-const dot = (r: number, fill: string, cx = C, cy = C) => `<circle cx="${f(cx)}" cy="${f(cy)}" r="${f(r)}" fill="${fill}"/>`;
-const ring = (outer: number, w: number, color: string) => `<circle cx="${C}" cy="${C}" r="${f(outer - w / 2)}" fill="none" stroke="${color}" stroke-width="${f(w)}"/>`;
-const rad = (deg: number) => (deg * Math.PI) / 180;
-/** A point on the form's own clock: 0 degrees is three o'clock, and the angle grows clockwise, as SVG's y does. */
-const at = (r: number, deg: number, cx = C, cy = C): [number, number] => [cx + r * Math.cos(rad(deg)), cy + r * Math.sin(rad(deg))];
-const pt = ([x, y]: readonly [number, number]) => `${f(x)} ${f(y)}`;
-
-// ---------- the forms ----------
-/** The orbit: a solid circle, one orbit line round it, and a small moon on the line at the upper right, with a gap each side. */
-const ORBIT = { body: W * 2, moon: 8, toward: -45 } as const;
-const orbit = (c: string): string => {
-  const { body, moon, toward } = ORBIT;
-  // the moon touches the form's circle from inside, and the line runs through its center
-  const r = R - moon;
-  const open = (2 * Math.asin((moon + G) / (2 * r)) * 180) / Math.PI;
-  return `<path d="M${pt(at(r, toward + open))}A${f(r)} ${f(r)} 0 1 1 ${pt(at(r, toward - open))}" fill="none" stroke="${c}" stroke-width="${W}"/>` + dot(body, c) + dot(moon, c, ...at(r, toward));
+const draw = (r: Recipe, id: string): string => {
+  const { limb: L, spec: S } = r;
+  const padded = !!r.glow || r.rings.length > 0;
+  const defs =
+    `<radialGradient id="${id}b" cx="50%" cy="36%" r="64%" fx="50%" fy="26%">${stops(r.body)}</radialGradient>` +
+    `<radialGradient id="${id}w" cx="50%" cy="104%" r="58%">${stops(r.bounce)}</radialGradient>` +
+    (r.pale ? dome(`${id}p`, r.pale) : '') +
+    dome(`${id}a`, r.under) +
+    (L.from
+      ? `<radialGradient id="${id}k" gradientUnits="userSpaceOnUse" cx="50" cy="${f(L.from.cy)}" r="${f(L.from.r)}">${stops(L.stops)}</radialGradient>`
+      : `<linearGradient id="${id}k" gradientUnits="userSpaceOnUse" x1="0" y1="${f(L.fade ?? 50)}" x2="0" y2="98">${stops(L.stops)}</linearGradient>`) +
+    (r.core ? dome(`${id}q`, r.core) : '') +
+    `<linearGradient id="${id}r" x1="0" y1="0" x2="0" y2="1">${stops(r.edge)}</linearGradient>` +
+    `<radialGradient id="${id}s" cx="50%" cy="40%" r="60%"><stop offset="0" stop-color="#fff" stop-opacity="${f(S.peak)}"/><stop offset="0.45" stop-color="#fff" stop-opacity="${f(S.peak * 0.6)}"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient>` + // brand-ok: Orb recipe, the specular's white as the logo file writes it
+    (r.glow ? `<radialGradient id="${id}g" cx="50%" cy="50%" r="50%">${stops(r.glow.stops)}</radialGradient>` : '') +
+    `<mask id="${id}m"><circle cx="50" cy="50" r="${f(L.within)}" fill="#fff"/><circle cx="50" cy="${f(L.cy)}" r="${f(L.cut)}" fill="#000"/></mask>` + // brand-ok: a mask's white and black, as the logo file writes them
+    `<filter id="${id}f" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="${f(L.blur)}"/></filter>` +
+    `<filter id="${id}sf" x="-30%" y="-60%" width="160%" height="220%"><feGaussianBlur stdDeviation="${f(S.blur)}"/></filter>` +
+    `<clipPath id="${id}c"><circle cx="50" cy="50" r="48"/></clipPath>` +
+    `<clipPath id="${id}ci"><circle cx="50" cy="50" r="${f(L.within)}"/></clipPath>`;
+  const body =
+    (r.glow ? `<ellipse cx="50" cy="${f(r.glow.cy)}" rx="${f(r.glow.rx)}" ry="${f(r.glow.ry)}" fill="url(#${id}g)"/>` : '') +
+    r.rings.map((g) => `<circle cx="50" cy="50" r="${f(g.r)}" fill="none" stroke="${g.color}" stroke-opacity="${f(g.opacity)}" stroke-width="${f(g.w)}"/>`).join('') +
+    `<circle cx="50" cy="50" r="48" fill="url(#${id}b)"/>` +
+    `<g clip-path="url(#${id}c)">` +
+    `<circle cx="50" cy="50" r="48" fill="url(#${id}w)"/>` +
+    (r.pale ? `${FULL} fill="url(#${id}p)"/>` : '') +
+    `${FULL} fill="url(#${id}a)"/>` +
+    `<g clip-path="url(#${id}ci)"><g filter="url(#${id}f)">${FULL} fill="url(#${id}k)" mask="url(#${id}m)" opacity="${f(L.opacity)}"/></g></g>` +
+    (r.core ? `${FULL} fill="url(#${id}q)"/>` : '') +
+    `<ellipse cx="${f(S.cx)}" cy="${f(S.cy)}" rx="${f(S.rx)}" ry="${f(S.ry)}" fill="url(#${id}s)" filter="url(#${id}sf)"/>` +
+    `</g>` +
+    `<circle cx="50" cy="50" r="47.6" fill="none" stroke="url(#${id}r)" stroke-width="0.8"/>`;
+  const box = padded ? PADDED : PLAIN;
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${ROOT}" height="${ROOT}" viewBox="${box.min} ${box.min} ${box.side} ${box.side}"><defs>${defs}</defs>${body}</svg>`;
 };
 
-/** A target: a center dot and `n` rings. The radius is cut into 2n + 1 equal bands, so dot, gap and ring are one width. */
-const target = (n: number, c: string): string => {
-  const band = R / (2 * n + 1);
-  let out = dot(band, c);
-  for (let i = 1; i <= n; i++) out += ring(band * (2 * i + 1), band, c);
-  return out;
-};
+/** The two boxes the brand draws its Orb in: the logo's (the sphere is 96 of its 100 units) and the one with room for a glow (96 of 150). */
+const PLAIN = { min: 0, side: 100 } as const;
+const PADDED = { min: -25, side: 150 } as const;
+const SPHERE = 96;
+/** The root's own size, as the logo file writes it: an engine that asks an image its size before scaling it treats both alike. */
+const ROOT = 1024;
 
-/** The sunrise: a half-disc on a short horizon line, one arc over it. The horizon is the form's second color. */
-const SUN = { horizon: 59, reach: 42, line: 44 } as const;
-const sunrise = (c: string, line: string): string => {
-  const { horizon: y, reach } = SUN;
-  const sun = reach - W - G;
-  const arc = reach - W / 2;
-  return (
-    `<path d="M${f(C - sun)} ${y}A${f(sun)} ${f(sun)} 0 0 1 ${f(C + sun)} ${y}Z" fill="${c}"/>` +
-    `<path d="M${f(C - arc)} ${y}A${f(arc)} ${f(arc)} 0 0 1 ${f(C + arc)} ${y}" fill="none" stroke="${c}" stroke-width="${W}"/>` +
-    `<path d="M${f(C - SUN.line)} ${y}h${f(SUN.line * 2)}v${W}h${f(-SUN.line * 2)}z" fill="${line}"/>`
-  );
-};
-
-/** Seven dots in a ring, one per day of a week, the first at twelve o'clock. */
-const SEVEN = { dot: 12 } as const;
-const seven = (c: string): string => {
-  let out = '';
-  for (let i = 0; i < 7; i++) {
-    const [x, y] = at(R - SEVEN.dot, -90 + (360 / 7) * i);
-    out += dot(SEVEN.dot, c, x, y);
-  }
-  return out;
-};
-
-/** A crescent: the form's circle with the same circle, moved up and to the left, taken out of it. */
-const CRESCENT = { move: 30, toward: -135 } as const;
-const crescent = (c: string): string => {
-  const { move, toward } = CRESCENT;
-  const half = Math.sqrt(R * R - (move / 2) ** 2);
-  const [mx, my] = at(move / 2, toward);
-  const p1 = at(half, toward - 90, mx, my);
-  const p2 = at(half, toward + 90, mx, my);
-  return `<path d="M${pt(p1)}A${R} ${R} 0 1 0 ${pt(p2)}A${R} ${R} 0 0 1 ${pt(p1)}Z" fill="${c}"/>`;
-};
-
-/** An open ring: two strokes thick, round at its ends, with a gap at the top right. */
-const OPEN = { width: W * 2, gap: 72, toward: -45 } as const;
-const open = (c: string): string => {
-  const r = R - OPEN.width / 2;
-  const p1 = at(r, OPEN.toward + OPEN.gap / 2);
-  const p2 = at(r, OPEN.toward - OPEN.gap / 2);
-  return `<path d="M${pt(p1)}A${f(r)} ${f(r)} 0 1 1 ${pt(p2)}" fill="none" stroke="${c}" stroke-width="${f(OPEN.width)}" stroke-linecap="round"/>`;
-};
-
-const KNOWN_HUE = (h: string): h is FormHue => Object.prototype.hasOwnProperty.call(HUES, h);
-const STYLES: readonly FormStyle[] = ['disc', 'lit', 'orbit', 'target1', 'target2', 'target3', 'target4', 'sunrise', 'seven', 'crescent', 'open', 'pale', 'pale-ring', 'disc-rings'];
-
-/** The parts of a form in color `c`, with `line` for its second color and `fill` for a pale disc's inside (`none` in the one-color print). */
-const parts = (style: FormStyle, c: string, line: string, fill: string): string => {
-  switch (style) {
-    case 'lit':
-      return ring(R, W, c) + dot(R - W - G, c);
-    case 'orbit':
-      return orbit(c);
-    case 'target1':
-      return target(1, c);
-    case 'target2':
-      return target(2, c);
-    case 'target3':
-      return target(3, c);
-    case 'target4':
-      return target(4, c);
-    case 'sunrise':
-      return sunrise(c, line);
-    case 'seven':
-      return seven(c);
-    case 'crescent':
-      return crescent(c);
-    case 'open':
-      return open(c);
-    case 'pale':
-      return dot(R - H / 2, fill) + ring(R, H, line);
-    case 'pale-ring':
-      return ring(R, H, line) + dot(R - H * 2.5, fill) + ring(R - H * 2, H, line);
-    case 'disc-rings':
-      return ring(R, H, c) + ring(R - H * 2, H, c) + dot(R - H * 4, c);
-    default:
-      return dot(R, c);
-  }
-};
-
-const doc = (inner: string) => `<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96" viewBox="2 2 96 96">${inner}</svg>`;
-const styleOf = (gem: Gem): FormStyle => (STYLES.includes(gem.style as FormStyle) ? (gem.style as FormStyle) : 'disc');
-
-/** The color a gem is drawn in: its token at its tint. A lighter tint with no edge of its own is held to 1.5:1 on Paper. */
-export const colorOf = (gem: Gem): string => {
-  const token = TOKEN[HUES[KNOWN_HUE(gem.hue) ? gem.hue : 'deepsky']];
-  const edged = gem.style === 'pale' || gem.style === 'pale-ring';
-  return toneOf(token, gem.shift, edged ? undefined : TOKEN['--paper']);
-};
-
-/** The art as one SVG document: the form's circle fills the box. */
-export const gemSvg = (gem: Gem): string => {
-  const c = colorOf(gem);
-  return doc(parts(styleOf(gem), c, TOKEN[LINE].toLowerCase(), c));
-};
+const rungIn = (gem: Gem): Rung => (gem && gem.rung >= 1 && gem.rung <= 5 ? (Math.round(gem.rung) as Rung) : 1);
+/** The size a picture is drawn for. Only an Orb with rings reads it (a ring is a hairline at every size), in whole px. */
+const sizeIn = (rung: Rung, px?: number): number => (rung >= 4 && px ? Math.max(8, Math.min(128, Math.round(px))) : 0);
+const drawn = new Map<string, string>();
 /**
- * The same form printed in one color (the silhouette test: every form must be told from every other with no hue). A
- * pale disc prints as its edge, open inside.
+ * The art as one SVG document. Two Orbs of a rung are the same picture. `px` is the diameter it will be shown at: the
+ * rings of rungs 4 and 5 are drawn one px wide for it; nothing else changes with size.
  */
-export const gemInk = (gem: Gem, ink: string = TOKEN['--night-ink'].toLowerCase()): string => doc(parts(styleOf(gem), ink, ink, 'none'));
+export const gemSvg = (gem: Gem, px?: number): string => {
+  const rung = rungIn(gem);
+  const at = sizeIn(rung, px);
+  const id = `${rung}@${at}`;
+  let svg = drawn.get(id);
+  if (!svg) {
+    svg = draw(recipeOf(rung, at || undefined), `o${rung}`);
+    drawn.set(id, svg);
+  }
+  return svg;
+};
 
-/** The art box over the form's diameter. Every form is drawn inside its own circle, so it is always 1. */
-export const gemBox = (_gem: Gem): number => 1;
+/**
+ * The art box over the sphere's diameter: how much larger than the Orb its picture is. A glow and its rings reach
+ * outside the sphere, so the picture is drawn this many times the Orb's size, centered on it.
+ */
+export const gemBox = (gem: Gem): number => {
+  const r = recipeOf(rungIn(gem));
+  return (r.glow || r.rings.length ? PADDED.side : PLAIN.side) / SPHERE;
+};
 
 const urls = new Map<string, string>();
-/** A cached `data:` URL of `gemSvg` (the same string for the same form and tint). */
-export const gemUrl = (gem: Gem): string => {
-  const id = `${gem.hue}|${gem.style}|${gem.shift}`;
+/** A cached `data:` URL of `gemSvg` (the same string for the same rung and, where it has rings, size). */
+export const gemUrl = (gem: Gem, px?: number): string => {
+  const rung = rungIn(gem);
+  const id = `${rung}@${sizeIn(rung, px)}`;
   let url = urls.get(id);
   if (!url) {
     // the few characters a data URL cannot carry as they are; the art uses double quotes only in attributes
-    url = `data:image/svg+xml;charset=utf-8,${gemSvg(gem).replace(/"/g, "'").replace(/%/g, '%25').replace(/#/g, '%23').replace(/</g, '%3C').replace(/>/g, '%3E')}`;
+    url = `data:image/svg+xml;charset=utf-8,${gemSvg(gem, px).replace(/"/g, "'").replace(/%/g, '%25').replace(/#/g, '%23').replace(/</g, '%3C').replace(/>/g, '%3E')}`;
     urls.set(id, url);
   }
   return url;

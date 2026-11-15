@@ -176,23 +176,20 @@ export const FILL = {
   weeks: 4,
   /** A chapter is four weeks; a year is this many chapters (364 days). */
   yearChapters: 13,
+  /** The most of that room the Sunrise and Sun Orbs of earlier weeks may cover: about a year of month goals with its year goal, a little under their own size. */
+  kept: 0.4,
+  /** And the least they are left, however full this week is. */
+  keptLeast: 0.2,
+  /** The smallest they are drawn, as a share of their own size: a Sunrise Orb is then a little larger than a Sky Orb, and still wears its ring. */
+  keptScale: 0.7,
 } as const;
 
 // ---------- how big each Orb is: its radius, in oculus units ----------
 export const RADIUS = {
-  todo: 11,
-  habit: 11,
-  /** A session, and the same at its floor. */
-  train: 15,
-  trainFloor: 13,
-  goalDay: 15,
-  goalWeek: 20,
-  goalMonth: 26,
-  goalYear: 32,
-  full: 17,
-  back: 15,
-  /** A week that counts and a challenge: from 5 Orbs to 20. */
-  bonus: [17, 22] as readonly [number, number],
+  /** An award, by its rung: Sky, Dawn, Glow, Sunrise, Sun. How rare it is, never what it paid. A Sky Orb is 24 pt across on a 390 pt phone, so its gloss still reads. */
+  rung: [12, 14, 16, 19, 23] as const,
+  /** A day of this week as one Orb (only when the week is more than the window holds), by its total. */
+  day: [15, 20] as readonly [number, number],
   /** An earlier week as one Orb, by its total (the second number is the total at which it is largest). */
   week: [15, 22] as readonly [number, number],
   weekTop: 150,

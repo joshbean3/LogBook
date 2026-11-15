@@ -404,11 +404,18 @@
   overflow: hidden;
 }
 
-/* the earned Orbs (features/orbs/gems): every kind at 30 with its name on Paper; all of them at 22 on Cloud, the
-   poster's sky and dusk; then each color at its three tints (deeper, the token, lighter) */
+/* the earned Orbs (features/orbs/gems): the ladder, each rung at 44, 32, 24 and 20 with its name; every kind at 32
+   with its name and its rung; then the five at 22 on Cloud, the poster's sky and dusk. Each Orb stands in a place as
+   wide as its largest glow, so nothing is drawn over a name */
 .gal-gems {
   display: grid;
   gap: var(--sp-2);
+}
+.gal-gems > .gal-gem-ladder {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: var(--sp-2);
+  padding: var(--sp-4) var(--sp-2);
 }
 .gal-gems > .gal-gem-ground {
   display: grid;
@@ -419,23 +426,24 @@
 .gal-gem {
   display: grid;
   justify-items: center;
-  gap: var(--sp-3);
+  gap: var(--sp-1);
   text-align: center;
+}
+.gal-gem-size {
+  display: grid;
+  place-items: center;
+  min-width: 48px;
+  min-height: 48px;
+}
+.gal-gem-ladder .gal-gem-size:first-child {
+  min-height: 72px;
 }
 .gal-gem-name {
   font: 500 var(--fs-foot) / var(--lh-foot) var(--sans);
 }
 .gal-gems > .gal-gem-line {
   flex-wrap: wrap;
-  gap: var(--sp-4) var(--sp-5);
-}
-.gal-gems > .gal-gem-tints {
-  flex-wrap: wrap;
-  gap: var(--sp-4) var(--sp-6);
-}
-.gal-gem-tint {
-  display: inline-flex;
-  gap: var(--sp-1);
+  gap: var(--sp-4) var(--sp-8);
 }
 
 /* the keepsake's light (ui/OrbLight) on the four grounds, at 12, 20 and 48, with a numeral beside it */

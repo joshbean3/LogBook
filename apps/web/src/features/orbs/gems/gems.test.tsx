@@ -2,17 +2,11 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { contrast, mix, toHex, toLab, TONE, toneOf, WHITE } from './color';
-import { GEM_KEYS, gemBox, gemFor, gemName, gemSvg, gemUrl, OrbGem, type Gem } from './index';
-import { colorOf, FORM, gemInk } from './svg';
-import { HUES, LINE, SHIFTS, TOKEN, type FormHue, type FormStyle } from './table';
+import { GEM_KEYS, gemBox, gemFor, gemName, gemSvg, gemUrl, LADDER, OrbGem, rungName, rungOf, RUNGS, type Gem, type Rung } from './index';
+import { INK, LOGO, MOVES, recipeOf, RING } from './recipe';
 
-const every = (): Gem[] => {
-  const out: Gem[] = [];
-  for (const key of GEM_KEYS) for (const shift of SHIFTS) out.push({ ...gemFor(key), shift });
-  return out;
-};
-const idOf = (g: Gem) => `${g.hue} ${g.style} ${g.shift}`;
+const read = (rel: string) => fs.readFileSync(path.resolve(__dirname, rel), 'utf8');
+const gem = (rung: Rung): Gem => ({ rung });
 
 /** Every tag closes in order, every attribute is quoted, and there is one root (the tests run with no DOM). */
 const wellFormed = (svg: string): boolean => {
@@ -34,296 +28,278 @@ const wellFormed = (svg: string): boolean => {
   }
   return open.length === 0 && roots === 1;
 };
-const colorsIn = (svg: string): string[] => [...new Set([...svg.matchAll(/#[0-9a-fA-F]{6}/g)].map((m) => m[0].toLowerCase()))];
-const hueDeg = (hex: string) => {
-  const p = toLab(hex);
-  return ((Math.atan2(p.b, p.a) * 180) / Math.PI + 360) % 360;
+const colorsIn = (svg: string): string[] => [...new Set([...svg.matchAll(/#[0-9a-fA-F]{6}\b/g)].map((m) => m[0].toLowerCase()))];
+
+/**
+ * A drawing as what it draws, so two files that say the same thing compare equal however they are written: every tag
+ * in order with its attributes sorted, numbers as numbers (".34" is "0.340"), colors in one case, ids renamed by the
+ * order they are first used, and the definitions nothing uses left out. The root's own attributes but its viewBox, and
+ * the space between tags, are not the drawing.
+ */
+const drawingOf = (svg: string): string[] => {
+  const tags = [...svg.replace(/<!--[\s\S]*?-->/g, '').matchAll(/<(\/?)([a-zA-Z]+)((?:\s+[a-zA-Z][a-zA-Z0-9:-]*="[^"]*")*)\s*(\/?)>/g)];
+  const used = new Set([...svg.matchAll(/url\(#([^)]+)\)/g)].map((m) => m[1]!));
+  const names = new Map<string, string>();
+  const nameOf = (id: string) => names.get(id) ?? (names.set(id, `id${names.size}`), names.get(id)!);
+  // names in the order of use in the body, which both files draw in the same order
+  const body = svg.slice(svg.indexOf('</defs>'));
+  for (const m of body.matchAll(/url\(#([^)]+)\)/g)) nameOf(m[1]!);
+  const value = (v: string): string =>
+    v
+      .replace(/url\(#([^)]+)\)/g, (_m, id: string) => `url(#${nameOf(id)})`)
+      .replace(/#[0-9a-fA-F]{3,6}\b/g, (c) => (c.length === 4 ? `#${c[1]}${c[1]}${c[2]}${c[2]}${c[3]}${c[3]}` : c).toLowerCase())
+      .replace(/(?<![#\w])-?\d*\.?\d+(?![\w)])/g, (n) => String(Number(n)));
+  const out: string[] = [];
+  let skip = 0;
+  for (const m of tags) {
+    const [, close, name, attrs, self] = m;
+    if (skip) {
+      if (!self) skip += close ? -1 : 1;
+      continue;
+    }
+    const map = new Map([...attrs!.matchAll(/([a-zA-Z][a-zA-Z0-9:-]*)="([^"]*)"/g)].map((a) => [a[1]!, a[2]!] as const));
+    const id = map.get('id');
+    if (!close && id && !used.has(id)) {
+      if (!self) skip = 1;
+      continue;
+    }
+    if (close) {
+      out.push(`/${name}`);
+      continue;
+    }
+    if (name === 'svg') {
+      out.push(`svg viewBox=${map.get('viewBox')}`);
+      continue;
+    }
+    if (id) map.set('id', nameOf(id));
+    out.push(`${name} ${[...map].sort(([a], [b]) => (a < b ? -1 : 1)).map(([k, v]) => `${k}=${value(v)}`).join(' ')}${self ? ' /' : ''}`);
+  }
+  return out;
 };
 
-describe('the table', () => {
-  const rows: Array<[string, FormHue, FormStyle, string]> = [
-    ['todo', 'deepsky', 'disc', 'A to-do'],
-    ['habit', 'apricot', 'lit', 'A habit'],
-    ['train:run', 'lagoon', 'orbit', 'A run'],
-    ['train:lift', 'indigo', 'orbit', 'A lift'],
-    ['train:cross', 'ochre', 'orbit', 'Cross-training'],
-    ['goal:day', 'sky', 'target1', 'Today’s goal'],
-    ['goal:week:2026-11-09', 'sky', 'target2', 'A week goal'],
-    ['goal:month:2026-11', 'sky', 'target3', 'A month goal'],
-    ['goal:year:2026', 'sky', 'target4', 'A year goal'],
-    ['full', 'apricot', 'sunrise', 'A full day'],
-    ['week:2026-11-09', 'deepsky', 'seven', 'A week that counts'],
-    ['challenge:d:2026-11-13', 'plum', 'crescent', 'A challenge'],
-    ['challenge:w:2026-11-09', 'plum', 'crescent', 'A challenge'],
-    ['back', 'rose', 'open', 'Good to see you'],
-    ['fused:week', 'haze', 'pale', 'An earlier week'],
-    ['fused:chapter', 'hill', 'pale-ring', 'An earlier chapter'],
-    ['fused:year', 'deepsky', 'disc-rings', 'An earlier year'],
+describe('the ladder', () => {
+  const rows: Array<[string, Rung, string]> = [
+    ['todo', 1, 'A to-do'],
+    ['habit', 1, 'A habit'],
+    ['train:run', 2, 'A run'],
+    ['train:lift', 2, 'A lift'],
+    ['train:cross', 2, 'Cross-training'],
+    ['goal:day', 2, 'Today’s goal'],
+    ['full', 2, 'A full day'],
+    ['back', 2, 'Good to see you'],
+    ['week:2026-11-09', 3, 'A week that counts'],
+    ['goal:week:2026-11-09', 3, 'A week goal'],
+    ['challenge:d:2026-11-13', 3, 'A challenge'],
+    ['challenge:w:2026-11-09', 3, 'A challenge'],
+    ['goal:month:2026-11', 4, 'A month goal'],
+    ['goal:year:2026', 5, 'A year goal'],
+    ['fused:week', 1, 'An earlier week'],
+    ['fused:chapter', 1, 'An earlier chapter'],
+    ['fused:year', 1, 'An earlier year'],
   ];
-  it.each(rows)('%s is %s, %s, "%s"', (key, hue, style, name) => {
-    const g = gemFor(key);
-    expect(g.hue).toBe(hue);
-    expect(g.style).toBe(style);
-    expect(g.shift).toBe(0);
+  it.each(rows)('%s is rung %i, "%s"', (key, rung, name) => {
+    expect(rungOf(key)).toBe(rung);
+    expect(gemFor(key)).toEqual({ rung });
     expect(gemName(key)).toBe(name);
   });
-  it('draws a key it does not know as the plain disc, never as nothing', () => {
-    expect(gemFor('something:new')).toEqual({ hue: 'deepsky', style: 'disc', shift: 0 });
+  it('has five rungs, named for a sun coming up', () => {
+    expect(RUNGS).toEqual([1, 2, 3, 4, 5]);
+    expect(RUNGS.map(rungName)).toEqual(['Sky', 'Dawn', 'Glow', 'Sunrise', 'Sun']);
+    for (const r of RUNGS) {
+      expect(LADDER[r].often).toMatch(/^[A-Z]/);
+      expect(LADDER[r].earnedBy(true)).toMatch(/^[A-Z]/);
+    }
+    // with Fitness off a session is never named
+    expect(LADDER[2].earnedBy(true)).toContain('session');
+    for (const r of RUNGS) expect(LADDER[r].earnedBy(false)).not.toMatch(/session|run|lift|train/i);
+  });
+  it('draws a key it does not know as the plainest Orb, never as nothing', () => {
+    expect(gemFor('something:new')).toEqual({ rung: 1 });
     expect(gemName('something:new')).toBe('An Orb');
     // a prefix is a whole part of the key: "weekly" is not "week"
-    expect(gemFor('weekly').style).toBe('disc');
-    // and a gem from somewhere else (an older build's, a test's) is still a picture
-    const old = gemSvg({ hue: 'night', style: 'starred', shift: 0.5, stars: 3 });
+    expect(rungOf('weekly')).toBe(1);
+    // a session of a kind this build does not name is still a session
+    expect(rungOf('train:swim')).toBe(2);
+    expect(gemName('train:swim')).toBe('A session');
+    // and a gem from somewhere else (an older build's, a test's) is still a picture: the logo's
+    const old = gemSvg({ hue: 'night', style: 'starred', shift: 0.5 } as unknown as Gem);
     expect(wellFormed(old)).toBe(true);
-    expect(old).toBe(gemSvg({ hue: 'deepsky', style: 'disc', shift: 0.5 }));
+    expect(old).toBe(gemSvg(gem(1)));
+    expect(gemBox({ rung: 9 } as unknown as Gem)).toBe(gemBox(gem(1)));
   });
-  it('no silhouette is used by two kinds, but for a session’s three', () => {
-    const by = new Map<string, string[]>();
-    for (const k of GEM_KEYS) by.set(gemFor(k).style, [...(by.get(gemFor(k).style) ?? []), k]);
-    expect([...by.values()].filter((v) => v.length > 1)).toEqual([['train:run', 'train:lift', 'train:cross']]);
-    expect(by.size).toBe(14);
+  it('gives two Orbs of a rung the same picture: no tint of an Orb’s own', () => {
+    expect(gemFor('habit', 'habit|2026-11-13|0')).toEqual(gemFor('habit', 'habit|2026-11-14|7'));
+    expect(gemSvg(gemFor('habit', 'a'))).toBe(gemSvg(gemFor('todo', 'b')));
+    expect(gemUrl(gemFor('train:run'))).toBe(gemUrl(gemFor('full')));
+  });
+  it('makes a fused Orb a Sky Orb, and a Dawn Orb when what it holds counted', () => {
+    expect(gemFor('fused:week', 'w', { counted: false })).toEqual({ rung: 1 });
+    for (const key of ['fused:week', 'fused:chapter', 'fused:year']) expect(gemFor(key, 'x', { counted: true })).toEqual({ rung: 2 });
+    // only a fused one: a habit is a Sky Orb whatever is said of it
+    expect(gemFor('habit', 'x', { counted: true })).toEqual({ rung: 1 });
+    expect(gemFor('goal:month:2026-11', 'x', { counted: true })).toEqual({ rung: 4 });
   });
   it('names never use a word the brand does not', () => {
-    for (const key of GEM_KEYS) expect(gemName(key)).not.toMatch(/jar|marble|coin|point|XP|streak|AI\b|coach|bot|—/i);
-  });
-  it('keeps an earlier week’s count of days with it: 0 to 7, seven when not told', () => {
-    expect(gemFor('fused:week').stars).toBe(7);
-    expect(gemFor('fused:week', 's', { stars: 3 }).stars).toBe(3);
-    expect(gemFor('fused:week', 's', { stars: 12 }).stars).toBe(7);
-    expect(gemFor('fused:week', 's', { stars: -2 }).stars).toBe(0);
-    expect(gemFor('habit', 's', { stars: 3 }).stars).toBeUndefined();
-    // the art does not draw it
-    expect(gemSvg(gemFor('fused:week', undefined, { stars: 2 }))).toBe(gemSvg(gemFor('fused:week', undefined, { stars: 6 })));
+    const words = [...GEM_KEYS.map(gemName), ...RUNGS.flatMap((r) => [rungName(r), LADDER[r].often, LADDER[r].earnedBy(true), LADDER[r].earnedBy(false)])];
+    for (const w of words) expect(w).not.toMatch(/jar|marble|coin|point|XP|streak|AI\b|coach|bot\b|common|rare|epic|legend|shiny|card|pack|—/i);
   });
 });
 
-describe('the tint', () => {
-  it('is the same for the same seed, one of three steps, and the token itself without a seed', () => {
-    const a = gemFor('habit', 'habit|2026-11-13|0');
-    expect(gemFor('habit', 'habit|2026-11-13|0')).toEqual(a);
-    expect(SHIFTS).toEqual([-1, 0, 1]);
-    expect(SHIFTS).toContain(a.shift);
-    expect(gemFor('habit').shift).toBe(0);
-    for (const key of GEM_KEYS) expect(colorOf(gemFor(key)), key).toBe(TOKEN[HUES[gemFor(key).hue as FormHue]].toLowerCase());
+describe('rung 1 is the logo', () => {
+  it('draws what ui/orb/logo-mark.svg draws, number for number', () => {
+    const logo = read('../../../ui/orb/logo-mark.svg');
+    expect(drawingOf(gemSvg(gem(1)))).toEqual(drawingOf(logo));
+    // the comparison can fail: a drawing with one number moved is another drawing
+    expect(drawingOf(gemSvg(gem(1)).replace('stdDeviation="2.5"', 'stdDeviation="2.6"'))).not.toEqual(drawingOf(logo));
+    expect(drawingOf(gemSvg(gem(2)))).not.toEqual(drawingOf(logo));
   });
-  it('spreads a pile: forty habits take every step, none more than half', () => {
-    const counts = new Map<number, number>();
-    for (let i = 0; i < 40; i++) {
-      const s = gemFor('habit', `habit|2026-11-${String(1 + (i % 28)).padStart(2, '0')}|${i}`).shift;
-      counts.set(s, (counts.get(s) ?? 0) + 1);
-    }
-    expect(counts.size).toBe(SHIFTS.length);
-    for (const n of counts.values()) expect(n).toBeLessThanOrEqual(20);
-  });
-  it('is the same color lighter or deeper by one step, never a hue turn', () => {
-    for (const name of Object.values(HUES)) {
-      const token = TOKEN[name];
-      const [deep, light] = [toneOf(token, -1), toneOf(token, 1)];
-      expect(toLab(deep).l, name).toBeCloseTo(toLab(token).l - TONE.step, 2);
-      // the palest tokens reach the top of the scale before a whole step
-      expect(toLab(light).l, name).toBeGreaterThan(toLab(token).l + TONE.step / 2);
-      for (const hex of [deep, light]) expect(Math.abs(hueDeg(hex) - hueDeg(token)), `${name} ${hex}`).toBeLessThan(6);
-      expect(toneOf(token, 0)).toBe(token.toLowerCase());
-    }
-  });
-  it('holds every form with no edge of its own to 1.5:1 on Paper, at every tint', () => {
-    const paper = TOKEN['--paper'];
-    for (const gem of every()) {
-      if (gem.style === 'pale' || gem.style === 'pale-ring') continue;
-      expect(contrast(colorOf(gem), paper), idOf(gem)).toBeGreaterThanOrEqual(TONE.floor);
-    }
-    // Apricot is the one the floor holds back: its lighter tint is lighter than the token, and still seen
-    const light = colorOf({ ...gemFor('habit'), shift: 1 });
-    expect(toLab(light).l).toBeGreaterThan(toLab(TOKEN['--apricot']).l);
-    expect(toLab(light).l).toBeLessThan(toLab(TOKEN['--apricot']).l + TONE.step);
-    // a pale disc is held by its Deep Sky edge instead
-    expect(contrast(TOKEN[LINE], paper)).toBeGreaterThan(4.5);
-  });
-  it('stays nearer its own token than any other kind’s color', () => {
-    const dist = (x: string, y: string) => {
-      const p = toLab(x);
-      const q = toLab(y);
-      return Math.hypot(p.l - q.l, p.a - q.a, p.b - q.b);
-    };
-    // the eight colors a kind is earned in (the two pale blues of the earlier forms are told by their edge)
-    const hues = (Object.keys(HUES) as FormHue[]).filter((h) => h !== 'haze' && h !== 'hill');
-    for (const hue of hues)
-      for (const shift of SHIFTS) {
-        const mine = toneOf(TOKEN[HUES[hue]], shift, TOKEN['--paper']);
-        for (const other of hues) if (other !== hue) expect(dist(mine, TOKEN[HUES[hue]]), `${hue} ${shift} vs ${other}`).toBeLessThan(dist(mine, TOKEN[HUES[other]]));
-      }
+  it('is the same at every size, in the logo’s own box', () => {
+    expect(gemSvg(gem(1), 20)).toBe(gemSvg(gem(1), 96));
+    expect(gemSvg(gem(1))).toContain('viewBox="0 0 100 100"');
+    expect(gemBox(gem(1))).toBeCloseTo(100 / 96, 6);
+    expect(recipeOf(1)).toBe(LOGO);
   });
 });
 
 describe('the art', () => {
-  it('is one small well-formed SVG with nothing fetched, no script and no font', () => {
-    for (const gem of every()) {
-      const svg = gemSvg(gem);
-      expect(svg.length, idOf(gem)).toBeLessThan(1024);
-      expect(wellFormed(svg), idOf(gem)).toBe(true);
-      expect(svg.startsWith('<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96" viewBox="2 2 96 96">')).toBe(true);
-      expect(svg).not.toMatch(/<script|<foreignObject|<image|<use|<text|font|href|url\(|@import|javascript:/i);
-      expect(svg).not.toMatch(/NaN|undefined|Infinity/);
-    }
-  });
-  it('is flat: no gradient, no gloss, no shadow, no glow, no filter, no mask, nothing see-through but the gaps', () => {
-    for (const gem of every()) expect(gemSvg(gem), idOf(gem)).not.toMatch(/Gradient|filter|feGaussianBlur|<mask|<defs|clip-path|opacity|<stop|<ellipse/);
-  });
-  it('is one color, and two only where the table says: the sunrise’s horizon and a pale disc’s edge, both Deep Sky', () => {
-    const line = TOKEN[LINE].toLowerCase();
-    for (const gem of every()) {
-      const used = colorsIn(gemSvg(gem));
-      const two = gem.style === 'sunrise' || gem.style === 'pale' || gem.style === 'pale-ring';
-      expect(used, idOf(gem)).toEqual(two ? expect.arrayContaining([colorOf(gem), line]) : [colorOf(gem)]);
-      expect(used.length, idOf(gem)).toBe(two ? 2 : 1);
-    }
-  });
-  it('fills its circle and draws nothing outside it: the box is the diameter', () => {
-    for (const gem of every()) expect(gemBox(gem)).toBe(1);
-    // every circle and every ring ends inside r 48 at (50, 50)
-    for (const gem of every())
-      for (const m of gemSvg(gem).matchAll(/<circle cx="([\d.]+)" cy="([\d.]+)" r="([\d.]+)"(?: fill="none" stroke="#[0-9a-f]{6}" stroke-width="([\d.]+)")?/g)) {
-        const reach = Math.hypot(Number(m[1]) - 50, Number(m[2]) - 50) + Number(m[3]) + Number(m[4] ?? 0) / 2;
-        expect(reach, `${idOf(gem)} ${m[0]}`).toBeLessThanOrEqual(48.01);
+  it('is one well-formed SVG with nothing fetched, no script and no font', () => {
+    for (const r of RUNGS)
+      for (const px of [undefined, 20, 44]) {
+        const svg = gemSvg(gem(r), px);
+        expect(svg.length, `${r}`).toBeLessThan(5200);
+        expect(wellFormed(svg), `${r}`).toBe(true);
+        expect(svg).not.toMatch(/<script|<foreignObject|<image|<use|<text|font|href|@import|javascript:|style=/i);
+        expect(svg).not.toMatch(/NaN|undefined|Infinity/);
+        // every gradient, mask, filter and clip it names is its own
+        const ids = new Set([...svg.matchAll(/ id="([^"]+)"/g)].map((m) => m[1]));
+        for (const m of svg.matchAll(/url\(#([^)]+)\)/g)) expect(ids.has(m[1]), `${r} ${m[1]}`).toBe(true);
       }
-    // the forms that are built to the edge reach it
-    for (const key of ['todo', 'habit', 'goal:day', 'goal:year', 'fused:week', 'fused:chapter', 'fused:year']) {
-      const reach = Math.max(...[...gemSvg(gemFor(key)).matchAll(/ r="([\d.]+)"(?: fill="none" stroke="#[0-9a-f]{6}" stroke-width="([\d.]+)")?/g)].map((m) => Number(m[1]) + Number(m[2] ?? 0) / 2));
-      expect(reach, key).toBeCloseTo(48, 1);
+  });
+  it('is the logo’s sphere at every rung: the same specular and clip, one sphere of r 48 at the middle', () => {
+    for (const r of RUNGS) {
+      const svg = gemSvg(gem(r));
+      expect(svg, `${r}`).toContain(`<circle cx="50" cy="50" r="48" fill="url(#o${r}b)"/>`);
+      expect(svg, `${r}`).toContain('<ellipse cx="50" cy="22" rx="27" ry="15"');
+      expect(svg, `${r}`).toContain('<circle cx="50" cy="50" r="47.6" fill="none"');
+      expect(recipeOf(r).spec).toBe(LOGO.spec);
+      // blue stays the body's color up to rung 4; rung 5 is the one warm body, and keeps the logo's cool top
+      if (r < 5) expect(recipeOf(r).body).toBe(LOGO.body);
+      else expect(recipeOf(r).body.slice(0, 2)).toEqual(LOGO.body.slice(0, 2));
     }
   });
-  it('uses one stroke, one gap and one hairline, each a share of the diameter', () => {
-    expect(FORM).toEqual({ stroke: 9, gap: 6, hair: 4.5 });
-    // 2 px at 22 px
-    expect((FORM.stroke / 96) * 22).toBeGreaterThanOrEqual(2);
-    const widths = (key: string) => [...gemSvg(gemFor(key)).matchAll(/stroke-width="([\d.]+)"/g)].map((m) => Number(m[1]));
-    expect(widths('habit')).toEqual([9]);
-    expect(widths('train:run')).toEqual([9]);
-    expect(widths('full')).toEqual([9]);
-    expect(widths('back')).toEqual([18]);
-    expect(widths('fused:week')).toEqual([4.5]);
-    expect(widths('fused:chapter')).toEqual([4.5, 4.5]);
-    expect(widths('fused:year')).toEqual([4.5, 4.5]);
-    // a lit disc: the ring, the gap, the disc
-    expect(gemSvg(gemFor('habit'))).toContain('r="43.5" fill="none"');
-    expect(gemSvg(gemFor('habit'))).toContain(`r="${48 - FORM.stroke - FORM.gap}" fill="#`);
-    // everything the legend and today's lines show at 22 px has no line under 2 px there
-    for (const key of ['todo', 'habit', 'train:run', 'train:lift', 'train:cross', 'goal:day', 'goal:week', 'full', 'week', 'challenge', 'back']) for (const w of widths(key)) expect((w / 96) * 22, key).toBeGreaterThanOrEqual(2);
+  it('climbs by more than hue: a glow from rung 3, a ring at 4, two at 5', () => {
+    const glowOf = (r: Rung) => recipeOf(r).glow;
+    expect(glowOf(1)).toBeUndefined();
+    expect(glowOf(2)).toBeUndefined();
+    for (const r of [3, 4, 5] as const) expect(gemSvg(gem(r))).toMatch(/^<svg[^>]*><defs>.*<\/defs><ellipse /);
+    // each glow is wider, taller and stronger than the one below it
+    for (const [lo, hi] of [[3, 4], [4, 5]] as const) {
+      expect(glowOf(hi)!.rx).toBeGreaterThan(glowOf(lo)!.rx);
+      expect(glowOf(hi)!.ry).toBeGreaterThan(glowOf(lo)!.ry);
+      expect(glowOf(hi)!.stops[0]![2]!).toBeGreaterThan(glowOf(lo)!.stops[0]![2]!);
+    }
+    expect(RUNGS.map((r) => recipeOf(r).rings.length)).toEqual([0, 0, 0, 1, 2]);
+    // the light rises: the warm dome under the sphere reaches higher at each rung up to 4
+    const top = (r: Rung) => recipeOf(r).under.cy - recipeOf(r).under.r;
+    expect(top(1)).toBeGreaterThan(top(2));
+    expect(top(2)).toBeGreaterThan(top(3));
+    expect(top(3)).toBeGreaterThan(top(4));
+    expect(MOVES[2].rise).toEqual([1, 1]);
   });
-  it('draws a target as a dot and one to four rings in equal bands', () => {
-    for (const [key, n] of [['goal:day', 1], ['goal:week', 2], ['goal:month', 3], ['goal:year', 4]] as const) {
-      const svg = gemSvg(gemFor(key));
-      const band = 48 / (2 * n + 1);
-      const rings = [...svg.matchAll(/r="([\d.]+)" fill="none" stroke="#[0-9a-f]{6}" stroke-width="([\d.]+)"/g)];
-      expect(rings.length, key).toBe(n);
-      for (const [i, m] of rings.entries()) {
-        expect(Number(m[2])).toBeCloseTo(band, 1);
-        expect(Number(m[1])).toBeCloseTo(band * (2 * i + 2.5), 1);
-      }
-      expect(svg).toMatch(new RegExp(`<circle cx="50" cy="50" r="${String(Math.round(band * 100) / 100).replace('.', '\\.')}" fill="#`));
+  it('keeps Sunrise the color scarce: only in rung 4’s base and rung 5’s body', () => {
+    const sunrise = INK.sunrise.toLowerCase();
+    for (const r of RUNGS) expect(colorsIn(gemSvg(gem(r), 24)).includes(sunrise), `${r}`).toBe(r >= 4);
+    expect(recipeOf(4).body).toBe(LOGO.body);
+    expect(recipeOf(5).body.at(-1)![1]).toBe(INK.sunrise);
+  });
+  it('holds everything inside its box: the logo’s for a plain Orb, the brand’s glow box from rung 3', () => {
+    expect(RUNGS.map((r) => Math.round(gemBox(gem(r)) * 96))).toEqual([100, 100, 150, 150, 150]);
+    for (const r of [3, 4, 5] as const) {
+      const svg = gemSvg(gem(r), 20);
+      expect(svg).toContain('viewBox="-25 -25 150 150"');
+      const g = recipeOf(r, 20).glow!;
+      expect(50 - g.rx).toBeGreaterThanOrEqual(-25);
+      expect(g.cy + g.ry).toBeLessThanOrEqual(125);
+      expect(g.cy - g.ry).toBeGreaterThanOrEqual(-25);
+      for (const ring of recipeOf(r, 20).rings) expect(ring.r + ring.w / 2).toBeLessThanOrEqual(75);
     }
   });
-  it('gives each form the parts the table names', () => {
-    const count = (key: string, re: RegExp) => (gemSvg(gemFor(key)).match(re) ?? []).length;
-    expect(gemSvg(gemFor('todo'))).toBe(`<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96" viewBox="2 2 96 96"><circle cx="50" cy="50" r="48" fill="${TOKEN['--deep-sky'].toLowerCase()}"/></svg>`);
-    // seven dots, the first at twelve o'clock
-    expect(count('week:2026-11-09', /<circle /g)).toBe(7);
-    expect(gemSvg(gemFor('week'))).toContain('<circle cx="50" cy="14" r="12"');
-    // an orbit: a line, a body and a moon that touches the edge at the upper right
-    expect(count('train:run', /<circle /g)).toBe(2);
-    expect(count('train:run', /<path /g)).toBe(1);
-    const moon = /<circle cx="([\d.]+)" cy="([\d.]+)" r="8"/.exec(gemSvg(gemFor('train:run')))!;
-    expect(Number(moon[1])).toBeGreaterThan(50);
-    expect(Number(moon[2])).toBeLessThan(50);
-    expect(Math.hypot(Number(moon[1]) - 50, Number(moon[2]) - 50) + 8).toBeCloseTo(48, 1);
-    // a sunrise: a half-disc, an arc, and a horizon in Deep Sky that is wider than both
-    const sun = gemSvg(gemFor('full'));
-    expect(sun).toContain(`<path d="M6 59h88v9h-88z" fill="${TOKEN['--deep-sky'].toLowerCase()}"/>`);
-    expect(sun).toContain('<path d="M23 59A27 27 0 0 1 77 59Z"');
-    expect(sun).toContain('<path d="M12.5 59A37.5 37.5 0 0 1 87.5 59" fill="none"');
-    // a crescent and an open ring: one path each
-    expect(count('challenge:d', /<path /g)).toBe(1);
-    expect(count('challenge:d', /<circle /g)).toBe(0);
-    expect(gemSvg(gemFor('back'))).toContain('stroke-linecap="round"');
-    // the earlier forms: an edge, an edge and a ring, two rings
-    expect(count('fused:week', /<circle /g)).toBe(2);
-    expect(count('fused:chapter', /<circle /g)).toBe(3);
-    expect(count('fused:year', /<circle /g)).toBe(3);
+  it('draws a ring as a hairline: one px at the size it is shown at', () => {
+    for (const px of [20, 24, 32, 44]) for (const ring of recipeOf(5, px).rings) expect((ring.w / 96) * px).toBeGreaterThan(0.9);
+    for (const px of [24, 32, 44, 64]) for (const ring of recipeOf(4, px).rings) expect((ring.w / 96) * px).toBeCloseTo(1, 1);
+    // never a band: 1.5 px at 96
+    expect(recipeOf(4, 96).rings[0]!.w).toBe(RING.min);
+    expect(recipeOf(4, 8).rings[0]!.w).toBe(RING.max);
+    // a ring stands clear of the sphere, and the second clear of the first
+    const [a, b] = recipeOf(5, 20).rings;
+    expect(a!.r - a!.w / 2).toBeGreaterThan(48 + 4);
+    expect(b!.r - b!.w / 2).toBeGreaterThan(a!.r + a!.w / 2 + 4);
+    expect(b!.opacity).toBeLessThan(a!.opacity);
+    // only an Orb with rings is drawn anew for a size
+    expect(gemSvg(gem(3), 20)).toBe(gemSvg(gem(3), 44));
+    expect(gemSvg(gem(4), 20)).not.toBe(gemSvg(gem(4), 44));
   });
-  it('prints in one color with every silhouette its own', () => {
-    const ink = TOKEN['--night-ink'].toLowerCase();
-    const seen = new Map<string, string>();
-    for (const key of GEM_KEYS) {
-      const svg = gemInk(gemFor(key));
-      expect(colorsIn(svg), key).toEqual([ink]);
-      expect(wellFormed(svg), key).toBe(true);
-      const body = svg.replace(/^<svg[^>]*>/, '');
-      const style = gemFor(key).style;
-      if (seen.has(body)) expect(seen.get(body), key).toBe(style);
-      seen.set(body, style);
-    }
-    expect(seen.size).toBe(14);
-    // a pale disc prints as its edge, open inside
-    expect(gemInk(gemFor('fused:week'))).toContain('fill="none"/><circle');
-  });
-  it('hands out one cached data URL per form and tint', () => {
-    const a = gemUrl(gemFor('habit'));
+  it('hands out one cached data URL per rung', () => {
+    const a = gemUrl(gem(1));
     expect(a.startsWith('data:image/svg+xml;charset=utf-8,')).toBe(true);
-    expect(gemUrl({ hue: 'apricot', style: 'lit', shift: 0 })).toBe(a);
-    expect(gemUrl(gemFor('habit', 'x1'))).toBe(gemUrl(gemFor('habit', 'x1')));
-    expect(gemUrl(gemFor('todo'))).not.toBe(a);
-    expect(gemUrl({ ...gemFor('habit'), shift: 1 })).not.toBe(a);
+    expect(gemUrl({ rung: 1 })).toBe(a);
+    expect(gemUrl(gem(2))).not.toBe(a);
+    expect(gemUrl(gem(5), 22)).toBe(gemUrl(gem(5), 22));
     // nothing a URL cannot carry
-    expect(a.slice(a.indexOf(',') + 1)).not.toMatch(/[#<>"]/);
-    const back = decodeURIComponent(a.slice(a.indexOf(',') + 1)).replace(/'/g, '"');
-    expect(back).toBe(gemSvg(gemFor('habit')));
+    for (const r of RUNGS) {
+      const u = gemUrl(gem(r), 22);
+      expect(u.slice(u.indexOf(',') + 1)).not.toMatch(/[#<>"]/);
+      expect(decodeURIComponent(u.slice(u.indexOf(',') + 1)).replace(/'/g, '"')).toBe(gemSvg(gem(r), 22));
+    }
   });
 });
 
 describe('the palette', () => {
-  it('is the token file’s own values', () => {
-    const css = fs.readFileSync(path.resolve(__dirname, '../../../styles/tokens.css'), 'utf8');
-    const root = css.slice(0, css.indexOf('@media'));
-    for (const [name, hex] of Object.entries(TOKEN)) {
-      const m = new RegExp(`\\n\\s*${name}:\\s*(#[0-9a-fA-F]{6})`).exec(root);
-      expect(m?.[1]?.toLowerCase(), name).toBe(hex.toLowerCase());
-    }
+  const tokens = read('../../../styles/tokens.css');
+  const root = tokens.slice(0, tokens.indexOf('@media'));
+  const token = (name: string) => new RegExp(`\\n\\s*${name}:\\s*(#[0-9a-fA-F]{6})`).exec(root)?.[1]?.toLowerCase();
+  it('names its tokens by the token file’s own values', () => {
+    expect(INK.sky.toLowerCase()).toBe(token('--sky'));
+    expect(INK.apricot.toLowerCase()).toBe(token('--apricot'));
+    expect(INK.sunrise.toLowerCase()).toBe(token('--sunrise'));
+    expect(INK.ember.toLowerCase()).toBe(token('--ember'));
+    expect(INK.white.toLowerCase()).toBe(token('--white'));
   });
-  it('goes to OKLab and back, mixes and measures', () => {
-    for (const hex of Object.values(TOKEN)) expect(toHex(toLab(hex))).toBe(hex.toLowerCase());
-    expect(WHITE).toBe('#ffffff');
-    expect(mix(TOKEN['--apricot'], WHITE, 0)).toBe(TOKEN['--apricot'].toLowerCase());
-    expect(mix(TOKEN['--apricot'], WHITE, 1)).toBe('#ffffff');
-    // the guide's own figures (3.1): Sky and Deep Sky on Paper
-    expect(contrast(TOKEN['--sky'], TOKEN['--paper'])).toBeCloseTo(2.26, 1);
-    expect(contrast(TOKEN['--deep-sky'], TOKEN['--paper'])).toBeCloseTo(5.57, 1);
+  it('types no color of its own: each is a token or a value of the brand’s own Orb files', () => {
+    const brand = new Set([...colorsIn(read('../../../ui/orb/logo-mark.svg')), ...colorsIn(read('../../../ui/orb/logo-mark-sunrise.svg')), token('--sunrise')!]);
+    for (const [name, hex] of Object.entries(INK)) expect(brand.has(hex.toLowerCase()), `${name} ${hex}`).toBe(true);
+    for (const r of RUNGS) for (const c of colorsIn(gemSvg(gem(r), 24))) expect(brand.has(c), `rung ${r} ${c}`).toBe(true);
+  });
+  it('takes the upper rungs’ light from the brand’s sunrise drawing', () => {
+    // rung 2 is that drawing's sphere without its glow: the same two domes of light and the same edge, number for number
+    const sunrise = read('../../../ui/orb/logo-mark-sunrise.svg');
+    const dawn = gemSvg(gem(2));
+    const grad = (svg: string, cy: number) => new RegExp(`<radialGradient[^>]*cy="${cy}"[^>]*>(.*?)</radialGradient>`).exec(svg.replace(/\n/g, ''));
+    for (const cy of [104, 106, 100]) {
+      const [a, b] = [grad(sunrise, cy), grad(dawn, cy)];
+      expect(a && b, `${cy}`).toBeTruthy();
+      expect(drawingOf(`<svg><defs></defs>${b![0].replace(/id="[^"]+"/, '')}</svg>`)).toEqual(drawingOf(`<svg><defs></defs>${a![0].replace(/id="[^"]+"/, '')}</svg>`));
+    }
   });
 });
 
 describe('OrbGem', () => {
-  it('is the form’s size, hidden from VoiceOver unless it is named', () => {
+  it('is the sphere’s size, with a picture as large as its box, hidden from VoiceOver unless it is named', () => {
     const html = renderToStaticMarkup(<OrbGem gem={gemFor('goal:day')} size={22} />);
     expect(html).toContain('aria-hidden="true"');
     expect(html).toContain('--og:22px');
+    expect(html).toContain(`--og-box:${gemBox(gem(2))}`);
     expect(html).toContain('<img');
-    const named = renderToStaticMarkup(<OrbGem gem={gemFor('habit')} size={20} label="A habit" className="x" />);
+    const named = renderToStaticMarkup(<OrbGem gem={gemFor('goal:year:2026')} size={32} label="Sun" className="x" />);
     expect(named).toContain('role="img"');
-    expect(named).toContain('aria-label="A habit"');
+    expect(named).toContain('aria-label="Sun"');
     expect(named).not.toContain('aria-hidden');
     expect(named).toContain('class="orb-gem x"');
+    expect(named).toContain(`--og-box:${150 / 96}`);
   });
-});
-
-describe('where a form is drawn', () => {
-  const read = (rel: string) => fs.readFileSync(path.resolve(__dirname, rel), 'utf8');
-  it('is flat in its styles too: no blur, no glow, no shadow on a form', () => {
-    expect(read('./gem.css')).not.toMatch(/filter|shadow|blur|gradient|opacity/);
-    const moment = read('../moment/moment.css');
-    const pop = moment.slice(moment.indexOf('.om-pop > .orb-gem'), moment.indexOf('/* ---------- the rise'));
-    expect(pop).not.toMatch(/filter|box-shadow|blur\(|gradient/);
-    // in the air it rides on a disc of Paper, 2 px wider all round, so it is seen over the Deep Sky band and at dusk
-    expect(pop).toMatch(/\.om-pop > \.orb-gem::before \{[^}]*inset: -2px;[^}]*background: var\(--paper\);/);
-    expect(contrast(TOKEN['--t-easy'], TOKEN['--deep-sky'])).toBeLessThan(1.2);
-    for (const name of Object.values(HUES)) if (name !== '--haze' && name !== '--hill-1') expect(contrast(TOKEN[name], TOKEN['--paper']), name).toBeGreaterThan(1.6);
+  it('never turns, clips or tints the picture in its own styles', () => {
+    const css = read('./gem.css');
+    expect(css).not.toMatch(/rotate|filter|overflow|opacity|animation|transition/);
+    expect(css).toMatch(/width: calc\(var\(--og\) \* var\(--og-box\)\)/);
   });
 });
