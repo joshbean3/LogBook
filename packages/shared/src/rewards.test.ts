@@ -5,11 +5,15 @@ import type { Aim } from './goals.js';
 import {
   addKeepsakes,
   applySet,
+  AWARDS_MAX,
   chapterLines,
   chapterOf,
   compact,
   countLine,
   countOf,
+  DAY_KEYS,
+  DAY_RUNG,
+  dayAwards,
   dayFactsOf,
   dayLines,
   earnDay,
@@ -33,6 +37,7 @@ import {
   roomFor,
   ruleLine,
   RULES,
+  sameRewards,
   tidy,
   totalOf,
   weekBonus,
@@ -510,6 +515,101 @@ describe('test 9: the count', () => {
   });
 });
 
+describe('the awards of a day, by rung, outlive its kinds', () => {
+  const total = (s: Rewards): [number, number] => Object.values(s.days).reduce<[number, number]>((t, r) => [t[0] + dayAwards(r)[0], t[1] + dayAwards(r)[1]], [0, 0]);
+  it('counts awards, not worth: a to-do and a habit one Sky each; a session, the goal, a full day and a return one Dawn each', () => {
+    expect(DAY_KEYS.map((k) => DAY_RUNG[k])).toEqual([1, 1, 2, 2, 2, 2, 2, 2]);
+    expect(dayAwards({ n: 21, a: 9, k: { todo: 3, habit: 4, 'train:run': 3, 'goal:day': 3, full: 5, back: 3 }, c: 1 })).toEqual([7, 4]);
+    // a session at its floor paid 2 and is still one award
+    expect(dayAwards({ n: 5, a: 2, k: { 'train:run': 3, 'train:lift': 2 }, c: 1 })).toEqual([0, 2]);
+    expect(dayAwards({ n: 0, a: 0, c: 1, h: 1 })).toEqual([0, 0]);
+    // never more than a day can hold: every to-do and habit the caps allow; two sessions, the goal, a full day, a return
+    expect(AWARDS_MAX).toEqual([RULES.todo.cap + RULES.habit.cap, RULES.train.kinds + 3]);
+    expect(dayAwards({ n: 99, a: 9, k: { todo: 40, habit: 40, 'train:run': 3, 'train:lift': 3, 'train:cross': 3, 'goal:day': 3, full: 5, back: 3 } })).toEqual([13, 5]);
+    expect(dayAwards({ n: 9, a: 9, w: [50, 50], c: 1 })).toEqual([13, 5]);
+  });
+  it('a year in, the counts before and after compaction are equal, day for day', () => {
+    const s = live(400, (i) => (i % 7 === 5 ? null : { todosDone: i % 4, habitsDone: 1 + (i % 3), train: i % 7 === 1 ? { run: 'done' } : i % 7 === 3 ? { lift: 'floor' } : {}, goalDay: i % 3 === 0 ? 'done' : 'none', habitsLive: 3, habitsLiveDone: Math.min(3, 1 + (i % 3)) }));
+    const c = compact(s, day(400));
+    expect(c).not.toBe(s);
+    expect(total(c)).toEqual(total(s));
+    expect(total(s)[0]).toBeGreaterThan(600);
+    expect(total(s)[1]).toBeGreaterThan(150);
+    for (const d in s.days) expect(dayAwards(c.days[d]!), d).toEqual(dayAwards(s.days[d]!));
+    // an old day has the counts in its kinds' place; a recent one still has its kinds
+    expect(c.days[day(10)]).toEqual({ n: s.days[day(10)]!.n, a: s.days[day(10)]!.a, w: dayAwards(s.days[day(10)]!), c: 1 });
+    expect(c.days[day(395)]!.k).toBeDefined();
+    expect(c.days[day(395)]!.w).toBeUndefined();
+    // again changes nothing, the total and the count stand, and the schema takes it
+    expect(compact(c, day(400))).toBe(c);
+    expect(tidy(c)).toBe(c);
+    expect(totalOf(c)).toBe(totalOf(s));
+    expect(parseRewards(JSON.parse(JSON.stringify(c)), U)).toEqual(c);
+    expect(total(compact(s, day(800)))).toEqual(total(s));
+    // and a year on, when every closed day is compacted, the counts are still those
+    expect(Object.values(compact(s, day(800)).days).every((r) => !r.c || (!r.k && (r.w || !r.n)))).toBe(true);
+  });
+  it('a day compacted before the counts were kept has neither: it parses, and it counts nothing', () => {
+    const old: Rewards = { ...fresh(), clock: day(200), days: { [day(1)]: { n: 12, a: 6, c: 1 }, [day(2)]: { n: 7, a: 5, w: [5, 1], c: 1 } } };
+    const p = parseRewards(JSON.stringify(old), U)!;
+    expect(p.days[day(1)]).toEqual({ n: 12, a: 6, c: 1 });
+    expect(dayAwards(p.days[day(1)]!)).toEqual([0, 0]);
+    expect(dayAwards(p.days[day(2)]!)).toEqual([5, 1]);
+    expect(compact(p, day(200))).toBe(p);
+    expect(totalOf(p)).toBe(19);
+  });
+  it('the schema takes two small whole numbers and nothing else; tidy cuts them to what a day can hold and drops them beside the kinds', () => {
+    const one = (rec: unknown) => ({ ...fresh(), clock: day(3), days: { [D0]: rec } });
+    expect(zRewards.safeParse(one({ n: 3, a: 3, w: [3, 0], c: 1 })).success).toBe(true);
+    for (const w of [[1], [1, 2, 3], [-1, 0], [1.5, 0], [100, 0], ['1', 0], 3, { 0: 1, 1: 1 }]) expect(zRewards.safeParse(one({ n: 3, a: 3, w, c: 1 })).success, JSON.stringify(w)).toBe(false);
+    expect(parseRewards(one({ n: 30, a: 9, w: [99, 99], c: 1 }), U)!.days[D0]).toEqual({ n: 30, a: 9, w: [13, 5], c: 1 });
+    expect(parseRewards(one({ n: 5, a: 3, k: { todo: 2, 'goal:day': 3 }, w: [9, 4], c: 1 }), U)!.days[D0]).toEqual({ n: 5, a: 3, k: { todo: 2, 'goal:day': 3 }, c: 1 });
+    const honest = parseRewards(one({ n: 5, a: 3, w: [2, 1], c: 1 }), U)!;
+    expect(tidy(honest)).toBe(honest);
+  });
+  it('two phones, one compacted and one not, agree whichever way they merge: the kinds win, and compact to the same counts', () => {
+    const raw = live(200, (i) => (i % 7 === 5 ? null : { todosDone: 1 + (i % 3), habitsDone: 2, goalDay: i % 2 ? 'done' : 'none', train: i % 7 === 2 ? { run: 'done' } : {} }));
+    // one phone compacted long ago (its clock is ahead); the other still holds every day's kinds
+    const ahead = compact({ ...raw, clock: day(300) }, day(300));
+    const behind = forSync(raw);
+    expect(Object.values(ahead.days).filter((r) => r.w).length).toBeGreaterThan(100);
+    const [ab, ba] = [mergeRewards(ahead, behind), mergeRewards(behind, ahead)];
+    expect(ab).toEqual(ba);
+    // in the merge a day that still has its kinds wins over its compacted twin
+    expect(ab.days[day(10)]).toEqual(behind.days[day(10)]);
+    expect(ab.days[day(10)]!.w).toBeUndefined();
+    // and tidy, which both phones and the server run, compacts it again to the very counts the first phone kept
+    expect(tidy(ab)).toEqual(tidy(ba));
+    expect(tidy(ab).days[day(10)]).toEqual(ahead.days[day(10)]);
+    expect(total(tidy(ab))).toEqual(total(raw));
+    expect(total(tidy(ab))).toEqual(total(ahead));
+    expect(sameRewards(tidy(mergeRewards(tidy(ab), behind)), tidy(ab))).toBe(true);
+  });
+  it('two compacted twins take the larger of each count, in either order, and a twin without counts loses nothing', () => {
+    const one = (rec: DayRec): Rewards => ({ ...fresh(), clock: day(200), days: { [D0]: rec } });
+    const [x, y, z] = [one({ n: 9, a: 5, w: [4, 1], c: 1 }), one({ n: 8, a: 6, w: [2, 3], c: 1 }), one({ n: 7, a: 2, c: 1 })];
+    expect(mergeRewards(x, y).days[D0]).toEqual({ n: 9, a: 6, w: [4, 3], c: 1 });
+    expect(mergeRewards(y, x)).toEqual(mergeRewards(x, y));
+    expect(mergeRewards(x, z).days[D0]).toEqual({ n: 9, a: 5, w: [4, 1], c: 1 });
+    expect(mergeRewards(z, x)).toEqual(mergeRewards(x, z));
+    expect(mergeRewards(z, z).days[D0]).toEqual({ n: 7, a: 2, c: 1 });
+    expect(mergeRewards(mergeRewards(x, y), z)).toEqual(mergeRewards(x, mergeRewards(y, z)));
+    // a real closed day still beats a rebuilt one whole, counts and all
+    expect(mergeRewards(one({ n: 9, a: 5, w: [9, 4], c: 1, r: 1 }), y).days[D0]).toEqual({ n: 8, a: 6, w: [2, 3], c: 1 });
+  });
+  it('a store rebuilt after a wipe, or filled from the account’s facts, keeps its kinds and so its counts when it is compacted', () => {
+    const fs = Array.from({ length: 120 }, (_, i) => facts(day(i), { todosDone: 2, habitsDone: 3, goalDay: 'done', train: i % 2 ? { run: 'done' } : {} }));
+    const built = rebuild(fs, D0, day(120), U);
+    expect(built.days[day(5)]).toMatchObject({ c: 1, r: 1, k: { todo: 2, habit: 3 } });
+    const t = tidy(built);
+    expect(t.days[day(5)]).toEqual({ n: built.days[day(5)]!.n, a: built.days[day(5)]!.a, w: dayAwards(built.days[day(5)]!), c: 1, r: 1 });
+    expect(total(t)).toEqual(total(built));
+    const filled = fillFrom({ ...fresh(), clock: day(3) }, fs.slice(0, 10), day(10));
+    expect(total(compact(filled, day(200)))).toEqual(total(filled));
+    expect(total(filled)[0]).toBe(5 * 8);
+  });
+});
+
 describe('test 9: the clock', () => {
   it('keeps the highest device day seen', () => {
     const s = live(3, () => ({ habitsDone: 1 }));
@@ -637,6 +737,8 @@ const genStore = (seed: number): Rewards => {
       if (Object.keys(k).length) rec.k = k;
     }
     rec.n = Object.values(rec.k ?? {}).reduce((t, v) => t + v, 0) + (r() < 0.2 ? int(4) : 0);
+    // some days whose kinds are gone keep their awards by rung (no draw from the generator: the other fields stay as they were)
+    if (!rec.k && i % 3 === 0) rec.w = [(i + seed) % 6, (i * 7 + seed) % 4];
     if (r() < 0.8 || i < 90) rec.c = 1;
     if (rec.c && r() < 0.15) rec.r = 1;
     if (r() < 0.1) rec.h = 1;
