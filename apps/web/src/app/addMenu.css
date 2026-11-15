@@ -23,6 +23,10 @@
   user-select: none;
   -webkit-tap-highlight-color: transparent;
 }
+/* the float shadow above outranks the base focus rule: keyboard focus keeps both */
+.dock-add.pressable:focus-visible {
+  box-shadow: var(--shadow-float), var(--focus-ring);
+}
 .dock-add-ic {
   display: grid;
   place-items: center;

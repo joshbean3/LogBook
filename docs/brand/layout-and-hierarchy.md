@@ -635,10 +635,10 @@ Brand 6.16 has the parts. The layout:
 |---|---|
 | The column | 12 px in from each edge (`--dock-inset`), 8 px above the safe area: the ask bar's row (48), 8 px, the tab capsule (56). |
 | The ask bar's row | The ask bar, 8 px (`--dock-gap`, the dock's own gap, as between the capsule and the folded Orb), then the Add button, 48 x 48. At 390 pt the bar is 310 wide and the button's leading edge is at 330; at 320 pt the bar is 240 wide, its words stop at 16 px and its trailing padding is 12, so "Ask or change anything" (171 px) fits whole in 174. Nothing in the row overlaps at 200 percent text: the bar's words stop at 20 px (16 under 375 pt) and the button does not grow; "Continue with the assistant" gives way to "Continue" where it does not fit. |
-| Folded (375 pt and wider) | The ask bar sinks out and the row passes touches to the page where the bar was. The capsule gives 56 px to the folded Orb beside it. The Add button stays exactly where it was: above the capsule's trailing end, 8 px over the folded Orb, the two round buttons in one column 12 px from the edge. |
-| The menu | A card at least 200 px wide (to the dock's width at most), its trailing edge on the button's trailing edge, its foot 8 px above the button. Rows 48 tall, listed from the button upward. Five rows stand 248 tall, so the card's top is at 466 of 844 at 390 pt and at 190 of 568 at 320 pt. A card taller than the room above the button scrolls. |
+| Folded (375 pt and wider) | The ask bar sinks out and the row passes touches to the page where the bar was. The capsule gives 56 px to the folded Orb beside it. The Add button stays exactly where it was: above the capsule's trailing end, 12 px over the folded Orb, the two round buttons in one column 12 px from the edge. |
+| The menu | A card at least 200 px wide (to the dock's width at most), its trailing edge on the button's trailing edge, its foot 8 px above the button. Rows 48 tall, listed from the button upward. Five rows stand 250 tall with the card's 1 px edge, so the card's top is at 466 of 844 at 390 pt and at 190 of 568 at 320 pt. A card taller than the room above the button scrolls. |
 | The veil | The context menu's cut-out over the whole screen but the button's circle. Under sheets, toasts and the earned-Orb layer; over the status pill. |
-| Targets | The button is 48 x 48; a row is the card's width by 48. The button and the folded Orb are bezeled neighbors 8 px apart, the dock's gap (the 12 px rule of 3.2 is for controls in content). |
+| Targets | The button is 48 x 48; a row is the card's width by 48. The button and the folded Orb are bezeled neighbors 12 px apart (3.2); the ask bar and the button beside it are 8 px apart, the dock's own gap. |
 | One Sky button | The Add button is never one: Paper, a Deep Sky plus. It does not count against a screen's Sky button, and it does not compete with it. |
 
 ---
@@ -683,7 +683,7 @@ Run all of these on every screen you change, at **390 x 844, 320 x 844 and 440 x
 13. **Containers.** At most three card templates. No run of 3 or more like sibling cards. No shadowed or bordered box inside a card. At most 6 shadowed surfaces in the first screenful (a tile grid counts once).
 14. **Say it once.** List the numbers and titles on the screen. None appears twice.
 15. **Empty and zero.** No bare "–". Section empty states are one row. No action is offered twice.
-16. **Targets.** Every tappable thing has a 44 x 44 pt hit box. Bezeled controls sit 12 apart, and unbezeled hit boxes do not overlap. The exceptions are range segments at 320 (37.7 wide, 44 tall) and the dock's own 8 px gap between its round buttons (6.13).
+16. **Targets.** Every tappable thing has a 44 x 44 pt hit box. Bezeled controls sit 12 apart, and unbezeled hit boxes do not overlap. The exceptions are range segments at 320 (37.7 wide, 44 tall) and the dock's own 8 px gap between the ask bar and the Add button (6.13).
 17. **Line length.** A paragraph in a card runs 36 or more characters per line at 320, and is capped at 36rem on wide screens.
 18. **Larger Text.** At 200 percent (`html { font-size: 200% }`), nothing clips or overlaps, two-column grids are one column, side-by-side chips stack, and the order of emphasis is unchanged.
 19. **End of scroll.** The last content ends 24 or more above the dock.
