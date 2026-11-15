@@ -159,7 +159,7 @@ describe('the Orbs page in a first week', () => {
     // Monday 3, Tuesday 6, today 3 + 4 + 3 and a full day's 5
     expect(m.store.getOrbs()!.days[WEEK_TODAY]).toMatchObject({ n: 15 });
     // the total where a poster's title stands, the window in words (what VoiceOver hears in its place), the band
-    expect(said).toMatch(/^Orbs\n24\nOrbs\n24 Orbs\. This week: 11 habits, 5 to-dos, today’s goal, 1 full day\.\nLevel 1\n1 to level 2\n/);
+    expect(said).toMatch(/^Orbs\n24\nOrbs\n24 Orbs\. This week, Sky: 11 habits, 5 to-dos\. Dawn: today’s goal, 1 full day\.\nLevel 1\n1 to level 2\n/);
     // the pills stand under the card, after the week
     // the pills stand under the card, after the week; then Your Orbs, the five rungs with how many are held (a rung never held has no number)
     expect(said).toContain('3 days this week · 3 in all\nTilt\nStir\nFloat\nYour Orbs\nSky\n16\nDawn\n2\nGlow\nSunrise\nSun\nToday\n15 Orbs');
@@ -221,7 +221,7 @@ describe('the Orbs page a year in', () => {
     const said = text(html);
     const total = m.store.getOrbs()!;
     expect(Object.keys(total.keepsakes)).toEqual(expect.arrayContaining(['first', 'full', 'weeks:52', 'days:250', 'goal:month:2027-03', 'goal:year:2027', `chapter:${START}`]));
-    expect(said).toMatch(/^Orbs\n([\d,]+)\nOrbs\n\1 Orbs\. This week: [^\n]+\. \d+ earlier weeks, \d+ chapters, 1 longer stretch\.\n(?:[^\n]+ · [\d,]+ Orbs[^\n]*\n)+Level \d+\n[\d,]+ to level \d+\n/);
+    expect(said).toMatch(/^Orbs\n([\d,]+)\nOrbs\n\1 Orbs\. This week, Sky: [^\n]+\. \d+ earlier weeks, \d+ chapters, 1 longer stretch\.\n(?:[^\n]+ · (?:Sky|Dawn) · [\d,]+ Orbs[^\n]*\n)+Level \d+\n[\d,]+ to level \d+\n/);
     expect(said).toMatch(/\d days? this week · \d+ in all · 52 weeks in a row/);
     expect(count(html, 'class="orp-keep-cell"')).toBe(Object.keys(total.keepsakes).length);
     expect(count(html, 'orp-keep is-newest')).toBe(1);
@@ -261,7 +261,7 @@ describe('the poster at the head of the page', () => {
     const html = draw(m.OrbsPage);
     expect(html).toMatch(/<div class="dm-oculus" aria-hidden="true">/);
     expect(count(html, '<canvas')).toBe(1);
-    expect(html).toMatch(/<div class="sr-only"><p>[\d,]+ Orbs\. This week: [^<]+<\/p><ul>(?:<li>[^<]+<\/li>)+<\/ul><\/div>/);
+    expect(html).toMatch(/<div class="sr-only"><p>[\d,]+ Orbs\. This week, Sky: [^<]+<\/p><ul>(?:<li>[^<]+<\/li>)+<\/ul><\/div>/);
     // Tilt and Float are toggles, off until tapped; Stir is a plain button. Each says more than its one word
     const pills = [...html.matchAll(/<button[^>]*class="status-pill dm-pill[^"]*"[^>]*>/g)].map((x) => [/aria-label="([^"]+)"/.exec(x[0])?.[1], /aria-pressed="(\w+)"/.exec(x[0])?.[1] ?? null]);
     expect(pills).toEqual([

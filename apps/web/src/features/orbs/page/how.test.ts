@@ -76,7 +76,7 @@ describe('the legend: each row that earns an Orb names which', () => {
     expect(gems(on, 'weeks')).toEqual({ week: ['week'] });
     expect(gems(on, 'challenges')).toMatchObject({ day: ['challenge:d'], week: ['challenge:w'], offer: undefined, size: undefined });
   });
-  it('every key is one the family knows, and the sections about the count and the rules show none', () => {
+  it('every key is one the ladder knows, and the sections about the count and the rules show none', () => {
     for (const all of [on, off]) for (const s of all) for (const r of s.rows) for (const k of r.gems ?? []) expect(gemName(k), k).not.toBe('An Orb');
     for (const key of ['count', 'for', 'never']) expect(sec(on, key).rows.every((r) => !r.gems)).toBe(true);
     expect(sec(on, 'ladder').rows.every((r) => r.gems?.length === 1)).toBe(true);

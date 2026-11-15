@@ -6,8 +6,8 @@ import './orbs.css';
 
 /**
  * "Your Orbs": the five rungs in a row, the one earned least often last. Each is its Orb at 32 pt over its name and how
- * many are held. A rung never held is a dashed ring over its name, with no number (never a zero): an empty place, as in
- * an album. The whole row is one button to How Orbs work, which opens at the ladder; VoiceOver hears it in one breath.
+ * many are held. A rung never held is a dashed ring over its name, with no number (never a zero): an empty place on
+ * the ladder. The whole row is one button to How Orbs work, which opens at the ladder; VoiceOver hears it in one breath.
  */
 export const YourOrbs = ({ cells, onOpen }: { cells: readonly HeldCell[]; onOpen: () => void }): React.JSX.Element => (
   <Pressable className="card orp-held" press="scale" label={heldSaid(cells)} onPress={onOpen}>

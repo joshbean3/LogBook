@@ -1,4 +1,4 @@
-import { recipeOf, type Dome, type Recipe, type Rung, type Stop } from './recipe';
+import { INK, recipeOf, type Dome, type Recipe, type Rung, type Stop } from './recipe';
 import type { Gem } from './table';
 
 /**
@@ -32,7 +32,7 @@ const draw = (r: Recipe, id: string): string => {
       : `<linearGradient id="${id}k" gradientUnits="userSpaceOnUse" x1="0" y1="${f(L.fade ?? 50)}" x2="0" y2="98">${stops(L.stops)}</linearGradient>`) +
     (r.core ? dome(`${id}q`, r.core) : '') +
     `<linearGradient id="${id}r" x1="0" y1="0" x2="0" y2="1">${stops(r.edge)}</linearGradient>` +
-    `<radialGradient id="${id}s" cx="50%" cy="40%" r="60%"><stop offset="0" stop-color="#fff" stop-opacity="${f(S.peak)}"/><stop offset="0.45" stop-color="#fff" stop-opacity="${f(S.peak * 0.6)}"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient>` + // brand-ok: Orb recipe, the specular's white as the logo file writes it
+    `<radialGradient id="${id}s" cx="50%" cy="40%" r="60%"><stop offset="0" stop-color="${INK.white}" stop-opacity="${f(S.peak)}"/><stop offset="0.45" stop-color="${INK.white}" stop-opacity="${f(S.peak * 0.6)}"/><stop offset="1" stop-color="${INK.white}" stop-opacity="0"/></radialGradient>` +
     (r.glow ? `<radialGradient id="${id}g" cx="50%" cy="50%" r="50%">${stops(r.glow.stops)}</radialGradient>` : '') +
     `<mask id="${id}m"><circle cx="50" cy="50" r="${f(L.within)}" fill="#fff"/><circle cx="50" cy="${f(L.cy)}" r="${f(L.cut)}" fill="#000"/></mask>` + // brand-ok: a mask's white and black, as the logo file writes them
     `<filter id="${id}f" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="${f(L.blur)}"/></filter>` +
