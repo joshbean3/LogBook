@@ -32,7 +32,6 @@ import './gallery.css';
  * bar. The pill at the bottom names the last haptic that fired, so haptics can be checked on a desktop or in Safari.
  */
 
-/** One kind per color of the earned Orbs: each is shown at its three tints. */
 const HAPTICS: HapticEvent[] = ['select', 'toggle', 'orb', 'lift', 'drop', 'threshold', 'success', 'celebrate', 'delete', 'warning', 'error'];
 
 const HapticLog = () => {

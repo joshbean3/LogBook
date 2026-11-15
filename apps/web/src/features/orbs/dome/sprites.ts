@@ -7,8 +7,8 @@ import { gemBox, gemSvg, type Gem } from '../gems';
  *
  * A sprite is cut from the gem's own SVG at the exact device pixels it will be shown at, so it is as sharp as the art.
  * It is larger than the Orb where the art is (a glow, its rings: `gemBox`), with the sphere at its middle. The cache
- * lives as long as the page does: opening the page a second time draws at once. A gem is taken as it comes: what its
- * fields mean is the family's business (features/orbs/gems).
+ * lives as long as the page does: opening the page a second time draws at once. A gem is taken as it comes: its rung,
+ * and how a rung is drawn, are the ladder's business (features/orbs/gems).
  */
 export interface Sprite {
   /** The pixels: a canvas the art was drawn into once. */

@@ -180,7 +180,9 @@ describe('the past fuses', () => {
     expect(weeks).toHaveLength(6);
     expect(of(bodies, 'chapter')).toHaveLength(0);
     expect(weeks.map((b) => b.date)).toEqual([0, 1, 2, 3, 4, 5].map((w) => shiftDays(START, w * 7)));
-    expect(weeks[0]!.caption).toMatch(/^Week of Nov 16 · \d+ Orbs · \d days$/);
+    expect(weeks[0]!.caption).toMatch(/^Week of Nov 16 · (Sky|Dawn) · \d+ Orbs · \d days$/);
+    // a fused Orb's caption names the rung it is drawn at
+    for (const w of weeks) expect(w.caption.split(' · ')[1], w.caption).toBe(w.gem.rung === 2 ? 'Dawn' : 'Sky');
     expect(weeks.every((b) => b.key === 'fused:week' && b.r >= RADIUS.week[0] && b.r <= RADIUS.week[1])).toBe(true);
     // the oldest are poured first and lie lowest; then the two month goals that stay as themselves; this week's are on top, today's last
     expect(of(bodies, 'kept').map((b) => b.key)).toEqual(['goal:month:2026-11', 'goal:month:2026-12']);
@@ -223,7 +225,7 @@ describe('the past fuses', () => {
     const bodies = domeBodies(s, s.clock);
     const years = of(bodies, 'year');
     expect(years.length).toBeGreaterThanOrEqual(1);
-    expect(years[0]!.caption).toMatch(/^Nov 2026 to \w{3} 202[78] · [\d,]+ Orbs$/);
+    expect(years[0]!.caption).toMatch(/^Nov 2026 to \w{3} 202[78] · Dawn · [\d,]+ Orbs$/);
     // a year where most weeks counted is a Dawn Orb
     expect(years[0]!.gem.rung).toBe(2);
     expect(years.every((b) => b.r === RADIUS.year && b.key === 'fused:year')).toBe(true);
@@ -355,7 +357,7 @@ describe('the circle is never more than half covered', () => {
     expect(12 * Math.PI * (RADIUS.rung[3] * FILL.keptScale) ** 2 + Math.PI * (RADIUS.rung[4] * FILL.keptScale) ** 2).toBeLessThanOrEqual(FILL.keptLeast * FILL_AREA);
     expect(areaOf(of(bodies, 'kept'))).toBeLessThanOrEqual(FILL.keptLeast * FILL_AREA + 1);
     expect(of(bodies, 'day')).toHaveLength(6);
-    expect(of(bodies, 'day').map((b) => b.caption)).toEqual(expect.arrayContaining([expect.stringMatching(/^Mon, \w{3} \d+ · \d+ Orbs$/)]));
+    expect(of(bodies, 'day').map((b) => b.caption)).toEqual(expect.arrayContaining([expect.stringMatching(/^Mon, \w{3} \d+ · Sky · \d+ Orbs$/)]));
     expect(of(bodies, 'chapter').length + of(bodies, 'week').length).toBe(0);
     expect(of(bodies, 'year')).toHaveLength(1);
     expect(sum(bodies)).toBe(totalOf(s));
@@ -410,14 +412,14 @@ describe('the same every time', () => {
 });
 
 describe('in words', () => {
-  it('says the total, this week by kind, and how much of the past there is', () => {
+  it('says the total, this week by rung and by kind, and how much of the past there is', () => {
     const s = stores.oneDay;
-    expect(domeSaid(s, START)).toEqual({ summary: '13 Orbs. This week: 3 habits, 2 to-dos, today’s goal, 1 full day.', items: [] });
+    expect(domeSaid(s, START)).toEqual({ summary: '13 Orbs. This week, Sky: 3 habits, 2 to-dos. Dawn: today’s goal, 1 full day.', items: [] });
     const six = domeSaid(stores.sixWeeks, stores.sixWeeks.clock);
-    expect(six.summary).toMatch(/^[\d,]+ Orbs\. This week: \d+ habits, \d+ to-dos, \d runs?, \d days’ goals, \d full days?(, 1 week that counts)?\. From earlier weeks: 2 month goals\. 6 earlier weeks\.$/);
+    expect(six.summary).toMatch(/^[\d,]+ Orbs\. This week, Sky: \d+ habits, \d+ to-dos\. Dawn: \d runs?, \d days’ goals, \d full days?\.( Glow: 1 week that counts\.)? From earlier weeks, Sunrise: 2 month goals\. 6 earlier weeks\.$/);
     expect(six.items).toHaveLength(6);
-    expect(six.items[0]).toMatch(/^Week of Dec 21 · /);
-    expect(domeSaid(stores.twoYears, stores.twoYears.clock).summary).toMatch(/ From earlier weeks: \d+ month goals\. 1 longer stretch\.$/);
+    expect(six.items[0]).toMatch(/^Week of Dec 21 · (Sky|Dawn) · \d+ Orbs/);
+    expect(domeSaid(stores.twoYears, stores.twoYears.clock).summary).toMatch(/ From earlier weeks, Sunrise: \d+ month goals\. 1 longer stretch\.$/);
     expect(domeSaid(stores.lightYear, stores.lightYear.clock).summary).toMatch(/\d+ earlier weeks, \d+ chapters, 1 longer stretch\.$/);
   });
   it('with Fitness off nothing names training', () => {
