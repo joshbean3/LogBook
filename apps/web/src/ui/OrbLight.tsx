@@ -15,8 +15,8 @@ export interface OrbLightProps {
  * and a 1 px Ember edge at 30 percent so it holds on Paper.
  *
  * It is light behind a disc, never a mark of its own. It was how the first earned Orbs were drawn; an earned Orb is now
- * a flat form (`features/orbs/gems`, `OrbGem`), and neither is the assistant's Orb (`ui/Orb.tsx`: the Sky sphere, the
- * one glossy thing, one per screen). Apricot on Paper is about 1.7:1, so it never carries meaning alone: the keepsake's own numeral or
+ * the logo's Orb at its rung (`features/orbs/gems`, `OrbGem`), and this light is neither that nor the assistant's Orb
+ * (`ui/Orb.tsx`). Apricot on Paper is about 1.7:1, so it never carries meaning alone: the keepsake's own numeral or
  * glyph does. Presentational: `aria-hidden`.
  *
  * The box is the core (`size` square); the glow is drawn outside it and takes no room.
