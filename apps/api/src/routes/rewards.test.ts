@@ -1,4 +1,4 @@
-import { emptyRewards, mergeRewards, parseISO, reconcile, RULES, shiftDays, tidy, totalOf, type DayFacts, type DayRec, type Rewards } from '@logbook/shared';
+import { compact, dayAwards, emptyRewards, mergeRewards, parseISO, reconcile, RULES, shiftDays, tidy, totalOf, type DayFacts, type DayRec, type Rewards } from '@logbook/shared';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { makeApp, signUp, type Account, type App } from '../test/helpers.js';
 import type { DB } from '../db/index.js';
@@ -192,6 +192,65 @@ describe('PUT /me/rewards', () => {
     const second = (await put(other, rename(b))).body.rewards as Rewards;
     expect(one).toBeTruthy();
     expect({ ...second, userId: me.id }).toEqual(first);
+  });
+});
+
+describe('a compacted day keeps its awards by rung', () => {
+  /** A day whose kinds a phone has dropped, with the two counts in their place: Sky awards, Dawn awards. */
+  const kept = (n: number, w: [number, number]): DayRec => ({ n, a: n, w, c: 1 });
+  it('is accepted with its counts, and they survive the round trip', async () => {
+    const s = store(me.id, { [day(1)]: kept(9, [5, 1]), [day(2)]: closed(3) });
+    const r = await put(me, s);
+    expect(r.status).toBe(200);
+    expect(r.body.rewards).toEqual(s);
+    expect(r.body.rewards.days[day(1)]).toEqual({ n: 9, a: 9, w: [5, 1], c: 1 });
+    expect((await boot(me)).rewards).toEqual(s);
+    // sent again, and by a phone that has it without counts (an older build's compaction), it stands
+    expect((await put(me, s)).body.rewards).toEqual(s);
+    expect((await put(me, store(me.id, { [day(1)]: { n: 9, a: 9, c: 1 } }))).body.rewards.days[day(1)]).toEqual({ n: 9, a: 9, w: [5, 1], c: 1 });
+    expect(admitRewards(s, TODAY)).toEqual(s);
+  });
+  it('two compacted copies take the larger of each count; counts no day can hold are cut; what is not two small whole numbers is refused', async () => {
+    await put(me, store(me.id, { [day(1)]: kept(9, [5, 1]) }));
+    expect((await put(me, store(me.id, { [day(1)]: kept(8, [2, 3]) }))).body.rewards.days[day(1)]).toEqual({ n: 9, a: 9, w: [5, 3], c: 1 });
+    expect((await put(me, store(me.id, { [day(3)]: kept(20, [99, 99]) }))).body.rewards.days[day(3)]).toEqual({ n: 20, a: 20, w: [13, 5], c: 1 });
+    for (const w of [[1], [1, 2, 3], [-1, 0], [1.5, 0], [100, 0], 'x']) expect((await put(me, store(me.id, { [day(4)]: { n: 3, a: 3, w, c: 1 } as unknown as DayRec }))).status, JSON.stringify(w)).toBe(422);
+    expect(((await boot(me)).rewards as Rewards).days[day(4)]).toBeUndefined();
+  });
+  it('a phone that compacted and one that did not end with the same account copy in either order, with the same counts', async () => {
+    // a hundred days on: the first days' kinds are past the sixty the store keeps them
+    const later = parseISO(day(100));
+    later.setHours(12, 0, 0, 0);
+    vi.setSystemTime(later);
+    const raw = store(me.id, { [day(1)]: closed(9, { todo: 2, habit: 4, 'train:run': 3 }), [day(2)]: closed(5, { habit: 2, 'goal:day': 3 }), [day(90)]: closed(3) }, { clock: day(100) });
+    const compacted = compact(raw, day(100));
+    expect(compacted.days[day(1)]).toEqual({ n: 9, a: 9, w: [6, 1], c: 1 });
+    // two accounts opened that day, one for each order
+    const [one, two] = [await signUp(app, 'orbs-one@example.com'), await signUp(app, 'orbs-two@example.com')];
+    const mine = (s: Rewards, who: Account) => ({ ...s, userId: who.id });
+    expect((await put(one, mine(raw, one))).status).toBe(200);
+    const first = (await put(one, mine(compacted, one))).body.rewards as Rewards;
+    await put(two, mine(compacted, two));
+    const second = (await put(two, mine(raw, two))).body.rewards as Rewards;
+    expect({ ...second, userId: one.id }).toEqual(first);
+    // the account's copy is compacted too, to the counts the kinds gave
+    expect(first.days[day(1)]).toEqual({ n: 9, a: 9, w: [6, 1], c: 1 });
+    expect(first.days[day(2)]).toEqual({ n: 5, a: 5, w: [2, 1], c: 1 });
+    expect(first.days[day(90)]!.k).toEqual({ habit: 3 });
+    for (const d of Object.keys(raw.days)) expect(dayAwards(first.days[d]!), d).toEqual(dayAwards(raw.days[d]!));
+  });
+  it('travels in the export and comes back from an import', async () => {
+    const s = store(me.id, { [day(1)]: kept(9, [5, 1]), [day(2)]: closed(3) });
+    await put(me, s);
+    const file = (await me.call('GET', '/api/export')).body;
+    expect(file.settings.rewards.days[day(1)]).toEqual({ n: 9, a: 9, w: [5, 1], c: 1 });
+    const moved = await signUp(app, 'moved-two@example.com');
+    expect((await moved.call('POST', '/api/import', file)).status).toBe(200);
+    expect((await boot(moved)).rewards).toEqual({ ...s, userId: moved.id });
+    // a file that claims more awards than a day can hold is cut like anything a phone sends
+    const greedy = await signUp(app, 'greedy@example.com');
+    await greedy.call('POST', '/api/import', { ...file, settings: { ...file.settings, rewards: { ...s, days: { [day(1)]: kept(9, [60, 60]) } } } });
+    expect(((await boot(greedy)).rewards as Rewards).days[day(1)]).toEqual({ n: 9, a: 9, w: [13, 5], c: 1 });
   });
 });
 

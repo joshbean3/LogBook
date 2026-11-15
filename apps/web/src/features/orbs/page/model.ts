@@ -1,4 +1,4 @@
-import { chapterNumber, chapterOf, countOf, DAY_KEYS, dayLines, daysBetween, fmt, numberWord, parseISO, RULES, shiftDays, type Count, type DayKey, type ISODate, type Rewards } from '@logbook/shared';
+import { chapterNumber, chapterOf, countOf, dayAwards, dayLines, daysBetween, fmt, numberWord, parseISO, RULES, shiftDays, type Count, type DayKey, type ISODate, type Rewards } from '@logbook/shared';
 import { rungName, rungOf, RUNGS, type Rung } from '../gems';
 
 /**
@@ -65,30 +65,22 @@ export const paidOn = (s: Rewards, date: ISODate): Line[] => {
 // ---------- your Orbs: how many of each rung ----------
 
 /**
- * How many Orbs of each rung the store holds: awards, not worth (a run is one Dawn Orb, whatever it paid). A to-do and
- * a habit are one Sky Orb each; a session, today's goal, a full day and a return one Dawn Orb each; everything paid
- * once is one Orb of its own rung (a week that counts, a week goal and a challenge Glow; a month goal Sunrise; a year
- * goal Sun).
+ * How many Orbs of each rung the store holds, for all time: awards, not worth (a run is one Dawn Orb, whatever it
+ * paid). A day's Sky and Dawn awards are the rules' own count (`dayAwards`, packages/shared): read from the day's kinds
+ * while the store keeps them and from the two counts `compact` leaves in their place after, so the number never falls
+ * when a day's kinds are dropped. Everything paid once is one Orb of its own rung, kept for good (a week that counts, a
+ * week goal and a challenge Glow; a month goal Sunrise; a year goal Sun).
  *
- * A day whose kinds the store no longer keeps (they are dropped after `RULES.detailDays`), or what a day holds beyond
- * its kinds, is one Sky Orb: that is how the window holds it, and nothing here guesses what it was.
+ * A day compacted by a build that did not keep the counts has neither kinds nor counts: what it held cannot be known,
+ * so nothing is estimated and nothing is counted for it. (No store in the wild is that old: Orbs begin on
+ * `RULES.startsOn` and a day's kinds are kept for `RULES.detailDays`.)
  */
 export const heldByRung = (s: Rewards): Record<Rung, number> => {
   const out: Record<Rung, number> = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
-  const each: Partial<Record<DayKey, number>> = { todo: RULES.todo.each, habit: RULES.habit.each };
   for (const d in s.days) {
-    const rec = s.days[d]!;
-    if (rec.n <= 0) continue;
-    let left = rec.n;
-    for (const key of DAY_KEYS) {
-      const have = Math.min(rec.k?.[key] ?? 0, left);
-      if (have <= 0) continue;
-      const unit = each[key];
-      const count = unit ? Math.floor(have / unit) : 1;
-      out[rungOf(key)] += count;
-      left -= unit ? count * unit : have;
-    }
-    if (left > 0) out[1] += 1;
+    const [sky, dawn] = dayAwards(s.days[d]!);
+    out[1] += sky;
+    out[2] += dawn;
   }
   for (const k in s.once) if (s.once[k]!.n > 0) out[rungOf(k)] += 1;
   return out;

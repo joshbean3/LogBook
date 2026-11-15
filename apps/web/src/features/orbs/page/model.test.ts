@@ -1,4 +1,5 @@
-import { emptyRewards, RULES, shiftDays, type Rewards } from '@logbook/shared';
+import { compact, DAY_KEYS, DAY_RUNG, emptyRewards, mergeRewards, parseRewards, RULES, shiftDays, tidy, type Rewards } from '@logbook/shared';
+import { rungOf } from '../gems';
 import { describe, expect, it } from 'vitest';
 import { heldByRung, heldCells, heldSaid, isEmpty, keepsakesOf, keepsakeView, levelBand, levelProgress, linesOf, longDate, newRows, nextKeepsake, notStarted, num, orbs, paidOn, shortDate, weekSaid } from './model';
 
@@ -58,10 +59,34 @@ describe('your Orbs: how many of each rung', () => {
     const worth = Object.values(s.days).reduce((t, d) => t + d.n, 0) + Object.values(s.once).reduce((t, o) => t + o.n, 0);
     expect(Object.values(heldByRung(s)).reduce((t, n) => t + n, 0)).toBeLessThan(worth);
   });
-  it('a day whose kinds are no longer kept is one Sky Orb, as the window holds it; an empty day and an empty record are none', () => {
-    expect(heldByRung(store({ days: { [day(0)]: { n: 12, a: 6, c: 1 } } }))).toEqual({ 1: 1, 2: 0, 3: 0, 4: 0, 5: 0 });
-    // what a day holds beyond its kinds is one more
-    expect(heldByRung(store({ days: { [day(0)]: { n: 9, a: 2, k: { todo: 2, 'goal:day': 3 }, c: 1 } } }))).toEqual({ 1: 3, 2: 1, 3: 0, 4: 0, 5: 0 });
+  it('the rung of a day’s award is the rules’ own, and the picture agrees with it', () => {
+    for (const key of DAY_KEYS) expect(rungOf(key), key).toBe(DAY_RUNG[key]);
+  });
+  it('stays the same when the store drops a day’s kinds: a year in, before and after compaction', () => {
+    const k = (i: number) => ({ todo: i % 4, habit: 1 + (i % 3), ...(i % 7 === 1 ? { 'train:run': 3 } : i % 7 === 3 ? { 'train:lift': 2 } : null), ...(i % 3 === 0 ? { 'goal:day': 3 } : null), ...(i % 9 === 0 ? { full: 5 } : null) });
+    const days: Rewards['days'] = {};
+    for (let i = 0; i < 380; i++) {
+      const kinds = Object.fromEntries(Object.entries(k(i)).filter(([, v]) => v > 0));
+      days[day(i)] = { n: Object.values(kinds).reduce((t, v) => t + v, 0), a: 3, k: kinds, c: 1 };
+    }
+    const year = store({ clock: day(380), days, once: { 'goal:month:2026-12': { on: day(40), n: 30 }, [`week:${MON}`]: { on: day(8), n: 5 } } });
+    const before = heldByRung(year);
+    expect(before[1]).toBeGreaterThan(900);
+    expect(before[2]).toBeGreaterThan(200);
+    const after = compact(year, day(380));
+    expect(Object.values(after.days).filter((r) => !r.k && r.w).length).toBeGreaterThan(300);
+    expect(heldByRung(after)).toEqual(before);
+    // through storage and back, through a merge with the phone that has not compacted, and years on
+    expect(heldByRung(parseRewards(JSON.stringify(after), U)!)).toEqual(before);
+    expect(heldByRung(tidy(mergeRewards(after, year)))).toEqual(before);
+    expect(heldByRung(tidy(mergeRewards(year, after)))).toEqual(before);
+    expect(heldByRung(compact(year, day(2000)))).toEqual(before);
+  });
+  it('a day compacted before the counts were kept counts nothing: nothing is estimated', () => {
+    expect(heldByRung(store({ days: { [day(0)]: { n: 12, a: 6, c: 1 } } }))).toEqual({ 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 });
+    expect(heldByRung(store({ days: { [day(0)]: { n: 12, a: 6, w: [7, 2], c: 1 } } }))).toEqual({ 1: 7, 2: 2, 3: 0, 4: 0, 5: 0 });
+    // what a day holds beyond its kinds is not guessed at either
+    expect(heldByRung(store({ days: { [day(0)]: { n: 9, a: 2, k: { todo: 2, 'goal:day': 3 }, c: 1 } } }))).toEqual({ 1: 2, 2: 1, 3: 0, 4: 0, 5: 0 });
     expect(heldByRung(store({ days: { [day(0)]: { n: 0, a: 0, c: 1 } }, once: { 'goal:year:2026': { on: day(1), n: 0 } } }))).toEqual({ 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 });
     expect(heldByRung(store())).toEqual({ 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 });
   });

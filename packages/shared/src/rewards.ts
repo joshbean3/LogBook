@@ -72,14 +72,25 @@ export type Kind = 'todo' | 'habit' | 'line' | 'train:run' | 'train:lift' | 'tra
 export type DayKey = Exclude<Kind, 'line'> | 'full' | 'back';
 /** The order the rules table lists them in, which is the order `gained` and `dayLines` use. */
 export const DAY_KEYS: readonly DayKey[] = ['todo', 'habit', 'train:run', 'train:lift', 'train:cross', 'goal:day', 'full', 'back'];
+/**
+ * The rung of an award a day pays, by how often it can be earned: 1 (Sky) for a to-do and a habit, many a day; 2 (Dawn)
+ * for a session, today's goal, a full day and a return, about once a day. Everything paid once is rarer still and is
+ * kept in the once-ledger for good. The rung is a rule; how a rung is drawn is the web app's (features/orbs/gems).
+ */
+export const DAY_RUNG: Record<DayKey, 1 | 2> = { todo: 1, habit: 1, 'train:run': 2, 'train:lift': 2, 'train:cross': 2, 'goal:day': 2, full: 2, back: 2 };
 const TRAIN_KINDS: readonly TrainKind[] = ['run', 'lift', 'cross'];
 const trainKey = (k: TrainKind) => `train:${k}` as const;
 
-/** One day. `n` Orbs, `a` base actions, `k` Orbs per kind (dropped after 60 days), `c` closed, `h` paused, `r` rebuilt after a wipe. */
+/**
+ * One day. `n` Orbs, `a` base actions, `k` Orbs per kind (dropped after 60 days), `w` what is kept of the kinds when they
+ * are dropped: how many awards of rung 1 and of rung 2 the day held (`dayAwards`), `c` closed, `h` paused, `r` rebuilt
+ * after a wipe. A day has `k` or `w`, never both; a day compacted by a build before `w` has neither.
+ */
 export interface DayRec {
   n: number;
   a: number;
   k?: Partial<Record<DayKey, number>>;
+  w?: [sky: number, dawn: number];
   c?: 1;
   h?: 1;
   r?: 1;
@@ -179,6 +190,7 @@ const zDayRec = z.object({
   n: zCount(999),
   a: zCount(999),
   k: z.partialRecord(z.enum(['todo', 'habit', 'train:run', 'train:lift', 'train:cross', 'goal:day', 'full', 'back']), zCount(99)).optional(),
+  w: z.tuple([zCount(99), zCount(99)]).optional(),
   c: z.literal(1).optional(),
   h: z.literal(1).optional(),
   r: z.literal(1).optional(),
@@ -236,9 +248,40 @@ const sumK = (k: DayRec['k']): number => {
   return t;
 };
 
+/** What a to-do and a habit pay each: a day's Orbs of those kinds over this are its awards. Every other kind is one award. */
+const EACH: Partial<Record<DayKey, number>> = { todo: RULES.todo.each, habit: RULES.habit.each };
+/** The most awards of each rung a day can hold: every to-do and habit the caps allow; two sessions, the goal, a full day and a return. */
+export const AWARDS_MAX: readonly [sky: number, dawn: number] = [RULES.todo.cap + RULES.habit.cap, RULES.train.kinds + 3];
+/**
+ * How many awards of rung 1 (Sky) and of rung 2 (Dawn) a day held: awards, not worth. A to-do and a habit are one each
+ * (the day's Orbs of the kind over what one pays); a session is one whatever it paid, 3 or 2 at its floor; today's goal,
+ * a full day and a return are one each. Never more than the rules allow a day (`AWARDS_MAX`).
+ *
+ * Read from the day's kinds while it has them, and from `w` once `compact` has dropped them, so the answer is the same
+ * before and after. A day compacted by a build that did not keep `w` has neither: what it held cannot be known, so
+ * nothing is estimated and nothing is counted. (No store in the wild is that old: Orbs begin on `RULES.startsOn`, and
+ * a day's kinds are kept for `RULES.detailDays` after it.)
+ */
+export const dayAwards = (r: DayRec): [sky: number, dawn: number] => {
+  const out: [number, number] = [0, 0];
+  if (r.k) {
+    for (const key of DAY_KEYS) {
+      const have = r.k[key] ?? 0;
+      if (have <= 0) continue;
+      const each = EACH[key];
+      out[DAY_RUNG[key] - 1]! += each ? Math.floor(have / each) : 1;
+    }
+  } else if (r.w) {
+    out[0] = r.w[0];
+    out[1] = r.w[1];
+  }
+  return [Math.min(out[0], AWARDS_MAX[0]), Math.min(out[1], AWARDS_MAX[1])];
+};
+
 /**
  * Drop what is only kept for a while: a closed day's Orbs per kind after 60 days, and challenges that old. The numbers, the
- * count and the total are untouched. Returns the same object when there is nothing to drop.
+ * count and the total are untouched, and so is how many awards of each rung the day held: `w` is written in the kinds'
+ * place (`dayAwards`). Returns the same object when there is nothing to drop.
  */
 export const compact = (s: Rewards, today: ISODate): Rewards => {
   const edge = shiftDays(s.clock > today ? s.clock : today, -RULES.detailDays);
@@ -247,8 +290,8 @@ export const compact = (s: Rewards, today: ISODate): Rewards => {
     const r = s.days[d]!;
     if (d >= edge || !r.k || !r.c) continue;
     days ??= { ...s.days };
-    const { k: _k, ...rest } = r;
-    days[d] = rest;
+    const { k: _k, w: _w, ...rest } = r;
+    days[d] = { ...rest, w: dayAwards(r) };
   }
   let challenges: Rewards['challenges'] | null = null;
   for (const key in s.challenges) {
@@ -290,7 +333,13 @@ const fitRec = (r: DayRec): DayRec => {
   if (k) for (const key of DAY_KEYS) if ((k[key] ?? 0) > KIND_MAX[key]) k = { ...k, [key]: KIND_MAX[key] };
   // at least the sum of its kinds (a merge takes a maximum per kind), at most every cap at once
   const n = Math.max(Math.min(r.n, DAY_MAX), sumK(k));
-  return k === r.k && n === r.n ? r : { ...r, n, ...(k ? { k } : null) };
+  // the awards kept in the kinds' place: never beside the kinds (the kinds say it), never more than a day can hold
+  let w = r.w;
+  if (w && k) w = undefined;
+  else if (w && (w[0] > AWARDS_MAX[0] || w[1] > AWARDS_MAX[1])) w = [Math.min(w[0], AWARDS_MAX[0]), Math.min(w[1], AWARDS_MAX[1])];
+  if (k === r.k && n === r.n && w === r.w) return r;
+  const { w: _w, ...rest } = r;
+  return { ...rest, n, ...(k ? { k } : null), ...(w ? { w } : null) };
 };
 
 /**
@@ -495,6 +544,7 @@ const sameRec = (x: DayRec | undefined, y: DayRec | undefined): boolean => {
   if (!x || !y) return false;
   if (x.n !== y.n || x.a !== y.a || x.c !== y.c || x.h !== y.h || x.r !== y.r) return false;
   for (const key of DAY_KEYS) if ((x.k?.[key] ?? 0) !== (y.k?.[key] ?? 0)) return false;
+  if (!x.w !== !y.w || (x.w && y.w && (x.w[0] !== y.w[0] || x.w[1] !== y.w[1]))) return false;
   return true;
 };
 const emptyRec = (r: DayRec) => !r.n && !r.a && !r.h && !r.c;
@@ -953,6 +1003,8 @@ const joinDay = (x: DayRec, y: DayRec): DayRec => {
     }
     if (Object.keys(k).length) out.k = k;
   }
+  // a day that still has its kinds says its own awards; two that have only the counts take the larger of each
+  if (!out.k && (x.w || y.w)) out.w = [Math.max(x.w?.[0] ?? 0, y.w?.[0] ?? 0), Math.max(x.w?.[1] ?? 0, y.w?.[1] ?? 0)];
   if (x.c) out.c = 1;
   if (x.h || y.h) out.h = 1;
   if (x.r) out.r = 1;
@@ -992,7 +1044,9 @@ const joinOff = (a: Rewards['off'], b: Rewards['off']): Rewards['off'] => {
  *
  * - A day: a closed record beats an open one; a real closed record beats one rebuilt after a wipe; two of the same
  *   standing take the maximum of the number, of the actions and of each kind. (Open days are never sent: each phone
- *   recomputes them from the synced facts. `tidy` then makes a closed day's number the sum of its kinds.)
+ *   recomputes them from the synced facts. `tidy` then makes a closed day's number the sum of its kinds.) A day one
+ *   phone has compacted and the other has not keeps its kinds: they say its awards, and `tidy` compacts it again to
+ *   the same counts on both. Two compacted copies take the larger of each count (`w`).
  * - The once-ledger: the larger payment and the earlier day. Keepsakes and "seen": the earlier day.
  * - A challenge: the further state (offered, added, let go, done), then the earlier time. The switches: the newest change.
  * - Another account's store is never merged: `a` comes back.
