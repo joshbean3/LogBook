@@ -12,12 +12,12 @@ import { askMotion, DOWN, follow, gravityFrom, turned, type Pull } from './tilt'
  * What it promises:
  *   - Everything from before today is at rest when it is first seen (the pile is settled off screen, a few milliseconds
  *     a frame so the page's own slide is not held up, and painted once it is still). Today's Orbs then drop in.
- *   - A frame only copies pictures (sprites.ts), each turned by its Orb's own angle: the forms have an up, and they
- *     roll. When every Orb sleeps the frames stop: no timer, no battery. A touch, a pill, a turn of the phone or a new
- *     Orb starts them again.
+ *   - A frame only copies pictures (sprites.ts), every one upright: an Orb is a sphere lit from above, so it rolls
+ *     without its light turning. The plain Orbs are drawn first and the glowing ones (rung 3 and up) over them, the
+ *     rarest last, so a glow is never hidden. When every Orb sleeps the frames stop: no timer, no battery. A touch, a
+ *     pill, a turn of the phone or a new Orb starts them again.
  *   - While the page is hidden, off screen, or under another page or a sheet (an `inert` ancestor), nothing runs.
- *   - With Reduce Motion there is no loop at all: the settled pile is drawn once, every form upright, and a tap still
- *     names an Orb.
+ *   - With Reduce Motion there is no loop at all: the settled pile is drawn once, and a tap still names an Orb.
  *   - `destroy` takes down everything it put up.
  */
 export interface StageParts {
@@ -68,6 +68,8 @@ export const createStage = ({ oculus, canvas, caption }: StageParts, { reduce }:
   /** What each body of the world is, by its index. */
   let list: DomeBody[] = [];
   let sprites: Array<Sprite | null | undefined> = [];
+  /** The order the bodies are drawn in: plain Orbs as they were poured, then the glowing ones, the rarest last. */
+  let order: number[] = [];
   /** Everything the window should hold, as last given. */
   let all: readonly DomeBody[] = [];
   /** Waiting to drop in. */
@@ -115,43 +117,34 @@ export const createStage = ({ oculus, canvas, caption }: StageParts, { reduce }:
   };
   const px = (b: DomeBody): number => Math.max(2, Math.round(b.r * 2 * k));
 
-  // ---------- drawing: copy each Orb's picture to where it is, turned as it has rolled ----------
+  // ---------- drawing: copy each Orb's picture to where it is, upright ----------
+  const arrange = (): void => {
+    const glows = (i: number): number => (list[i] && list[i]!.gem.rung >= 3 ? list[i]!.gem.rung : 0);
+    order = list.map((_b, i) => i).sort((a, b) => glows(a) - glows(b) || a - b);
+  };
   const draw = (still: boolean): void => {
     if (!ctx || !W) return;
+    if (order.length !== W.n) arrange();
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    for (let i = 0; i < W.n; i++) {
+    for (const i of order) {
       const s = sprites[i];
-      let cx = W.x[i]! * k;
-      let cy = W.y[i]! * k;
+      let x = W.x[i]! * k;
+      let y = W.y[i]! * k;
       if (s) {
-        if (still) {
-          // at rest, on whole pixels: an upright form is as sharp as it was drawn
-          cx = Math.round(cx - s.side / 2) + s.side / 2;
-          cy = Math.round(cy - s.side / 2) + s.side / 2;
-        }
-        // with Reduce Motion every form stands upright
-        const a = reduce ? 0 : W.rot[i]!;
-        if (a) {
-          const c = Math.cos(a);
-          const d = Math.sin(a);
-          ctx.setTransform(c, d, -d, c, cx, cy);
-          ctx.drawImage(s.img, -s.side / 2, -s.side / 2);
-        } else {
-          ctx.setTransform(1, 0, 0, 1, 0, 0);
-          ctx.drawImage(s.img, cx - s.side / 2, cy - s.side / 2);
-        }
+        x -= s.side / 2;
+        y -= s.side / 2;
+        // at rest, on whole pixels: an Orb is as sharp as it was drawn
+        ctx.drawImage(s.img, still ? Math.round(x) : x, still ? Math.round(y) : y);
       } else if (s === null) {
         // the art could not be cut: a plain disc, so the Orb is still there to take
         plain ||= getComputedStyle(oculus).getPropertyValue('--pencil').trim();
-        ctx.setTransform(1, 0, 0, 1, 0, 0);
         ctx.fillStyle = plain;
         ctx.beginPath();
-        ctx.arc(cx, cy, W.r[i]! * k, 0, Math.PI * 2);
+        ctx.arc(x, y, W.r[i]! * k, 0, Math.PI * 2);
         ctx.fill();
       }
     }
-    ctx.setTransform(1, 0, 0, 1, 0, 0);
   };
   /** The picture for an Orb: at once when it is cut already; otherwise it is cut, and drawn when it is. Null: its art cannot be drawn. */
   const failed = new Set<string>();
@@ -173,6 +166,7 @@ export const createStage = ({ oculus, canvas, caption }: StageParts, { reduce }:
   };
   const dress = (): void => {
     sprites = list.map(look);
+    arrange();
   };
 
   // ---------- the caption ----------
@@ -234,6 +228,7 @@ export const createStage = ({ oculus, canvas, caption }: StageParts, { reduce }:
     queue.shift();
     list.push(b);
     sprites.push(look(b));
+    arrange();
     nextDrop = now + DROP.everyMs;
   };
   const frame = (now: number): void => {

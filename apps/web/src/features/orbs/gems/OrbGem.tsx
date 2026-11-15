@@ -1,17 +1,18 @@
 import type * as React from 'react';
-import { gemUrl } from './svg';
+import { gemBox, gemUrl } from './svg';
 import type { Gem } from './table';
 import './gem.css';
 
 /**
- * An earned Orb: a flat form built on a circle, one color and one silhouette (guide 2.1). What was finished decides
- * which (`gemFor`). It is never the assistant's Orb (`ui/Orb.tsx`, the one glossy sphere, one per screen).
+ * An earned Orb: the logo's Orb at its rung (guide 2.1). What was finished decides the rung (`gemFor`). It is the same
+ * picture as the assistant's Orb (`ui/Orb.tsx`) and never stands in for it: it does not think, speak or open anything.
  *
- * The form's circle is `size` across and nothing is drawn outside it. The silhouette says the kind; the color never
- * carries it alone. Upright wherever it is drawn here. Hidden from VoiceOver unless `label`.
+ * The sphere is `size` across. From rung 3 the picture is larger than the sphere (its glow, its rings: `gemBox`): it
+ * is centered on the box and drawn over what is beside it, and it takes no room in the layout. Always upright: a
+ * sphere is lit from above. Hidden from VoiceOver unless `label`.
  */
 export const OrbGem = ({ gem, size, className = '', label }: { gem: Gem; size: number; className?: string; label?: string }): React.JSX.Element => (
-  <span className={`orb-gem ${className}`.trim()} style={{ '--og': `${size}px` } as React.CSSProperties} role={label ? 'img' : undefined} aria-label={label} aria-hidden={label ? undefined : true}>
-    <img src={gemUrl(gem)} alt="" draggable={false} decoding="async" />
+  <span className={`orb-gem ${className}`.trim()} style={{ '--og': `${size}px`, '--og-box': gemBox(gem) } as React.CSSProperties} role={label ? 'img' : undefined} aria-label={label} aria-hidden={label ? undefined : true}>
+    <img src={gemUrl(gem, size)} alt="" draggable={false} decoding="async" />
   </span>
 );

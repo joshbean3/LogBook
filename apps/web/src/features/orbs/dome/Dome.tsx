@@ -41,14 +41,14 @@ export interface DomeProps {
  * The Orbs page's poster, with a round window in it (the oculus). The poster kit's own card: the total where a poster's
  * title stands, the pale sky running down to the horizon and the hills, and the band with the level's words. In the
  * scene, clear of the hills, the oculus: one circle with thin white rings round it, holding every Orb the person has
- * earned as a flat form with weight (bodies.ts says which; stage.ts makes them fall, roll along the curve and be taken
- * by a finger). On the window's edge a thin Apricot arc from twelve o'clock is the way to the next level.
+ * earned as the logo's Orb at its rung, with weight (bodies.ts says which; stage.ts makes them fall, roll along the
+ * curve and be taken by a finger). On the window's edge a thin Apricot arc from twelve o'clock is the way to the next level.
  *
  * Under the poster, on the ground, three glass pills: Tilt (gravity follows the phone, asked for on that tap and never
  * before), Stir (one upward swirl) and Float (gravity lets go).
  *
  * The window is a picture: hidden from VoiceOver, which hears the same in words (the total, this week by kind, how much
- * of the past) and reaches the pills as buttons. With Reduce Motion the pile is drawn at rest, every form upright, and
+ * of the past) and reaches the pills as buttons. With Reduce Motion the pile is drawn at rest, and
  * the pills are not drawn; a tap still names an Orb. Before the first Orb the window is empty and one line says what
  * will fill it.
  */

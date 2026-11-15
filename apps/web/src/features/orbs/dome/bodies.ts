@@ -1,26 +1,35 @@
 import { chapterOf, DAY_KEYS, daysBetween, fmt, mondayOf, parseISO, RULES, shiftDays, totalOf, type DayKey, type ISODate, type Rewards } from '@logbook/shared';
-import { gemFor, gemName, type Gem } from '../gems';
+import { gemFor, gemName, rungName, rungOf, type Gem } from '../gems';
 import { FILL, OCULUS, RADIUS } from './rules';
 
 /**
  * What the oculus holds, worked out from the stored object and today's date, with nothing drawn. Pure: the same store
  * and day give the same Orbs, in the same order, with the same names.
  *
- * A body in the oculus is an award, not a single Orb: a run is one form worth 3. The worth of every body adds up to the
- * total (`totalOf`), always: nothing is lost and nothing is taken out, however far back it goes. What changes with time
- * is how much each one holds:
+ * A body in the oculus is an award, not a single Orb: a run is one Orb worth 3. Its rung (how rare what earned it is)
+ * decides its picture and its size; its worth comes from the rules. The worth of every body adds up to the total
+ * (`totalOf`), always: nothing is lost and nothing is taken out, however far back it goes. What changes with time is
+ * how much each one holds:
  *
  *   - this week: one per award (a to-do, a habit, a session, today's goal, a full day, a week that counts);
  *   - earlier weeks: one each;
  *   - past the last four weeks: one per chapter (the engine's own four weeks), for a year;
  *   - older than that: one per year of the store (thirteen chapters).
  *
+ * A fused Orb is a Sky Orb, larger, and a Dawn Orb when the week it holds counted (or most of a chapter's or a year's
+ * weeks did). **A Sunrise or a Sun Orb (a month goal, a year goal) never fuses**: it stays in the window as itself,
+ * whatever week it came from, and its worth is then not in its week's fused total.
+ *
  * And further whenever they would cover more than `FILL.limit` of the circle's area: fewer chapters are kept apart, then
  * the years become one, then the earlier weeks join them, and at the very last the days of this week before today
- * become one each, then one together. `PLANS` is that order; the first plan that fits is the one used.
+ * become one each, then one together. `PLANS` is that order; the first plan that fits is the one used. The kept Orbs
+ * have the room this week and one Orb for all the past leave them (never more than `FILL.kept` of what the window may
+ * hold, never less than `FILL.keptLeast`): past it they are drawn smaller, together, never fused; and only when their
+ * smallest size is still too much do the oldest month goals join their stretch (`keptOf`).
  */
 
-export type DomeTier = 'award' | 'day' | 'week' | 'chapter' | 'year';
+/** `kept`: a Sunrise or a Sun Orb from before this week, which never fuses. */
+export type DomeTier = 'award' | 'kept' | 'day' | 'week' | 'chapter' | 'year';
 export interface DomeBody {
   /** The same for the same award on every pass, so a body keeps its place when the store changes. */
   id: string;
@@ -36,7 +45,7 @@ export interface DomeBody {
   /** It was earned today: it drops in when the page opens. */
   fresh: boolean;
   gem: Gem;
-  /** What a tap says: "A habit · Fri, Nov 13", "Week of Nov 9 · 42 Orbs · 6 days". */
+  /** What a tap says: "A habit · Sky · Fri, Nov 13", "A month goal · Sunrise · November", "Week of Nov 9 · 42 Orbs · 6 days". */
   caption: string;
 }
 export interface DomeOpts {
@@ -48,8 +57,10 @@ export interface DomeOpts {
 const num = (n: number): string => n.toLocaleString('en-US');
 const orbs = (n: number): string => `${num(n)} ${n === 1 ? 'Orb' : 'Orbs'}`;
 const lerp = (range: readonly [number, number], t: number): number => Math.round(range[0] + (range[1] - range[0]) * Math.sqrt(Math.max(0, Math.min(1, t))));
-/** An Orb's drawing: its kind's, with the shift its own id gives it (a few steps, so a pile of forty habits is a few pictures); a fused one also hands on how many days or weeks it holds. */
-const gemOf = (key: string, id: string, stars?: number): Gem => gemFor(key, id, stars === undefined ? undefined : { stars: Math.max(0, Math.min(7, stars)) });
+/** An Orb's drawing: its rung's. A fused one is a Sky Orb, and a Dawn Orb when what it holds counted. */
+const gemOf = (key: string, id: string, counted?: boolean): Gem => gemFor(key, id, counted === undefined ? undefined : { counted });
+/** Does this key earn a Sunrise or a Sun Orb: one that never fuses? */
+export const isKept = (key: string): boolean => rungOf(key) >= 4;
 
 /** The circle's area, in square units, and what the Orbs may cover of it. */
 export const OCULUS_AREA = Math.PI * (OCULUS.d / 2) ** 2;
@@ -71,18 +82,15 @@ const nameOf = (key: string, date: ISODate, today: ISODate, fitness: boolean): s
   return gemName(key);
 };
 
-const radiusOf = (key: string, n: number): number => {
-  if (key === 'todo') return RADIUS.todo;
-  if (key === 'habit') return RADIUS.habit;
-  if (key.startsWith('train:')) return n >= RULES.train.done ? RADIUS.train : RADIUS.trainFloor;
-  if (key === 'goal:day') return RADIUS.goalDay;
-  if (key === 'full') return RADIUS.full;
-  if (key === 'back') return RADIUS.back;
-  if (key.startsWith('goal:week:')) return RADIUS.goalWeek;
-  if (key.startsWith('goal:month:')) return RADIUS.goalMonth;
-  if (key.startsWith('goal:year:')) return RADIUS.goalYear;
-  // a week that counts, a challenge, and a key this build does not know: by what it paid, 5 to 20
-  return lerp(RADIUS.bonus, ((n - RULES.week.bonus) / (RULES.week.bonus * RULES.week.top - RULES.week.bonus)) ** 2);
+/** An award's size is its rung's: how rare it is, never what it paid. */
+const radiusOf = (key: string): number => RADIUS.rung[rungOf(key) - 1]!;
+/** "November", and "November 2025" for a month of another year; "2026" for a year. */
+const periodOf = (key: string, today: ISODate): string | null => {
+  const p = key.slice(key.lastIndexOf(':') + 1);
+  if (/^\d{4}$/.test(p)) return p;
+  if (!/^\d{4}-\d{2}$/.test(p)) return null;
+  const words = fmt.month.format(parseISO(`${p}-01` as ISODate));
+  return p.slice(0, 4) === today.slice(0, 4) ? words.replace(/\s*\d{4}$/, '') : words;
 };
 
 // ---------- the plans: how far the past is fused, most detail first ----------
@@ -105,6 +113,8 @@ export const PLANS: readonly Plan[] = [
   { ...tight, days: 'day' },
   { ...tight, days: 'week' },
 ];
+/** All the past as one Orb, this week one body per award: what the kept Orbs' room is measured against. */
+const LEAN: Plan = { ...tight, days: 'each' };
 
 interface Group {
   from: ISODate;
@@ -114,10 +124,33 @@ interface Group {
   days: number;
   /** Weeks that hold anything. */
   weeks: number;
+  /** Of those, the weeks that counted. */
+  counted: number;
 }
-const add = (g: Group | undefined, w: Group): Group => (g ? { from: g.from < w.from ? g.from : w.from, to: g.to > w.to ? g.to : w.to, total: g.total + w.total, days: g.days + w.days, weeks: g.weeks + w.weeks } : { ...w });
+const add = (g: Group | undefined, w: Group): Group => (g ? { from: g.from < w.from ? g.from : w.from, to: g.to > w.to ? g.to : w.to, total: g.total + w.total, days: g.days + w.days, weeks: g.weeks + w.weeks, counted: g.counted + w.counted } : { ...w });
+/** Most of what it holds counted: a week that did, or more than half of a longer stretch's weeks. */
+const mostly = (g: Group): boolean => g.counted * 2 > g.weeks;
 
-const build = (s: Rewards, today: ISODate, plan: Plan, fitness: boolean): DomeBody[] => {
+/**
+ * The Sunrise and Sun Orbs from before this week, oldest first, and how large they are drawn, given the `room` they
+ * have (square units). At their own size while they fit; past that they shrink together, to `FILL.keptScale` of their
+ * size at the least; and when even that is too much, the oldest month goals are not kept apart: they go to their
+ * stretch's fused Orb, a year goal last of all.
+ */
+const keptOf = (s: Rewards, monday: ISODate, room: number): { keys: string[]; scale: number } => {
+  let keys = Object.keys(s.once)
+    .filter((k) => isKept(k) && s.once[k]!.n > 0 && s.once[k]!.on < monday)
+    .sort((a, b) => (s.once[a]!.on < s.once[b]!.on ? -1 : s.once[a]!.on > s.once[b]!.on ? 1 : a < b ? -1 : 1));
+  const area = (list: readonly string[]) => list.reduce((t, k) => t + Math.PI * radiusOf(k) ** 2, 0);
+  // the oldest give way first, a month goal before any year goal
+  for (const k of [...keys.filter((x) => rungOf(x) === 4), ...keys.filter((x) => rungOf(x) !== 4)]) {
+    if (area(keys) * FILL.keptScale ** 2 <= room) break;
+    keys = keys.filter((x) => x !== k);
+  }
+  return { keys, scale: Math.max(FILL.keptScale, Math.min(1, Math.sqrt(room / Math.max(1, area(keys))))) };
+};
+
+const build = (s: Rewards, today: ISODate, plan: Plan, fitness: boolean, room: number): DomeBody[] => {
   const monday = mondayOf(today);
   const zero = mondayOf(s.startedOn);
   const out: DomeBody[] = [];
@@ -126,7 +159,7 @@ const build = (s: Rewards, today: ISODate, plan: Plan, fitness: boolean): DomeBo
   const weeks = new Map<ISODate, Group>();
   const into = (d: ISODate, n: number, counted: boolean) => {
     const m = mondayOf(d);
-    const w = weeks.get(m) ?? { from: m, to: shiftDays(m, 6), total: 0, days: 0, weeks: 1 };
+    const w = weeks.get(m) ?? { from: m, to: shiftDays(m, 6), total: 0, days: 0, weeks: 1, counted: 0 };
     w.total += n;
     if (counted) w.days++;
     weeks.set(m, w);
@@ -134,7 +167,12 @@ const build = (s: Rewards, today: ISODate, plan: Plan, fitness: boolean): DomeBo
   const dates = Object.keys(s.days).sort();
   for (const d of dates) if (d < monday) into(d, s.days[d]!.n, s.days[d]!.a >= 1);
   const paid = Object.keys(s.once).sort();
-  for (const k of paid) if (s.once[k]!.on < monday) into(s.once[k]!.on, s.once[k]!.n, false);
+  // a Sunrise or a Sun Orb is not in its week's total: it stays in the window as itself
+  const kept = keptOf(s, monday, room);
+  const apart = new Set(kept.keys);
+  for (const k of paid) if (s.once[k]!.on < monday && !apart.has(k)) into(s.once[k]!.on, s.once[k]!.n, false);
+  // a week counted when its bonus was paid, or (before it is, on the Monday after) when its days reach the target it was lived under
+  for (const [m, w] of weeks) if (s.once[`week:${m}`] || w.days >= (s.wt[m] ?? s.set.weekTarget)) w.counted = 1;
 
   // each week is a body of its own, or goes to its chapter; each chapter is one, or goes to its year
   const chapterGroups = new Map<number, Group>();
@@ -153,13 +191,13 @@ const build = (s: Rewards, today: ISODate, plan: Plan, fitness: boolean): DomeBo
     }
   }
   const yearAgo = shiftDays(monday, -FILL.yearChapters * RULES.chapterDays);
-  const kept: Array<{ n: number; g: Group }> = [];
+  const open: Array<{ n: number; g: Group }> = [];
   const years = new Map<number, Group>();
   const newestFirst = [...chapterGroups.keys()].sort((x, y) => y - x);
   for (const n of newestFirst) {
     const g = chapterGroups.get(n)!;
     const end = shiftDays(chapterStart.get(n)!, RULES.chapterDays - 1);
-    if (kept.length < plan.chapters && end >= yearAgo) kept.push({ n, g });
+    if (open.length < plan.chapters && end >= yearAgo) open.push({ n, g });
     else {
       const y = plan.merge ? 0 : Math.floor((n - 1) / FILL.yearChapters);
       years.set(y, add(years.get(y), g));
@@ -168,26 +206,29 @@ const build = (s: Rewards, today: ISODate, plan: Plan, fitness: boolean): DomeBo
   for (const y of [...years.keys()].sort((a, b) => a - b)) {
     const g = years.get(y)!;
     const id = plan.merge ? 'y:all' : `y:${y}`;
-    out.push({ id, key: 'fused:year', tier: 'year', worth: g.total, r: RADIUS.year, date: g.from, fresh: false, gem: gemOf('fused:year', id, Math.ceil(g.weeks / 8)), caption: `${stretch(g.from, g.to)} · ${orbs(g.total)}` });
+    out.push({ id, key: 'fused:year', tier: 'year', worth: g.total, r: RADIUS.year, date: g.from, fresh: false, gem: gemOf('fused:year', id, mostly(g)), caption: `${stretch(g.from, g.to)} · ${orbs(g.total)}` });
   }
-  for (const { n, g } of kept.reverse()) {
+  for (const { n, g } of open.reverse()) {
     const start = chapterStart.get(n)!;
     const id = `c:${start}`;
     // a chapter with all its weeks is the keepsake's own "Chapter 2"; one still being lived says its dates
     const whole = shiftDays(start, RULES.chapterDays) <= monday;
-    out.push({ id, key: 'fused:chapter', tier: 'chapter', worth: g.total, r: lerp(RADIUS.chapter, g.total / RADIUS.chapterTop), date: start, fresh: false, gem: gemOf('fused:chapter', id, g.weeks), caption: `${whole ? `Chapter ${num(n)}` : span(g.from, g.to)} · ${orbs(g.total)}` });
+    out.push({ id, key: 'fused:chapter', tier: 'chapter', worth: g.total, r: lerp(RADIUS.chapter, g.total / RADIUS.chapterTop), date: start, fresh: false, gem: gemOf('fused:chapter', id, mostly(g)), caption: `${whole ? `Chapter ${num(n)}` : span(g.from, g.to)} · ${orbs(g.total)}` });
   }
   for (const g of alone) {
     const id = `w:${g.from}`;
-    out.push({ id, key: 'fused:week', tier: 'week', worth: g.total, r: lerp(RADIUS.week, g.total / RADIUS.weekTop), date: g.from, fresh: false, gem: gemOf('fused:week', id, g.days), caption: `Week of ${fmt.md.format(parseISO(g.from))} · ${orbs(g.total)}${g.days ? ` · ${num(g.days)} ${g.days === 1 ? 'day' : 'days'}` : ''}` });
+    out.push({ id, key: 'fused:week', tier: 'week', worth: g.total, r: lerp(RADIUS.week, g.total / RADIUS.weekTop), date: g.from, fresh: false, gem: gemOf('fused:week', id, mostly(g)), caption: `Week of ${fmt.md.format(parseISO(g.from))} · ${orbs(g.total)}${g.days ? ` · ${num(g.days)} ${g.days === 1 ? 'day' : 'days'}` : ''}` });
   }
 
+  // ---------- the Sunrise and Sun Orbs of earlier weeks: themselves, for good ----------
+  const said = (key: string, date: ISODate) => `${nameOf(key, date, today, fitness)} · ${rungName(rungOf(key))} · ${(isKept(key) && periodOf(key, today)) || when(date, today)}`;
+  for (const k of kept.keys) out.push({ id: `o:${k}`, key: k, tier: 'kept', worth: s.once[k]!.n, r: Math.floor(radiusOf(k) * kept.scale * 10) / 10, date: s.once[k]!.on, fresh: false, gem: gemOf(k, `o:${k}`), caption: said(k, s.once[k]!.on) });
+
   // ---------- this week ----------
-  const award = (id: string, key: string, n: number, date: ISODate) => out.push({ id, key, tier: 'award', worth: n, r: radiusOf(key, n), date, fresh: date === today, gem: gemOf(key, id), caption: `${nameOf(key, date, today, fitness)} · ${when(date, today)}` });
-  const fusedDay = (id: string, n: number, date: ISODate, counted: number, words: string) => out.push({ id, key: 'fused:week', tier: 'day', worth: n, r: lerp([RADIUS.goalDay, RADIUS.goalWeek], n / RULES.dailyCeiling), date, fresh: date === today, gem: gemOf('fused:week', id, counted), caption: `${words} · ${orbs(n)}` });
+  const award = (id: string, key: string, n: number, date: ISODate) => out.push({ id, key, tier: 'award', worth: n, r: radiusOf(key), date, fresh: date === today, gem: gemOf(key, id), caption: said(key, date) });
+  const fusedDay = (id: string, n: number, date: ISODate, words: string) => out.push({ id, key: 'fused:week', tier: 'day', worth: n, r: lerp(RADIUS.day, n / RULES.dailyCeiling), date, fresh: date === today, gem: gemOf('fused:week', id, false), caption: `${words} · ${orbs(n)}` });
   const each: Partial<Record<DayKey, number>> = { todo: RULES.todo.each, habit: RULES.habit.each };
   let soFar = 0;
-  let soFarDays = 0;
   let soFarFrom: ISODate | null = null;
   const thisWeek = [...new Set([...dates.filter((d) => d >= monday), ...paid.filter((k) => s.once[k]!.on >= monday).map((k) => s.once[k]!.on)])].sort();
   for (const d of thisWeek) {
@@ -197,8 +238,7 @@ const build = (s: Rewards, today: ISODate, plan: Plan, fitness: boolean): DomeBo
       if (fuse === 'week') {
         soFar += rec.n;
         soFarFrom ??= d;
-        if (rec.a >= 1) soFarDays++;
-      } else if (fuse === 'day') fusedDay(`D:${d}`, rec.n, d, rec.a >= 1 ? 1 : 0, day(d));
+      } else if (fuse === 'day') fusedDay(`D:${d}`, rec.n, d, day(d));
       else {
         let left = rec.n;
         for (const key of DAY_KEYS) {
@@ -210,7 +250,7 @@ const build = (s: Rewards, today: ISODate, plan: Plan, fitness: boolean): DomeBo
           left -= count * unit;
         }
         // Orbs the day holds that its kinds do not account for (a record whose detail was lost): one body, so the sum stands
-        if (left > 0) fusedDay(`r:${d}`, left, d, 0, d === today ? 'Today' : day(d));
+        if (left > 0) fusedDay(`r:${d}`, left, d, d === today ? 'Today' : day(d));
       }
     }
     for (const k of paid) if (s.once[k]!.on === d && s.once[k]!.n > 0) award(`o:${k}`, k, s.once[k]!.n, d);
@@ -219,14 +259,35 @@ const build = (s: Rewards, today: ISODate, plan: Plan, fitness: boolean): DomeBo
     // before this week's own awards, after everything older: where it would lie in the pile
     const at = out.findIndex((b) => b.tier === 'award' || b.tier === 'day');
     const id = 'D:week';
-    const body: DomeBody = { id, key: 'fused:week', tier: 'day', worth: soFar, r: lerp(RADIUS.week, soFar / RADIUS.weekTop), date: soFarFrom, fresh: false, gem: gemOf('fused:week', id, soFarDays), caption: `This week before today · ${orbs(soFar)}` };
+    const body: DomeBody = { id, key: 'fused:week', tier: 'day', worth: soFar, r: lerp(RADIUS.week, soFar / RADIUS.weekTop), date: soFarFrom, fresh: false, gem: gemOf('fused:week', id, false), caption: `This week before today · ${orbs(soFar)}` };
     out.splice(at < 0 ? out.length : at, 0, body);
   }
   return out;
 };
 
+/**
+ * The room the kept Orbs have: what this week's awards and one Orb for all the past leave of the window's fill, never
+ * more than `FILL.kept` of it and never less than `FILL.keptLeast`. So an old month goal gives way before this week is
+ * lumped together, and a week of everything does not put every one of them away.
+ */
+const keptRoom = (store: Rewards, today: ISODate, fitness: boolean): number => {
+  const lean = build(store, today, LEAN, fitness, 0);
+  return Math.max(FILL.keptLeast * FILL_AREA, Math.min(FILL.kept * FILL_AREA, FILL_AREA - areaOf(lean)));
+};
+
 /** The bodies under one plan (by its place in `PLANS`), whether or not it fits: for the tests, which try them all. */
-export const domeBodiesUnder = (store: Rewards, today: ISODate, plan: number, opts: DomeOpts = {}): DomeBody[] => build(store, today, PLANS[Math.max(0, Math.min(PLANS.length - 1, plan))]!, opts.fitness !== false);
+export const domeBodiesUnder = (store: Rewards, today: ISODate, plan: number, opts: DomeOpts = {}): DomeBody[] => build(store, today, PLANS[Math.max(0, Math.min(PLANS.length - 1, plan))]!, opts.fitness !== false, keptRoom(store, today, opts.fitness !== false));
+
+/** The first plan that fits; the last one when none does (it is today, what was paid once this week, and three bodies). */
+const pick = (store: Rewards, today: ISODate, fitness: boolean): DomeBody[] => {
+  const room = keptRoom(store, today, fitness);
+  let out: DomeBody[] = [];
+  for (const plan of PLANS) {
+    out = build(store, today, plan, fitness, room);
+    if (areaOf(out) <= FILL_AREA) break;
+  }
+  return out;
+};
 
 const memo = new WeakMap<Rewards, Map<string, DomeBody[]>>();
 /**
@@ -241,11 +302,7 @@ export const domeBodies = (store: Rewards, today: ISODate, opts: DomeOpts = {}):
   const at = `${today}|${fitness ? 1 : 0}`;
   let out = hit.get(at);
   if (out) return out;
-  out = [];
-  for (const plan of PLANS) {
-    out = build(store, today, plan, fitness);
-    if (areaOf(out) <= FILL_AREA) break;
-  }
+  out = pick(store, today, fitness);
   hit.set(at, out);
   return out;
 };
@@ -297,9 +354,15 @@ export const domeSaid = (store: Rewards, today: ISODate, opts: DomeOpts = {}): D
     return n ? `${num(n)} ${n === 1 ? one : many}` : null;
   };
   const past = [count('week', 'earlier week', 'earlier weeks'), count('chapter', 'chapter', 'chapters'), count('year', 'longer stretch', 'longer stretches')].filter((x): x is string => !!x);
-  const summary = [`${orbs(totalOf(store))}.`, parts.length ? `This week: ${list(parts)}.` : null, past.length ? `${list(past)}.` : null].filter(Boolean).join(' ');
+  // the Sunrise and Sun Orbs that stay: "From earlier weeks: 3 month goals, 1 year goal."
+  const keptOrbs = bodies.filter((b) => b.tier === 'kept');
+  const keptParts = COUNTED.map(([match, one, many]) => {
+    const n = keptOrbs.filter((b) => match(b.key)).length;
+    return n ? `${num(n)} ${n === 1 ? one : many}` : null;
+  }).filter((x): x is string => !!x);
+  const summary = [`${orbs(totalOf(store))}.`, parts.length ? `This week: ${list(parts)}.` : null, keptParts.length ? `From earlier weeks: ${list(keptParts)}.` : null, past.length ? `${list(past)}.` : null].filter(Boolean).join(' ');
   const items = bodies
-    .filter((b) => b.tier !== 'award')
+    .filter((b) => b.tier !== 'award' && b.tier !== 'kept')
     .map((b) => b.caption)
     .reverse();
   return { summary: summary.replace(/^(.)/, (c) => c.toUpperCase()), items };

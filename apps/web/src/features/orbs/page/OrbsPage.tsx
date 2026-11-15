@@ -15,10 +15,12 @@ import { ChallengeRows } from '../challenge/ChallengeRows';
 import { Dome } from '../dome';
 import { markSeen, newKeys, setSwitches, useCount, useLevelInfo, useNewCount, useOrbsStore, useOrbsToday, useOrbsTotal, useWeekTarget } from '../store';
 import { Keepsakes } from './Keepsakes';
-import { isEmpty, keepsakesOf, linesOf, longDate, newRows, nextKeepsake, notStarted, num, orbs, paidOn, type Line } from './model';
+import { openHowAt } from './how';
+import { heldCells, isEmpty, keepsakesOf, linesOf, longDate, newRows, nextKeepsake, notStarted, num, orbs, paidOn, type Line } from './model';
 import { OrbsSwitchRows } from './Switches';
 import { useLeaveWhenOff } from './useLeaveWhenOff';
 import { WeekMarks } from './WeekMarks';
+import { YourOrbs } from './YourOrbs';
 import { Lines } from './Lines';
 import '@/features/settings/settings.css';
 import './orbs.css';
@@ -58,12 +60,14 @@ const GoalSheet = ({ n }: { n: number }): React.JSX.Element => (
  *
  *   1. The bar: Back, "Orbs".
  *   2. The poster (features/orbs/dome): the total where a poster's title stands; in its scene the oculus, a round
- *      window holding every Orb earned as a flat form a finger can play with, the level as a thin arc on its edge;
- *      the band "LEVEL 5" over "216 to level 6"; then, on Paper in the same card, this week's seven marks and one
- *      line of fact. Under the card, on the ground, the pills Tilt, Stir and Float.
- *   3. One inset group, only while it has rows: today's Orbs, anything new that is not a keepsake, the challenges.
- *   4. Keepsakes: earned ones only, and one dashed ring for what comes next.
- *   5. "How Orbs work" and the switches.
+ *      window holding every Orb earned, each the logo's Orb at its rung, which a finger can play with, the level as
+ *      a thin arc on its edge; the band "LEVEL 5" over "216 to level 6"; then, on Paper in the same card, this week's
+ *      seven marks and one line of fact. Under the card, on the ground, the pills Tilt, Stir and Float.
+ *   3. "Your Orbs": one small card, the five rungs in a row with how many of each are held. A tap opens How Orbs work
+ *      at the ladder.
+ *   4. One inset group, only while it has rows: today's Orbs, anything new that is not a keepsake, the challenges.
+ *   5. Keepsakes: earned ones only, and one dashed ring for what comes next.
+ *   6. "How Orbs work" and the switches.
  *
  * Before the first Orb it is the empty window with one sentence, the rule, and the last group: no grid, no zero.
  * With Orbs off it is not a place: it leaves for Today.
@@ -192,6 +196,18 @@ export default function OrbsPage(): React.JSX.Element {
           {week}
         </Dome>
       </SectionBoundary>
+
+      {empty ? null : (
+        <PageSection title="Your Orbs" className="orp-held-sec">
+          <YourOrbs
+            cells={heldCells(store)}
+            onOpen={() => {
+              openHowAt('ladder');
+              nav.push('/orbs/how');
+            }}
+          />
+        </PageSection>
+      )}
 
       {empty ? null : (
         <div className="group s-group orp-now">

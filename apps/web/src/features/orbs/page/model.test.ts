@@ -1,6 +1,6 @@
 import { emptyRewards, RULES, shiftDays, type Rewards } from '@logbook/shared';
 import { describe, expect, it } from 'vitest';
-import { isEmpty, keepsakesOf, keepsakeView, levelBand, levelProgress, linesOf, longDate, newRows, nextKeepsake, notStarted, num, orbs, paidOn, shortDate, weekSaid } from './model';
+import { heldByRung, heldCells, heldSaid, isEmpty, keepsakesOf, keepsakeView, levelBand, levelProgress, linesOf, longDate, newRows, nextKeepsake, notStarted, num, orbs, paidOn, shortDate, weekSaid } from './model';
 
 /** What the Orbs page says, from a stored object. Dates stand on the rules' own start, a Monday. */
 const U = 'u_owner';
@@ -39,6 +39,50 @@ describe('the day’s lines', () => {
     expect(paidOn(paid, day(7))).toEqual([]);
     // each line names its Orb by the key it was paid under
     expect(paidOn(paid, day(8)).map((l) => l.gem)).toEqual(paidOn(paid, day(8)).map((l) => l.key));
+  });
+});
+
+describe('your Orbs: how many of each rung', () => {
+  const s = store({
+    days: {
+      [day(0)]: { n: 21, a: 9, k: { todo: 3, habit: 4, 'train:run': 3, 'goal:day': 3, full: 5, back: 3 }, c: 1 },
+      [day(1)]: { n: 7, a: 5, k: { todo: 2, habit: 3, 'train:lift': 2 }, c: 1 },
+      [day(2)]: { n: 0, a: 0, h: 1, c: 1 },
+      [day(3)]: { n: 4, a: 4, k: { habit: 4 } },
+    },
+    once: { [`week:${MON}`]: { on: day(8), n: 5 }, [`goal:week:${MON}`]: { on: day(8), n: 9 }, [`challenge:d:${day(3)}`]: { on: day(3), n: 5 }, 'goal:month:2026-11': { on: day(9), n: 30 } },
+  });
+  it('counts awards, not worth: a run is one Dawn Orb whatever it paid', () => {
+    // Sky: 3 + 4 + 2 + 3 + 4 to-dos and habits. Dawn: a run, the day's goal, a full day, a return, a lift at its floor.
+    expect(heldByRung(s)).toEqual({ 1: 16, 2: 5, 3: 3, 4: 1, 5: 0 });
+    const worth = Object.values(s.days).reduce((t, d) => t + d.n, 0) + Object.values(s.once).reduce((t, o) => t + o.n, 0);
+    expect(Object.values(heldByRung(s)).reduce((t, n) => t + n, 0)).toBeLessThan(worth);
+  });
+  it('a day whose kinds are no longer kept is one Sky Orb, as the window holds it; an empty day and an empty record are none', () => {
+    expect(heldByRung(store({ days: { [day(0)]: { n: 12, a: 6, c: 1 } } }))).toEqual({ 1: 1, 2: 0, 3: 0, 4: 0, 5: 0 });
+    // what a day holds beyond its kinds is one more
+    expect(heldByRung(store({ days: { [day(0)]: { n: 9, a: 2, k: { todo: 2, 'goal:day': 3 }, c: 1 } } }))).toEqual({ 1: 3, 2: 1, 3: 0, 4: 0, 5: 0 });
+    expect(heldByRung(store({ days: { [day(0)]: { n: 0, a: 0, c: 1 } }, once: { 'goal:year:2026': { on: day(1), n: 0 } } }))).toEqual({ 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 });
+    expect(heldByRung(store())).toEqual({ 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 });
+  });
+  it('a key this build does not know is a Sky Orb, and a year goal a Sun', () => {
+    expect(heldByRung(store({ once: { 'future:thing': { on: day(1), n: 7 }, 'goal:year:2026': { on: day(1), n: 90 } } }))).toEqual({ 1: 1, 2: 0, 3: 0, 4: 0, 5: 1 });
+  });
+  it('is five places in the ladder’s order: a number where a rung is held, none (never a zero) where it never was', () => {
+    expect(heldCells(s)).toEqual([
+      { rung: 1, name: 'Sky', count: '16' },
+      { rung: 2, name: 'Dawn', count: '5' },
+      { rung: 3, name: 'Glow', count: '3' },
+      { rung: 4, name: 'Sunrise', count: '1' },
+      { rung: 5, name: 'Sun' },
+    ]);
+    expect(heldCells(store()).every((c) => c.count === undefined)).toBe(true);
+    const many = store({ days: Object.fromEntries(Array.from({ length: 300 }, (_, i) => [day(i), { n: 8, a: 8, k: { habit: 8 }, c: 1 as const }])) });
+    expect(heldCells(many)[0]!.count).toBe('2,400');
+  });
+  it('is said in one breath', () => {
+    expect(heldSaid(heldCells(s))).toBe('Your Orbs. Sky 16, Dawn 5, Glow 3, Sunrise 1. Sun not yet. How Orbs work.');
+    expect(heldSaid(heldCells(store({ days: { [day(0)]: { n: 1, a: 1, k: { todo: 1 } } } })))).toBe('Your Orbs. Sky 1. Dawn, Glow, Sunrise and Sun not yet. How Orbs work.');
   });
 });
 

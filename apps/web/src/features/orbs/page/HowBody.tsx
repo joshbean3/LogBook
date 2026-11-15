@@ -1,20 +1,20 @@
 import { ruleLine } from '@logbook/shared';
 import { ChevronDown } from 'lucide-react';
 import type * as React from 'react';
-import { useId, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { useToday } from '@/lib/useToday';
 import { Footnote, PageSection } from '@/ui/layout';
 import { gemFor, OrbGem } from '../gems';
 import { getOrbs } from '../store';
 import { diagnosticRows, diagnostics } from './diagnostics';
-import { howSections, type HowRow } from './how';
+import { howSections, takeHowAt, type HowRow } from './how';
 import './orbs.css';
 import './legend.css';
 
-/** A row's form: 22 pt, or three of 16 pt for a session (a run's, a lift's, cross-training's). The title beside it says the kind. */
+/** A row's Orb: its rung's, 22 pt. The words beside it say the kind and, on the ladder, the rung. */
 const RowGems = ({ keys }: { keys?: readonly string[] }): React.JSX.Element => (
-  <span className={`orl-gem${keys && keys.length > 1 ? ' is-trio' : ''}`} aria-hidden="true">
-    {keys?.map((k) => <OrbGem key={k} gem={gemFor(k)} size={keys.length > 1 ? 16 : 22} />)}
+  <span className="orl-gem" aria-hidden="true">
+    {keys?.slice(0, 1).map((k) => <OrbGem key={k} gem={gemFor(k)} size={22} />)}
   </span>
 );
 
@@ -29,6 +29,7 @@ const Rows = ({ rows }: { rows: readonly HowRow[] }): React.JSX.Element => {
           <span className="orh-text">
             <span className="orh-title">{r.title}</span>
             {r.sub ? <span className="orh-sub">{r.sub}</span> : null}
+            {r.more ? <span className="orh-sub">{r.more}</span> : null}
           </span>
           {r.note ? <span className="orh-note">{r.note}</span> : null}
           {r.value ? (
@@ -80,19 +81,27 @@ const Curious = (): React.JSX.Element => {
  * How Orbs work, in one column: the rule first, then each part of it as plain rows with what it pays at the row's end.
  * Every number is the engine's (`howSections` reads `RULES`). The same body is the pushed page and, from Settings, a sheet.
  */
-export const HowBody = ({ fitness, target }: { fitness: boolean; target: 3 | 4 | 5 }): React.JSX.Element => (
-  <div className="orh">
-    <div className="orh-lead">
-      <p className="orh-rule">{ruleLine(target)}</p>
-      <p className="orh-about">You earn Orbs for what you finish. What you finish decides the shape. They mark the day. They are never the point.</p>
+export const HowBody = ({ fitness, target }: { fitness: boolean; target: 3 | 4 | 5 }): React.JSX.Element => {
+  // opened from "Your Orbs": the page begins at the ladder (once: the next visit starts at the top)
+  const at = useRef<HTMLElement>(null);
+  const [want] = useState(takeHowAt);
+  useEffect(() => {
+    if (want) at.current?.scrollIntoView({ block: 'start' });
+  }, [want]);
+  return (
+    <div className="orh">
+      <div className="orh-lead">
+        <p className="orh-rule">{ruleLine(target)}</p>
+        <p className="orh-about">You earn Orbs for what you finish. What you finish decides the Orb. They mark the day. They are never the point.</p>
+      </div>
+      {howSections({ fitness, target }).map((sec) => (
+        <PageSection key={sec.key} size="sm" title={sec.title} className={`orh-sec${sec.key === 'ladder' ? ' orh-ladder' : ''}`} ref={sec.key === want ? at : undefined}>
+          {sec.lead ? <p className="orh-sec-lead">{sec.lead}</p> : null}
+          <Rows rows={sec.rows} />
+          {sec.foot ? <Footnote>{sec.foot}</Footnote> : null}
+        </PageSection>
+      ))}
+      <Curious />
     </div>
-    {howSections({ fitness, target }).map((sec) => (
-      <PageSection key={sec.key} size="sm" title={sec.title} className="orh-sec">
-        {sec.lead ? <p className="orh-sec-lead">{sec.lead}</p> : null}
-        <Rows rows={sec.rows} />
-        {sec.foot ? <Footnote>{sec.foot}</Footnote> : null}
-      </PageSection>
-    ))}
-    <Curious />
-  </div>
-);
+  );
+};

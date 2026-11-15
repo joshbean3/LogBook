@@ -8,7 +8,7 @@ import { COMPLETE_SCALE, forScale, reducedFade, springs, type SpringName } from 
 import type { DragPoint } from '@/ui/useHold';
 import { Avatar } from '@/ui/Avatar';
 import { ContextMenu, useContextMenu, type ContextMenuItem } from '@/ui/ContextMenu';
-import { GEM_KEYS, gemFor, gemName, OrbGem } from '@/features/orbs/gems';
+import { GEM_KEYS, gemFor, gemName, OrbGem, rungName, rungOf, RUNGS } from '@/features/orbs/gems';
 import { OrbLight } from '@/ui/OrbLight';
 import { DayPager, useDayPagerHandle } from '@/ui/DayPager';
 import { capsWord, DateStrip, dayCaption, dayTitle, NavBar, PushedBar, TodayPill, weekCaption, type StripStatus } from '@/ui/NavBar';
@@ -33,7 +33,6 @@ import './gallery.css';
  */
 
 /** One kind per color of the earned Orbs: each is shown at its three tints. */
-const GEM_TINT_KEYS = ['todo', 'habit', 'train:run', 'train:lift', 'train:cross', 'goal:day', 'challenge', 'back', 'fused:week', 'fused:chapter'] as const;
 const HAPTICS: HapticEvent[] = ['select', 'toggle', 'orb', 'lift', 'drop', 'threshold', 'success', 'celebrate', 'delete', 'warning', 'error'];
 
 const HapticLog = () => {
@@ -589,32 +588,38 @@ function Gallery({ onLab }: { onLab: () => void }) {
         <OrbDemo />
       </Section>
 
-      <Section title="Earned Orbs" meta="Flat forms: each kind with its name at 30; all at 22 on Cloud, the poster's sky and dusk; the three tints">
+      <Section title="Earned Orbs" meta="The logo's Orb at five rungs: the ladder at 44, 32, 24 and 20; each kind with its rung at 32; all five at 22 on Cloud, the poster's sky and dusk">
         <div className="gal-gems" data-testid="orb-gems">
+          <div className="gal-light gal-gem-ladder is-paper">
+            {RUNGS.map((r) => (
+              <span key={r} className="gal-gem">
+                {[44, 32, 24, 20].map((px) => (
+                  <span key={px} className="gal-gem-size">
+                    <OrbGem gem={{ rung: r }} size={px} />
+                  </span>
+                ))}
+                <span className="gal-gem-name">{rungName(r)}</span>
+              </span>
+            ))}
+          </div>
           <div className="gal-light gal-gem-ground is-paper">
             {GEM_KEYS.map((k) => (
               <span key={k} className="gal-gem">
-                <OrbGem gem={gemFor(k)} size={30} />
+                <span className="gal-gem-size">
+                  <OrbGem gem={gemFor(k)} size={32} />
+                </span>
                 <span className="gal-gem-name">{gemName(k)}</span>
+                <span className="gal-gem-name">{rungName(rungOf(k))}</span>
               </span>
             ))}
           </div>
           {(['cloud', 'sky', 'dusk'] as const).map((g) => (
             <div key={g} className={`gal-light gal-gem-line is-${g}`}>
-              {GEM_KEYS.map((k) => (
-                <OrbGem key={k} gem={gemFor(k)} size={22} />
+              {RUNGS.map((r) => (
+                <OrbGem key={r} gem={{ rung: r }} size={22} />
               ))}
             </div>
           ))}
-          <div className="gal-light gal-gem-tints is-paper">
-            {GEM_TINT_KEYS.map((k) => (
-              <span key={k} className="gal-gem-tint">
-                {[-1, 0, 1].map((shift) => (
-                  <OrbGem key={shift} gem={{ ...gemFor(k), shift }} size={22} />
-                ))}
-              </span>
-            ))}
-          </div>
         </div>
       </Section>
 
