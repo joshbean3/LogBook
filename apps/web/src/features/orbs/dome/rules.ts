@@ -178,8 +178,8 @@ export const FILL = {
   yearChapters: 13,
   /** The most of that room the Sunrise and Sun Orbs of earlier weeks may cover: about a year of month goals with its year goal, a little under their own size. */
   kept: 0.4,
-  /** And the least they are left, however full this week is. */
-  keptLeast: 0.2,
+  /** And the least they are left, however full this week is: a year of month goals and its year goal, at their smallest. */
+  keptLeast: 0.25,
   /** The smallest they are drawn, as a share of their own size: a Sunrise Orb is then a little larger than a Sky Orb, and still wears its ring. */
   keptScale: 0.7,
 } as const;

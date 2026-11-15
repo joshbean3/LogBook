@@ -222,7 +222,7 @@ const build = (s: Rewards, today: ISODate, plan: Plan, fitness: boolean, room: n
 
   // ---------- the Sunrise and Sun Orbs of earlier weeks: themselves, for good ----------
   const said = (key: string, date: ISODate) => `${nameOf(key, date, today, fitness)} · ${rungName(rungOf(key))} · ${(isKept(key) && periodOf(key, today)) || when(date, today)}`;
-  for (const k of kept.keys) out.push({ id: `o:${k}`, key: k, tier: 'kept', worth: s.once[k]!.n, r: Math.round(radiusOf(k) * kept.scale * 10) / 10, date: s.once[k]!.on, fresh: false, gem: gemOf(k, `o:${k}`), caption: said(k, s.once[k]!.on) });
+  for (const k of kept.keys) out.push({ id: `o:${k}`, key: k, tier: 'kept', worth: s.once[k]!.n, r: Math.floor(radiusOf(k) * kept.scale * 10) / 10, date: s.once[k]!.on, fresh: false, gem: gemOf(k, `o:${k}`), caption: said(k, s.once[k]!.on) });
 
   // ---------- this week ----------
   const award = (id: string, key: string, n: number, date: ISODate) => out.push({ id, key, tier: 'award', worth: n, r: radiusOf(key), date, fresh: date === today, gem: gemOf(key, id), caption: said(key, date) });

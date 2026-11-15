@@ -351,7 +351,8 @@ describe('the circle is never more than half covered', () => {
     expect(of(bodies, 'award').length).toBeGreaterThan(12);
     expect(of(bodies, 'award').every((b) => b.date === s.clock || b.id.startsWith('o:'))).toBe(true);
     // the month goals keep the least room they are promised, at their smallest size
-    expect(of(bodies, 'kept').length).toBeGreaterThanOrEqual(8);
+    expect(of(bodies, 'kept')).toHaveLength(12);
+    expect(12 * Math.PI * (RADIUS.rung[3] * FILL.keptScale) ** 2 + Math.PI * (RADIUS.rung[4] * FILL.keptScale) ** 2).toBeLessThanOrEqual(FILL.keptLeast * FILL_AREA);
     expect(areaOf(of(bodies, 'kept'))).toBeLessThanOrEqual(FILL.keptLeast * FILL_AREA + 1);
     expect(of(bodies, 'day')).toHaveLength(6);
     expect(of(bodies, 'day').map((b) => b.caption)).toEqual(expect.arrayContaining([expect.stringMatching(/^Mon, \w{3} \d+ · \d+ Orbs$/)]));

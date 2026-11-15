@@ -83,7 +83,7 @@
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
   width: 100%;
-  padding: var(--sp-3) var(--sp-2);
+  padding: var(--sp-3) var(--sp-1);
   text-align: center;
 }
 .orp-held-cell {
@@ -104,11 +104,12 @@
   border: 1.5px dashed var(--pencil);
   border-radius: 50%;
 }
+/* a name is one word and keeps its line: "Sunrise" fits its fifth of a 320 pt phone, and at a larger text size it
+   reaches a little into the space beside it before the grid goes to three across */
 .orp-held-name {
-  max-width: 100%;
   font: 600 var(--fs-foot) / var(--lh-foot) var(--sans);
   color: var(--ink);
-  overflow-wrap: anywhere;
+  white-space: nowrap;
 }
 .orp-held-cell.is-empty .orp-held-name {
   color: var(--ink-2);
