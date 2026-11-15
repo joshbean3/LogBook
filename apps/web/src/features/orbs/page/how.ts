@@ -1,4 +1,5 @@
 import { numberWord, PAUSE_KINDS, RULES, ruleLine, TRAINING_STATUS_INFO } from '@logbook/shared';
+import { LADDER, rungName, RUNGS } from '../gems';
 import { num } from './model';
 
 /**
@@ -6,8 +7,9 @@ import { num } from './model';
  * lines (`ruleLine`), so the page cannot say one thing while the rules do another. A number in a sentence here is always
  * read from `rules`; the test changes the rules and expects the page to follow.
  *
- * A row that earns an Orb names which form (`gems`): the page is the legend of the earned Orbs, so no shape has to be
- * learned by heart.
+ * A row that earns an Orb shows which (`gems`: its rung's Orb), and one section is the ladder itself: the five Orbs,
+ * the one earned least often last, each with its name, what earns it and how often. So nothing has to be learned by
+ * heart.
  *
  * With Fitness off nothing names training: the session row, the training condition of a full day and Pause (the app's
  * statuses belong to training) are left out, and the day's ceiling is the sum without sessions.
@@ -18,11 +20,13 @@ export interface HowRow {
   title: string;
   /** A second, quieter line. It wraps. */
   sub?: string;
+  /** A third line, as quiet: how often, on the ladder. */
+  more?: string;
   /** Quiet words before the value: a goal's reach, "× 3". */
   note?: string;
   /** The Orbs it pays, at the row's end: "1", "+5", "10 to 20". */
   value?: string;
-  /** The Orb it earns, at the row's leading edge: keys for `gemFor` (features/orbs/gems). A session has one per kind. */
+  /** The Orb it earns, at the row's leading edge: a key for `gemFor` (features/orbs/gems), in a list of one. */
   gems?: readonly string[];
 }
 export interface HowSection {
@@ -52,6 +56,11 @@ export const goalRows = (rules: Rules): HowRow[] =>
     ] as const
   ).map(([level, title]) => ({ key: `goal:${level}`, title, note: `× ${num(rules.goal.reach[level])}`, value: num(rules.goal.base * rules.goal.reach[level]), gems: [`goal:${level}`] }));
 
+/** The key each rung is drawn from on the ladder: the first thing that earns it. */
+const LADDER_KEY = { 1: 'todo', 2: 'goal:day', 3: 'week', 4: 'goal:month', 5: 'goal:year' } as const;
+/** The ladder: the five Orbs, the one earned least often last. "Sky", "A to-do or a habit", "Many a day". */
+export const ladderRows = (fitness: boolean): HowRow[] => RUNGS.map((r) => ({ key: `rung:${r}`, title: rungName(r), sub: LADDER[r].earnedBy(fitness), more: LADDER[r].often, gems: [LADDER_KEY[r]] }));
+
 /** The weekly bonus, week by week, up to its top: 5, 10, 15, 20. */
 export const weekSteps = (rules: Rules): number[] => Array.from({ length: rules.week.top }, (_, i) => rules.week.bonus * (i + 1));
 /** The same as words: "5, 10, 15, then 20". */
@@ -66,7 +75,7 @@ export const howSections = (opts: { fitness: boolean; target: 3 | 4 | 5; rules?:
   const earn: HowRow[] = [
     { key: 'todo', title: 'A to-do', sub: `The first ${num(r.todo.cap)} a day`, value: num(r.todo.each), gems: ['todo'] },
     { key: 'habit', title: 'A habit', sub: `Up to ${num(r.habit.cap)} a day`, value: num(r.habit.each), gems: ['habit'] },
-    ...(fitness ? [{ key: 'train', title: 'A session', sub: `${num(r.train.floor)} for its floor. ${numberWord(r.train.kinds)} kinds a day at most.`, value: num(r.train.done), gems: ['train:run', 'train:lift', 'train:cross'] }] : []),
+    ...(fitness ? [{ key: 'train', title: 'A session', sub: `${num(r.train.floor)} for its floor. ${numberWord(r.train.kinds)} kinds a day at most.`, value: num(r.train.done), gems: ['train:run'] }] : []),
     { key: 'goal:day', title: 'Today’s goal', value: num(r.goalDay), gems: ['goal:day'] },
     { key: 'full', title: 'A full day', sub: fitness ? 'Today’s goal, your training or its floor, and every habit but one' : 'Today’s goal and every habit but one', value: `+${num(r.full.bonus)}`, gems: ['full'] },
     { key: 'line', title: 'Tonight’s line', sub: 'Makes the day count. It earns no Orb: it has its own light.' },
@@ -98,6 +107,7 @@ export const howSections = (opts: { fitness: boolean; target: 3 | 4 | 5; rules?:
   ];
   return [
     { key: 'earn', title: 'What earns Orbs', rows: earn, foot: `A day pays ${num(dayCeiling(r, fitness))} at most.` },
+    { key: 'ladder', title: 'The five Orbs', lead: 'What you finish decides the Orb. The less often it can be earned, the more sunrise it holds.', rows: ladderRows(fitness), foot: 'An Orb’s look is how often it can be earned. What it counts for is in the rows around it.' },
     { key: 'goals', title: 'Goals multiply by reach', lead: `A goal pays ${num(r.goal.base)} Orbs times how far it reaches.`, rows: goalRows(r), foot: 'Paid once, for a goal set ahead and marked done in its own time. A goal never shows its worth.' },
     {
       key: 'weeks',
@@ -110,4 +120,17 @@ export const howSections = (opts: { fitness: boolean; target: 3 | 4 | 5; rules?:
     { key: 'for', title: 'What Orbs are for', rows: forWhat },
     { key: 'never', title: 'What Orbs never do', rows: never },
   ];
+};
+
+// ---------- where the page opens ----------
+let openAt: string | null = null;
+/** Ask that the page, the next time it opens, begin at a section (the ladder, from "Your Orbs"). */
+export const openHowAt = (key: 'ladder'): void => {
+  openAt = key;
+};
+/** The section asked for, once. */
+export const takeHowAt = (): string | null => {
+  const at = openAt;
+  openAt = null;
+  return at;
 };

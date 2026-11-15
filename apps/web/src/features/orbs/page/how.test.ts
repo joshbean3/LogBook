@@ -1,6 +1,6 @@
 import { PAUSE_KINDS, RULES, ruleLine } from '@logbook/shared';
 import { describe, expect, it } from 'vitest';
-import { gemName } from '../gems';
+import { gemName, rungOf } from '../gems';
 import { dayCeiling, goalRows, howSections, levelsLine, weekSteps, type HowSection, type Rules } from './how';
 
 /**
@@ -11,7 +11,7 @@ const on = howSections({ fitness: true, target: 5 });
 const off = howSections({ fitness: false, target: 5 });
 const sec = (all: HowSection[], key: string) => all.find((s) => s.key === key)!;
 const row = (all: HowSection[], s: string, key: string) => sec(all, s).rows.find((r) => r.key === key)!;
-const text = (all: HowSection[]) => all.flatMap((s) => [s.title, s.lead ?? '', s.foot ?? '', ...s.rows.flatMap((r) => [r.title, r.sub ?? '', r.note ?? '', r.value ?? ''])]).join('\n');
+const text = (all: HowSection[]) => all.flatMap((s) => [s.title, s.lead ?? '', s.foot ?? '', ...s.rows.flatMap((r) => [r.title, r.sub ?? '', r.more ?? '', r.note ?? '', r.value ?? ''])]).join('\n');
 
 describe('what earns Orbs, against RULES', () => {
   it('a to-do, a habit, a session, today’s goal and a full day pay what the rules say', () => {
@@ -40,8 +40,36 @@ describe('what earns Orbs, against RULES', () => {
 
 describe('the legend: each row that earns an Orb names which', () => {
   const gems = (all: HowSection[], s: string) => Object.fromEntries(sec(all, s).rows.map((r) => [r.key, r.gems]));
-  it('a to-do, a habit, a session (one per kind), today’s goal and a full day; tonight’s line has none', () => {
-    expect(gems(on, 'earn')).toEqual({ todo: ['todo'], habit: ['habit'], train: ['train:run', 'train:lift', 'train:cross'], 'goal:day': ['goal:day'], full: ['full'], line: undefined });
+  it('a to-do, a habit, a session, today’s goal and a full day; tonight’s line has none', () => {
+    expect(gems(on, 'earn')).toEqual({ todo: ['todo'], habit: ['habit'], train: ['train:run'], 'goal:day': ['goal:day'], full: ['full'], line: undefined });
+    // each row shows one Orb, its rung's: Sky, Sky, Dawn, Dawn, Dawn
+    expect(sec(on, 'earn').rows.flatMap((r) => (r.gems ?? []).map(rungOf))).toEqual([1, 1, 2, 2, 2]);
+    for (const all of [on, off]) for (const s of all) for (const r of s.rows) expect((r.gems ?? []).length, r.key).toBeLessThanOrEqual(1);
+  });
+  it('the ladder: five rows, the one earned least often last, each with its Orb, its name, what earns it and how often', () => {
+    const ladder = sec(on, 'ladder');
+    expect(ladder.title).toBe('The five Orbs');
+    expect(ladder.rows.map((r) => [r.title, r.sub, r.more])).toEqual([
+      ['Sky', 'A to-do or a habit', 'Many a day'],
+      ['Dawn', 'A session, today’s goal or a full day', 'About once a day'],
+      ['Glow', 'A week that counts, a week goal or a challenge', 'About once a week'],
+      ['Sunrise', 'A month goal', 'Once a month at most'],
+      ['Sun', 'A year goal', 'Once a year at most'],
+    ]);
+    expect(ladder.rows.map((r) => rungOf(r.gems![0]!))).toEqual([1, 2, 3, 4, 5]);
+    // a rung is not a worth: the ladder shows no number
+    expect(ladder.rows.every((r) => r.value === undefined && r.note === undefined)).toBe(true);
+    expect(sec(off, 'ladder').rows[1]!.sub).toBe('Today’s goal or a full day');
+    // the rows that earn an Orb agree with the ladder: a week goal is Glow, a month goal Sunrise, a year goal Sun
+    expect(sec(on, 'goals').rows.map((r) => rungOf(r.gems![0]!))).toEqual([2, 3, 4, 5]);
+    expect(rungOf(row(on, 'weeks', 'week').gems![0]!)).toBe(3);
+  });
+  it('the page can be asked to open at the ladder, once', async () => {
+    const { openHowAt, takeHowAt } = await import('./how');
+    expect(takeHowAt()).toBeNull();
+    openHowAt('ladder');
+    expect(takeHowAt()).toBe('ladder');
+    expect(takeHowAt()).toBeNull();
   });
   it('the four goals, a week that counts and the two challenges', () => {
     expect(gems(on, 'goals')).toEqual({ 'goal:day': ['goal:day'], 'goal:week': ['goal:week'], 'goal:month': ['goal:month'], 'goal:year': ['goal:year'] });
@@ -51,6 +79,7 @@ describe('the legend: each row that earns an Orb names which', () => {
   it('every key is one the family knows, and the sections about the count and the rules show none', () => {
     for (const all of [on, off]) for (const s of all) for (const r of s.rows) for (const k of r.gems ?? []) expect(gemName(k), k).not.toBe('An Orb');
     for (const key of ['count', 'for', 'never']) expect(sec(on, key).rows.every((r) => !r.gems)).toBe(true);
+    expect(sec(on, 'ladder').rows.every((r) => r.gems?.length === 1)).toBe(true);
   });
   it('with Fitness off no row shows a session’s Orb', () => {
     expect(off.flatMap((s) => s.rows.flatMap((r) => r.gems ?? [])).some((k) => k.startsWith('train:'))).toBe(false);
@@ -112,7 +141,7 @@ describe('challenges, levels and what Orbs never do, against RULES', () => {
 
 describe('the sections', () => {
   it('are these, in this order', () => {
-    expect(on.map((s) => s.title)).toEqual(['What earns Orbs', 'Goals multiply by reach', 'Weeks in a row', 'The count', 'Challenges', 'What Orbs are for', 'What Orbs never do']);
+    expect(on.map((s) => s.title)).toEqual(['What earns Orbs', 'The five Orbs', 'Goals multiply by reach', 'Weeks in a row', 'The count', 'Challenges', 'What Orbs are for', 'What Orbs never do']);
   });
   it('with Fitness off nothing names training', () => {
     expect(text(off)).not.toMatch(/session|training|\bplan\b|\brun\b|\blift\b|Sick|Injured|Rest\b|distance|pace/i);
@@ -123,6 +152,8 @@ describe('the sections', () => {
   it('use the words table and no others', () => {
     for (const all of [on, off]) {
       expect(text(all)).not.toMatch(/streak|sprint|quest|points|coins|\bXP\b|\bAI\b|coach|\bbot\b|rest days|\bbest\b|freeze|\u2014/i);
+      // the five names are the brand's own: never a trading game's
+      expect(text(all)).not.toMatch(/\bcommon\b|\brare|epic|legendary|shiny|\bcards?\b|\bpacks?\b|\bjar\b/i);
       // "kept" is never a noun here, and a count is never a "run"
       expect(text(all)).not.toMatch(/\bkept\b|\bin a run\b/i);
     }

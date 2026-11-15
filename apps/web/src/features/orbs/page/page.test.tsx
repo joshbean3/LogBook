@@ -161,8 +161,12 @@ describe('the Orbs page in a first week', () => {
     // the total where a poster's title stands, the window in words (what VoiceOver hears in its place), the band
     expect(said).toMatch(/^Orbs\n24\nOrbs\n24 Orbs\. This week: 11 habits, 5 to-dos, today’s goal, 1 full day\.\nLevel 1\n1 to level 2\n/);
     // the pills stand under the card, after the week
-    expect(said).toContain('3 days this week · 3 in all\nTilt\nStir\nFloat\nToday\n15 Orbs');
-    const order = ['dm-total', 'dm-rings', 'dm-oculus', 'dm-canvas', 'dm-edge-arc', 'class="sr-only"', 'po-scene is-slim', 'po-band', 'orp-week', 'orp-line', 'dm-pills', 'orp-now', '>Keepsakes<', 'class="orp-keeps"', 'How Orbs work', 'role="switch"'].map((part) => html.indexOf(part));
+    // the pills stand under the card, after the week; then Your Orbs, the five rungs with how many are held (a rung never held has no number)
+    expect(said).toContain('3 days this week · 3 in all\nTilt\nStir\nFloat\nYour Orbs\nSky\n16\nDawn\n2\nGlow\nSunrise\nSun\nToday\n15 Orbs');
+    expect(html).toContain('aria-label="Your Orbs. Sky 16, Dawn 2. Glow, Sunrise and Sun not yet. How Orbs work."');
+    expect((html.match(/class="orp-held-ring"/g) ?? []).length).toBe(3);
+    expect((html.match(/class="orp-held-cell[^"]*"[^>]*>\s*<span class="orp-held-orb"><span class="orb-gem/g) ?? []).length).toBe(2);
+    const order = ['dm-total', 'dm-rings', 'dm-oculus', 'dm-canvas', 'dm-edge-arc', 'class="sr-only"', 'po-scene is-slim', 'po-band', 'orp-week', 'orp-line', 'dm-pills', '>Your Orbs<', 'orp-held-cell', 'orp-now', '>Keepsakes<', 'class="orp-keeps"', '>How Orbs work<', 'role="switch"'].map((part) => html.indexOf(part));
     expect(order.every((at) => at >= 0)).toBe(true);
     expect([...order].sort((x, y) => x - y)).toEqual(order);
     expect(said).toContain('3 days this week · 3 in all');

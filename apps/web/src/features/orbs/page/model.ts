@@ -1,4 +1,5 @@
-import { chapterNumber, chapterOf, countOf, dayLines, daysBetween, fmt, numberWord, parseISO, RULES, shiftDays, type Count, type DayKey, type ISODate, type Rewards } from '@logbook/shared';
+import { chapterNumber, chapterOf, countOf, DAY_KEYS, dayLines, daysBetween, fmt, numberWord, parseISO, RULES, shiftDays, type Count, type DayKey, type ISODate, type Rewards } from '@logbook/shared';
+import { rungName, rungOf, RUNGS, type Rung } from '../gems';
 
 /**
  * What the Orbs page says, worked out from the stored object (`Rewards`) with nothing drawn: the day's lines, the
@@ -59,6 +60,57 @@ export const paidOn = (s: Rewards, date: ISODate): Line[] => {
   const out: Line[] = [];
   for (const [prefix, label] of ONCE) for (const k of Object.keys(s.once).sort()) if (k.startsWith(prefix) && s.once[k]!.on === date && s.once[k]!.n > 0) out.push({ key: k, label, n: s.once[k]!.n, gem: k });
   return out;
+};
+
+// ---------- your Orbs: how many of each rung ----------
+
+/**
+ * How many Orbs of each rung the store holds: awards, not worth (a run is one Dawn Orb, whatever it paid). A to-do and
+ * a habit are one Sky Orb each; a session, today's goal, a full day and a return one Dawn Orb each; everything paid
+ * once is one Orb of its own rung (a week that counts, a week goal and a challenge Glow; a month goal Sunrise; a year
+ * goal Sun).
+ *
+ * A day whose kinds the store no longer keeps (they are dropped after `RULES.detailDays`), or what a day holds beyond
+ * its kinds, is one Sky Orb: that is how the window holds it, and nothing here guesses what it was.
+ */
+export const heldByRung = (s: Rewards): Record<Rung, number> => {
+  const out: Record<Rung, number> = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
+  const each: Partial<Record<DayKey, number>> = { todo: RULES.todo.each, habit: RULES.habit.each };
+  for (const d in s.days) {
+    const rec = s.days[d]!;
+    if (rec.n <= 0) continue;
+    let left = rec.n;
+    for (const key of DAY_KEYS) {
+      const have = Math.min(rec.k?.[key] ?? 0, left);
+      if (have <= 0) continue;
+      const unit = each[key];
+      const count = unit ? Math.floor(have / unit) : 1;
+      out[rungOf(key)] += count;
+      left -= unit ? count * unit : have;
+    }
+    if (left > 0) out[1] += 1;
+  }
+  for (const k in s.once) if (s.once[k]!.n > 0) out[rungOf(k)] += 1;
+  return out;
+};
+export interface HeldCell {
+  rung: Rung;
+  /** "Sky", "Dawn", "Glow", "Sunrise", "Sun". */
+  name: string;
+  /** How many are held. None (never a zero) for a rung never held: an empty place. */
+  count?: string;
+}
+/** The five places of "Your Orbs", in the ladder's order. */
+export const heldCells = (s: Rewards): HeldCell[] => {
+  const held = heldByRung(s);
+  return RUNGS.map((rung) => ({ rung, name: rungName(rung), ...(held[rung] > 0 ? { count: num(held[rung]) } : null) }));
+};
+/** The same for VoiceOver, in one breath: "Your Orbs. Sky 214, Dawn 61, Glow 9. Sunrise and Sun not yet. How Orbs work." */
+export const heldSaid = (cells: readonly HeldCell[]): string => {
+  const have = cells.filter((c) => c.count).map((c) => `${c.name} ${c.count}`);
+  const not = cells.filter((c) => !c.count).map((c) => c.name);
+  const list2 = (w: readonly string[]) => (w.length <= 1 ? (w[0] ?? '') : `${w.slice(0, -1).join(', ')} and ${w.at(-1)}`);
+  return ['Your Orbs.', have.length ? `${have.join(', ')}.` : null, not.length ? `${list2(not)} not yet.` : null, 'How Orbs work.'].filter(Boolean).join(' ');
 };
 
 // ---------- the poster's words ----------
