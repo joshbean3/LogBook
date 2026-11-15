@@ -3,7 +3,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
 import { crossfade, fadeIn, fadeOut, reducedFade, springs } from '@/lib/motion';
 import { AddButton, AddCard } from './AddParts';
-import { addMotion, addOrder, addPlace, ADD_ROWS, ADD_STAGGER_S, createAddMenu, goalToOpen, keyStep, runAdd, type AddFlows, type AddHaptic, type AddKind } from './addMenu';
+import { addMotion, addOrder, addPlace, ADD_ROWS, ADD_STAGGER_S, createAddMenu, goalToOpen, keyStep, runAdd, type AddFlows, type AddHaptic, type AddKind } from './addRules';
 
 const ALL = { fitness: true, todos: true, habits: true };
 const T = '2026-11-15' as ISODate; // a Sunday; its week began Monday, November 9

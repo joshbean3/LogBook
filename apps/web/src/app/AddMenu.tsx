@@ -20,7 +20,7 @@ import { restoreFocus } from '@/ui/focus';
 import { NAV_EVENT, type NavEventDetail, type TabId } from '@/ui/nav';
 import { useSheet } from '@/ui/Sheet';
 import { usePress } from '@/ui/usePress';
-import { addMotion, addOrder, addPlace, createAddMenu, keyStep, runAdd, type AddFlows, type Over } from './addMenu';
+import { addMotion, addOrder, addPlace, createAddMenu, keyStep, runAdd, type AddFlows, type Over } from './addRules';
 import { AddButton, AddCard } from './AddParts';
 import { useNav } from './NavController';
 import './addMenu.css';
@@ -57,7 +57,7 @@ const useAddFlows = (today: ISODate, existingHabits: string[]): AddFlows => {
 };
 
 /**
- * The dock's Add button and its menu (guide 6.1; rules in `addMenu.ts`). One round Paper button at the trailing end of
+ * The dock's Add button and its menu (guide 6.1; rules in `addRules.ts`). One round Paper button at the trailing end of
  * the ask bar's row, in the same place whether the dock is open or folded. A press opens a small card that grows out
  * of it, over a veil cut out around the button (the context menu's own cut-out, so the button needs no layer of its
  * own); each row opens the app's existing add flow for the day the screen shows. While it is open the page and the rest

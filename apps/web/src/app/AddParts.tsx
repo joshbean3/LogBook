@@ -1,7 +1,7 @@
 import { motion } from 'motion/react';
 import type * as React from 'react';
 import { BrandIcon } from '@/ui/icons';
-import { ADD_ROWS, type AddKind, type AddMotion } from './addMenu';
+import { ADD_ROWS, type AddKind, type AddMotion } from './addRules';
 
 /*
  * What the Add button and its menu draw (guide 6.1), with nothing of the app behind it: `AddMenu.tsx` gives these their
