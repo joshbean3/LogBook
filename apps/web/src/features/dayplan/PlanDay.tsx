@@ -33,7 +33,6 @@ import type { Log } from '../log/useLog';
 import { ChallengeRows } from '../orbs/challenge/ChallengeRows';
 import { groupOf } from '../todos/colors';
 import { groupsOn } from '../todos/groups';
-import { PriorityFlag } from '../todos/PriorityDots';
 import { MarkChips, useQuickAddDraft } from '../todos/QuickAddChips';
 import { dockMotion, movedWords, takesStep, withRest, zoneAt, type DropTarget, type DropZone } from '../todos/sort';
 import { goneOn, toChip, TodoListSheet, useTodoActions } from '../todos/TodoList';
@@ -462,14 +461,7 @@ export const PlanDay = memo(function PlanDay({ date, today, log, slim, yesterday
   const later = isToday ? groupsOn(todos.data, date) : null;
   const more = later ? [later[1]!.items.length ? `Later ${later[1]!.items.length}` : null, later[2]!.items.length ? `Someday ${later[2]!.items.length}` : null].filter(Boolean).join(', ') : '';
   const showAll = isToday && (!!goal || total > 0 || !!more);
-  const todoWords = (x: Todo) =>
-    x.priority ? (
-      <>
-        {x.text} <PriorityFlag level={x.priority} />
-      </>
-    ) : (
-      x.text
-    );
+  // no flag on the line: here the order is the priority (the To-dos sheet, the to-do's sheet and quick add keep it)
   const subOf = (x: Todo) => [groupOf(x, groups.data)?.name, x.note].filter(Boolean).join(' · ') || undefined;
   const stops: React.ReactElement[] = [];
   if (setGoal)
@@ -513,11 +505,11 @@ export const PlanDay = memo(function PlanDay({ date, today, log, slim, yesterday
           id={stopId(x)}
           state={next ? 'next' : 'ahead'}
           tag={next ? 'Next' : undefined}
-          title={todoWords(x)}
+          title={x.text}
           subtitle={subOf(x)}
           struck={ticked}
           onPress={() => editTodo(x)}
-          label={`${next ? 'Next: ' : ''}${x.text}${x.priority ? `, priority ${4 - x.priority}` : ''}. Edit`}
+          label={`${next ? 'Next: ' : ''}${x.text}. Edit`}
           trailing={next ? <PathCheck checked={ticked} label={`${x.text}, done`} onPress={() => tick(x)} /> : undefined}
         />,
       ];

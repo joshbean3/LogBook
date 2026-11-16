@@ -173,11 +173,6 @@
   }
 }
 
-/* a to-do's flag follows its words on the stop */
-.pd-path .pth-title > .prio-flag {
-  vertical-align: -2px; /* brand-ok: optical, the flag sits on the text's baseline */
-}
-
 /* ---------- Add a to-do: the last stop turns into the field ---------- */
 /* the field and what it read from the marks: beside the words, or under them when the field is narrow (see .tt-field) */
 .pd-add {

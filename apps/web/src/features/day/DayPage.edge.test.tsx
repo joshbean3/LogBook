@@ -38,7 +38,7 @@ const month = (m: string): MonthBundle => ({ month: m, sessions: [], checks: [],
 const goal = (period: ISODate, text: unknown) => ({ id: `g-${period}`, level: 'day', period, text, original: null, why: null, status: 'open', reflection: null, steps: [], createdAt: '', updatedAt: '', closedAt: null });
 const todo = (id: string, text: unknown, extra: Record<string, unknown> = {}) => ({ id, text, note: null, priority: 0, color: null, groupId: null, due: null, bucket: 'today', position: 0, createdOn: D, doneOn: null, deletedOn: null, createdAt: '2026-11-12T08:00:00Z', ...extra });
 
-const render = async (seed: (qc: QueryClient) => void, held: ISODate = D): Promise<string> => {
+const render = async (seed: (qc: QueryClient) => void, held: ISODate = D, raw = false): Promise<string> => {
   const { NEW_ACCOUNT_MORNING, normalizeMorningSettings } = await import('@logbook/shared');
   const { resetPrefsForTest, DEFAULT_PREFS } = await import('@/lib/prefs');
   resetPrefsForTest({ ...DEFAULT_PREFS, fitness: false });
@@ -52,7 +52,7 @@ const render = async (seed: (qc: QueryClient) => void, held: ISODate = D): Promi
   qc.setQueryData(['learnings', 'stats'], { days: 0, streak: 0, total: 0, recent: [] });
   seed(qc);
   setLiveDate(held);
-  return renderToStaticMarkup(
+  const html = renderToStaticMarkup(
     <QueryClientProvider client={qc}>
       <MemoryRouter initialEntries={['/today']}>
         <NavController>
@@ -70,7 +70,8 @@ const render = async (seed: (qc: QueryClient) => void, held: ISODate = D): Promi
         </NavController>
       </MemoryRouter>
     </QueryClientProvider>,
-  ).replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
+  );
+  return raw ? html : html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
 };
 
 describe('Today’s day page at its edges', () => {
@@ -191,5 +192,21 @@ describe('Today’s day page at its edges', () => {
     at('2026-11-12T10:00:00');
     const html = await render((qc) => qc.setQueryData(['goals'], [null, { id: 'g0' }, goal(D, null), goal(shiftDays(D, -1), 42), { ...goal(shiftDays(D, -2), 'Older'), steps: 'no' }]));
     expect(html).toMatch(/What would make today count\?[\s\S]*Habits/);
+  }, 60_000);
+
+  it('the line carries no priority: on Today the order is the priority', async () => {
+    at('2026-11-12T10:00:00');
+    const html = await render(
+      (qc) => {
+        qc.setQueryData(['goals'], [goal(D, 'Ship the thing')]);
+        qc.setQueryData(['todos'], [todo('t1', 'Call the bank', { priority: 3 }), todo('t2', 'Renew passport', { position: 1, priority: 2 })]);
+      },
+      D,
+      true,
+    );
+    const line = html.slice(html.indexOf('class="pth'), html.indexOf('data-stop="add"'));
+    expect(line).toContain('Call the bank');
+    expect(line).toContain('Renew passport');
+    expect(line).not.toMatch(/class="prio|priority \d|Priority \d/);
   }, 60_000);
 });
