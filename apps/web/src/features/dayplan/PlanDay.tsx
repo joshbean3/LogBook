@@ -38,7 +38,7 @@ import { dockMotion, movedWords, takesStep, withRest, zoneAt, type DropTarget, t
 import { goneOn, toChip, TodoListSheet, useTodoActions } from '../todos/TodoList';
 import { TodoSheet } from '../todos/TodoSheet';
 import { makeStore, useSortDrag, useSortOrder, useStore, type SortStore, type Store } from '../todos/useSortDrag';
-import { cardsFor, countWords, focusOf, isEcho, leftWords, openOnLine, pathOf, type PathChange } from './model';
+import { cardsFor, countWords, focusOf, isEcho, leftWords, openOnLine, pathOf, pickCaption, picksFor, type PathChange } from './model';
 import './dayplan.css';
 
 /** The day after the page's day is "Tomorrow" only on today's page; on a day ahead it is that day's next day. */
@@ -114,6 +114,8 @@ export const PlanDay = memo(function PlanDay({ date, today, log, slim, yesterday
   // the to-dos only (the goal's steps live in the goal's sheet): open ones in the order they matter, then what got done
   const cards = useMemo(() => focusOf(cardsFor(todos.data, null, date, today)), [todos.data, date, today]);
   const path = useMemo(() => pathOf(cards), [cards]);
+  // an empty line (no open to-do on today or a day ahead) offers what could come in: carried, dated soon, Someday
+  const picks = useMemo(() => (editable && path.open.length === 0 ? picksFor(todos.data, date, today, cards.flatMap((c) => (c.kind === 'todo' ? [c.todo.id] : []))) : []), [editable, path.open.length, todos.data, date, today, cards]);
   const [adding, setAdding] = useState(false);
   // a to-do the server refused for good: its words go back into the field, as typed, so nothing written is lost
   const [refused, setRefused] = useState<string | null>(null);
@@ -222,6 +224,15 @@ export const PlanDay = memo(function PlanDay({ date, today, log, slim, yesterday
         patch.mutate({ id: x.id, deletedOn: null });
       },
     });
+  };
+  /** A pick on the empty line comes to this day in one tap (one `select`), with Undo. */
+  const pickIt = (x: Todo) => {
+    haptics.select();
+    // the pick gives way to the to-do it became: a second tap there would open its editor
+    moved('*');
+    const was = { bucket: x.bucket, due: x.due };
+    patch.mutate(isToday ? { id: x.id, bucket: 'today', due: null } : { id: x.id, bucket: 'later', due: date });
+    toast(isToday ? 'Moved to today' : date === shiftDays(today, 1) ? 'Moved to tomorrow' : `Moved to ${fmtDate('short', date)}`, { label: 'Undo', fn: () => patch.mutate({ id: x.id, ...was }) });
   };
   /** A to-do's menu, a hold away: at most four, the destructive one last. */
   const menuOf = (x: Todo, next: boolean): ContextMenuItem[] => {
@@ -523,13 +534,22 @@ export const PlanDay = memo(function PlanDay({ date, today, log, slim, yesterday
     ) : undefined;
     // the day has its goal and no to-do yet: adding the first one is the next move, so the light waits there
     const first = !setGoal && total === 0 && lit;
+    // nothing open on the day: up to three picks, each a plus stop with where it came from, one tap to bring it in. Under a
+    // day that is all done they sit after the done stops, quietly: no light, the sun's rings stay the day's one mark
+    for (const p of picks) {
+      const x = p.todo;
+      const from = pickCaption(p, today);
+      after.push(<PathStop key={`p:${x.id}`} id={`p:${x.id}`} state="add" caption={from} title={x.text} onPress={() => pickIt(x)} label={`${x.text}. ${from}. Move to ${isToday ? 'today' : fmtDate('short', date)}`} />);
+    }
+    // nothing open and nothing to pick: the line's section empty state (guide 6.11), "Add a to-do" and one Dusk line
+    const empty = path.open.length === 0 && !picks.length;
     after.push(
       adding ? (
         <PathStop key="add" id="add" state="add">
           <AddField date={date} today={today} onClose={() => setAdding(false)} refused={refused} onTaken={() => setRefused(null)} onRefused={onRefused} />
         </PathStop>
       ) : (
-        <PathStop key="add" id="add" state={first ? 'next' : 'add'} title="Add a to-do" onPress={() => setAdding(true)} trailing={end} />
+        <PathStop key="add" id="add" state={first ? 'next' : 'add'} title="Add a to-do" subtitle={empty ? (more ? 'Nothing else in the next few days.' : 'Nothing is waiting on other days.') : undefined} onPress={() => setAdding(true)} trailing={empty && !more ? undefined : end} />
       ),
     );
   }

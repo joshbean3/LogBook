@@ -1,4 +1,4 @@
-import { stepRef, todoRef, type Aim, type GoalStep, type ISODate, type Todo } from '@logbook/shared';
+import { fmtDate, shiftDays, stepRef, todoRef, type Aim, type GoalStep, type ISODate, type Todo } from '@logbook/shared';
 import { byPosition, groupsOn, liveOn } from '../todos/groups';
 import { inOrder } from '../todos/sort';
 
@@ -100,3 +100,67 @@ export interface PathChange {
 }
 export const isEcho = (last: PathChange | null, stop: string | null | undefined, now: number, x: number, y: number): boolean =>
   !!last && now >= last.at && now - last.at < ECHO_MS && (last.id === '*' || (!!stop && last.id === stop)) && Math.hypot(x - last.x, y - last.y) <= ECHO_PX;
+
+// ---------- the empty line's picks ----------
+
+/** Where a pick comes from: carried from an earlier day, dated in the next few days, or Someday. */
+export type PickFrom = 'carried' | 'soon' | 'someday';
+export interface PickCard {
+  todo: Todo;
+  from: PickFrom;
+}
+/** At most this many picks on an empty line. */
+export const PICKS = 3;
+/** "Dated in the next few days": the days after the page's day a pick can be dated. */
+export const SOON_DAYS = 3;
+
+/**
+ * What an empty line (no open to-do on the day: none at all, or every one done) offers to bring in, one tap each: first
+ * the to-dos carried from earlier days that are still open and not on this day yet (on a day ahead, today's open list),
+ * then the to-dos dated in the next `SOON_DAYS` days, then Someday's, each in its own list's order, at most `PICKS`, none
+ * twice. `onDay`: the ids already on the page's day. A past day offers nothing: it shows what it had.
+ */
+export const picksFor = (todos: Todo[] | undefined, date: ISODate, today: ISODate, onDay: readonly string[]): PickCard[] => {
+  if (date < today) return [];
+  const skip = new Set(onDay);
+  const out: PickCard[] = [];
+  const take = (items: readonly Todo[], from: PickFrom) => {
+    for (const x of items) {
+      if (out.length >= PICKS) return;
+      if (skip.has(x.id) || x.doneOn || x.deletedOn) continue;
+      skip.add(x.id);
+      out.push({ todo: x, from });
+    }
+  };
+  const now = groupsOn(todos, today, today);
+  const there = date === today ? now : groupsOn(todos, date, today);
+  // on today these are all on the day already; on a day ahead they are what today would carry to it
+  take(now[0]!.items, 'carried');
+  const until = shiftDays(date, SOON_DAYS);
+  take(
+    there[1]!.items.filter((x) => !!x.due && x.due > date && x.due <= until),
+    'soon',
+  );
+  take(there[2]!.items, 'someday');
+  return out;
+};
+
+/** A day in a pick's caption: "today", "yesterday", a weekday within the week, else "Nov 9". */
+const dayWord = (d: ISODate, today: ISODate): string => {
+  if (d === today) return 'today';
+  if (d === shiftDays(today, -1)) return 'yesterday';
+  if (d === shiftDays(today, 1)) return 'tomorrow';
+  return d > shiftDays(today, -7) && d < shiftDays(today, 7) ? fmtDate('dowLong', d) : fmtDate('md', d);
+};
+
+/** Where a pick came from, in a short caption: "From yesterday", "Thursday", "Someday". */
+export const pickCaption = (p: PickCard, today: ISODate): string => {
+  if (p.from === 'someday') return 'Someday';
+  const x = p.todo;
+  if (p.from === 'soon') {
+    const w = dayWord(x.due!, today);
+    return w[0]!.toUpperCase() + w.slice(1);
+  }
+  return `From ${dayWord(x.bucket === 'later' && x.due ? x.due : x.createdOn, today)}`;
+};
+

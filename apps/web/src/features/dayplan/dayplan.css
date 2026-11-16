@@ -218,6 +218,12 @@
   top: var(--pd-add-mid);
 }
 
+/* the empty line's last stop (nothing open, nothing to pick): the section empty state (guide 6.11), one 64 pt row, its plus
+   ring in the icon tile's place, "Add a to-do" over one Dusk line */
+.pd-path .pth-stop.is-add > .pth-main:has(.pth-sub) {
+  min-height: var(--row-h-2);
+}
+
 /* ---------- under the line: yesterday's business and, in the evening, tomorrow's goal ---------- */
 .pd-poster > .po-path + .po-ctl,
 .pd-poster > .po-ctl {

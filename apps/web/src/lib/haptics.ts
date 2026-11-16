@@ -137,14 +137,14 @@ const fire = (name: HapticEvent, fn: () => void | false) => () => {
 
 let lastTick = 0;
 export const haptics: Record<HapticEvent, () => void> = {
-  /** The assistant's words landing as it writes, each row a held finger crosses onto in the dock's Add menu, and each row a dragged to-do passes: the lightest selection tick, at most one every 100 ms. */
+  /** The assistant's words landing as it writes, each row a held finger crosses onto in the dock's Add menu, and each row a dragged to-do passes, a quick-add mark's chip tapped to keep it as words: the lightest selection tick, at most one every 100 ms. */
   tick: fire('tick', () => {
     const now = performance.now();
     if (now - lastTick < 100) return false;
     lastTick = now;
     return selection();
   }),
-  /** The strip disc crossing a cell (a strip-origin drag), an alarm step, a reorder or Plan drag crossing a slot, a stepper step, the Progress scrub. A row chosen in the dock's Add menu. A dragged to-do landing on the goal or the Tomorrow dock. Never a tab, a page commit or a segmented change. Throttled (SELECT_THROTTLE_MS). */
+  /** The strip disc crossing a cell (a strip-origin drag), an alarm step, a reorder or Plan drag crossing a slot, a stepper step, the Progress scrub. A row chosen in the dock's Add menu. A dragged to-do landing on the goal or the Tomorrow dock. A pick on an empty Plan your day line moved to the day. Never a tab, a page commit or a segmented change. Throttled (SELECT_THROTTLE_MS). */
   select: fire('select', selection),
   /** A to-do's mark, a Favorite's star: only through `hapticAtPeak`, on the check's peak frame. */
   toggle: fire('toggle', () => impact('Light', 8)),
