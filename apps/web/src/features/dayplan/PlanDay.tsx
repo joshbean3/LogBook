@@ -33,13 +33,12 @@ import type { Log } from '../log/useLog';
 import { ChallengeRows } from '../orbs/challenge/ChallengeRows';
 import { groupOf } from '../todos/colors';
 import { groupsOn } from '../todos/groups';
-import { PriorityFlag } from '../todos/PriorityDots';
-import { parseQuickAdd } from '../todos/quickAdd';
+import { MarkChips, useQuickAddDraft } from '../todos/QuickAddChips';
 import { dockMotion, movedWords, takesStep, withRest, zoneAt, type DropTarget, type DropZone } from '../todos/sort';
-import { goneOn, TodoListSheet, understoodOf, useTodoActions } from '../todos/TodoList';
+import { goneOn, toChip, TodoListSheet, useTodoActions } from '../todos/TodoList';
 import { TodoSheet } from '../todos/TodoSheet';
 import { makeStore, useSortDrag, useSortOrder, useStore, type SortStore, type Store } from '../todos/useSortDrag';
-import { cardsFor, countWords, focusOf, isEcho, leftWords, openOnLine, pathOf, type PathChange } from './model';
+import { cardsFor, countWords, focusOf, isEcho, leftWords, openOnLine, pathOf, pickCaption, picksFor, type PathChange } from './model';
 import './dayplan.css';
 
 /** The day after the page's day is "Tomorrow" only on today's page; on a day ahead it is that day's next day. */
@@ -115,6 +114,8 @@ export const PlanDay = memo(function PlanDay({ date, today, log, slim, yesterday
   // the to-dos only (the goal's steps live in the goal's sheet): open ones in the order they matter, then what got done
   const cards = useMemo(() => focusOf(cardsFor(todos.data, null, date, today)), [todos.data, date, today]);
   const path = useMemo(() => pathOf(cards), [cards]);
+  // an empty line (no open to-do on today or a day ahead) offers what could come in: carried, dated soon, Someday
+  const picks = useMemo(() => (editable && path.open.length === 0 ? picksFor(todos.data, date, today, cards.flatMap((c) => (c.kind === 'todo' ? [c.todo.id] : []))) : []), [editable, path.open.length, todos.data, date, today, cards]);
   const [adding, setAdding] = useState(false);
   // a to-do the server refused for good: its words go back into the field, as typed, so nothing written is lost
   const [refused, setRefused] = useState<string | null>(null);
@@ -223,6 +224,15 @@ export const PlanDay = memo(function PlanDay({ date, today, log, slim, yesterday
         patch.mutate({ id: x.id, deletedOn: null });
       },
     });
+  };
+  /** A pick on the empty line comes to this day in one tap (one `select`), with Undo. */
+  const pickIt = (x: Todo) => {
+    haptics.select();
+    // the pick gives way to the to-do it became: a second tap there would open its editor
+    moved('*');
+    const was = { bucket: x.bucket, due: x.due };
+    patch.mutate(isToday ? { id: x.id, bucket: 'today', due: null } : { id: x.id, bucket: 'later', due: date });
+    toast(isToday ? 'Moved to today' : date === shiftDays(today, 1) ? 'Moved to tomorrow' : `Moved to ${fmtDate('short', date)}`, { label: 'Undo', fn: () => patch.mutate({ id: x.id, ...was }) });
   };
   /** A to-do's menu, a hold away: at most four, the destructive one last. */
   const menuOf = (x: Todo, next: boolean): ContextMenuItem[] => {
@@ -462,14 +472,7 @@ export const PlanDay = memo(function PlanDay({ date, today, log, slim, yesterday
   const later = isToday ? groupsOn(todos.data, date) : null;
   const more = later ? [later[1]!.items.length ? `Later ${later[1]!.items.length}` : null, later[2]!.items.length ? `Someday ${later[2]!.items.length}` : null].filter(Boolean).join(', ') : '';
   const showAll = isToday && (!!goal || total > 0 || !!more);
-  const todoWords = (x: Todo) =>
-    x.priority ? (
-      <>
-        {x.text} <PriorityFlag level={x.priority} />
-      </>
-    ) : (
-      x.text
-    );
+  // no flag on the line: here the order is the priority (the To-dos sheet, the to-do's sheet and quick add keep it)
   const subOf = (x: Todo) => [groupOf(x, groups.data)?.name, x.note].filter(Boolean).join(' · ') || undefined;
   const stops: React.ReactElement[] = [];
   if (setGoal)
@@ -513,11 +516,11 @@ export const PlanDay = memo(function PlanDay({ date, today, log, slim, yesterday
           id={stopId(x)}
           state={next ? 'next' : 'ahead'}
           tag={next ? 'Next' : undefined}
-          title={todoWords(x)}
+          title={x.text}
           subtitle={subOf(x)}
           struck={ticked}
           onPress={() => editTodo(x)}
-          label={`${next ? 'Next: ' : ''}${x.text}${x.priority ? `, priority ${4 - x.priority}` : ''}. Edit`}
+          label={`${next ? 'Next: ' : ''}${x.text}. Edit`}
           trailing={next ? <PathCheck checked={ticked} label={`${x.text}, done`} onPress={() => tick(x)} /> : undefined}
         />,
       ];
@@ -531,13 +534,22 @@ export const PlanDay = memo(function PlanDay({ date, today, log, slim, yesterday
     ) : undefined;
     // the day has its goal and no to-do yet: adding the first one is the next move, so the light waits there
     const first = !setGoal && total === 0 && lit;
+    // nothing open on the day: up to three picks, each a plus stop with where it came from, one tap to bring it in. Under a
+    // day that is all done they sit after the done stops, quietly: no light, the sun's rings stay the day's one mark
+    for (const p of picks) {
+      const x = p.todo;
+      const from = pickCaption(p, today);
+      after.push(<PathStop key={`p:${x.id}`} id={`p:${x.id}`} state="add" caption={from} title={x.text} onPress={() => pickIt(x)} label={`${x.text}. ${from}. Move to ${isToday ? 'today' : fmtDate('short', date)}`} />);
+    }
+    // nothing open and nothing to pick: the line's section empty state (guide 6.11), "Add a to-do" and one Dusk line
+    const empty = path.open.length === 0 && !picks.length;
     after.push(
       adding ? (
         <PathStop key="add" id="add" state="add">
           <AddField date={date} today={today} onClose={() => setAdding(false)} refused={refused} onTaken={() => setRefused(null)} onRefused={onRefused} />
         </PathStop>
       ) : (
-        <PathStop key="add" id="add" state={first ? 'next' : 'add'} title="Add a to-do" onPress={() => setAdding(true)} trailing={end} />
+        <PathStop key="add" id="add" state={first ? 'next' : 'add'} title="Add a to-do" subtitle={empty ? (more ? 'Nothing else in the next few days.' : 'Nothing is waiting on other days.') : undefined} onPress={() => setAdding(true)} trailing={empty && !more ? undefined : end} />
       ),
     );
   }
@@ -650,7 +662,7 @@ const Docks = ({ ui, next, reduce }: { ui: Store<DragUi>; next: string; reduce: 
 
 /**
  * The field "Add a to-do" turns into, at the end of the line (the quick-add words work: `!!`, `#list`, `tomorrow`, `fri`).
- * What the field read from the marks shows as it is typed, and a to-do that lands on another day says where it went, with
+ * What the field read from the marks shows as chips under it as it is typed (a tap keeps a mark as words), and a to-do that lands on another day says where it went, with
  * a way to see it. Return adds and keeps the field for the next one; leaving the field adds what is there and closes it.
  */
 const AddField = ({ date, today, onClose, refused, onTaken, onRefused }: { date: ISODate; today: ISODate; onClose: () => void; /** Words the server refused: the field takes them back. */ refused: string | null; onTaken: () => void; onRefused: (typed: string) => void }) => {
@@ -658,14 +670,10 @@ const AddField = ({ date, today, onClose, refused, onTaken, onRefused }: { date:
   const groups = useTodoGroups();
   const sheet = useSheet();
   const toast = useToast();
-  const hintId = useId();
-  const [draft, setDraftState] = useState('');
-  // what is in the field right now, for the moments no render sits between (a blur and the unmount it causes)
-  const typed = useRef('');
-  const setDraft = (v: string) => {
-    typed.current = v;
-    setDraftState(v);
-  };
+  const chipsId = useId();
+  // what the marks were read as (chips under the field), and `typed`: the words right now, for the moments no render sits
+  // between (a blur and the unmount it causes)
+  const { draft, typed, setDraft, parsed, chips, keepAsWords } = useQuickAddDraft(today, groups.data);
   // the refused words come back as soon as the field is empty (never over something being typed)
   useEffect(() => {
     if (refused === null || typed.current) return;
@@ -683,8 +691,6 @@ const AddField = ({ date, today, onClose, refused, onTaken, onRefused }: { date:
   useEffect(() => {
     reveal();
   }, [kb]);
-  const parsed = parseQuickAdd(draft, today, groups.data);
-  const understood = understoodOf(parsed, groups.data);
   const commit = (close: boolean) => {
     if (parsed.text) {
       const forDay = date !== today && parsed.bucket === 'today' ? { bucket: 'later' as const, due: date } : { bucket: parsed.bucket, due: parsed.due };
@@ -728,12 +734,15 @@ const AddField = ({ date, today, onClose, refused, onTaken, onRefused }: { date:
         placeholder="Add a to-do"
         maxLength={200}
         aria-label="New to-do"
-        aria-describedby={understood ? hintId : undefined}
+        aria-describedby={chips.length ? chipsId : undefined}
         enterKeyHint="done"
         value={draft}
         onChange={(e) => setDraft(e.target.value)}
         onFocus={reveal}
-        onBlur={() => commit(true)}
+        onBlur={(e) => {
+          // a press on one of the field's chips keeps the focus here: nothing is added
+          if (!toChip(e)) commit(true);
+        }}
         onKeyDown={(e) => {
           if (e.key === 'Enter') {
             e.preventDefault();
@@ -745,11 +754,7 @@ const AddField = ({ date, today, onClose, refused, onTaken, onRefused }: { date:
           }
         }}
       />
-      {understood ? (
-        <span id={hintId} className="tt-hint caps" role="status">
-          {understood}
-        </span>
-      ) : null}
+      <MarkChips id={chipsId} chips={chips} parsed={parsed} groups={groups.data} onKeep={keepAsWords} />
     </div>
   );
 };

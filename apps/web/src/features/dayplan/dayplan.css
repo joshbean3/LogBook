@@ -173,11 +173,6 @@
   }
 }
 
-/* a to-do's flag follows its words on the stop */
-.pd-path .pth-title > .prio-flag {
-  vertical-align: -2px; /* brand-ok: optical, the flag sits on the text's baseline */
-}
-
 /* ---------- Add a to-do: the last stop turns into the field ---------- */
 /* the field and what it read from the marks: beside the words, or under them when the field is narrow (see .tt-field) */
 .pd-add {
@@ -205,6 +200,28 @@
 .pd-add-input:focus-visible {
   outline: none;
   box-shadow: none;
+}
+
+/* with chips under it, the field's stop keeps its plus on the field's own line (not the middle of field and chips), and the
+   line meets the plus there */
+.pd-path .pth-stop.is-add:has(.qa-chips) {
+  --pd-add-mid: calc(var(--sp-2) + var(--hit) / 2);
+}
+.pd-path .pth-stop.is-add:has(.qa-chips) > .pth-node {
+  align-self: start;
+  top: calc(var(--pd-add-mid) - 12px);
+}
+.pd-path .pth-stop.is-add:has(.qa-chips)::before {
+  bottom: calc(100% - var(--pd-add-mid));
+}
+.pd-path .pth-stop.is-add:has(.qa-chips)::after {
+  top: var(--pd-add-mid);
+}
+
+/* the empty line's last stop (nothing open, nothing to pick): the section empty state (guide 6.11), one 64 pt row, its plus
+   ring in the icon tile's place, "Add a to-do" over one Dusk line */
+.pd-path .pth-stop.is-add > .pth-main:has(.pth-sub) {
+  min-height: var(--row-h-2);
 }
 
 /* ---------- under the line: yesterday's business and, in the evening, tomorrow's goal ---------- */

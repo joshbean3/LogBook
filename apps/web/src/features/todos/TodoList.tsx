@@ -1,4 +1,4 @@
-import { fmtDate, shiftDays, type ISODate, type Todo, type TodoGroup } from '@logbook/shared';
+import { fmtDate, shiftDays, type ISODate, type Todo } from '@logbook/shared';
 import { ArrowRight, Check, ChevronDown, ChevronRight, Moon, Plus, RotateCcw, Sun, Trash2 } from 'lucide-react';
 import { memo, useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react';
 import { clientKey, useTodoGroups, useTodoMutations, useTodos } from '@/api/queries';
@@ -18,8 +18,8 @@ import { useFlip } from './flip';
 import { byPriority, groupsOn, inToday, liveOn, moveWithin, stepWithin, todayOpenOn, type TodoGroupSpec } from './groups';
 import { colorOf, colorStyle, groupOf, ListChip } from './colors';
 import { ListSheet } from './ListSheet';
-import { PRIORITY_SHORT, PriorityFlag } from './PriorityDots';
-import { parseQuickAdd, type QuickAdd } from './quickAdd';
+import { PriorityFlag } from './PriorityDots';
+import { MarkChips, useQuickAddDraft } from './QuickAddChips';
 import { popOrbs, unpopOrbs } from '../orbs/moment';
 import { TodoMark } from './TodoMark';
 import { TodoSheet } from './TodoSheet';
@@ -33,24 +33,26 @@ export { inToday, liveOn, todayOpenOn };
 const dueLabelOf = (x: Todo, date: ISODate) => (x.bucket === 'later' && x.due ? (x.due === date ? null : x.due < date ? `Due ${fmtDate('md', x.due)}` : x.due === shiftDays(date, 1) ? 'Tomorrow' : fmtDate('md', x.due)) : null);
 
 // ---------- the quick-add field, shared by Today and the full list ----------
-/** What the field read from a line's marks, in words: `P2 · Nov 13 · Work`. Empty when it read none. */
-export const understoodOf = (parsed: QuickAdd, groups: readonly TodoGroup[] | undefined): string =>
-  [parsed.priority ? PRIORITY_SHORT[parsed.priority] : null, parsed.bucket === 'later' ? (parsed.due ? fmtDate('md', parsed.due) : 'Later') : parsed.bucket === 'someday' ? 'Someday' : null, parsed.groupId ? groups?.find((g) => g.id === parsed.groupId)?.name : null].filter(Boolean).join(' · ');
+/** A press that leaves the field for one of its own chips: the field keeps the focus, and nothing is added or closed. */
+export const toChip = (e: React.FocusEvent<HTMLInputElement>) => {
+  const to = e.relatedTarget;
+  if (!(to instanceof Element) || !to.closest('.qa-chips')) return false;
+  e.currentTarget.focus();
+  return true;
+};
 
 /**
- * "Call the bank fri !!": the field reads its marks and says what it understood, in caps, as you type (beside the words
- * where there is room, on a line of its own under them in a narrow field; it never makes the field wider). Return adds the
- * to-do and keeps the field for the next one; Return on an empty field, or leaving it empty, closes it. On focus it is
- * scrolled above the keyboard after the keyboard's 250 ms (`revealField`).
+ * "Call the bank fri !!": the field reads its marks as you type and shows each as a chip under the words ("Fri, Oct 30",
+ * "P2"); a tap on a chip keeps that mark as words (`MarkChips`). Return adds the to-do and keeps the field for the next one;
+ * Return on an empty field, or leaving it empty, closes it. On focus it is scrolled above the keyboard after the keyboard's
+ * 250 ms (`revealField`).
  * `date` is the day it is written on (today); `due`, the day a to-do added on a future day's page is for.
  */
 export const QuickAddField = ({ date, due, groupId, placeholder = 'Add a to-do', autoFocus, onClose, onAdded }: { date: ISODate; due?: ISODate; groupId?: string | null; placeholder?: string; autoFocus?: boolean; onClose?: () => void; onAdded?: () => void }) => {
   const { add } = useTodoMutations();
-  const hintId = useId();
-  const [draft, setDraft] = useState('');
+  const chipsId = useId();
   const groups = useTodoGroups();
-  const parsed = parseQuickAdd(draft, date, groups.data);
-  const understood = understoodOf(parsed, groups.data);
+  const { draft, setDraft, parsed, chips, keepAsWords } = useQuickAddDraft(date, groups.data);
   const addIt = () => {
     if (!parsed.text) return onClose?.();
     const forDay = due && parsed.bucket === 'today' ? { bucket: 'later' as const, due } : { bucket: parsed.bucket, due: parsed.due };
@@ -65,13 +67,14 @@ export const QuickAddField = ({ date, due, groupId, placeholder = 'Add a to-do',
         placeholder={placeholder}
         maxLength={200}
         aria-label="New to-do"
-        aria-describedby={understood ? hintId : undefined}
+        aria-describedby={chips.length ? chipsId : undefined}
         enterKeyHint="done"
         autoFocus={autoFocus}
         value={draft}
         onChange={(e) => setDraft(e.target.value)}
         onFocus={(e) => revealField(e.currentTarget)}
-        onBlur={() => {
+        onBlur={(e) => {
+          if (toChip(e)) return;
           if (!draft.trim()) onClose?.();
         }}
         onKeyDown={(e) => {
@@ -84,11 +87,7 @@ export const QuickAddField = ({ date, due, groupId, placeholder = 'Add a to-do',
           }
         }}
       />
-      {understood ? (
-        <span id={hintId} className="tt-hint caps" role="status">
-          {understood}
-        </span>
-      ) : null}
+      <MarkChips id={chipsId} chips={chips} parsed={parsed} groups={groups.data} onKeep={keepAsWords} />
     </div>
   );
 };

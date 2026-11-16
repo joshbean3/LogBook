@@ -38,7 +38,7 @@ const month = (m: string): MonthBundle => ({ month: m, sessions: [], checks: [],
 const goal = (period: ISODate, text: unknown) => ({ id: `g-${period}`, level: 'day', period, text, original: null, why: null, status: 'open', reflection: null, steps: [], createdAt: '', updatedAt: '', closedAt: null });
 const todo = (id: string, text: unknown, extra: Record<string, unknown> = {}) => ({ id, text, note: null, priority: 0, color: null, groupId: null, due: null, bucket: 'today', position: 0, createdOn: D, doneOn: null, deletedOn: null, createdAt: '2026-11-12T08:00:00Z', ...extra });
 
-const render = async (seed: (qc: QueryClient) => void, held: ISODate = D): Promise<string> => {
+const render = async (seed: (qc: QueryClient) => void, held: ISODate = D, raw = false): Promise<string> => {
   const { NEW_ACCOUNT_MORNING, normalizeMorningSettings } = await import('@logbook/shared');
   const { resetPrefsForTest, DEFAULT_PREFS } = await import('@/lib/prefs');
   resetPrefsForTest({ ...DEFAULT_PREFS, fitness: false });
@@ -52,7 +52,7 @@ const render = async (seed: (qc: QueryClient) => void, held: ISODate = D): Promi
   qc.setQueryData(['learnings', 'stats'], { days: 0, streak: 0, total: 0, recent: [] });
   seed(qc);
   setLiveDate(held);
-  return renderToStaticMarkup(
+  const html = renderToStaticMarkup(
     <QueryClientProvider client={qc}>
       <MemoryRouter initialEntries={['/today']}>
         <NavController>
@@ -70,7 +70,8 @@ const render = async (seed: (qc: QueryClient) => void, held: ISODate = D): Promi
         </NavController>
       </MemoryRouter>
     </QueryClientProvider>,
-  ).replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
+  );
+  return raw ? html : html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
 };
 
 describe('Today’s day page at its edges', () => {
@@ -192,4 +193,55 @@ describe('Today’s day page at its edges', () => {
     const html = await render((qc) => qc.setQueryData(['goals'], [null, { id: 'g0' }, goal(D, null), goal(shiftDays(D, -1), 42), { ...goal(shiftDays(D, -2), 'Older'), steps: 'no' }]));
     expect(html).toMatch(/What would make today count\?[\s\S]*Habits/);
   }, 60_000);
+
+  it('the line carries no priority: on Today the order is the priority', async () => {
+    at('2026-11-12T10:00:00');
+    const html = await render(
+      (qc) => {
+        qc.setQueryData(['goals'], [goal(D, 'Ship the thing')]);
+        qc.setQueryData(['todos'], [todo('t1', 'Call the bank', { priority: 3 }), todo('t2', 'Renew passport', { position: 1, priority: 2 })]);
+      },
+      D,
+      true,
+    );
+    const line = html.slice(html.indexOf('class="pth'), html.indexOf('data-stop="add"'));
+    expect(line).toContain('Call the bank');
+    expect(line).toContain('Renew passport');
+    expect(line).not.toMatch(/class="prio|priority \d|Priority \d/);
+  }, 60_000);
+
+  it('an empty line offers up to three picks, then Add a to-do; one already done keeps the day done, picks under it', async () => {
+    at('2026-11-12T10:00:00');
+    // 2026-11-12 is a Thursday
+    const seedPicks = (qc: QueryClient, extra: unknown[] = []) => {
+      qc.setQueryData(['goals'], [goal(D, 'Ship the thing')]);
+      qc.setQueryData(['todos'], [
+        ...extra,
+        todo('s1', 'Learn to make bread', { bucket: 'someday' }),
+        todo('l1', 'Renew passport', { bucket: 'later', due: shiftDays(D, 2) }),
+        todo('l2', 'Too far out', { bucket: 'later', due: shiftDays(D, 9) }),
+        todo('s2', 'Read Dune', { bucket: 'someday', position: 1 }),
+      ]);
+    };
+    const html = await render((qc) => seedPicks(qc));
+    expect(html).toMatch(/Saturday Renew passport Someday Learn to make bread Someday Read Dune Add a to-do/);
+    expect(html).not.toContain('Too far out');
+    // every to-do done: the band still says so, and the picks sit under the done stop
+    const done = await render((qc) => seedPicks(qc, [todo('d1', 'Book the dentist', { doneOn: D })]));
+    expect(done).toMatch(/1 of 1 done[\s\S]*Book the dentist Saturday Renew passport/);
+    // a day with an open to-do offers nothing
+    const busy = await render((qc) => seedPicks(qc, [todo('o1', 'Book the dentist')]));
+    expect(busy).not.toContain('Renew passport');
+    // a pick's VoiceOver label says what a tap does
+    const raw = await render((qc) => seedPicks(qc), D, true);
+    expect(raw).toContain('aria-label="Renew passport. Saturday. Move to today"');
+  }, 60_000);
+
+  it('with nothing to pick, the line is its empty state: Add a to-do and one line', async () => {
+    at('2026-11-12T10:00:00');
+    const html = await render((qc) => qc.setQueryData(['goals'], [goal(D, 'Ship the thing')]));
+    expect(html).toMatch(/Add a to-do Nothing is waiting on other days\./);
+    expect(html).not.toContain('All to-dos');
+  }, 60_000);
 });
+
