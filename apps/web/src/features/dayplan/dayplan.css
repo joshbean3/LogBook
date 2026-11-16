@@ -50,6 +50,116 @@
   }
 }
 
+/* while a to-do is dragged, the goal's title takes it as a step (when the goal is open and has room): a dashed ring says so,
+   and the finger over it fills it Cloud with a Deep Sky ring */
+.pd-title.pressable[data-drop] {
+  border-radius: var(--r-control);
+  outline: 1.5px dashed var(--deep-sky);
+  outline-offset: var(--sp-2);
+}
+.pd-title.pressable[data-drop='over'] {
+  outline-color: transparent;
+  box-shadow:
+    0 0 0 var(--sp-2) var(--cloud),
+    0 0 0 calc(var(--sp-2) + 2px) var(--deep-sky);
+  background: var(--cloud);
+}
+
+/* ---------- a to-do sorted by hand (useSortDrag): its contents follow the finger, the stop's own box keeps the rail ---------- */
+/* the gap it leaves is plain (the Cloud ground of the next stop goes with the words); the line runs on through it */
+.pd-path .pth-stop[data-lifted] {
+  background: none;
+}
+.pd-path .pth-stop[data-lifted] > * {
+  position: relative;
+  z-index: 3;
+}
+.pd-path .pth-stop[data-lifted] > .pth-node {
+  z-index: 4;
+}
+/* lifted: the Cloud surface and a hairline (the hold's lift gives the scale; none under Reduce Motion) */
+.pd-path .pth-stop[data-lifted] > .pth-main {
+  border-radius: var(--r-control);
+  background: var(--surface-2);
+  box-shadow: inset 0 0 0 1px var(--line-strong);
+}
+
+/* in the air the to-do is a copy over the page's bar and strip (useSortDrag's ghost), under the docks; the line stays in the
+   gap, so the copy draws no line of its own */
+.pd-ghost {
+  z-index: 39;
+  transform-origin: 50% 50%;
+  transition: opacity var(--dur-in) var(--ease-out);
+}
+.pd-ghost .pth-stop::before,
+.pd-ghost .pth-stop::after {
+  display: none;
+}
+/* over the goal or a dock the copy steps back, so the target's own light shows through it */
+.pd-ghost[data-over] {
+  opacity: 0.6;
+}
+
+/* ---------- the docks: over the bar while a to-do is dragged (Tomorrow and Delete) ---------- */
+.pd-docks {
+  position: fixed;
+  z-index: 40;
+  top: calc(var(--safe-t) + var(--sp-1));
+  right: var(--gutter);
+  left: var(--gutter);
+  display: flex;
+  justify-content: center;
+  gap: var(--sp-3);
+  pointer-events: none;
+}
+/* the bar's words are veiled while the docks are up, so theirs are the only words there. Placed from the docks' own box
+   (they rise in on a transform, which would carry a fixed veil off) */
+.pd-docks::before {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  top: calc(-1 * (var(--safe-t) + var(--sp-1)));
+  right: calc(-1 * var(--gutter));
+  left: calc(-1 * var(--gutter));
+  height: calc(var(--safe-t) + var(--hit) + var(--sp-3));
+  background: linear-gradient(180deg, var(--bg) 0%, var(--bg) 75%, transparent 100%);
+}
+.pd-dock {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  min-height: var(--hit);
+  padding: 0 var(--sp-5);
+  border-radius: var(--r-pill);
+  /* floating chrome (guide 5.3): Paper with the float shadow */
+  background: var(--surface);
+  box-shadow: var(--shadow-float);
+  color: var(--ink);
+  font: 600 var(--fs-sub) / var(--lh-sub) var(--sans);
+  white-space: nowrap;
+  transition:
+    transform var(--dur-fast) var(--ease-out),
+    background-color var(--dur-color) var(--ease-out),
+    color var(--dur-color) var(--ease-out);
+}
+.pd-dock.is-over {
+  transform: scale(1.08);
+  background: var(--primary);
+  color: var(--primary-ink);
+}
+.pd-dock.is-delete.is-over {
+  background: var(--bad);
+  color: var(--white);
+}
+@media (prefers-reduced-motion: reduce) {
+  .pd-dock {
+    transition: none;
+  }
+  .pd-dock.is-over {
+    transform: none;
+  }
+}
+
 /* a to-do's flag follows its words on the stop */
 .pd-path .pth-title > .prio-flag {
   vertical-align: -2px; /* brand-ok: optical, the flag sits on the text's baseline */
