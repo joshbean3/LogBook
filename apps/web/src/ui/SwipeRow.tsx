@@ -39,7 +39,7 @@ export interface SwipeRowProps {
   /**
    * The row can be dragged after its hold (a list sorted by hand). A still hold opens the menu as before; a move after it
    * closes the menu and hands the row to the finger (`onStart`, then `onMove`, `onEnd`), and the swipe stays out of it.
-   * `cancel` is given the hold's own cancel, for a drag called off from outside.
+   * `cancel` is given the hold's own cancel as the drag starts, for a drag called off from outside.
    */
   drag?: SwipeDrag;
 }
@@ -313,13 +313,14 @@ export const SwipeRow = ({ right, left, children, menuItems = [], label, menu = 
       ? (p, e) => {
           g.current.id = -1;
           if (cm.isOpen()) cm.close();
+          // the list calls off this row's drag through it (the list's rows share the one ref)
+          if (drag.cancel) drag.cancel.current = hold.cancel;
           drag.onStart(p, e);
         }
       : undefined,
     onDragMove: drag ? (p, e) => drag.onMove(p, e) : undefined,
     onDragEnd: drag ? (p, e, cancelled) => drag.onEnd(p, e, cancelled) : undefined,
   });
-  if (drag?.cancel) drag.cancel.current = hold.cancel;
 
   const shown = side === 'right' ? right : side === 'left' ? left : undefined;
   const Tag = as as 'div';

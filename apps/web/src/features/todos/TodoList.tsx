@@ -1,6 +1,6 @@
 import { fmtDate, shiftDays, type ISODate, type Todo, type TodoGroup } from '@logbook/shared';
 import { ArrowRight, Check, ChevronDown, ChevronRight, Moon, Plus, RotateCcw, Sun, Trash2 } from 'lucide-react';
-import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react';
+import { memo, useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react';
 import { clientKey, useTodoGroups, useTodoMutations, useTodos } from '@/api/queries';
 import { useNav } from '@/app/NavController';
 import { FOLD_MS } from '@/lib/gesture';
@@ -132,7 +132,18 @@ export const useTodoActions = (date: ISODate) => {
 };
 
 // ---------- the sheet's rows: SwipeRow v2 (sheets may swipe; Today may not, M9) ----------
-const SheetRow = ({ x, date, done, onEdit, onStep, fold, hideList, drag }: { x: Todo; date: ISODate; done: boolean; onEdit: () => void; onStep: (dir: -1 | 1) => void; fold: (x: Todo) => void; hideList?: boolean; drag?: SwipeDrag }) => {
+/** What a row asks of its group. One object per group for its whole life (it reads the group's latest state), so a row redraws only when its own to-do changes: a drag passing it does not. */
+interface RowApi {
+  edit: (x: Todo) => void;
+  step: (x: Todo, dir: -1 | 1) => void;
+  fold: (x: Todo) => void;
+  drag: (x: Todo) => SwipeDrag;
+}
+const SheetRow = memo(function SheetRow({ x, date, done, hideList, api, canDrag }: { x: Todo; date: ISODate; done: boolean; hideList?: boolean; api: RowApi; canDrag: boolean }) {
+  const onEdit = () => api.edit(x);
+  const onStep = (dir: -1 | 1) => api.step(x, dir);
+  const fold = api.fold;
+  const drag = canDrag ? api.drag(x) : undefined;
   const act = useTodoActions(date);
   const today = useToday();
   const [checked, setChecked] = useState(false);
@@ -205,7 +216,7 @@ const SheetRow = ({ x, date, done, onEdit, onStep, fold, hideList, drag }: { x: 
       </div>
     </SwipeRow>
   );
-};
+});
 
 /** How many rows a group draws at first (more than a full-height sheet shows), and adds each time its end comes near: a list of hundreds opens as fast as one of ten. */
 const ROWS_STEP = 20;
@@ -272,25 +283,26 @@ const SheetGroup = ({ g, date, done, onEdit, hideList }: { g: TodoGroupSpec; dat
     if (m.fix) patch.mutate({ id: x.id, ...m.fix });
     setSaid(movedWords(r.index, g.items.length));
   };
-  const dragOf = (x: Todo): SwipeDrag | undefined =>
-    done || g.items.length < 2
-      ? undefined
-      : {
-          onStart: (p) => {
-            overlays.current = nav.getState().overlays;
-            setSaid('');
-            sort.start(x.id, p);
-          },
-          onMove: (p) => sort.move(p),
-          onEnd: (_p, _e, cancelled) => (cancelled ? sort.cancel() : land(x)),
-          cancel: cancelHold,
-        };
+  const dragOf = (x: Todo): SwipeDrag => ({
+    onStart: (p) => {
+      overlays.current = nav.getState().overlays;
+      sort.start(x.id, p);
+    },
+    onMove: (p) => sort.move(p),
+    onEnd: (_p, _e, cancelled) => (cancelled ? sort.cancel() : land(x)),
+    cancel: cancelHold,
+  });
+  const latest = useRef({ onEdit, step, fold, dragOf });
+  latest.current = { onEdit, step, fold, dragOf };
+  const api = useRef<RowApi | null>(null);
+  const rowApi = (api.current ??= { edit: (x) => latest.current.onEdit(x), step: (x, d) => latest.current.step(x, d), fold: (x) => latest.current.fold(x), drag: (x) => latest.current.dragOf(x) });
+  const canDrag = !done && g.items.length > 1;
   return (
     <>
       <div ref={ref} className="tgroup">
         {rows.map((x) => (
           <div key={clientKey(x.id)} data-flip="" data-sort={x.id}>
-            <SheetRow x={x} date={date} done={!!done} onEdit={() => onEdit(x)} onStep={(d) => step(x, d)} fold={fold} hideList={hideList} drag={dragOf(x)} />
+            <SheetRow x={x} date={date} done={!!done} hideList={hideList} api={rowApi} canDrag={canDrag} />
           </div>
         ))}
         {hasMore ? <div ref={more} className="tgroup-more" aria-hidden="true" /> : null}
