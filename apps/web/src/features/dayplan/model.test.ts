@@ -1,7 +1,7 @@
 import type { Todo } from '@logbook/shared';
 import { describe, expect, it } from 'vitest';
 import { pathSegments, stopStates } from '@/ui/poster/logic';
-import { cardsFor, countWords, ECHO_MS, ECHO_PX, focusOf, isEcho, leftWords, openOnLine, pathOf, pickCaption, picksFor, splitFocus, type Card } from './model';
+import { cardsFor, countWords, ECHO_MS, ECHO_PX, focusOf, isEcho, leftWords, openOnLine, pathOf, pickCaption, picksFor, splitFocus, waitingOn, type Card } from './model';
 
 const card = (id: string, done = false): Card => ({ ref: `todo:${id}`, kind: 'todo', todo: { id } as Todo, done });
 
@@ -182,6 +182,24 @@ describe('an empty line proposes the next move', () => {
     expect(pickCaption({ todo: t('x', { createdOn: '2026-11-02' }), from: 'carried' }, T)).toBe('From Nov 2');
     // a dated to-do whose day has passed came from its day, not the day it was written
     expect(pickCaption({ todo: t('x', { bucket: 'later', due: '2026-11-15', createdOn: '2026-11-01' }), from: 'carried' }, T)).toBe('From yesterday');
+  });
+  it('says something waits whenever anything open is on another day, on today and on a day ahead', () => {
+    const D = '2026-11-17';
+    const wait = (todos: Todo[], date: string) => waitingOn(todos, date, T, cardsFor(todos, null, date, T));
+    // nothing anywhere, or only what is on the day: nothing waits
+    expect(wait([], T)).toBe(false);
+    expect(wait([], D)).toBe(false);
+    expect(wait([soon('mine', D)], D)).toBe(false);
+    expect(wait([t('here', { createdOn: T })], T)).toBe(false);
+    // further out than the picks look, on today and on a day ahead
+    expect(wait([soon('far', '2026-11-30')], T)).toBe(true);
+    expect(wait([soon('far', '2026-11-30')], D)).toBe(true);
+    // a day ahead: today's list and a day between today and it are other days too
+    expect(wait([t('today', { createdOn: T })], D)).toBe(true);
+    expect(wait([soon('between', D)], '2026-11-19')).toBe(true);
+    expect(wait([someday('bread')], D)).toBe(true);
+    // done or deleted waits for nothing
+    expect(wait([t('done', { createdOn: T, doneOn: T }), t('gone', { createdOn: T, deletedOn: T })], D)).toBe(false);
   });
 });
 

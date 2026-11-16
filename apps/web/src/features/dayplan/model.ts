@@ -164,3 +164,13 @@ export const pickCaption = (p: PickCard, today: ISODate): string => {
   return `From ${dayWord(x.bucket === 'later' && x.due ? x.due : x.createdOn, today)}`;
 };
 
+/**
+ * Whether anything open waits on another day than `date` (Later, Someday, and on a day ahead today's list and the days
+ * between): the empty line then never says nothing is waiting. `cards`: what is on the day.
+ */
+export const waitingOn = (todos: Todo[] | undefined, date: ISODate, today: ISODate, cards: readonly Card[]): boolean => {
+  const on = new Set(cards.flatMap((c) => (c.kind === 'todo' ? [c.todo.id] : [])));
+  const g = groupsOn(todos, date, today);
+  return [g[0]!, g[1]!, g[2]!].some((x) => x.items.some((t) => !t.doneOn && !on.has(t.id)));
+};
+

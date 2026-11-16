@@ -144,6 +144,14 @@ export const parseQuickAdd = (raw: string, date: ISODate, groups: readonly TodoG
   return { text: [text, ...kept].join(' '), priority, bucket, due, groupId, marks };
 };
 
+/**
+ * Where a quick-added to-do lands. A day word that was read wins: "today", "tomorrow" or "fri" typed on a day ahead's page
+ * is that day, counted from today (as its chip says). With no day read, a to-do typed on a day ahead's page (`page`) is
+ * for that day; on today's page (`page` null) it is for today.
+ */
+export const landingOf = (parsed: QuickAdd, page: ISODate | null | undefined): { bucket: TodoBucket; due: ISODate | null } =>
+  page && parsed.bucket === 'today' && !parsed.marks.some((m) => m.kind === 'when') ? { bucket: 'later', due: page } : { bucket: parsed.bucket, due: parsed.due };
+
 /** A run of the line kept as words, with the words it covered, so an edit can tell whether it is still the same run. */
 export interface PlainRun extends Span {
   text: string;

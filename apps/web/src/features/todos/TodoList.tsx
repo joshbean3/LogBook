@@ -20,6 +20,7 @@ import { colorOf, colorStyle, groupOf, ListChip } from './colors';
 import { ListSheet } from './ListSheet';
 import { PriorityFlag } from './PriorityDots';
 import { MarkChips, useQuickAddDraft } from './QuickAddChips';
+import { landingOf } from './quickAdd';
 import { popOrbs, unpopOrbs } from '../orbs/moment';
 import { TodoMark } from './TodoMark';
 import { TodoSheet } from './TodoSheet';
@@ -55,7 +56,7 @@ export const QuickAddField = ({ date, due, groupId, placeholder = 'Add a to-do',
   const { draft, setDraft, parsed, chips, keepAsWords } = useQuickAddDraft(date, groups.data);
   const addIt = () => {
     if (!parsed.text) return onClose?.();
-    const forDay = due && parsed.bucket === 'today' ? { bucket: 'later' as const, due } : { bucket: parsed.bucket, due: parsed.due };
+    const forDay = landingOf(parsed, due);
     onAdded?.();
     add.mutate({ text: parsed.text, date, priority: parsed.priority, groupId: parsed.groupId ?? groupId ?? null, ...forDay });
     setDraft('');
