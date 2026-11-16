@@ -155,6 +155,9 @@ export const useHold = (opts: HoldOpts): { handlers: HoldHandlers; cancel: () =>
     onPointerDown: (e) => {
       const opt = o.current;
       if (opt.disabled || !e.isPrimary || (e.pointerType === 'mouse' && e.button !== 0)) return;
+      // a new press: the click a hold left to swallow never came (the finger moved: a drag), and this press's is its own,
+      // on an inner button the hold ignores too
+      s.current.swallow = false;
       if (opt.ignore && e.target instanceof Element && e.target.closest(opt.ignore)) return;
       // a hold with nothing to do (no hold, no drag, no tap) arms nothing
       if (!opt.onHold && !opt.onDragStart && !opt.onPress) return;
