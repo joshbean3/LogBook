@@ -2,7 +2,7 @@ import { spring } from 'motion/react';
 import { useEffect, useLayoutEffect, useRef, useSyncExternalStore, type RefObject } from 'react';
 import { flushSync } from 'react-dom';
 import { haptics } from '@/lib/haptics';
-import { springs } from '@/lib/motion';
+import { fadeOut, reducedFade, springs } from '@/lib/motion';
 import { edgeScroll, scrollerOf, type DragPoint, type EdgeScrollOpts } from '@/lib/useDrag';
 import { swallowClickAfterHold } from '../day/HoldRing';
 import { drawnY, flipY, stopFlip } from '../morning/flip';
@@ -417,11 +417,14 @@ export const useSortDrag = (opts: SortDragOpts) => {
     const before = spots(d.root);
     before.delete(d.id);
     closing.current = { id: d.id, before, at: performance.now() };
-    const fadeOut = (el: HTMLElement) => el.animate([{ opacity: 1 }, { opacity: 0 }], { duration: o.current.reduce ? 0 : 100, fill: 'forwards' });
-    const fades = d.ghost ? [] : movers(d.row).map(fadeOut);
+    // the fade-out value (Reduce Motion: the reduced fade), as a compositor animation that holds its last frame
+    const t = (o.current.reduce ? reducedFade : fadeOut) as { duration?: number; ease?: string | readonly number[] };
+    const easing = Array.isArray(t.ease) ? `cubic-bezier(${t.ease.join(', ')})` : 'linear';
+    const fade = (el: HTMLElement) => el.animate([{ opacity: 1 }, { opacity: 0 }], { duration: (t.duration ?? 0.1) * 1000, easing, fill: 'forwards' });
+    const fades = d.ghost ? [] : movers(d.row).map(fade);
     if (d.ghost) {
       const g = d.ghost;
-      fadeOut(g).onfinish = () => g.remove();
+      fade(g).onfinish = () => g.remove();
     }
     holdFor();
     // the action left the row where it was (it failed, or it was undone at once): it comes back

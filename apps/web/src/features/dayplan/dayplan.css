@@ -50,18 +50,23 @@
   }
 }
 
-/* while a to-do is dragged, the goal's title takes it as a step (when the goal is open and has room): a dashed ring says so,
-   and the finger over it fills it Cloud with a Deep Sky ring */
-.pd-title.pressable[data-drop] {
+/* while a to-do is dragged, the goal takes it as a step (when it is open and has room): a dashed ring round its title and
+   the meta line under it says so (one box round both, so it crosses no words), and the finger on it fills it Cloud in a
+   Deep Sky ring. Drawn behind the words, 12 pt in from the card's edges and 8 pt under the meta line */
+.pd-poster .po-words[data-drop]::before {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  inset: calc(var(--pad-hero) - var(--sp-2)) calc(var(--pad-hero) - var(--sp-2)) calc(-1 * var(--sp-1));
+  border: 1.5px dashed var(--deep-sky);
   border-radius: var(--r-control);
-  outline: 1.5px dashed var(--deep-sky);
-  outline-offset: var(--sp-2);
+  pointer-events: none;
 }
-.pd-title.pressable[data-drop='over'] {
-  outline-color: transparent;
-  box-shadow:
-    0 0 0 var(--sp-2) var(--cloud),
-    0 0 0 calc(var(--sp-2) + 2px) var(--deep-sky);
+.pd-poster.is-slim .po-words[data-drop]::before {
+  bottom: calc(-1 * var(--sp-2));
+}
+.pd-poster .po-words[data-drop='over']::before {
+  border: 2px solid var(--deep-sky);
   background: var(--cloud);
 }
 
@@ -132,32 +137,39 @@
   min-height: var(--hit);
   padding: 0 var(--sp-5);
   border-radius: var(--r-pill);
-  /* floating chrome (guide 5.3): Paper with the float shadow */
+  /* a dock at rest is a place, not an action: Night Ink words on Paper with the float shadow (guide 5.3), Delete too */
   background: var(--surface);
   box-shadow: var(--shadow-float);
   color: var(--ink);
-  font: 600 var(--fs-sub) / var(--lh-sub) var(--sans);
+  font: 500 var(--fs-sub) / var(--lh-sub) var(--sans);
   white-space: nowrap;
   transition:
-    transform var(--dur-fast) var(--ease-out),
     background-color var(--dur-color) var(--ease-out),
     color var(--dur-color) var(--ease-out);
 }
+/* the finger on it: Tomorrow fills Haze in a Deep Sky edge with a Deep Sky glyph (never a second Sky fill beside "Set this
+   goal"); its word stays Night Ink, as Deep Sky at 15 pt on Haze is under 4.5:1 (guide 3.2) */
 .pd-dock.is-over {
-  transform: scale(1.08);
-  background: var(--primary);
-  color: var(--primary-ink);
+  background: var(--haze);
+  box-shadow:
+    inset 0 0 0 1.5px var(--deep-sky),
+    var(--shadow-float);
 }
+.pd-dock.is-over > svg {
+  color: var(--deep-sky);
+}
+/* Delete: White on Signal */
 .pd-dock.is-delete.is-over {
   background: var(--bad);
+  box-shadow: var(--shadow-float);
+  color: var(--white);
+}
+.pd-dock.is-delete.is-over > svg {
   color: var(--white);
 }
 @media (prefers-reduced-motion: reduce) {
   .pd-dock {
     transition: none;
-  }
-  .pd-dock.is-over {
-    transform: none;
   }
 }
 
