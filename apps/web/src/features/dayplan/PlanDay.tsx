@@ -34,11 +34,12 @@ import { ChallengeRows } from '../orbs/challenge/ChallengeRows';
 import { groupOf } from '../todos/colors';
 import { groupsOn } from '../todos/groups';
 import { MarkChips, useQuickAddDraft } from '../todos/QuickAddChips';
+import { landingOf } from '../todos/quickAdd';
 import { dockMotion, movedWords, takesStep, withRest, zoneAt, type DropTarget, type DropZone } from '../todos/sort';
 import { goneOn, toChip, TodoListSheet, useTodoActions } from '../todos/TodoList';
 import { TodoSheet } from '../todos/TodoSheet';
 import { makeStore, useSortDrag, useSortOrder, useStore, type SortStore, type Store } from '../todos/useSortDrag';
-import { cardsFor, countWords, focusOf, isEcho, leftWords, openOnLine, pathOf, pickCaption, picksFor, type PathChange } from './model';
+import { cardsFor, countWords, focusOf, isEcho, leftWords, openOnLine, pathOf, pickCaption, picksFor, waitingOn, type PathChange } from './model';
 import './dayplan.css';
 
 /** The day after the page's day is "Tomorrow" only on today's page; on a day ahead it is that day's next day. */
@@ -471,6 +472,8 @@ export const PlanDay = memo(function PlanDay({ date, today, log, slim, yesterday
   const lit = live && editable;
   const later = isToday ? groupsOn(todos.data, date) : null;
   const more = later ? [later[1]!.items.length ? `Later ${later[1]!.items.length}` : null, later[2]!.items.length ? `Someday ${later[2]!.items.length}` : null].filter(Boolean).join(', ') : '';
+  // anything open that is not on this day (on today: Later and Someday; on a day ahead also today's list and the days between)
+  const waiting = waitingOn(todos.data, date, today, cards);
   const showAll = isToday && (!!goal || total > 0 || !!more);
   // no flag on the line: here the order is the priority (the To-dos sheet, the to-do's sheet and quick add keep it)
   const subOf = (x: Todo) => [groupOf(x, groups.data)?.name, x.note].filter(Boolean).join(' · ') || undefined;
@@ -549,7 +552,7 @@ export const PlanDay = memo(function PlanDay({ date, today, log, slim, yesterday
           <AddField date={date} today={today} onClose={() => setAdding(false)} refused={refused} onTaken={() => setRefused(null)} onRefused={onRefused} />
         </PathStop>
       ) : (
-        <PathStop key="add" id="add" state={first ? 'next' : 'add'} title="Add a to-do" subtitle={empty ? (more ? 'Nothing else in the next few days.' : 'Nothing is waiting on other days.') : undefined} onPress={() => setAdding(true)} trailing={empty && !more ? undefined : end} />
+        <PathStop key="add" id="add" state={first ? 'next' : 'add'} title="Add a to-do" subtitle={empty ? (waiting ? 'Nothing else in the next few days.' : 'Nothing is waiting on other days.') : undefined} onPress={() => setAdding(true)} trailing={empty && !waiting ? undefined : end} />
       ),
     );
   }
@@ -693,18 +696,18 @@ const AddField = ({ date, today, onClose, refused, onTaken, onRefused }: { date:
   }, [kb]);
   const commit = (close: boolean) => {
     if (parsed.text) {
-      const forDay = date !== today && parsed.bucket === 'today' ? { bucket: 'later' as const, due: date } : { bucket: parsed.bucket, due: parsed.due };
+      const forDay = landingOf(parsed, date !== today ? date : null);
       const asTyped = draft.trim();
       // a server that is slow, down or out of reach keeps the to-do and sends it later (the outbox); only a refusal for
       // good comes back here, and then the words return to the field
       add.mutateAsync({ id: newTodoId(), text: parsed.text, date: today, priority: parsed.priority, groupId: parsed.groupId ?? null, ...forDay }).catch((e: unknown) => {
         if (isWriteRejected(e)) onRefused(asTyped);
       });
-      // it did not land on this page (a day or Someday was named): say where it went
-      const elsewhere = forDay.bucket === 'someday' || (forDay.bucket === 'later' && forDay.due !== date);
+      // it did not land on this page (a day or Someday was named, or "today" on a day ahead's page): say where it went
+      const elsewhere = forDay.bucket === 'someday' || (forDay.bucket === 'later' && forDay.due !== date) || (forDay.bucket === 'today' && date !== today);
       if (elsewhere) {
-        const fold = forDay.bucket === 'someday' ? ('someday' as const) : ('later' as const);
-        toast(forDay.bucket === 'someday' ? 'Added to Someday' : !forDay.due ? 'Added to Later' : forDay.due === shiftDays(today, 1) ? 'Added for tomorrow' : `Added for ${fmtDate('short', forDay.due)}`, {
+        const fold = forDay.bucket === 'someday' ? ('someday' as const) : forDay.bucket === 'later' ? ('later' as const) : undefined;
+        toast(forDay.bucket === 'someday' ? 'Added to Someday' : forDay.bucket === 'today' ? 'Added for today' : !forDay.due ? 'Added to Later' : forDay.due === shiftDays(today, 1) ? 'Added for tomorrow' : `Added for ${fmtDate('short', forDay.due)}`, {
           label: 'View',
           fn: () => sheet.open({ title: 'To-dos', detent: 'medium', detents: ['medium', 'large'], body: <TodoListSheet date={today} open={fold} /> }),
         });

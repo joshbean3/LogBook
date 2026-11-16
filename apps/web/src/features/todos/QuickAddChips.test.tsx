@@ -1,7 +1,7 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import { chipsOf, MarkChips } from './QuickAddChips';
-import { parseQuickAdd } from './quickAdd';
+import { landingOf, parseQuickAdd } from './quickAdd';
 
 // 2026-11-16 is a Monday: "friday" is the 20th
 const D = '2026-11-16';
@@ -56,4 +56,38 @@ describe('the chips under the quick-add field', () => {
     // nothing read: no row at all
     expect(renderToStaticMarkup(<MarkChips id="c" chips={[]} parsed={parseQuickAdd('Call mom', D)} groups={groups} onKeep={() => undefined} />)).toBe('');
   });
+  it('the chip tells the truth on a day ahead’s page: a read day word wins over the page’s day', () => {
+    // today is Monday the 16th; the page shows Thursday the 19th
+    const page = '2026-11-19';
+    const land = (line: string) => {
+      const parsed = parseQuickAdd(line, D, groups);
+      return { chip: chipsOf(parsed, D, groups)[0]?.words ?? null, ...landingOf(parsed, page) };
+    };
+    expect(land('Call mom today')).toEqual({ chip: 'Today', bucket: 'today', due: null });
+    expect(land('Call mom for today')).toEqual({ chip: 'Today', bucket: 'today', due: null });
+    expect(land('Call mom tomorrow')).toEqual({ chip: 'Tomorrow', bucket: 'later', due: '2026-11-17' });
+    expect(land('Call mom tmrw')).toEqual({ chip: 'Tomorrow', bucket: 'later', due: '2026-11-17' });
+    expect(land('Call mom later')).toEqual({ chip: 'Tomorrow', bucket: 'later', due: '2026-11-17' });
+    expect(land('Call mom someday')).toEqual({ chip: 'Someday', bucket: 'someday', due: null });
+    const days: [string, string, string][] = [
+      ['mon', 'Mon, Nov 23', '2026-11-23'],
+      ['tue', 'Tomorrow', '2026-11-17'],
+      ['wed', 'Wed, Nov 18', '2026-11-18'],
+      ['thursday', 'Thu, Nov 19', '2026-11-19'],
+      ['fri', 'Fri, Nov 20', '2026-11-20'],
+      ['sat', 'Sat, Nov 21', '2026-11-21'],
+      ['sunday', 'Sun, Nov 22', '2026-11-22'],
+    ];
+    for (const [word, chip, due] of days) expect(land(`Call mom on ${word}`)).toEqual({ chip, bucket: 'later', due });
+    // no day read: no chip, and it is for the page's day
+    expect(land('Call mom')).toEqual({ chip: null, bucket: 'later', due: page });
+    expect(land('Call mom !!')).toEqual({ chip: 'P2', bucket: 'later', due: page });
+    // "today" kept as words is not read: it is for the page's day again
+    const line = 'Call mom today';
+    const kept = parseQuickAdd(line, D, groups, [{ start: 9, end: 14 }]);
+    expect(landingOf(kept, page)).toEqual({ bucket: 'later', due: page });
+    // on today's own page nothing changes
+    expect(landingOf(parseQuickAdd('Call mom', D), null)).toEqual({ bucket: 'today', due: null });
+  });
 });
+
