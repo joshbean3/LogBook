@@ -508,6 +508,35 @@
   background: var(--line);
   pointer-events: none;
 }
+/* ---------- a row sorted by hand (useSortDrag): it rides over the others, Cloud with a hairline ---------- */
+/* while one is up the card lets it show past its corners (scaled by the hold's lift); its first and last rows keep the
+   card's corners themselves */
+.tgroup[data-sorting] {
+  overflow: visible;
+}
+.tgroup[data-sorting] > :first-child > .swipe-row {
+  border-top-left-radius: var(--r-card);
+  border-top-right-radius: var(--r-card);
+}
+.tgroup[data-sorting] > :last-child > .swipe-row {
+  border-bottom-left-radius: var(--r-card);
+  border-bottom-right-radius: var(--r-card);
+}
+.tgroup > [data-lifted] {
+  z-index: 3;
+}
+.tgroup > [data-lifted]::before,
+.tgroup > [data-lifted] + *::before {
+  opacity: 0;
+}
+.tgroup > [data-lifted] > .swipe-row {
+  border-radius: var(--r-control);
+}
+.tgroup > [data-lifted] .swipe-content {
+  border-radius: var(--r-control);
+  background: var(--surface-2);
+  box-shadow: inset 0 0 0 1px var(--line-strong);
+}
 /* where a long group's next rows are added from (see SheetGroup): it holds the height of a row, no hairline */
 .tgroup > .tgroup-more {
   height: 52px;

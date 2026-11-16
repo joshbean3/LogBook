@@ -2,18 +2,20 @@ import { fmtDate, shiftDays, type ISODate, type Todo, type TodoGroup } from '@lo
 import { ArrowRight, Check, ChevronDown, ChevronRight, Moon, Plus, RotateCcw, Sun, Trash2 } from 'lucide-react';
 import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react';
 import { clientKey, useTodoGroups, useTodoMutations, useTodos } from '@/api/queries';
+import { useNav } from '@/app/NavController';
 import { FOLD_MS } from '@/lib/gesture';
 import { haptics } from '@/lib/haptics';
 import { revealField } from '@/lib/keyboard';
+import { useReduced } from '@/lib/motion';
 import { useToday } from '@/lib/useToday';
 import { SkeletonRows } from '@/ui/Skeleton';
 import { Segmented } from '@/ui/primitives';
 import { Pressable } from '@/ui/Pressable';
 import { useSheet } from '@/ui/Sheet';
-import { SwipeRow } from '@/ui/SwipeRow';
+import { SwipeRow, type SwipeDrag } from '@/ui/SwipeRow';
 import { useToast } from '@/ui/Toast';
 import { useFlip } from './flip';
-import { byPriority, groupsOn, inToday, liveOn, stepWithin, todayOpenOn, type TodoGroupSpec } from './groups';
+import { byPriority, groupsOn, inToday, liveOn, moveWithin, stepWithin, todayOpenOn, type TodoGroupSpec } from './groups';
 import { colorOf, colorStyle, groupOf, ListChip } from './colors';
 import { ListSheet } from './ListSheet';
 import { PRIORITY_SHORT, PriorityFlag } from './PriorityDots';
@@ -21,6 +23,8 @@ import { parseQuickAdd, type QuickAdd } from './quickAdd';
 import { popOrbs, unpopOrbs } from '../orbs/moment';
 import { TodoMark } from './TodoMark';
 import { TodoSheet } from './TodoSheet';
+import { inOrder, movedWords } from './sort';
+import { useSortDrag, useSortOrder } from './useSortDrag';
 import './todos.css';
 
 export { inToday, liveOn, todayOpenOn };
@@ -128,7 +132,7 @@ export const useTodoActions = (date: ISODate) => {
 };
 
 // ---------- the sheet's rows: SwipeRow v2 (sheets may swipe; Today may not, M9) ----------
-const SheetRow = ({ x, date, done, onEdit, onStep, fold, hideList }: { x: Todo; date: ISODate; done: boolean; onEdit: () => void; onStep: (dir: -1 | 1) => void; fold: (x: Todo) => void; hideList?: boolean }) => {
+const SheetRow = ({ x, date, done, onEdit, onStep, fold, hideList, drag }: { x: Todo; date: ISODate; done: boolean; onEdit: () => void; onStep: (dir: -1 | 1) => void; fold: (x: Todo) => void; hideList?: boolean; drag?: SwipeDrag }) => {
   const act = useTodoActions(date);
   const today = useToday();
   const [checked, setChecked] = useState(false);
@@ -156,7 +160,7 @@ const SheetRow = ({ x, date, done, onEdit, onStep, fold, hideList }: { x: Todo; 
   const left = done ? undefined : isToday ? { label: 'Tomorrow', icon: <ArrowRight size={20} />, tone: 'warn' as const, onCommit: () => act.later(x) } : { label: 'Today', icon: <Sun size={20} />, tone: 'neutral' as const, onCommit: () => act.today(x) };
   const extra = done ? [] : isToday ? [{ label: 'Someday', icon: <Moon size={18} />, onSelect: () => act.someday(x) }] : [];
   return (
-    <SwipeRow right={right} left={left} menuItems={[...extra, { label: 'Delete', icon: <Trash2 size={18} />, destructive: true, onSelect: () => act.remove(x) }]} label={x.text} className="tdl-swipe">
+    <SwipeRow right={right} left={left} menuItems={[...extra, { label: 'Delete', icon: <Trash2 size={18} />, destructive: true, onSelect: () => act.remove(x) }]} label={x.text} className="tdl-swipe" drag={drag}>
       <div className={`tdl-row ${on ? 'is-done' : ''} ${tint ? 'has-tc' : ''}`} style={colorStyle(tint)}>
         <TodoMark
           on={on}
@@ -206,11 +210,17 @@ const SheetRow = ({ x, date, done, onEdit, onStep, fold, hideList }: { x: Todo; 
 /** How many rows a group draws at first (more than a full-height sheet shows), and adds each time its end comes near: a list of hundreds opens as fast as one of ten. */
 const ROWS_STEP = 20;
 
-/** One group of the sheet: its rows FLIP when a checked row folds out of it. */
+/**
+ * One group of the sheet: its rows FLIP when a checked row folds out of it. An open row is sorted by hand within its group:
+ * hold it and move (`useSortDrag`); landing among rows of another priority or day, it takes theirs (`moveWithin`), as Move
+ * up and Move down in its sheet do (they stay the way to reorder without a drag).
+ */
 const SheetGroup = ({ g, date, done, onEdit, hideList }: { g: TodoGroupSpec; date: ISODate; done?: boolean; onEdit: (x: Todo) => void; hideList?: boolean }) => {
   const act = useTodoActions(date);
   const { reorder, patch } = useTodoMutations();
   const ref = useRef<HTMLDivElement>(null);
+  const reduce = useReduced();
+  const nav = useNav();
   // a long group draws its first rows; the rest come as the sheet is scrolled toward them
   const [limit, setLimit] = useState(ROWS_STEP);
   const more = useRef<HTMLDivElement>(null);
@@ -223,7 +233,22 @@ const SheetGroup = ({ g, date, done, onEdit, hideList }: { g: TodoGroupSpec; dat
     io.observe(el);
     return () => io.disconnect();
   }, [hasMore, limit]);
-  const rows = hasMore ? g.items.slice(0, limit) : g.items;
+  const drawn = hasMore ? g.items.slice(0, limit) : g.items;
+  // a sheet opening over this one (a row's editor pushed by a stray tap) calls a drag off
+  const overlays = useRef(0);
+  const [said, setSaid] = useState('');
+  const cancelHold = useRef<(() => void) | null>(null);
+  const sort = useSortDrag({
+    root: ref,
+    rows: (root) => Array.from(root.querySelectorAll<HTMLElement>(':scope > [data-sort]')),
+    idOf: (el) => el.dataset.sort ?? '',
+    ids: drawn.map((x) => x.id),
+    reduce,
+    clamp: true,
+    cancelWhen: () => nav.getState().overlays > overlays.current,
+    onAbort: () => cancelHold.current?.(),
+  });
+  const rows = inOrder(drawn, (x) => x.id, useSortOrder(sort.store));
   const sig = rows.map((x) => clientKey(x.id)).join('|');
   // a checked row folding out of the group moves the rows below it by FLIP (a swipe's commit has SwipeRow's own)
   const flip = useFlip(ref, sig);
@@ -237,15 +262,43 @@ const SheetGroup = ({ g, date, done, onEdit, hideList }: { g: TodoGroupSpec; dat
     reorder.mutate(r.order);
     if (r.fix) patch.mutate({ id: x.id, ...r.fix });
   };
+  /** Let go: the order is saved, and the row takes the priority or day of where it landed. */
+  const land = (x: Todo) => {
+    const r = sort.drop();
+    if (!r) return;
+    const m = moveWithin(g.items, x.id, r.index, g.tier);
+    if (!m) return;
+    reorder.mutate(m.order);
+    if (m.fix) patch.mutate({ id: x.id, ...m.fix });
+    setSaid(movedWords(r.index, g.items.length));
+  };
+  const dragOf = (x: Todo): SwipeDrag | undefined =>
+    done || g.items.length < 2
+      ? undefined
+      : {
+          onStart: (p) => {
+            overlays.current = nav.getState().overlays;
+            setSaid('');
+            sort.start(x.id, p);
+          },
+          onMove: (p) => sort.move(p),
+          onEnd: (_p, _e, cancelled) => (cancelled ? sort.cancel() : land(x)),
+          cancel: cancelHold,
+        };
   return (
-    <div ref={ref} className="tgroup">
-      {rows.map((x) => (
-        <div key={clientKey(x.id)} data-flip="">
-          <SheetRow x={x} date={date} done={!!done} onEdit={() => onEdit(x)} onStep={(d) => step(x, d)} fold={fold} hideList={hideList} />
-        </div>
-      ))}
-      {hasMore ? <div ref={more} className="tgroup-more" aria-hidden="true" /> : null}
-    </div>
+    <>
+      <div ref={ref} className="tgroup">
+        {rows.map((x) => (
+          <div key={clientKey(x.id)} data-flip="" data-sort={x.id}>
+            <SheetRow x={x} date={date} done={!!done} onEdit={() => onEdit(x)} onStep={(d) => step(x, d)} fold={fold} hideList={hideList} drag={dragOf(x)} />
+          </div>
+        ))}
+        {hasMore ? <div ref={more} className="tgroup-more" aria-hidden="true" /> : null}
+      </div>
+      <span className="sr-only" aria-live="polite">
+        {said}
+      </span>
+    </>
   );
 };
 
