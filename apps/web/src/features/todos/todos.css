@@ -159,7 +159,8 @@
   flex: 0 0 100%;
   display: flex;
   flex-wrap: wrap;
-  gap: var(--sp-2);
+  /* chips that wrap (a narrow phone, large text) keep their 44 pt bands apart */
+  gap: var(--sp-3) var(--sp-2);
   min-width: 0;
   padding: var(--sp-2) 0 var(--sp-3);
 }
