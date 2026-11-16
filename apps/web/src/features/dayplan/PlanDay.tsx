@@ -1,6 +1,7 @@
 import { fmtDate, GOAL_STEPS_MAX, label as sessionLabel, shiftDays, type Aim, type ISODate, type Todo } from '@logbook/shared';
 import { useQueryClient } from '@tanstack/react-query';
 import { ArrowRight, ArrowUp, Check, ChevronRight, CloudOff, Moon, RotateCcw, Target, Trash2 } from 'lucide-react';
+import { BrandIcon } from '@/ui/icons';
 import { motion } from 'motion/react';
 import { memo, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
@@ -10,7 +11,7 @@ import { newTodoId, useGoalMutations, useGoals, useTodoGroups, useTodoMutations,
 import { useNav } from '@/app/NavController';
 import { haptics } from '@/lib/haptics';
 import { revealField, useKeyboardOpen } from '@/lib/keyboard';
-import { useReduced } from '@/lib/motion';
+import { springs, useReduced } from '@/lib/motion';
 import { scrollerOf, useHoldDrag } from '@/lib/useDrag';
 import { useContextMenu, type ContextMenuItem } from '@/ui/ContextMenu';
 import { SectionHeader } from '@/ui/layout';
@@ -50,6 +51,8 @@ const CHECK_BEAT_MS = 320;
 const EVENING = 17 * 60;
 /** How far inside the sticky bar and strip a dragged to-do starts the page scrolling up (down: a third of it, above the dock). */
 const EDGE_BAND = 56;
+/** A dock grows this much while the finger is on it. */
+const DOCK_GROW = 1.08;
 /** A dock or the goal takes a dragged to-do a little outside its own box. */
 const DOCK_PAD = 6;
 
@@ -249,11 +252,12 @@ export const PlanDay = memo(function PlanDay({ date, today, log, slim, yesterday
   const overRef = useRef<DropTarget | null>(null);
   const [said, setSaid] = useState('');
   const pathRef = useRef<HTMLDivElement>(null);
-  const titleEl = () => pathRef.current?.closest('.pd')?.querySelector<HTMLElement>('.pd-title') ?? null;
+  // the goal's words on the sky: its title and the meta line under it, one target (its ring goes round both, crossing no words)
+  const titleEl = () => pathRef.current?.closest('.pd')?.querySelector<HTMLElement>('.pd-title')?.closest<HTMLElement>('.po-words') ?? null;
   const showUi = (id: string | null, over: DropTarget | null) => {
     overRef.current = over;
     ui.set(id === ui.get().id && over === ui.get().over ? ui.get() : { id, over });
-    // the goal's title says it will take the to-do, and lights when the finger is on it
+    // the goal's words say they will take the to-do, and light when the finger is on them
     const t = titleEl();
     if (t) {
       if (id && takesStep(goal)) t.dataset.drop = over === 'goal' ? 'over' : 'ready';
@@ -632,12 +636,13 @@ const Docks = ({ ui, next, reduce }: { ui: Store<DragUi>; next: string; reduce: 
   if (!id) return null;
   return createPortal(
     <motion.div className="pd-docks" aria-hidden="true" {...dockMotion(reduce)}>
-      <span className={`pd-dock${over === 'tomorrow' ? ' is-over' : ''}`} data-pd-dock="tomorrow">
+      {/* the dock under the finger grows to 1.08 on springs.settle (Reduce Motion: it only fills) */}
+      <motion.span className={`pd-dock${over === 'tomorrow' ? ' is-over' : ''}`} data-pd-dock="tomorrow" animate={{ scale: over === 'tomorrow' && !reduce ? DOCK_GROW : 1 }} transition={springs.settle}>
         <ArrowRight size={18} aria-hidden="true" /> {next}
-      </span>
-      <span className={`pd-dock is-delete${over === 'delete' ? ' is-over' : ''}`} data-pd-dock="delete">
-        <Trash2 size={18} aria-hidden="true" /> Delete
-      </span>
+      </motion.span>
+      <motion.span className={`pd-dock is-delete${over === 'delete' ? ' is-over' : ''}`} data-pd-dock="delete" animate={{ scale: over === 'delete' && !reduce ? DOCK_GROW : 1 }} transition={springs.settle}>
+        <BrandIcon name="trash" size={18} /> Delete
+      </motion.span>
     </motion.div>,
     document.body,
   );
