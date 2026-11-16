@@ -1,10 +1,10 @@
 import type { Transition } from 'motion/react';
 import { useCallback, useEffect, useRef, useState, type RefObject } from 'react';
-import { useHold } from '@/ui/useHold';
+import { useHold, type HoldInfo } from '@/ui/useHold';
 import { HOLD_MS } from './gesture';
 
 /**
- * Press-and-hold drags for the things that move: a habit orb, a session row, a block on the morning timeline.
+ * Press-and-hold drags for the things that move: a habit orb, a session row, a block on the morning timeline, a to-do.
  *
  * The grammar is the same everywhere (brand §9.5; it keeps rules 1 and 4: nothing moves on load, nothing runs long or
  * ambient): the pointer rests for the one hold clock (`useHold`, HOLD_MS 450; `holdMs: 0` arms a dedicated handle on the
@@ -46,11 +46,66 @@ interface HoldDragOpts {
   onCancel?: (phase: DragPhase, reason: CancelReason) => void;
   /** scroll the page when a drag nears the top or bottom edge */
   autoScroll?: boolean;
+  /**
+   * true: the hold's own look (the pre-grow at 300 ms, the lift in place at 450 with its `lift` haptic), for a thing whose
+   * still hold opens a menu (a to-do): the menu and the drag share the one clock. Default false: the caller draws its lift.
+   */
+  visual?: boolean;
+  /** with `visual`: the element that pre-grows and lifts (default: the element the handlers are on) */
+  target?: () => HTMLElement | null;
+  /** pointers that start inside this selector are not held (an inner button, a field) */
+  ignore?: string;
+  /** right-click, Shift+F10 or the ContextMenu key: the menu at once, with no drag to follow (the keyboard's way in) */
+  onKeyHold?: (info: HoldInfo) => void;
 }
 
 const EDGE = 72;
 const MAX_STEP = 16;
 const dist = (ax: number, ay: number, bx: number, by: number) => Math.hypot(ax - bx, ay - by);
+
+/** The scroller a dragged thing scrolls: its sheet, its pushed page or its tab, never the document. */
+export const scrollerOf = (el: Element | null | undefined): HTMLElement | null => el?.closest<HTMLElement>('.sheet-body, .pushed, .tab-scroll') ?? null;
+
+export interface EdgeScrollOpts {
+  scroller: HTMLElement | null;
+  /** where the finger is now (clientY) */
+  y: () => number;
+  /**
+   * the band the finger may rest in without scrolling: above `top` the page scrolls up, below `bottom` down, faster the
+   * further in. `box` is the scroller's part of the screen; `y` the finger. Default: the box, 72 pt in from each edge.
+   * null: no scrolling right now (the finger is over a dock).
+   */
+  edges?: (box: { top: number; bottom: number }, y: number) => { top: number; bottom: number } | null;
+  /** the page moved under the finger: re-measure what is under it */
+  onScroll: () => void;
+}
+
+/**
+ * Scroll while a dragged thing sits near the top or bottom edge, one rAF step at a time (at most 16 pt a frame). Returns
+ * the stop. Shared by `useHoldDrag` and the lists that sort by hand.
+ */
+export const edgeScroll = ({ scroller, y, edges, onScroll }: EdgeScrollOpts): (() => void) => {
+  let raf = 0;
+  const tick = () => {
+    const box = scroller?.getBoundingClientRect();
+    // a sheet resting at its medium detent reaches below the screen: the screen's edge is the edge
+    const top = Math.max(box?.top ?? 0, 0);
+    const bottom = Math.min(box?.bottom ?? window.innerHeight, window.innerHeight);
+    const at = y();
+    const band = edges ? edges({ top, bottom }, at) : { top: top + EDGE, bottom: bottom - EDGE };
+    let dy = 0;
+    if (band && at < band.top) dy = -Math.min(MAX_STEP, Math.ceil(((band.top - at) / EDGE) * MAX_STEP));
+    else if (band && at > band.bottom) dy = Math.min(MAX_STEP, Math.ceil(((at - band.bottom) / EDGE) * MAX_STEP));
+    if (dy && scroller) {
+      const before = scroller.scrollTop;
+      scroller.scrollTop += dy;
+      if (scroller.scrollTop !== before) onScroll();
+    }
+    raf = requestAnimationFrame(tick);
+  };
+  raf = requestAnimationFrame(tick);
+  return () => cancelAnimationFrame(raf);
+};
 
 export const useHoldDrag = <E extends HTMLElement = HTMLElement>(opts: HoldDragOpts) => {
   const ref = useRef<E | null>(null);
@@ -64,7 +119,6 @@ export const useHoldDrag = <E extends HTMLElement = HTMLElement>(opts: HoldDragO
     y0: 0,
     x: 0,
     y: 0,
-    raf: 0,
     dragged: false,
     down: null as PointerEvent | null,
     off: null as null | (() => void),
@@ -77,8 +131,6 @@ export const useHoldDrag = <E extends HTMLElement = HTMLElement>(opts: HoldDragO
 
   const reset = useCallback(() => {
     const st = s.current;
-    if (st.raf) cancelAnimationFrame(st.raf);
-    st.raf = 0;
     st.off?.();
     st.off = null;
     st.id = -1;
@@ -88,32 +140,24 @@ export const useHoldDrag = <E extends HTMLElement = HTMLElement>(opts: HoldDragO
   /** Nudge the page while the finger sits near an edge, and keep the drop target honest while it moves. */
   const scrollLoop = (last: PointerEvent) => {
     const st = s.current;
-    // the page scrolls inside its own scroller (a tab, a pushed page, a sheet), never the document
-    const scroller = ref.current?.closest<HTMLElement>('.sheet-body, .pushed, .tab-scroll') ?? null;
-    const tick = () => {
-      if (st.phase !== 'dragging') return;
-      const box = scroller?.getBoundingClientRect();
-      const top = box?.top ?? 0;
-      const bottom = box?.bottom ?? window.innerHeight;
-      let dy = 0;
-      if (st.y < top + EDGE) dy = -Math.ceil(((top + EDGE - st.y) / EDGE) * MAX_STEP);
-      else if (st.y > bottom - EDGE) dy = Math.ceil(((st.y - (bottom - EDGE)) / EDGE) * MAX_STEP);
-      if (dy && scroller) {
-        const before = scroller.scrollTop;
-        scroller.scrollTop += dy;
-        if (scroller.scrollTop !== before) o.current.onMove?.({ x: st.x, y: st.y, dx: st.x - st.x0, dy: st.y - st.y0 }, last);
-      }
-      st.raf = requestAnimationFrame(tick);
+    const stop = edgeScroll({ scroller: scrollerOf(ref.current), y: () => st.y, onScroll: () => o.current.onMove?.({ x: st.x, y: st.y, dx: st.x - st.x0, dy: st.y - st.y0 }, last) });
+    const prev = st.off;
+    st.off = () => {
+      prev?.();
+      stop();
     };
-    st.raf = requestAnimationFrame(tick);
   };
 
   // the hold half is the one clock (ui/useHold: HOLD_MS, the slop, the drag start, the touchmove held off for the drag only)
   const hold = useHold({
-    visual: false,
+    visual: opts.visual ?? false,
     disabled: opts.disabled,
-    onHold: () => {
+    ignore: opts.ignore,
+    target: opts.target ? () => o.current.target?.() ?? null : undefined,
+    onHold: (info) => {
       const st = s.current;
+      // a right-click or a key: the menu, and nothing to drag after it
+      if (hold.state.current !== 'held') return o.current.onKeyHold?.(info);
       go('armed');
       if (st.down) o.current.onArm?.(st.down);
     },
@@ -233,7 +277,12 @@ export const useHoldDrag = <E extends HTMLElement = HTMLElement>(opts: HoldDragO
     onPointerCancel: () => {
       if (s.current.phase === 'pending') go('idle');
     },
-    onContextMenu: (e: React.MouseEvent) => e.preventDefault(),
+    onContextMenu: (e: React.MouseEvent) => (o.current.onKeyHold ? hold.handlers.onContextMenu(e as React.MouseEvent<HTMLElement>) : e.preventDefault()),
+    onKeyDown: (e: React.KeyboardEvent) => {
+      if (o.current.onKeyHold) hold.handlers.onKeyDown(e as React.KeyboardEvent<HTMLElement>);
+    },
+    /** swallows the click that follows a hold (a menu or a drag) */
+    onClickCapture: (e: React.MouseEvent) => hold.handlers.onClickCapture(e as React.MouseEvent<HTMLElement>),
   };
 
   /** True once after a drag, for the click that follows a release. */

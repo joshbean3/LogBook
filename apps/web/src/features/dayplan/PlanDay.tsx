@@ -1,13 +1,17 @@
 import { fmtDate, GOAL_STEPS_MAX, label as sessionLabel, shiftDays, type Aim, type ISODate, type Todo } from '@logbook/shared';
 import { useQueryClient } from '@tanstack/react-query';
 import { ArrowRight, ArrowUp, Check, ChevronRight, CloudOff, Moon, RotateCcw, Target, Trash2 } from 'lucide-react';
+import { motion } from 'motion/react';
 import { memo, useEffect, useId, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { isWriteRejected } from '@/api/outbox';
 import { SectionBoundary } from '@/app/ErrorBoundary';
 import { newTodoId, useGoalMutations, useGoals, useTodoGroups, useTodoMutations, useTodos } from '@/api/queries';
+import { useNav } from '@/app/NavController';
 import { haptics } from '@/lib/haptics';
 import { revealField, useKeyboardOpen } from '@/lib/keyboard';
 import { useReduced } from '@/lib/motion';
+import { scrollerOf, useHoldDrag } from '@/lib/useDrag';
 import { useContextMenu, type ContextMenuItem } from '@/ui/ContextMenu';
 import { SectionHeader } from '@/ui/layout';
 import { PathCheck, PathLine, PathStop, Poster, PosterScene, type PosterBand } from '@/ui/poster';
@@ -15,7 +19,6 @@ import { Button, SectionEmpty } from '@/ui/primitives';
 import { Pressable } from '@/ui/Pressable';
 import { useSheet } from '@/ui/Sheet';
 import { useToast } from '@/ui/Toast';
-import { useHold } from '@/ui/useHold';
 import { useIsLive } from '../day/live';
 import { useFaceMinutes } from '../day/useDeferred';
 import { celebrateOnce } from '../goals/game';
@@ -31,18 +34,24 @@ import { groupOf } from '../todos/colors';
 import { groupsOn } from '../todos/groups';
 import { PriorityFlag } from '../todos/PriorityDots';
 import { parseQuickAdd } from '../todos/quickAdd';
+import { dockMotion, movedWords, takesStep, withRest, zoneAt, type DropTarget, type DropZone } from '../todos/sort';
 import { goneOn, TodoListSheet, understoodOf, useTodoActions } from '../todos/TodoList';
 import { TodoSheet } from '../todos/TodoSheet';
-import { cardsFor, countWords, focusOf, isEcho, leftWords, pathOf, type PathChange } from './model';
+import { makeStore, useSortDrag, useSortOrder, useStore, type SortStore, type Store } from '../todos/useSortDrag';
+import { cardsFor, countWords, focusOf, isEcho, leftWords, openOnLine, pathOf, type PathChange } from './model';
 import './dayplan.css';
 
 /** The day after the page's day is "Tomorrow" only on today's page; on a day ahead it is that day's next day. */
-const nextDayWord = (date: ISODate, today: ISODate) => (date === today ? 'Tomorrow' : 'Next day');
+export const nextDayWord = (date: ISODate, today: ISODate) => (date === today ? 'Tomorrow' : 'Next day');
 
 /** How long a ticked to-do shows its filled check where it is before the light moves on. */
 const CHECK_BEAT_MS = 320;
 /** From here on the poster offers tomorrow's goal (the evening). */
 const EVENING = 17 * 60;
+/** How far inside the sticky bar and strip a dragged to-do starts the page scrolling up (down: a third of it, above the dock). */
+const EDGE_BAND = 56;
+/** A dock or the goal takes a dragged to-do a little outside its own box. */
+const DOCK_PAD = 6;
 
 /** Today's session in a few words, for the idea: "Bike 40 min", "Easy 3". None, rest, or already marked: null. */
 const sessionWords = (log: Log, date: ISODate): string | null => {
@@ -52,6 +61,12 @@ const sessionWords = (log: Log, date: ISODate): string | null => {
   const base = sessionLabel(s);
   return s.kind !== 'run' && s.minutes ? `${base} ${s.minutes} min` : base;
 };
+
+/** What is dragged on the line (a to-do's id) and what it is over besides the line. */
+interface DragUi {
+  id: string | null;
+  over: DropTarget | null;
+}
 
 /** A stop's id on the path: the to-do's own, marked so the hold knows which stops are to-dos. */
 const stopId = (x: Todo) => `t:${x.id}`;
@@ -65,7 +80,11 @@ const stopId = (x: Todo) => `t:${x.id}`;
  *
  * The first three open to-dos are on the surface; the rest wait behind "All to-dos". A tap on a to-do opens its editor
  * (name, note, flag, list, when, its place in the order); a hold opens its menu (Done, Make it next, Tomorrow, Someday,
- * Make it a step, Delete). `slim`: the poster sits under the training card (Fitness on), so it draws no second sun.
+ * Make it a step, Delete). A move after the hold closes the menu and the to-do follows the finger along the line: the
+ * others make room, the line redraws for the new order (the first open one is "Next") and on release it takes its place
+ * (`useSortDrag`). Dropped on the goal's title it becomes a step; on the "Tomorrow" or "Delete" dock that rises at the top
+ * of the screen it moves or goes. Done stops stay where they are. `slim`: the poster sits under the training card
+ * (Fitness on), so it draws no second sun.
  */
 export const PlanDay = memo(function PlanDay({ date, today, log, slim, yesterday }: { date: ISODate; today: ISODate; log: Log; slim: boolean; yesterday?: React.ReactNode }) {
   const todos = useTodos();
@@ -188,9 +207,10 @@ export const PlanDay = memo(function PlanDay({ date, today, log, slim, yesterday
     reorder.mutate([x.id, ...openOnes.filter((t) => t.id !== x.id).map((t) => t.id)]);
   };
   /** A to-do becomes a step of the day's goal (it leaves the list), with Undo. */
-  const makeStep = (x: Todo, g: Aim) => {
+  const makeStep = (x: Todo, g: Aim, dropped = false) => {
     const prev = g.steps;
-    haptics.drop();
+    // dropped on the goal: the landing's own haptic was the drag's (`select`)
+    if (!dropped) haptics.drop();
     saveSteps(g, [...g.steps, { id: newStepId(), text: x.text.slice(0, 120), done: !!x.doneOn }]);
     patch.mutate({ id: x.id, deletedOn: goneOn(date, today) });
     toast(isToday ? 'Now a step of today’s goal' : 'Now a step of that day’s goal', {
@@ -217,22 +237,156 @@ export const PlanDay = memo(function PlanDay({ date, today, log, slim, yesterday
     ];
   };
 
-  // the hold: one clock for the whole line (the kit's stops take no hold of their own). The stop under the finger lifts
-  // and its menu opens; the click that follows a hold is swallowed.
+  // the order of the open to-dos on the surface: the data's, or a drag's while one is on (and a drop's until the data has it)
+  const openIds = path.open.flatMap((c) => (c.kind === 'todo' ? [c.todo.id] : []));
+  const nav = useNav();
+  const overlays = useRef(0);
+  // what is dragged and what it is over: read by the docks and written on the goal's title, never by the page (a drag
+  // redraws the line and the docks, nothing else)
+  const dragUi = useRef<Store<DragUi> | null>(null);
+  dragUi.current ??= makeStore<DragUi>({ id: null, over: null });
+  const ui = dragUi.current;
+  const overRef = useRef<DropTarget | null>(null);
+  const [said, setSaid] = useState('');
+  const pathRef = useRef<HTMLDivElement>(null);
+  const titleEl = () => pathRef.current?.closest('.pd')?.querySelector<HTMLElement>('.pd-title') ?? null;
+  const showUi = (id: string | null, over: DropTarget | null) => {
+    overRef.current = over;
+    ui.set(id === ui.get().id && over === ui.get().over ? ui.get() : { id, over });
+    // the goal's title says it will take the to-do, and lights when the finger is on it
+    const t = titleEl();
+    if (t) {
+      if (id && takesStep(goal)) t.dataset.drop = over === 'goal' ? 'over' : 'ready';
+      else delete t.dataset.drop;
+    }
+  };
+  const aimOver = (z: DropTarget | null) => {
+    if (z !== overRef.current) showUi(ui.get().id, z);
+  };
+  /** Where a dragged to-do can land besides the line: the docks, and the goal's title while it can take a step. */
+  const zones = (): DropZone[] => {
+    const out: DropZone[] = [];
+    for (const el of document.querySelectorAll<HTMLElement>('[data-pd-dock]')) out.push({ kind: el.dataset.pdDock as DropTarget, rect: el.getBoundingClientRect() });
+    const title = takesStep(goal) ? titleEl() : null;
+    if (title) {
+      // only the part of it in view: under the sticky bar and strip it cannot be seen, so it takes nothing there
+      const r = title.getBoundingClientRect();
+      out.push({ kind: 'goal', rect: { left: r.left, right: r.right, bottom: r.bottom, top: Math.max(r.top, chromeBottom(0)) } });
+    }
+    return out;
+  };
+  /** The bottom of the sticky bar and strip over the page (`floor` when they are not there). */
+  const chromeBottom = (floor: number) => {
+    let top = floor;
+    for (const el of scrollerOf(pathRef.current)?.querySelectorAll<HTMLElement>('.nb-bar, .nb-strip') ?? []) top = Math.max(top, el.getBoundingClientRect().bottom);
+    return top;
+  };
+  const sort = useSortDrag({
+    root: pathRef,
+    rows: (root) => Array.from(root.querySelectorAll<HTMLElement>('.pth-stop[data-stop^="t:"]:not(.is-done)')),
+    idOf: (el) => (el.dataset.stop ?? '').slice(2),
+    ids: openIds,
+    reduce,
+    // the page scrolls itself while the finger is held under the sticky bar and strip (or over them), or near the dock; never
+    // while it is over a dock or the goal, so a target that scrolled into view stays under the finger
+    edges: (box) => {
+      if (overRef.current) return null;
+      const top = chromeBottom(box.top);
+      const dock = document.querySelector<HTMLElement>('.dock');
+      const bottom = Math.min(box.bottom, dock ? dock.getBoundingClientRect().top : box.bottom);
+      return { top: top + EDGE_BAND, bottom: bottom - EDGE_BAND / 3 };
+    },
+    onPoint: (x, y) => {
+      const z = zoneAt(zones(), x, y, DOCK_PAD);
+      aimOver(z);
+      return !z;
+    },
+    cancelWhen: () => nav.getState().overlays > overlays.current,
+    onAbort: () => {
+      showUi(null, null);
+      drag.cancel();
+    },
+    // in the air the to-do rides over the bar and the strip (a copy at the top of the page), under the docks
+    ghost: (copy) => {
+      const wrap = document.createElement('div');
+      wrap.className = 'pd-path pd-ghost';
+      const ul = document.createElement('ul');
+      ul.className = 'pth';
+      ul.appendChild(copy);
+      wrap.appendChild(ul);
+      return wrap;
+    },
+  });
+  /** The open to-dos on the surface in the order on screen (a drag's, a drop's not yet in the data, or the data's). */
+  const openIn = (order: string[] | null) => openOnLine(path, order);
+
+  /** Let go: on a dock or the goal its action runs; on the line it takes its place and the order is saved. */
+  const land = () => {
+    const z = overRef.current;
+    const id = ui.get().id;
+    showUi(null, null);
+    const card = id ? cards.find((c) => c.kind === 'todo' && c.todo.id === id) : null;
+    const x = card?.kind === 'todo' ? card.todo : null;
+    if (z && x) {
+      if (z === 'goal' && takesStep(goal)) {
+        sort.away();
+        return makeStep(x, goal, true);
+      }
+      if (z === 'tomorrow') {
+        sort.away();
+        return act.later(x);
+      }
+      if (z === 'delete') {
+        // Delete fires its own haptic (`delete`): one per action
+        sort.away(false);
+        return act.remove(x);
+      }
+    }
+    const r = sort.drop();
+    if (!r) return;
+    const all = cards.flatMap((c) => (c.kind === 'todo' && !c.done ? [c.todo.id] : []));
+    reorder.mutate(withRest(r.order, all));
+    setSaid(movedWords(r.index, all.length));
+  };
+
+  // the hold: one clock for the whole line (the kit's stops take no hold of their own). Held still, the stop under the
+  // finger lifts and its menu opens; moved after the hold, the menu closes and an open to-do follows the finger. The click
+  // that follows a hold is swallowed.
   const held = useRef<{ el: HTMLElement; id: string } | null>(null);
-  const hold = useHold({
-    disabled: !editable && !isToday,
+  const heldCard = () => {
+    const h = held.current;
+    const card = h ? cards.find((c) => c.kind === 'todo' && stopId(c.todo) === h.id) : null;
+    return h && card?.kind === 'todo' ? { h, x: card.todo, card } : null;
+  };
+  const openMenu = () => {
+    const it = heldCard();
+    if (!it) return;
+    const next = !!goal && openIn(sort.store.get())[0] === it.card;
+    cm.open({ items: menuOf(it.x, next), anchor: it.h.el, lift: it.h.el, label: `${it.x.text} actions`, haptic: false });
+  };
+  const drag = useHoldDrag<HTMLDivElement>({
+    disabled: !editable,
+    visual: true,
     ignore: '.pth-stop:not([data-stop^="t:"]), .pth-end, input',
     target: () => held.current?.el ?? null,
-    onHold: () => {
-      const h = held.current;
-      const card = h ? cards.find((c) => c.kind === 'todo' && stopId(c.todo) === h.id) : null;
-      if (!h || !card || card.kind !== 'todo') return;
-      const x = card.todo;
-      const next = !!goal && path.open[0] === card;
-      cm.open({ items: menuOf(x, next), anchor: h.el, lift: h.el, label: `${x.text} actions`, haptic: false });
+    onArm: openMenu,
+    onKeyHold: openMenu,
+    onStart: (p) => {
+      if (cm.isOpen()) cm.close();
+      const it = heldCard();
+      // a done stop stays where it is: the move only closes its menu
+      if (!it || it.x.doneOn || checking) return drag.cancel();
+      overlays.current = nav.getState().overlays;
+      if (sort.start(it.x.id, p)) showUi(it.x.id, null);
+      else drag.cancel();
     },
-    onHoldMoved: () => cm.isOpen() && cm.close(),
+    onMove: (p) => sort.move(p),
+    onDrop: land,
+    onCancel: (phase) => {
+      if (phase !== 'dragging') return;
+      showUi(null, null);
+      sort.cancel();
+    },
   });
 
   /** Which stop the finger (or the keyboard's focus) is on: the one a hold lifts. */
@@ -341,27 +495,30 @@ export const PlanDay = memo(function PlanDay({ date, today, log, slim, yesterday
     const x = c.todo;
     stops.push(<PathStop key={x.id} id={stopId(x)} state="done" title={x.text} onPress={() => (moved('*'), act.reopen(x))} label={`Done: ${x.text}. Mark not done`} />);
   }
-  path.open.forEach((c, i) => {
-    if (c.kind !== 'todo') return;
-    const x = c.todo;
-    const ticked = checking === x.id;
-    // the first open to-do is the next move once the day has its goal; until then the light is on "Set this goal"
-    const next = i === 0 && !setGoal && lit;
-    stops.push(
-      <PathStop
-        key={x.id}
-        id={stopId(x)}
-        state={next ? 'next' : 'ahead'}
-        tag={next ? 'Next' : undefined}
-        title={todoWords(x)}
-        subtitle={subOf(x)}
-        struck={ticked}
-        onPress={() => editTodo(x)}
-        label={`${next ? 'Next: ' : ''}${x.text}${x.priority ? `, priority ${4 - x.priority}` : ''}. Edit`}
-        trailing={next ? <PathCheck checked={ticked} label={`${x.text}, done`} onPress={() => tick(x)} /> : undefined}
-      />,
-    );
-  });
+  // the open to-dos, drawn by the line itself from the order on screen, so a drag redraws the line and nothing else
+  const openStops = (order: string[] | null) =>
+    openIn(order).flatMap((c, i) => {
+      if (c.kind !== 'todo') return [];
+      const x = c.todo;
+      const ticked = checking === x.id;
+      // the first open to-do is the next move once the day has its goal; until then the light is on "Set this goal"
+      const next = i === 0 && !setGoal && lit;
+      return [
+        <PathStop
+          key={x.id}
+          id={stopId(x)}
+          state={next ? 'next' : 'ahead'}
+          tag={next ? 'Next' : undefined}
+          title={todoWords(x)}
+          subtitle={subOf(x)}
+          struck={ticked}
+          onPress={() => editTodo(x)}
+          label={`${next ? 'Next: ' : ''}${x.text}${x.priority ? `, priority ${4 - x.priority}` : ''}. Edit`}
+          trailing={next ? <PathCheck checked={ticked} label={`${x.text}, done`} onPress={() => tick(x)} /> : undefined}
+        />,
+      ];
+    });
+  const after: React.ReactElement[] = [];
   if (editable) {
     const end = showAll ? (
       <Button variant="quiet" onClick={allTodos} aria-label={`${path.rest ? `${path.rest} more. ` : ''}Open all to-dos${more ? `: ${more}` : ''}`}>
@@ -370,7 +527,7 @@ export const PlanDay = memo(function PlanDay({ date, today, log, slim, yesterday
     ) : undefined;
     // the day has its goal and no to-do yet: adding the first one is the next move, so the light waits there
     const first = !setGoal && total === 0 && lit;
-    stops.push(
+    after.push(
       adding ? (
         <PathStop key="add" id="add" state="add">
           <AddField date={date} today={today} onClose={() => setAdding(false)} refused={refused} onTaken={() => setRefused(null)} onRefused={onRefused} />
@@ -400,15 +557,16 @@ export const PlanDay = memo(function PlanDay({ date, today, log, slim, yesterday
         scene={<PosterScene size={size} lit={!!goal && goal.status !== 'missed' && lit && isToday} total={goal ? total : 0} done={goal ? doneCount : 0} />}
         band={band}
         path={
-          stops.length ? (
+          stops.length || path.open.length || after.length ? (
             <div
+              ref={pathRef}
               className="pd-path"
-              {...hold.handlers}
+              {...drag.bind}
               onPointerDownCapture={aim}
               onFocusCapture={aim}
               onClickCapture={(e) => {
                 // the click that follows a hold is the hold's to swallow; then a tap's echo is ours
-                hold.handlers.onClickCapture(e);
+                drag.bind.onClickCapture(e);
                 if (e.isPropagationStopped()) return;
                 // Enter, Space and VoiceOver click with no pointer behind them (`detail` 0): never an echo
                 if (e.detail === 0) {
@@ -424,7 +582,7 @@ export const PlanDay = memo(function PlanDay({ date, today, log, slim, yesterday
                 tapAt.current = { x: e.clientX, y: e.clientY };
               }}
             >
-              <PathLine label={setGoal ? title : 'To-dos'}>{stops}</PathLine>
+              <Line store={sort.store} label={setGoal ? title : 'To-dos'} build={(order) => [...stops, ...openStops(order), ...after]} />
             </div>
           ) : undefined
         }
@@ -450,9 +608,40 @@ export const PlanDay = memo(function PlanDay({ date, today, log, slim, yesterday
           </div>
         ) : null}
       </Poster>
+      <span className="sr-only" aria-live="polite">
+        {said}
+      </span>
+      {editable ? <Docks ui={ui} next={nextDayWord(date, today)} reduce={reduce} /> : null}
     </section>
   );
 });
+
+/** The line of stops, drawn from the order a drag holds (`useSortOrder`): a row passing another redraws the line, never the poster. */
+const Line = ({ store, label, build }: { store: SortStore; label: string; build: (order: string[] | null) => React.ReactElement[] }) => {
+  const order = useSortOrder(store);
+  return <PathLine label={label}>{build(order)}</PathLine>;
+};
+
+/**
+ * While a to-do is dragged: two docks at the top of the screen, over the bar (its words veiled behind them), "Tomorrow"
+ * ("Next day" on a day ahead) and "Delete". They rise in on `springs.settle` (appear, under Reduce Motion); the one under
+ * the finger fills. Decorative for VoiceOver: the to-do's menu has both actions.
+ */
+const Docks = ({ ui, next, reduce }: { ui: Store<DragUi>; next: string; reduce: boolean }) => {
+  const { id, over } = useStore(ui);
+  if (!id) return null;
+  return createPortal(
+    <motion.div className="pd-docks" aria-hidden="true" {...dockMotion(reduce)}>
+      <span className={`pd-dock${over === 'tomorrow' ? ' is-over' : ''}`} data-pd-dock="tomorrow">
+        <ArrowRight size={18} aria-hidden="true" /> {next}
+      </span>
+      <span className={`pd-dock is-delete${over === 'delete' ? ' is-over' : ''}`} data-pd-dock="delete">
+        <Trash2 size={18} aria-hidden="true" /> Delete
+      </span>
+    </motion.div>,
+    document.body,
+  );
+};
 
 /**
  * The field "Add a to-do" turns into, at the end of the line (the quick-add words work: `!!`, `#list`, `tomorrow`, `fri`).

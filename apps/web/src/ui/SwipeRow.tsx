@@ -7,7 +7,7 @@ import { haptics } from '@/lib/haptics';
 import { springs, useReduced } from '@/lib/motion';
 import { swallowClickOf } from './clickSwallow';
 import { useContextMenu, type ContextMenuItem } from './ContextMenu';
-import { useHold } from './useHold';
+import { useHold, type DragPoint } from './useHold';
 
 export interface SwipeAction {
   /** One verb: "Done", "Later", "Archive". Also the hold menu's item. */
@@ -36,6 +36,18 @@ export interface SwipeRowProps {
   as?: 'div' | 'li';
   /** The reveal detent opened (the side whose action shows) or closed. */
   onReveal?: (side: 'left' | 'right' | null) => void;
+  /**
+   * The row can be dragged after its hold (a list sorted by hand). A still hold opens the menu as before; a move after it
+   * closes the menu and hands the row to the finger (`onStart`, then `onMove`, `onEnd`), and the swipe stays out of it.
+   * `cancel` is given the hold's own cancel as the drag starts, for a drag called off from outside.
+   */
+  drag?: SwipeDrag;
+}
+export interface SwipeDrag {
+  onStart: (p: DragPoint, e: PointerEvent) => void;
+  onMove: (p: DragPoint, e: PointerEvent) => void;
+  onEnd: (p: DragPoint, e: PointerEvent, cancelled: boolean) => void;
+  cancel?: { current: (() => void) | null };
 }
 
 /** The list item a row is (a wrapper with only the row in it counts as the row). */
@@ -54,7 +66,7 @@ const itemOf = (row: HTMLElement) => {
  * and when the page removes the row it leaves by a 100 ms fade while the rows below FLIP up on `settle`. `threshold` fires
  * once when it arms, never when it disarms. A hold (the one clock) lifts the row and opens a menu with every action.
  */
-export const SwipeRow = ({ right, left, children, menuItems = [], label, menu = true, disabled, className = '', as = 'div', onReveal }: SwipeRowProps): React.JSX.Element => {
+export const SwipeRow = ({ right, left, children, menuItems = [], label, menu = true, disabled, className = '', as = 'div', onReveal, drag }: SwipeRowProps): React.JSX.Element => {
   const reduce = useReduced();
   const ref = useRef<HTMLElement>(null);
   const x = useMotionValue(0);
@@ -219,6 +231,11 @@ export const SwipeRow = ({ right, left, children, menuItems = [], label, menu = 
   const onPointerMove = (e: React.PointerEvent<HTMLElement>) => {
     const st = g.current;
     if (e.pointerId !== st.id) return;
+    // held for a drag: the finger is the drag's, never a swipe
+    if (drag && (hold.state.current === 'held' || hold.state.current === 'dragging')) {
+      st.id = -1;
+      return;
+    }
     const dx = e.clientX - st.x0;
     const dy = e.clientY - st.y0;
     if (!st.lock) {
@@ -289,7 +306,21 @@ export const SwipeRow = ({ right, left, children, menuItems = [], label, menu = 
     if (!row || disabled) return;
     cm.open({ items, anchor: row, lift: row, label: label ? `${label} actions` : undefined, returnFocus: focus ?? undefined, haptic: false });
   };
-  const hold = useHold({ disabled: disabled || !withMenu, onHold: () => openMenu() });
+  const hold = useHold({
+    disabled: disabled || (!withMenu && !drag),
+    onHold: withMenu ? () => openMenu() : undefined,
+    onDragStart: drag
+      ? (p, e) => {
+          g.current.id = -1;
+          if (cm.isOpen()) cm.close();
+          // the list calls off this row's drag through it (the list's rows share the one ref)
+          if (drag.cancel) drag.cancel.current = hold.cancel;
+          drag.onStart(p, e);
+        }
+      : undefined,
+    onDragMove: drag ? (p, e) => drag.onMove(p, e) : undefined,
+    onDragEnd: drag ? (p, e, cancelled) => drag.onEnd(p, e, cancelled) : undefined,
+  });
 
   const shown = side === 'right' ? right : side === 'left' ? left : undefined;
   const Tag = as as 'div';

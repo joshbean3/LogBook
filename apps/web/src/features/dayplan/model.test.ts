@@ -1,6 +1,7 @@
 import type { Todo } from '@logbook/shared';
 import { describe, expect, it } from 'vitest';
-import { cardsFor, countWords, ECHO_MS, ECHO_PX, focusOf, isEcho, leftWords, pathOf, splitFocus, type Card } from './model';
+import { pathSegments, stopStates } from '@/ui/poster/logic';
+import { cardsFor, countWords, ECHO_MS, ECHO_PX, focusOf, isEcho, leftWords, openOnLine, pathOf, splitFocus, type Card } from './model';
 
 const card = (id: string, done = false): Card => ({ ref: `todo:${id}`, kind: 'todo', todo: { id } as Todo, done });
 
@@ -109,5 +110,24 @@ describe('a second tap that lands on what the first one changed', () => {
   it('is never an echo with nothing changed, or on a clock that went back', () => {
     expect(isEcho(null, 't:a', 5, 0, 0)).toBe(false);
     expect(isEcho({ id: '*', at: 1000, ...at }, 't:a', 900, 330, 400)).toBe(false);
+  });
+});
+
+describe('the line while a to-do is dragged', () => {
+  const p = pathOf(focusOf([card('z', true), ...['a', 'b', 'c', 'd'].map((x) => card(x))]));
+  const ids = (cs: Card[]) => cs.map((c) => (c.kind === 'todo' ? c.todo.id : c.ref));
+  it('draws the open stops in the drag’s order; with none, the data’s', () => {
+    expect(ids(openOnLine(p, ['c', 'a', 'b']))).toEqual(['c', 'a', 'b']);
+    expect(ids(openOnLine(p, null))).toEqual(['a', 'b', 'c']);
+  });
+  it('lights whichever open to-do is first now; the done ones stay behind it, the line solid up to it', () => {
+    const open = openOnLine(p, ['c', 'a', 'b']);
+    const states = stopStates([...p.done.map(() => true), ...open.map(() => false)]);
+    expect(states).toEqual(['done', 'next', 'ahead', 'ahead']);
+    expect(ids([...p.done, ...open])[1]).toBe('c');
+    expect(pathSegments(states).map((s) => `${s.in}/${s.out}`)).toEqual(['solid/solid', 'solid/dots', 'dots/dots', 'dots/none']);
+  });
+  it('never takes in a to-do past the three on the surface (they wait behind All to-dos)', () => {
+    expect(ids(openOnLine(p, ['d', 'c', 'b', 'a']))).toEqual(['c', 'b', 'a']);
   });
 });

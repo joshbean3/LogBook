@@ -2,12 +2,14 @@ import { Check, ChevronRight, Plus } from 'lucide-react';
 import { animate, useReducedMotion } from 'motion/react';
 import { Children, createContext, isValidElement, useContext, useLayoutEffect, useRef, type ReactElement, type ReactNode } from 'react';
 import { reducedFade, springs } from '@/lib/motion';
-import { useNowMark } from '@/ui/nowBudget';
+import { useNowMark, type NowPaint } from '@/ui/nowBudget';
 import { Pressable } from '@/ui/Pressable';
 import { pathSegments, type Segment, type StopSegments, type StopState } from './logic';
 import './poster.css';
 
 const Segs = createContext<StopSegments | null>(null);
+/** The line's one light: registered once by the line, so moving it to another stop (a tick, a drag) keeps its place in the budget. */
+const Light = createContext<NowPaint | null>(null);
 
 export interface PathStopProps {
   /** done: a filled check, the line behind it solid. next: the one lit stop. ahead: an open ring. add: a plus ring, the end of the line. */
@@ -46,8 +48,11 @@ export interface PathStopProps {
 /** One stop on the path. Use inside `<PathLine>`. */
 export const PathStop = ({ state, title, caption, tag, subtitle, trailing, chevron, onPress, label, children, node = 'ring', struck, highlight, id, lineIn, lineOut }: PathStopProps) => {
   const seg = useContext(Segs);
-  // the light is one of the screen's three now marks; past the budget it yields to Night Ink
-  const paint = useNowMark('pointer', state === 'next');
+  // the light is one of the screen's three now marks; past the budget it yields to Night Ink. Inside a line the line holds
+  // the mark (a light that moves to another stop is the same light); a stop on its own holds its own
+  const line = useContext(Light);
+  const own = useNowMark('pointer', state === 'next' && line === null);
+  const paint = line ?? own;
   const strike = struck ?? state === 'done';
   const hl = highlight ?? (state === 'next' && children == null);
   const words = children ?? (
@@ -110,7 +115,9 @@ const isStop = (k: unknown): k is ReactElement<PathStopProps> => isValidElement(
  */
 export const PathLine = ({ children, lead = true, label, className = '' }: PathLineProps) => {
   const kids = Children.toArray(children);
-  const segs = pathSegments(kids.filter(isStop).map((k) => k.props.state), { lead });
+  const states = kids.filter(isStop).map((k) => k.props.state);
+  const segs = pathSegments(states, { lead });
+  const light = useNowMark('pointer', states.includes('next'));
   const ref = useRef<HTMLUListElement>(null);
   const last = useRef<{ key: string; y: number } | null>(null);
   const reduce = useReducedMotion();
@@ -132,17 +139,19 @@ export const PathLine = ({ children, lead = true, label, className = '' }: PathL
   });
   let i = 0;
   return (
-    <ul ref={ref} className={`pth ${className}`.trim()} aria-label={label}>
-      {kids.map((k) =>
-        isStop(k) ? (
-          <Segs.Provider key={k.key} value={segs[i++] ?? null}>
-            {k}
-          </Segs.Provider>
-        ) : (
-          k
-        ),
-      )}
-    </ul>
+    <Light.Provider value={light}>
+      <ul ref={ref} className={`pth ${className}`.trim()} aria-label={label}>
+        {kids.map((k) =>
+          isStop(k) ? (
+            <Segs.Provider key={k.key} value={segs[i++] ?? null}>
+              {k}
+            </Segs.Provider>
+          ) : (
+            k
+          ),
+        )}
+      </ul>
+    </Light.Provider>
   );
 };
 

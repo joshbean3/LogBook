@@ -1,5 +1,6 @@
 import { stepRef, todoRef, type Aim, type GoalStep, type ISODate, type Todo } from '@logbook/shared';
 import { byPosition, groupsOn, liveOn } from '../todos/groups';
+import { inOrder } from '../todos/sort';
 
 /** One thing in the day: a to-do, or a step of the day's goal. */
 export type Card = { ref: string; kind: 'todo'; todo: Todo; done: boolean } | { ref: string; kind: 'step'; goal: Aim; step: GoalStep; done: boolean };
@@ -61,6 +62,15 @@ export const pathOf = (cards: Card[]): DayPath => {
   const folded = done.length > DONE_SHOWN;
   return { done: folded ? [] : done, doneFolded: folded ? done.length : 0, open: top, rest: rest.length, total: top.length + rest.length + done.length, doneCount: done.length };
 };
+
+/** A card's id on the line: the to-do's own (what a drag's order names). */
+export const cardId = (c: Card): string => (c.kind === 'todo' ? c.todo.id : c.ref);
+
+/**
+ * The open stops on the line in the order on screen: a drag's (or a drop's the data has not taken yet), else the data's.
+ * The first is the next move (the lit "Next"); the done stops are not in it and stay behind, where they were.
+ */
+export const openOnLine = (path: DayPath, order: readonly string[] | null | undefined): Card[] => inOrder(path.open, cardId, order);
 
 /** The band's count: "1 of 3 done", "All 3 done" (one to-do says "1 of 1 done"). Nothing to count: null. */
 export const countWords = (done: number, total: number): string | null => (total <= 0 ? null : done >= total && total > 1 ? `All ${total} done` : `${Math.min(done, total)} of ${total} done`);
