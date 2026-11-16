@@ -153,21 +153,42 @@
 .tt-input::placeholder {
   color: var(--ink-3);
 }
-.tt-hint {
-  flex: 0 1 auto;
+/* what the field read, under its words: one chip per kind of mark (guide 6.3, the filter chip at rest). A tap keeps that
+   mark as words. The row sits 8 under the field, so a chip's 44 pt band never covers the field's own */
+.qa-chips {
+  flex: 0 0 100%;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
   min-width: 0;
-  max-width: 55%;
-  overflow: hidden;
-  color: var(--ink-3);
-  white-space: nowrap;
-  text-overflow: ellipsis;
+  padding: var(--sp-2) 0 var(--sp-3);
 }
-@container (max-width: 17rem) {
-  .tt-hint {
-    flex: 0 0 100%;
-    max-width: 100%;
-    margin-top: -4px;
-    padding-bottom: 8px;
+.qa-chip-wrap {
+  display: inline-flex;
+  min-width: 0;
+  max-width: 100%;
+}
+.qa-chip {
+  min-width: var(--hit);
+  max-width: 100%;
+  justify-content: center;
+  gap: var(--sp-2);
+  color: var(--ink-2);
+}
+.qa-chip > .prio {
+  gap: 0;
+}
+.qa-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: var(--r-pill);
+  background: var(--tc);
+  flex: none;
+}
+@media (hover: none) {
+  /* a touch has no hover: the press is the chip's answer */
+  .qa-chip:active {
+    transform: scale(0.97);
   }
 }
 

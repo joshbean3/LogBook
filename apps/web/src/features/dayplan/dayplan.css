@@ -207,6 +207,22 @@
   box-shadow: none;
 }
 
+/* with chips under it, the field's stop keeps its plus on the field's own line (not the middle of field and chips), and the
+   line meets the plus there */
+.pd-path .pth-stop.is-add:has(.qa-chips) {
+  --pd-add-mid: calc(var(--sp-2) + var(--hit) / 2);
+}
+.pd-path .pth-stop.is-add:has(.qa-chips) > .pth-node {
+  align-self: start;
+  top: calc(var(--pd-add-mid) - 12px);
+}
+.pd-path .pth-stop.is-add:has(.qa-chips)::before {
+  bottom: calc(100% - var(--pd-add-mid));
+}
+.pd-path .pth-stop.is-add:has(.qa-chips)::after {
+  top: var(--pd-add-mid);
+}
+
 /* ---------- under the line: yesterday's business and, in the evening, tomorrow's goal ---------- */
 .pd-poster > .po-path + .po-ctl,
 .pd-poster > .po-ctl {

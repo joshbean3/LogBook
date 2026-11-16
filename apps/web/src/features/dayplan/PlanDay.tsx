@@ -34,9 +34,9 @@ import { ChallengeRows } from '../orbs/challenge/ChallengeRows';
 import { groupOf } from '../todos/colors';
 import { groupsOn } from '../todos/groups';
 import { PriorityFlag } from '../todos/PriorityDots';
-import { parseQuickAdd } from '../todos/quickAdd';
+import { MarkChips, useQuickAddDraft } from '../todos/QuickAddChips';
 import { dockMotion, movedWords, takesStep, withRest, zoneAt, type DropTarget, type DropZone } from '../todos/sort';
-import { goneOn, TodoListSheet, understoodOf, useTodoActions } from '../todos/TodoList';
+import { goneOn, toChip, TodoListSheet, useTodoActions } from '../todos/TodoList';
 import { TodoSheet } from '../todos/TodoSheet';
 import { makeStore, useSortDrag, useSortOrder, useStore, type SortStore, type Store } from '../todos/useSortDrag';
 import { cardsFor, countWords, focusOf, isEcho, leftWords, openOnLine, pathOf, type PathChange } from './model';
@@ -650,7 +650,7 @@ const Docks = ({ ui, next, reduce }: { ui: Store<DragUi>; next: string; reduce: 
 
 /**
  * The field "Add a to-do" turns into, at the end of the line (the quick-add words work: `!!`, `#list`, `tomorrow`, `fri`).
- * What the field read from the marks shows as it is typed, and a to-do that lands on another day says where it went, with
+ * What the field read from the marks shows as chips under it as it is typed (a tap keeps a mark as words), and a to-do that lands on another day says where it went, with
  * a way to see it. Return adds and keeps the field for the next one; leaving the field adds what is there and closes it.
  */
 const AddField = ({ date, today, onClose, refused, onTaken, onRefused }: { date: ISODate; today: ISODate; onClose: () => void; /** Words the server refused: the field takes them back. */ refused: string | null; onTaken: () => void; onRefused: (typed: string) => void }) => {
@@ -658,14 +658,10 @@ const AddField = ({ date, today, onClose, refused, onTaken, onRefused }: { date:
   const groups = useTodoGroups();
   const sheet = useSheet();
   const toast = useToast();
-  const hintId = useId();
-  const [draft, setDraftState] = useState('');
-  // what is in the field right now, for the moments no render sits between (a blur and the unmount it causes)
-  const typed = useRef('');
-  const setDraft = (v: string) => {
-    typed.current = v;
-    setDraftState(v);
-  };
+  const chipsId = useId();
+  // what the marks were read as (chips under the field), and `typed`: the words right now, for the moments no render sits
+  // between (a blur and the unmount it causes)
+  const { draft, typed, setDraft, parsed, chips, keepAsWords } = useQuickAddDraft(today, groups.data);
   // the refused words come back as soon as the field is empty (never over something being typed)
   useEffect(() => {
     if (refused === null || typed.current) return;
@@ -683,8 +679,6 @@ const AddField = ({ date, today, onClose, refused, onTaken, onRefused }: { date:
   useEffect(() => {
     reveal();
   }, [kb]);
-  const parsed = parseQuickAdd(draft, today, groups.data);
-  const understood = understoodOf(parsed, groups.data);
   const commit = (close: boolean) => {
     if (parsed.text) {
       const forDay = date !== today && parsed.bucket === 'today' ? { bucket: 'later' as const, due: date } : { bucket: parsed.bucket, due: parsed.due };
@@ -728,12 +722,15 @@ const AddField = ({ date, today, onClose, refused, onTaken, onRefused }: { date:
         placeholder="Add a to-do"
         maxLength={200}
         aria-label="New to-do"
-        aria-describedby={understood ? hintId : undefined}
+        aria-describedby={chips.length ? chipsId : undefined}
         enterKeyHint="done"
         value={draft}
         onChange={(e) => setDraft(e.target.value)}
         onFocus={reveal}
-        onBlur={() => commit(true)}
+        onBlur={(e) => {
+          // a press on one of the field's chips keeps the focus here: nothing is added
+          if (!toChip(e)) commit(true);
+        }}
         onKeyDown={(e) => {
           if (e.key === 'Enter') {
             e.preventDefault();
@@ -745,11 +742,7 @@ const AddField = ({ date, today, onClose, refused, onTaken, onRefused }: { date:
           }
         }}
       />
-      {understood ? (
-        <span id={hintId} className="tt-hint caps" role="status">
-          {understood}
-        </span>
-      ) : null}
+      <MarkChips id={chipsId} chips={chips} parsed={parsed} groups={groups.data} onKeep={keepAsWords} />
     </div>
   );
 };
