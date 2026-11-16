@@ -108,6 +108,7 @@
   right: var(--gutter);
   left: var(--gutter);
   display: flex;
+  flex-wrap: wrap;
   justify-content: center;
   gap: var(--sp-3);
   pointer-events: none;
