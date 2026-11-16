@@ -1,6 +1,6 @@
 import type { Todo } from '@logbook/shared';
 import { describe, expect, it } from 'vitest';
-import { groupsOn, liveOn, stepWithin, todayOpenOn } from './groups';
+import { groupsOn, liveOn, moveWithin, stepWithin, todayOpenOn } from './groups';
 import { goneOn } from './TodoList';
 
 const todo = (id: string, position: number, priority: 0 | 1 | 2 | 3, extra: Partial<Todo> = {}): Todo => ({ id, text: id, note: null, priority, color: null, groupId: null, due: null, bucket: 'today', position, createdOn: '2026-11-01', doneOn: null, deletedOn: null, createdAt: `2026-11-01T00:00:0${position}Z`, ...extra });
@@ -14,6 +14,32 @@ describe('today’s list', () => {
     const today = groupsOn(list, '2026-11-10')[0]!;
     const r = stepWithin(today.items, 'c', -1, today.tier);
     expect(r).toEqual({ order: ['a', 'c', 'b'], fix: null });
+  });
+});
+
+describe('a row dropped in a new place in its group', () => {
+  it('today’s list: the order changes and nothing else', () => {
+    const items = [todo('a', 0, 0), todo('b', 1, 3), todo('c', 2, 1), todo('d', 3, 0)];
+    expect(moveWithin(items, 'a', 2, 'none')).toEqual({ order: ['b', 'c', 'a', 'd'], fix: null });
+    expect(moveWithin(items, 'd', 0, 'none')).toEqual({ order: ['d', 'a', 'b', 'c'], fix: null });
+  });
+  it('a drop where it began is no move', () => {
+    expect(moveWithin([todo('a', 0, 0), todo('b', 1, 0)], 'b', 1, 'none')).toBe(null);
+    expect(moveWithin([todo('a', 0, 0)], 'z', 0, 'none')).toBe(null);
+  });
+  it('among rows of another priority it takes theirs (Someday, By list)', () => {
+    const items = [todo('h1', 0, 3), todo('h2', 1, 3), todo('l1', 2, 1), todo('n', 3, 0)];
+    expect(moveWithin(items, 'n', 1, 'priority')).toEqual({ order: ['h1', 'n', 'h2', 'l1'], fix: { priority: 3 } });
+    expect(moveWithin(items, 'h1', 3, 'priority')).toEqual({ order: ['h2', 'l1', 'n', 'h1'], fix: { priority: 0 } });
+  });
+  it('among another day’s rows it takes their day (Later)', () => {
+    const items = [todo('f', 0, 0, { bucket: 'later', due: '2026-11-13' }), todo('g', 1, 0, { bucket: 'later', due: '2026-11-13' }), todo('m', 2, 0, { bucket: 'later', due: '2026-11-16' })];
+    expect(moveWithin(items, 'm', 1, 'due')).toEqual({ order: ['f', 'm', 'g'], fix: { due: '2026-11-13' } });
+  });
+  it('Move up and Move down are the same move, one place at a time', () => {
+    const items = [todo('a', 0, 0), todo('b', 1, 0), todo('c', 2, 0)];
+    expect(stepWithin(items, 'b', 1, 'none')).toEqual(moveWithin(items, 'b', 2, 'none'));
+    expect(stepWithin(items, 'a', -1, 'none')).toBe(null);
   });
 });
 

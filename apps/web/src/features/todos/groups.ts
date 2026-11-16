@@ -73,12 +73,21 @@ export const settleInto = (list: Todo[], id: string, tier: Tier): Partial<Pick<T
   return null;
 };
 
-/** One step up or down inside a group: the new order and what the moved row adopts. Null when it cannot move. */
+/** A row taken to index `at` among the others (a drag's drop): the new order and what the moved row adopts. Null when it does not move. */
+export const moveWithin = (items: Todo[], id: string, at: number, tier: Tier): { order: string[]; fix: ReturnType<typeof settleInto> } | null => {
+  const i = items.findIndex((x) => x.id === id);
+  if (i < 0) return null;
+  const rest = items.filter((x) => x.id !== id);
+  const j = Math.max(0, Math.min(at, rest.length));
+  if (j === i) return null;
+  const next = [...rest.slice(0, j), items[i]!, ...rest.slice(j)];
+  return { order: next.map((x) => x.id), fix: settleInto(next, id, tier) };
+};
+
+/** One step up or down inside a group (Move up, Move down, Alt+arrow): the new order and what the moved row adopts. Null when it cannot move. */
 export const stepWithin = (items: Todo[], id: string, dir: -1 | 1, tier: Tier): { order: string[]; fix: ReturnType<typeof settleInto> } | null => {
   const i = items.findIndex((x) => x.id === id);
   const j = i + dir;
   if (i < 0 || j < 0 || j >= items.length) return null;
-  const next = [...items];
-  [next[i], next[j]] = [next[j]!, next[i]!];
-  return { order: next.map((x) => x.id), fix: settleInto(next, id, tier) };
+  return moveWithin(items, id, j, tier);
 };
